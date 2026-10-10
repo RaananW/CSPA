@@ -66,7 +66,8 @@ is authorized by these results.
 
 ## Human/device checklist
 
-All rows below are **unverified** until a human records actual execution.
+Qualified human/device gates remain **unverified**. The partial user reports
+below are observations, not completed certification rows.
 For each row record date, tester, browser/build/profile/flags, OS/device/GPU/
 driver, DPR/display, exact steps, expected versus actual result, pass/fail,
 diagnostic/evidence link and any recovery action. Automated CDP/AX/visibility/
@@ -119,6 +120,31 @@ CANVAS_HEADFUL_INTERACTION=1 CANVAS_EVIDENCE_ROOT=evidence/phase11/background-lo
 
 No synthetic visibility event substitutes for this gate. Even a passing
 clean-profile check would not certify everyday profiles or app/OS throttling.
+
+### User observations (2026-10-10)
+
+These user-reported results supplement, but do not replace, the bounded automated
+proof above. Exact browser/build/profile/flags, initial DOM/GPU mode, background
+duration/visibility, display DPR and the GPU error message were not supplied.
+No tester identity or missing environment details are inferred.
+
+| Area | User-reported observation | Remaining distinction or check |
+| --- | --- | --- |
+| Keyboard | Keyboard works well. | Positive usability report; exact controls, focus/selection scenarios and presentation mode unspecified. Automated keyboard/form/selection checks remain separately bounded. |
+| Screen reader | Could not test on this Mac. | Untested, not passed or waived; actual spoken roles/states/order and duplicate-control checks remain open. |
+| OS IME | Could not test on this Mac. | Untested, not passed or waived; composition/candidate-window/selection/recovery checks remain open. |
+| Everyday profile | Works; requesting GPU shows an error. | Useful DOM is reported. A capability refusal is expected where GPU prerequisites are unavailable, but the exact diagnostic and profile/build are unconfirmed; GPU compatibility is not certified. |
+| Background return | Left the application for a while, returned, and everything worked. | Return usability is reported; prior GPU mode, trusted hidden visibility, measured pause/no catch-up and state continuity were not established. The unsuccessful automated headful capability attempt remains unverified. |
+| Physical display move | Moving between screens returns to DOM and stops animations/effects, feeling like a reset. | DOM fallback is reported and consistent with layout/DPR invalidation. Retention of task/input/checkbox state during this actual move is unconfirmed; no React reset defect is established. |
+
+On a layout/viewport/DPR change, the current contract immediately hides GPU
+output, recovers the original DOM and retires the old presentation. Motion/effect
+GPU playback does not automatically restart. After layout settles, explicitly
+request `enable()` (**Request GPU** or **Enable GPU** in the specimens) and inspect
+the result; a refusal must leave useful DOM. This recovery is not intended to
+remount/reset React or discard application state. Automated original-state
+preservation checks do not substitute for confirming retained values during the
+reported physical display move. Automatic readmission is not implemented.
 
 Screen-reader work must use actual spoken navigation/name/role/state and
 duplicate-control checks; an accessibility tree is only an automated semantic

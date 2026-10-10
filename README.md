@@ -91,6 +91,17 @@ interaction checks pass. Full Phase11 is incomplete: automated AX, synthetic
 composition, emulated media and public-device loss do not certify human/device
 behavior. See the [operator checklist](docs/adoption.md).
 
+User observations on 2026-10-10 report working keyboard interaction, useful
+everyday-profile DOM with an error on requesting GPU, and usability after
+leaving the application and returning. Moving between displays reportedly
+returns to DOM and stops animations/effects: layout/DPR recovery intentionally
+requires explicit fresh GPU admission, not automatic restart. Retention of
+application values during that physical move is still unconfirmed.
+Screen-reader and OS IME checks could not be performed on the Mac.
+These reports lack exact browser/mode/timing/DPR details and do not close the
+remaining manual gates; [current observation status](docs/adoption.md#user-observations-2026-10-10)
+is separate from the automated proof.
+
 ## Validation and evidence policy
 
 ```sh

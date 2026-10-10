@@ -19,6 +19,13 @@ speedup: root-wide capture/readback on edits remains a measured cost.
 | 10: Package/distribution preparation | **Independently accepted with limits** ([verdict](../evidence/phase10-independent/acceptance-summary.json)): private ESM library/declarations from the intentional entry; external matching React peers/public Lite; exact tarball contents gate; standalone [install/bootstrap/browser contract](distribution.md); actual tarball-installed React18/19 consumers | Independent23 units, pack8 and separate direct8 browser scenarios; strict Bundler/NodeNext types, original React controls, geometry/pixels/fault/loss recovery; owner38 source browsers not independently rerun, old full React18 matrix not run; not published, no license selected, not production-ready |
 | 11: Human/native interaction and accessibility checks | **Engineering independently accepted with limits; human/physical validation pending** ([verdict](../evidence/phase11-independent/acceptance-summary.json)): native editable-boundary repair and actual installed React18/19 interaction audit | Full Phase11 INCOMPLETE: actual human OS IME/screen reader/everyday profile/background/physical display/device gates remain OPEN; proxies cannot close unavailable gates |
 
+The [2026-10-10 user observations](adoption.md#user-observations-2026-10-10)
+report keyboard/DOM/background-return usability and display-move DOM fallback.
+They do not qualify all manual gates; screen reader/OS IME were not tested and
+state retention during the physical display move is unconfirmed. Phase12
+automatic readmission is only a proposal, not implemented or authorized by this
+documentation update. Current recovery still requires explicit fresh admission.
+
 Phase9 is independently accepted-with-limits and recorded in private main.
 The [archive catalog](archive-catalog.md) records the user-authorized raw-evidence
 cleanup and rewritten phase history; old commit IDs in immutable verdicts are
