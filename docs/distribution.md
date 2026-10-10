@@ -1,6 +1,9 @@
 # Private distribution preparation
 
 Phase10 implementation is **prepared, independently accepted with limits**.
+Phase11 engineering is **independently accepted with limits; human/physical
+validation pending**. Full Phase11 remains incomplete; the repository's compact
+Phase11 verdict and adoption checklist preserve the open gates.
 The package is **not published, not production-ready**. The existing
 `canvas-spa-phase-one@0.0.0` identity and `private: true` are retained;
 no project license has been selected. Do not publish, create a registry
@@ -131,6 +134,8 @@ await retirement and explicitly enable fresh admission. No automatic refresh
 is provided. The hard layer limit is eight, subject to the pixel budget.
 Nested/foreign enrollment, unsupported native scrolling or clipping, forced
 colors, missing APIs and budget/compile failures diagnose usable DOM.
+Editable/top-layer refusal includes the enrolled root itself and
+`contenteditable=""`/`plaintext-only`, not only explicitly `"true"` descendants.
 Long native input text and selection can generate a real input scroll event
 and cancel GPU admission with a diagnosed lifecycle transition, retaining DOM;
 native-input scrolling is not a supported GPU interaction.
@@ -153,6 +158,8 @@ provenance exception, not repaired by package tests.
 # Always creates a fresh ignored root; do not run concurrent browser writers:
 CANVAS_EVIDENCE_ROOT=evidence/phase10/my-run npm run test:package
 # A reviewer uses evidence/phase10-independent/<fresh-run>.
+# Phase11 focused native compatibility extension, still actual tarball installs:
+CANVAS_EVIDENCE_ROOT=evidence/phase11/my-run CANVAS_INTERACTION_AUDIT=1 npm run test:package
 ```
 
 The runner packs twice, enforces the shared exact contents allowlist,
@@ -167,7 +174,7 @@ rerun full benchmarks or certify all UI semantics.
 
 | Release gate | Current boundary |
 | --- | --- |
-| Independent Phase10 acceptance and verified phase commit/push | Accepted with limits; Phase11 waits for separately verified phase commit/push and coordinator assignment |
+| Independent Phase10 and Phase11 engineering acceptance | Accepted with limits; full Phase11 human/physical validation remains pending |
 | Local pack/install/type/browser checks | Implemented reproducible runner; inspect its fresh results |
 | License, final package name, public visibility, npm publication | Separate user decisions; no publish authorization |
 | Human/device/accessibility and exact154/provenance gates | Open; see limits above and repository adoption checklist |

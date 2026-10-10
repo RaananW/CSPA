@@ -233,6 +233,10 @@ export class CanvasRuntime {
     }
     const { width, height } = this.size();
     for (const layer of this.registry.values()) {
+      const nativeBoundary = '[data-canvas-spa-clipped], [data-canvas-spa-scroll], [contenteditable]:not([contenteditable="false" i]), dialog, [popover]';
+      if (layer.element.isContentEditable || layer.element.matches(nativeBoundary) || layer.element.querySelector(nativeBoundary)) {
+        return "Clipped/scroll/editable/top-layer boundaries require DOM or the explicit NativeOverlay boundary";
+      }
       try { const owner = this.ownership.get(layer.id); owner?.check?.(); owner?.lease.check(); this.transitions.get(layer.id)?.lease.check(); this.gpuDeclarations.get(layer.id)?.check(); }
       catch (error) { return `CSS ownership validation failed: ${String(error)}`; }
       if (this.effects.has(layer.id) && !decorative(layer.element)) return `Effects are decorative/inert only: ${layer.id}; ordinary DOM required`;
@@ -249,9 +253,6 @@ export class CanvasRuntime {
         const p = point(matrix, { x: x!, y: y! });
         return p.x < 0 || p.y < 0 || p.x > width || p.y > height;
       })) return `Transformed layer requires unsupported outer clipping: ${layer.id}`;
-      if (layer.element.querySelector('[data-canvas-spa-clipped], [data-canvas-spa-scroll], [contenteditable="true"], dialog, [popover]')) {
-        return "Clipped/scroll/editable/top-layer descendants require DOM or the explicit NativeOverlay boundary";
-      }
       const style = getComputedStyle(layer.element);
       if (layer.preserveStyles && !this.ownership.has(layer.id) && !this.transitions.has(layer.id) && this.core?.phase() === "dom"
         && (style.transform !== "none" || style.opacity !== "1" || style.translate !== "none" || style.rotate !== "none" || style.scale !== "none")) {

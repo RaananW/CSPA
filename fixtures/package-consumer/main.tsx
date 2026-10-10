@@ -1,4 +1,4 @@
-import { useEffect, useState, version } from "react";
+import { useEffect, useRef, useState, version } from "react";
 import {
   mountCanvasApp, Box, Surface, NativeOverlay, useSurfaceRef,
   type CanvasController, type Transform,
@@ -9,6 +9,9 @@ function App() {
   const [name, setName] = useState("original");
   const [saved, setSaved] = useState("");
   const [count, setCount] = useState(0);
+  const [checked, setChecked] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const popover = useRef<HTMLDivElement>(null);
   const ref = useSurfaceRef<HTMLElement>({ id: "adopted" });
   useEffect(() => { mounts++; return () => { cleanups++; }; }, []);
   return <>
@@ -28,8 +31,26 @@ function App() {
     </Surface>
     <section ref={ref} id="adopted" style={{ position: "absolute", left: 340, top: 20, width: 160, height: 100, background: "rgb(20,200,90)" }}>
       <button id="adopted-button" onClick={() => setCount(value => value + 1)}>Adopted control</button>
+      <label><input id="checked" type="checkbox" checked={checked} onChange={event => setChecked(event.target.checked)} />Checked</label>
     </section>
-    <NativeOverlay><p id="not-enrolled" style={{ position: "absolute", left: 20, top: 320 }}>Ordinary unenrolled text</p></NativeOverlay>
+    <NativeOverlay>
+      <div style={{ position: "absolute", left: 20, top: 320 }}>
+        <p id="not-enrolled">Ordinary unenrolled text</p>
+        <button id="dialog-open" onClick={() => dialog.current!.showModal()}>Dialog</button>
+        <button id="popover-open" onClick={() => popover.current!.showPopover()}>Popover</button>
+      </div>
+      <dialog ref={dialog} id="dialog" aria-labelledby="dialog-title">
+        <h2 id="dialog-title">Original native dialog</h2>
+        <form method="dialog">
+          <label htmlFor="dialog-input">Overlay value</label><input id="dialog-input" defaultValue="overlay" autoFocus />
+          <button id="dialog-close">Close dialog</button>
+        </form>
+      </dialog>
+      <div ref={popover} id="popover" {...{ popover: "auto" }} aria-label="Original native popover">
+        <label htmlFor="popover-input">Popover value</label><input id="popover-input" defaultValue="popover" />
+        <button onClick={() => popover.current!.hidePopover()}>Close popover</button>
+      </div>
+    </NativeOverlay>
   </>;
 }
 
@@ -45,8 +66,13 @@ const controller = mountCanvasApp({
 }, <App />);
 const originalInput = host<HTMLInputElement>("name");
 const originalRoot = controller.container;
+const actions: (() => void)[] = [];
+async function dispose() {
+  await controller.dispose();
+  for (const remove of actions.splice(0)) remove();
+}
 const contract = {
-  controller,
+  controller, dispose,
   state: () => ({
     ...controller.state(), version, mounts, cleanups,
     sameInput: document.getElementById("name") === originalInput,
@@ -61,9 +87,21 @@ declare global {
   interface Window {
     packageConsumer: {
       controller: CanvasController;
+      dispose: typeof dispose;
       state: typeof contract.state;
       transform: typeof contract.transform;
     };
   }
 }
 window.packageConsumer = contract;
+for (const [id, operation] of [
+  ["enable", () => controller.enable()], ["disable", () => controller.disable()], ["dispose", dispose],
+] as const) {
+  const element = host(id);
+  const listener = () => { void operation().catch(error => {
+    host("status").textContent = String(error);
+    console.error(error);
+  }); };
+  element.addEventListener("click", listener);
+  actions.push(() => element.removeEventListener("click", listener));
+}

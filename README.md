@@ -84,6 +84,13 @@ React18/19 peers, host CSS and actual installed-consumer verification.
 That standalone contract ships in the tarball; other links in this README
 describe the repository checkout and its historical evidence.
 
+**Phase11 engineering is independently accepted with limits; human/physical
+validation is pending** ([verdict](evidence/phase11-independent/acceptance-summary.json)).
+Native editing-boundary admission is hardened and installed React18/19
+interaction checks pass. Full Phase11 is incomplete: automated AX, synthetic
+composition, emulated media and public-device loss do not certify human/device
+behavior. See the [operator checklist](docs/adoption.md).
+
 ## Validation and evidence policy
 
 ```sh

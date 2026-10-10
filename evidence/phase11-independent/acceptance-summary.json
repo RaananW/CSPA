@@ -1,0 +1,65 @@
+{
+  "phase": 11,
+  "engineeringVerdict": "independently accepted-with-limits",
+  "fullPhaseStatus": "INCOMPLETE: human/physical validation pending",
+  "baselineCommit": "25db6d06a1562ee56a372db399d6b2041d02a291",
+  "date": "2026-10-10",
+  "correction": {
+    "originalFailure": "Plaintext-only enrolled roots and descendants escaped the old editing policy. Initial repair incorrectly refused valid native FALSE/False because the false-keyword selector was case-sensitive.",
+    "acceptedFix": "Check enrolled roots and descendants before geometry; exclude ASCII case-insensitive false and retain effective inherited root isContentEditable and conservative malformed-value refusal.",
+    "independentCases": "Root/child FALSE/False, inherited FaLsE, FALSE/False overriding inherited TrUe admit flagged GPU. True/plaintext-only inheritance, explicit true child under false root, malformed isolated/inherited editing and root scroll/clipping/top-layer markers refuse explicitly. Live inherited/descendant plaintext recovery preserves original controls and permits fresh admission."
+  },
+  "acceptedBrowserTestedPackage": {
+    "members": 23,
+    "packedBytes": 44865,
+    "unpackedBytes": 221011,
+    "sha256": "ddabbe326427ca82b03545163d4f7605d6a52eb7f26c37b124341002da14bfc2",
+    "installation": "Fresh independently packed archive extracted into real nonsymlink React18/19 package directories with preinstalled dependency bytes copied unchanged. No new npm install or dependency resolution by independent reviewer; copied lock is historical provenance, not newly resolved."
+  },
+  "independentValidation": {
+    "react": ["18.3.1", "19.3.0"],
+    "typescript": "7.0.2",
+    "lite": "1.33.0",
+    "unitTests": 23,
+    "demoTypesBuild": "passed",
+    "installedTypes": "Both majors: strict Bundler and NodeNext, skipLibCheck=false",
+    "installedImportBuild": "Both majors: public nonbrowser ESM import and Vite build passed",
+    "nativeFlagNoFlagDprContracts": 8,
+    "sharedInteractionAudits": "4 passed, 18 structural cases each",
+    "independentEdgeCases": 34,
+    "sourceSerial": "9 passed; 1 deliberately disabled opt-in headful skip",
+    "controls": "Original native pointer hits, Tab/ShiftTab, Enter forms, Space checkbox, input identity/focus/selection, uncontrolled state, AX single-control counts, external Dialog/Popover editing/Escape/focus return, media and scroll recovery, device loss/reentry, all-zero disposal.",
+    "nativeDialogLimit": "Sequential focus can visit browser UI/body; not a strict JavaScript trap. An open modal may occlude fresh admission; useful DOM refusal retains focus/value, close then explicitly retry."
+  },
+  "retainedFailures": [
+    "Original FALSE/False failure remains immutable in external proof.",
+    "Writer/reviewer inherited-host or native-button caret/text oracle failures retained separately; final genuine text-span live-editing cases passed.",
+    "Initial concurrent source run hit existing 1500ms functional readback timeout before plaintext mutation; serial isolated rerun passed without timeout changes. Contention plausible, not proven.",
+    "Real clean-profile headful tab switching did not make the original document hidden; background pause/catch-up remains UNVERIFIED. No synthetic visibility substituted."
+  ],
+  "browser": {
+    "product": "Chrome/155.0.8059.40",
+    "revision": "@cfaadc5a132d78e1828635aa8405a499f3e14864",
+    "jsVersion": "15.5.35.20",
+    "scope": "Actual CDP identity/command line for installed contracts; flagged native capture and unflagged useful DOM. Generic source tests without per-launch identity are supplemental.",
+    "exact154": "UNVERIFIED; actual155 is not user approval or waiver",
+    "otherBrowsers": "Safari/Firefox and everyday profiles unverified"
+  },
+  "openGates": [
+    "Actual spoken screen-reader roles/states/order/duplicate controls; CDP AX is not screen-reader execution",
+    "OS IME composition/candidate window/selection/recovery; synthetic composition is not OS IME",
+    "Everyday unchanged profile",
+    "Real background tab/app/OS throttling",
+    "Physical display/DPR movement",
+    "Authorized physical device/reset/loss; configured device.destroy is not physical reset",
+    "Emulated reduced-motion/forced-colors is not OS settings execution"
+  ],
+  "unchangedLimits": "Eight layers; root-wide capture/no-speedup; structural recovery with explicit reentry; unsupported scrolling/clipping/nesting; baseline-identical DPR2 text differences, no whole-raster equivalence; five lost original Phase6 fixture provenance gap. No production, arbitrary framework compatibility, SSR/WebGL or publication claim.",
+  "externalProofArchives": [
+    {"role": "original writer", "sha256": "6871d33b0f463183bf096f3cb9345c795940661f1cc9461dcab4366fd0af1182"},
+    {"role": "writer correction", "sha256": "0afac1b698071de96510899d20dac2c135dd095ee5e36f8156b1f3c3344b3e34"},
+    {"role": "original independent failure", "sha256": "a20d188e5d753b67e66fdcfb0f1c14eed8cacda730eaf882f9fd07ea7ee0d01c"},
+    {"role": "independent corrected acceptance", "sha256": "0378b138c522b9edc2d3e7e169533a4ce65303b92b1229da9141604d55c94fbc"}
+  ],
+  "evidencePolicy": "Sanitized compact verdict only, exact-path 8KiB cap. Raw reports/screenshots/tarballs/profiles/workspaces and failed/final archives remain ignored or external. Prior seven compact reports and archive catalog unchanged."
+}

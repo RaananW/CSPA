@@ -116,6 +116,15 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | `state()` | Current capability/mode/reason, registry matrices, bounded telemetry and owned-resource ledgers |
 | `dispose()` | Serialized final unmount/observer/listener/canvas release; refuses while healthy GPU cleanup remains pending |
 
+Editable and top-layer admission checks include the enrolled element itself,
+not just descendants. Native `contenteditable` (including empty and
+`plaintext-only` values or inherited editing), dialog/popover and explicit
+scroll/clipping boundaries retain ordinary DOM. The native ASCII
+case-insensitive `contenteditable="false"` keyword (also `FALSE`/`False`)
+does not itself require fallback, including when overriding inherited editing.
+Move supported overlays through the fixed
+`NativeOverlay` portal, not by relocating already-mounted React controls.
+
 `Layout` supports x/y positioning, width/height, padding, gap, row/column
 direction and visible/hidden/scroll overflow. `Appearance` supports background,
 color, border color/width, radius and font size. Numeric fields are validated;

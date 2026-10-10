@@ -11,6 +11,7 @@ import { PNG } from "pngjs";
 import { evidenceRoot, validateEvidenceRoot } from "../tests/evidence.mjs";
 import { packageFiles, validatePackageContents } from "./package-policy.mjs";
 import { curatedEvidence } from "./check-evidence.mjs";
+import { interactionContract } from "./interaction-contract.mjs";
 
 const root = resolve(".");
 const primary = JSON.parse(await readFile("package.json", "utf8"));
@@ -206,13 +207,15 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
     const priorDisposal = await page.evaluate(() => window.packageConsumer.state());
     assert.equal(priorDisposal.mounts, startup.mounts, "Presentation must not remount React");
     assert.equal(priorDisposal.cleanups, startup.cleanups);
-    await page.evaluate(() => window.packageConsumer.controller.dispose());
+    await page.evaluate(() => window.packageConsumer.dispose());
     const disposed = await page.evaluate(() => window.packageConsumer.state());
     assert.ok(Object.values(disposed.resources).every(value => value === 0));
     assert.ok(Object.values(disposed.runtimeResources).every(value => value === 0));
     assert.equal(disposed.mounts, disposed.cleanups);
     assert.deepEqual(errors, flags ? [] : [admission.reason], "Only the exact unflagged admission diagnostic is expected");
-    return { major, flags, dpr, identity, launch, capability, startup, dom, admission, gpu, recovery, domPixel, gpuPixel, disposed, errors };
+    const interactions = process.env.CANVAS_INTERACTION_AUDIT === "1" && dpr === 1
+      ? await interactionContract(context, url, { directory: evidence, name: `react${major}-${flags}`, flags }) : undefined;
+    return { major, flags, dpr, identity, launch, capability, startup, dom, admission, gpu, recovery, domPixel, gpuPixel, disposed, errors, interactions };
   } finally { await browser.close(); }
 }
 

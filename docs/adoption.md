@@ -13,6 +13,10 @@ The Phase10 [private tarball/distribution contract](distribution.md) is
 independently accepted with limits; start from an actual tarball install,
 not demo facades or a source alias. Publication/licensing remain separate.
 
+**Phase11 engineering is independently accepted with limits; human/physical
+validation is pending** ([verdict](../evidence/phase11-independent/acceptance-summary.json)).
+Full Phase11 remains incomplete; the human/device checklist below is open.
+
 ## Integrate incrementally
 
 1. Keep original React state, native inputs/forms and authored CSS. Bootstrap
@@ -68,6 +72,62 @@ driver, DPR/display, exact steps, expected versus actual result, pass/fail,
 diagnostic/evidence link and any recovery action. Automated CDP/AX/visibility/
 destroyed-device proxies do not close these gates. Do not change a user's
 profile, global settings or hardware solely to manufacture a passing result.
+
+For a reusable local operator specimen, run the Phase11 installed-consumer
+command in [distribution](distribution.md), then serve either generated
+React18/19 consumer with its installed Vite (`node node_modules/vite/bin/vite.js
+preview --host 127.0.0.1 --port <free-port> --strictPort`). Use only an already
+installed, authorized browser. The page starts in DOM and has **Request GPU**,
+**Recover DOM** and **Dispose** buttons, original labelled controlled and
+uncontrolled inputs, checkbox, form and native external Dialog/Popover.
+The status displays explicit admission/recovery reasons. Values are synthetic,
+local and not persisted. Do not put real personal data in the specimen.
+
+Use short text for supported GPU editing. Separately type a long value, press
+Home/Shift+ArrowRight, and confirm that an actual horizontal input scroll can
+recover useful DOM: the same control/value/selection remains usable and GPU
+output is hidden. Shorten the value and request explicit fresh admission.
+For effects/motion and task semantics, use the existing `/effects.html` and
+`/todo.html` specimens; for `NativeScroll`, use `/runtime.html?scroll&dom`.
+Tab/Shift+Tab through originals, use Enter to submit and Space to toggle, open
+the external overlays, test modal sequential focus, Escape and focus return.
+Repeat across useful DOM, admitted GPU where available and recovered DOM.
+
+Phase11's bounded installed React18.3.1/19.3.0 Chrome155 audit exercises
+trusted pointer/keyboard/form/input-scroll events, original control identity,
+selection, checkbox state, CDP AX control counts, native Dialog/Popover,
+emulated reduced-motion/forced-colors, and public-device-destroy recovery.
+These are automation results, not spoken screen-reader or OS IME proof.
+Enrolled editable roots (including inherited editing) and descendant
+`contenteditable` boundaries now refuse GPU explicitly instead of admitting
+unsupported editing. Live plaintext editing recovers useful original DOM.
+Native Dialog sequential focus can visit browser UI; it is not Radix's strict
+JavaScript focus trap. Fresh GPU admission with an open modal can be refused
+by the occluded native hit probe without losing overlay focus/value; close the
+modal before explicitly retrying. Long input horizontal scrolling similarly
+recovers DOM rather than forcing unsupported GPU geometry.
+
+The opt-in clean-profile headful background check uses actual page switching,
+removes Playwright's background-throttling-disable flags, and records CDP
+browser metadata. This environment did not make the original document hidden,
+so it records an explicit unverified result and skips pause/catch-up assertions:
+
+```sh
+CANVAS_HEADFUL_INTERACTION=1 CANVAS_EVIDENCE_ROOT=evidence/phase11/background-local \
+  npm run test:browser -- tests/interaction.test.mjs --grep headful
+```
+
+No synthetic visibility event substitutes for this gate. Even a passing
+clean-profile check would not certify everyday profiles or app/OS throttling.
+
+Screen-reader work must use actual spoken navigation/name/role/state and
+duplicate-control checks; an accessibility tree is only an automated semantic
+audit. IME work must use the OS composition/candidate UI, including recovery
+during composition; a dispatched composition event is only a recovery fixture.
+Record results outside this checkout only with consent: date, browser/build/
+flags/profile class, OS/device/display, steps, expected/observed behavior and
+pass/fail/recovery. No automatic tester identity, private profile or spoken/
+composed text collection is implemented.
 
 | Gate | Exact bounded steps and results to record |
 | --- | --- |
