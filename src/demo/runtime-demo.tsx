@@ -85,6 +85,7 @@ function mount() {
     overlayHost: document.querySelector<HTMLElement>("#overlay")!,
     createRoot, flushSync,
     strict: params.has("strict"),
+    admissionPolicy: params.has("auto") ? "automatic" : "explicit",
     budgets: params.has("budget") ? { layers: 1, pixels: 100000 } : undefined,
     onStatus(message) { document.querySelector<HTMLElement>("#status")!.textContent = message; },
   }, tree);

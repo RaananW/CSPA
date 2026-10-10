@@ -89,6 +89,7 @@ function mount() {
     ordinaryHost: document.querySelector<HTMLElement>("#ordinary")!,
     overlayHost: document.querySelector<HTMLElement>("#overlay")!,
     createRoot, flushSync, strict: params.has("strict"),
+    admissionPolicy: params.has("auto") ? "automatic" : "explicit",
     onStatus: message => { document.querySelector<HTMLElement>("#status")!.textContent = message; },
   }, <Profiler id="integration" onRender={profile}><App /></Profiler>);
 }

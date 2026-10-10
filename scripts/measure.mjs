@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { evidenceDirectory } from "../tests/evidence.mjs";
+import { taskPixelLatency } from "./interaction-contract.mjs";
 
 const smoke = process.argv.includes("--smoke");
 const port = Number(process.env.CANVAS_MEASURE_PORT ?? 5287);
@@ -166,41 +167,7 @@ try {
       await page.waitForFunction(() => window.todoProbe);
       if (gpu) await page.evaluate(() => window.todoProbe.controller().enable());
       assert.equal(await page.evaluate(() => window.todoProbe.state().mode), gpu ? "gpu" : "dom");
-      await page.evaluate(() => {
-        window.inputTimes = [];
-        window.latencyListener = () => window.inputTimes.push(performance.now());
-        document.getElementById("todo-controls").addEventListener("change", window.latencyListener, { capture: true });
-      });
-      for (let trial = 0; trial < (smoke ? 2 : 10); trial++) {
-        await page.evaluate(() => window.todoProbe.controller().settle());
-        const row = await page.locator('[data-task-id="1"]').boundingBox(), frame = await page.locator("#frame").boundingBox();
-        const baseline = PNG.sync.read(await page.locator("#frame").screenshot());
-        await page.getByLabel("Complete task 1", { exact: true }).click();
-        const eventAt = await page.evaluate(() => window.inputTimes.at(-1));
-        assert.equal(typeof eventAt, "number");
-        let lowerMs = 0, detected;
-        for (let poll = 0; poll < 20; poll++) {
-          const captureStart = await page.evaluate(() => performance.now());
-          const current = PNG.sync.read(await page.locator("#frame").screenshot());
-          const captureEnd = await page.evaluate(() => performance.now());
-          let changed = 0;
-          for (let y = Math.ceil((row.y - frame.y) * dpr); y < Math.floor((row.y - frame.y + row.height) * dpr); y++) {
-            for (let x = Math.ceil((row.x - frame.x) * dpr); x < Math.floor((row.x - frame.x + row.width) * dpr); x++) {
-              const offset = (y * current.width + x) * 4;
-              if ([0, 1, 2].some(channel => baseline.data[offset + channel] !== current.data[offset + channel])) changed++;
-            }
-          }
-          if (changed > 100 * dpr * dpr) { detected = { dpr, gpu, trial, eventAt, lowerMs, upperMs: captureEnd - eventAt,
-            uncertaintyMs: captureEnd - eventAt - lowerMs, captureStart, captureEnd, changedPixels: changed, polls: poll + 1 }; break; }
-          lowerMs = Math.max(0, captureStart - eventAt);
-        }
-        assert(detected, "Native task event must visibly change captured control pixels");
-        report.latency.push(detected);
-      }
-      await page.evaluate(() => {
-        document.getElementById("todo-controls").removeEventListener("change", window.latencyListener, { capture: true });
-        delete window.latencyListener;
-      });
+      report.latency.push(...await taskPixelLatency(page, dpr, gpu, smoke ? 2 : 10));
       const retired = await page.evaluate(() => window.todoProbe.dispose());
       zero(retired); assert.equal(retired.transition.timers, 0); assert.equal(retired.demoListeners, 0);
       report.latencyRetirements.push({ dpr, gpu, retired, measurementListenerRemoved: true });

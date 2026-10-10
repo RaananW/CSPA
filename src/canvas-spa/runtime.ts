@@ -9,6 +9,9 @@ import { effectNumber, validateEffects, type EffectDescriptor, type EffectHandle
 import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion.js";
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
 
+export type AdmissionPolicy = "explicit" | "automatic";
+const layoutRecovery = "Layout/viewport/DPR changed: ordinary DOM until fresh admission";
+
 export interface LayerDefinition {
   id: string;
   element: HTMLElement;
@@ -22,6 +25,7 @@ export interface RuntimeOptions extends Omit<MountBoundaryOptions, "mount"> {
   budgets?: SurfaceRendererOptions["budgets"];
   onStatus(message: string): void;
   onMeasure?: SurfaceRendererOptions["onMeasure"];
+  admissionPolicy?: AdmissionPolicy;
   mount(container: HTMLDivElement, runtime: CanvasRuntime): () => void;
 }
 
@@ -41,6 +45,14 @@ export class CanvasRuntime {
   private moving = false;
   private revision = 0;
   private admittedSize = "";
+  private admissionIntent: "disabled" | "enabled" | "blocked" = "disabled";
+  private readmissionPending = false;
+  private readmissionFrame = 0;
+  private readmissionWork: Promise<void> | undefined;
+  private readmissionSignature: string | undefined;
+  private admissionEpoch = 0;
+  private automaticAttempts = 0;
+  private admissionReason = "Explicit enable required";
   private rootContainer: HTMLElement | undefined;
   private releaseDPR: (() => void) | undefined;
   private readonly gpuDeclarations = new Map<string, DeclarationOwnership>();
@@ -52,9 +64,12 @@ export class CanvasRuntime {
   private clockTime: number | undefined;
   private readonly effects = new Map<string, { values: EffectDescriptor[]; finish(result: EffectResult): void }>();
   private readonly environment = { visible: !document.hidden, reducedMotion: this.reduced.matches, forcedColors: this.forced.matches };
-  private readonly resources = { mutationObservers: 1, resizeObservers: 1, environmentListeners: 0, controllerFrames: 0, visibilityWaiters: 0, enrolledLayers: 0, animationOwners: 0, decorativeEffects: 0, nativeMotions: 0, declarativeMotions: 0 };
+  private readonly resources = { mutationObservers: 1, resizeObservers: 1, environmentListeners: 0, controllerFrames: 0, visibilityWaiters: 0, enrolledLayers: 0, animationOwners: 0, decorativeEffects: 0, nativeMotions: 0, declarativeMotions: 0, readmissionFrames: 0 };
 
   constructor(private readonly options: RuntimeOptions) {
+    if (options.admissionPolicy !== undefined && options.admissionPolicy !== "explicit" && options.admissionPolicy !== "automatic") {
+      throw new Error("Admission policy must be explicit or automatic");
+    }
     if (options.overlayHost && (!options.overlayHost.isConnected
       || options.overlayHost.ownerDocument !== options.ordinaryHost.ownerDocument
       || options.overlayHost.parentElement !== options.ordinaryHost.parentElement
@@ -72,10 +87,9 @@ export class CanvasRuntime {
       this.checkPolicy();
     });
     this.resize = new ResizeObserver(() => {
-      if (this.stopped || !this.core || this.core.phase() !== "gpu") return;
-      if (this.admittedSize !== this.sizeSignature() || this.policy()) {
-        this.recover("Layout/viewport/DPR changed: ordinary DOM until explicit fresh admission");
-      }
+      if (this.stopped || !this.core) return;
+      this.checkPolicy();
+      this.scheduleReadmission();
     });
     try {
       this.core = createSurfaceRenderer({
@@ -103,6 +117,7 @@ export class CanvasRuntime {
         isPaused: () => !this.environment.visible,
         isMoving: () => this.moving,
         onInterrupt: () => this.cancelMotion(),
+        onRecovery: reason => this.recovered(reason),
         comparePixels: true,
       });
     } catch (error) {
@@ -116,6 +131,8 @@ export class CanvasRuntime {
     for (const layer of this.registry.values()) this.resize.observe(layer.element);
     this.listen(document, "visibilitychange", () => {
       this.environment.visible = !document.hidden;
+      if (!this.environment.visible) this.cancelReadmissionFrame();
+      if (!this.environment.visible && this.readmissionWork && this.core?.state().initializing) this.recover(layoutRecovery);
       if (!this.environment.visible && this.drawFrame) {
         cancelAnimationFrame(this.drawFrame);
         this.drawFrame = 0;
@@ -131,10 +148,13 @@ export class CanvasRuntime {
         this.core?.resume();
         this.requestDraw();
         this.startClock();
+        this.scheduleReadmission();
       }
     });
     this.listen(this.reduced, "change", () => {
       this.environment.reducedMotion = this.reduced.matches;
+      if (this.reduced.matches) this.cancelReadmissionFrame();
+      if (this.reduced.matches && this.readmissionWork && this.core?.state().initializing) this.recover(layoutRecovery);
       if (this.reduced.matches) this.cancelMotion();
       if (this.reduced.matches) for (const transition of [...this.transitions.values()]) {
         try { transition.finish("completed", "Reduced motion"); }
@@ -145,6 +165,7 @@ export class CanvasRuntime {
         for (const effect of this.effects.values()) for (const value of effect.values) value.time.playing = false;
       }
       this.requestDraw();
+      this.scheduleReadmission();
     });
     this.listen(this.forced, "change", () => {
       this.environment.forcedColors = this.forced.matches;
@@ -152,7 +173,7 @@ export class CanvasRuntime {
     });
     this.listen(window, "resize", () => {
       if (this.core?.phase() === "gpu" && this.sizeSignature() !== this.admittedSize) {
-        this.recover("Viewport/DPR changed: ordinary DOM until explicit fresh admission");
+        this.recover(layoutRecovery);
       }
     });
     this.listen(this.core.container, "scroll", () => this.recover("Native scroll uses conservative ordinary DOM"), true);
@@ -228,8 +249,8 @@ export class CanvasRuntime {
   }
   private policy(): string | undefined {
     if (this.forced.matches) return "Forced colors requires native ordinary DOM";
-    if ((this.core?.phase() === "gpu" || this.core?.phase() === "admitting") && this.admittedSize !== this.sizeSignature()) {
-      return "Layout/viewport/DPR changed: ordinary DOM until explicit fresh admission";
+    if ((this.core?.phase() === "gpu" || this.core?.phase() === "admitting" || this.core?.state().initializing) && this.admittedSize !== this.sizeSignature()) {
+      return layoutRecovery;
     }
     const { width, height } = this.size();
     for (const layer of this.registry.values()) {
@@ -273,6 +294,84 @@ export class CanvasRuntime {
     const policy = this.policy();
     if (policy) this.recover(policy);
   }
+  private cancelReadmissionFrame() {
+    if (this.readmissionFrame) {
+      cancelAnimationFrame(this.readmissionFrame);
+      this.readmissionFrame = 0;
+      this.resources.readmissionFrames--;
+    }
+    this.readmissionSignature = undefined;
+  }
+  private recovered(reason: string) {
+    if (this.options.admissionPolicy !== "automatic" || this.admissionIntent !== "enabled"
+      || this.stopped || this.disposalRequested) return;
+    this.admissionReason = reason;
+    if (reason !== layoutRecovery) {
+      this.admissionIntent = "blocked";
+      this.readmissionPending = false;
+      this.cancelReadmissionFrame();
+      return;
+    }
+    this.readmissionPending = true;
+    this.readmissionSignature = undefined;
+    this.scheduleReadmission();
+  }
+  private scheduleReadmission() {
+    if (!this.readmissionPending || this.admissionIntent !== "enabled" || this.options.admissionPolicy !== "automatic"
+      || this.stopped || this.disposalRequested || this.readmissionFrame || this.readmissionWork
+      || !this.environment.visible || this.environment.reducedMotion || this.moving) return;
+    this.resources.readmissionFrames++;
+    this.readmissionFrame = requestAnimationFrame(() => {
+      this.readmissionFrame = 0;
+      this.resources.readmissionFrames--;
+      const signature = this.sizeSignature();
+      if (signature !== this.readmissionSignature) {
+        this.readmissionSignature = signature;
+        this.scheduleReadmission();
+        return;
+      }
+      const epoch = this.admissionEpoch;
+      this.readmissionWork = this.readmit(epoch, signature).catch(error => {
+        if (epoch !== this.admissionEpoch) return;
+        this.admissionIntent = "blocked";
+        this.readmissionPending = false;
+        this.admissionReason = `Automatic admission failed: ${String(error)}`;
+        console.error(this.admissionReason);
+        this.options.onStatus(this.admissionReason);
+      }).finally(() => {
+        this.readmissionWork = undefined;
+        this.scheduleReadmission();
+      });
+    });
+  }
+  private async readmit(epoch: number, signature: string) {
+    await this.renderer().idle();
+    if (epoch !== this.admissionEpoch || this.admissionIntent !== "enabled" || this.stopped || this.disposalRequested
+      || !this.environment.visible || this.environment.reducedMotion || this.moving) return;
+    if (signature !== this.sizeSignature()) { this.readmissionSignature = undefined; return; }
+    const policy = this.policy();
+    const state = this.renderer().state();
+    if (policy || state.resources.pendingCleanups || state.resources.pendingEngines || state.resources.probeReadbacks) {
+      this.admissionIntent = "blocked";
+      this.readmissionPending = false;
+      this.admissionReason = policy ?? "Automatic admission blocked by pending healthy GPU retirement";
+      this.options.onStatus(this.admissionReason);
+      return;
+    }
+    this.readmissionPending = false;
+    this.automaticAttempts++;
+    this.admittedSize = signature;
+    const result = await this.renderer().enable();
+    if (epoch !== this.admissionEpoch) return;
+    if (result.mode === "gpu") {
+      this.admittedSize = this.sizeSignature();
+      this.admissionReason = "Automatic admission completed after settled layout and retirement";
+      this.startClock();
+    } else if (!this.readmissionPending && this.admissionIntent === "enabled") {
+      this.admissionIntent = "blocked";
+      this.admissionReason = result.reason;
+    }
+  }
   private recover(reason: string) {
     if (this.stopped || !this.core) return;
     void this.core.recover(reason).catch(error => {
@@ -292,7 +391,7 @@ export class CanvasRuntime {
     this.releaseDPR?.();
     const query = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
     const listener = () => {
-      this.recover("DPR changed: ordinary DOM until explicit fresh admission");
+      this.recover(layoutRecovery);
       this.watchDPR();
     };
     query.addEventListener("change", listener);
@@ -315,7 +414,7 @@ export class CanvasRuntime {
     this.resources.enrolledLayers++;
     this.revision++;
     this.resize.observe(definition.element);
-    if (this.core?.phase() === "gpu" || this.core?.phase() === "admitting") this.recover("Enrollment changed: ordinary DOM until explicit fresh admission");
+    if (this.core?.phase() === "gpu" || this.core?.phase() === "admitting" || this.core?.state().initializing) this.recover(layoutRecovery);
     this.presentation(this.core?.phase() === "gpu" ? "gpu" : "dom");
     let active = true;
     return () => {
@@ -338,7 +437,7 @@ export class CanvasRuntime {
       if (this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") this.cancelNativeMotion(definition.id);
       this.resources.enrolledLayers--;
       this.revision++;
-      if (this.core?.phase() === "gpu" || this.core?.phase() === "admitting") this.recover("Enrollment removed: ordinary DOM until explicit fresh admission");
+      if (this.core?.phase() === "gpu" || this.core?.phase() === "admitting" || this.core?.state().initializing) this.recover(layoutRecovery);
     };
   }
   enroll(element: HTMLElement, options: EnrollmentOptions): () => void {
@@ -370,6 +469,10 @@ export class CanvasRuntime {
     this.assertLive();
     const layer = this.registry.get(id);
     if (!layer) throw new Error(`Unknown Surface: ${id}`);
+    if (JSON.stringify(layer.layout) !== JSON.stringify(layout)
+      && (this.core?.phase() === "gpu" || this.core?.phase() === "admitting" || this.core?.state().initializing)) {
+      this.recover(layoutRecovery);
+    }
     if (this.transitions.has(id)) throw new Error("React transform change conflicts with declarative motion; cancel first");
     if (this.ownership.has(id) && JSON.stringify(transform) !== JSON.stringify(this.ownership.get(id)!.base)) throw new Error("React transform change conflicts with animation ownership; release first");
     affine(transform, this.origin(layer));
@@ -462,18 +565,31 @@ export class CanvasRuntime {
         if (policy) { await this.renderer().recover(policy); throw new Error(policy); }
         this.renderer().draw();
       }
-    } finally { this.moving = false; }
+    } finally { this.moving = false; this.scheduleReadmission(); }
     return { before, after: this.state() };
   }
   async enable() {
     this.assertLive();
+    const epoch = ++this.admissionEpoch;
+    this.admissionIntent = "enabled";
+    this.readmissionPending = false;
+    this.cancelReadmissionFrame();
     this.cancelTransitions("Fresh admission");
+    this.admittedSize = this.sizeSignature();
     const result = await this.renderer().enable();
+    if (epoch !== this.admissionEpoch) return this.state();
     if (result.mode === "gpu") { this.admittedSize = this.sizeSignature(); this.watchDPR(); }
+    else if (!this.readmissionPending) { this.admissionIntent = "blocked"; this.admissionReason = result.reason; }
+    this.scheduleReadmission();
     this.startClock();
     return this.state();
   }
   async disable() {
+    this.admissionEpoch++;
+    this.admissionIntent = "disabled";
+    this.readmissionPending = false;
+    this.admissionReason = "Explicit disable; fresh enable required";
+    this.cancelReadmissionFrame();
     this.cancelTransitions("Disabled");
     this.cancelMotion();
     await this.renderer().disable();
@@ -845,6 +961,8 @@ export class CanvasRuntime {
   }
   state() {
     return { ...this.renderer().state(), environment: { ...this.environment }, registryRevision: this.revision,
+      admission: { policy: this.options.admissionPolicy ?? "explicit", intent: this.admissionIntent,
+        pending: this.readmissionPending, attempts: this.automaticAttempts, reason: this.admissionReason },
       layers: this.ordered().map(layer => ({ id: layer.id, width: layer.element.offsetWidth, height: layer.element.offsetHeight,
         matrix: affine(layer.transform, this.origin(layer)), transform: { ...layer.transform } })),
       runtimeResources: { ...this.resources, presentationOverrides: this.relinquishedDeclarations.size,
@@ -861,6 +979,10 @@ export class CanvasRuntime {
   }
   async dispose() {
     if (this.stopped) return this.state();
+    this.admissionEpoch++;
+    this.admissionIntent = "disabled";
+    this.readmissionPending = false;
+    this.cancelReadmissionFrame();
     this.cancelTransitions("Disposed");
     this.cancelMotion();
     this.disposalRequested = true;

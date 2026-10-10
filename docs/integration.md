@@ -82,9 +82,12 @@ and suppresses stale callbacks. Initial present content is settled. Native
 content stays interactive until React removes it; zero opacity is not a focus
 or hit-test disable. Animate only the intended stable boundary. Content changes
 still invalidate/capture normally. Membership/bounds/DPR/unsupported clipping
-still require conservative DOM recovery and explicit fresh admission.
+still require conservative DOM recovery and explicit fresh admission by default.
+`/integration.html?auto` intentionally enables Phase12's host-level settled
+readmission policy. Its existing disable control cancels desired GPU intent;
+refusal/errors/loss remain latched DOM. See [API policy](api.md#opt-in-settled-readmission-phase12-engineering).
 
-## Implementer validation (independent acceptance pending)
+## Implementer validation (engineering independently accepted with limits)
 
 Final serial commands:
 

@@ -7,8 +7,9 @@ remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
 This is a private experimental package, not an unchanged-app loader or release
 commitment. The complete fourteen-phase plan is below. Phases1-10 are accepted
 within their bounded engineering scope; Phase11 engineering is accepted but its
-full human/physical gate is incomplete. Phases12-14 are proposed, not started or
-authorized implementation. Planning/inspection was a preface, not an additional
+full human/physical gate is incomplete. Phase12 bounded engineering is independently
+accepted with limits; full Phase12 production-budget decisions remain open.
+Phases13-14 are proposed, not started. Planning/inspection was a preface, not an additional
 numbered delivery phase. [Phase6](measurements.md) establishes no speedup:
 root-wide capture/readback on edits remains a measured cost.
 
@@ -25,7 +26,7 @@ root-wide capture/readback on edits remains a measured cost.
 | 9: Scaling and production hardening | [Independently accepted-with-limits on actual installed155](../evidence/phase9-independent/acceptance-v1.json): synchronous DOM presentation barrier and generation-safe retirement/reentry for bounded membership/order/position/size/DPR changes; conservative root-wide capture retained, no speedup; [adoption/manual checklist](adoption.md) | Independent React18/19:21 units/types/build/94 and140 browsers; final-source baseline-identical DPR2 text mismatch, not pixel equivalence; exact154 and manual/device gates UNVERIFIED; autonomous coordinator155 continuation is not explicit user155 approval or154 waiver |
 | 10: Package/distribution preparation | **Independently accepted with limits** ([verdict](../evidence/phase10-independent/acceptance-summary.json)): private ESM library/declarations from the intentional entry; external matching React peers/public Lite; exact tarball contents gate; standalone [install/bootstrap/browser contract](distribution.md); actual tarball-installed React18/19 consumers | Independent23 units, pack8 and separate direct8 browser scenarios; strict Bundler/NodeNext types, original React controls, geometry/pixels/fault/loss recovery; owner38 source browsers not independently rerun, old full React18 matrix not run; not published, no license selected, not production-ready |
 | 11: Human/native interaction and accessibility checks | **Engineering independently accepted with limits; human/physical validation pending** ([verdict](../evidence/phase11-independent/acceptance-summary.json)): native editable-boundary repair and actual installed React18/19 interaction audit | Full Phase11 INCOMPLETE: actual human OS IME/screen reader/everyday profile/background/physical display/device gates remain OPEN; proxies cannot close unavailable gates |
-| 12: Dynamic lifecycle and performance envelope | **Proposed; NOT STARTED.** Safe automatic readmission/dynamic lifecycle for frequent membership/order/resize/DPR changes, cancellation/loss/media and retained original state; realistic edit-heavy performance budgets | Public lifecycle correctness before automatic admission; no stale output/native geometry or lost state; user-agreed frame/input/capture/resource limits against matched DOM on chosen hardware. Keep conservative capture unless public attribution proves a narrower correct path. |
+| 12: Dynamic lifecycle and performance envelope | **Engineering independently accepted with limits** ([verdict](../evidence/phase12-independent/acceptance-summary.json)). Explicit-default, opt-in settled structural readmission; cancellation/initialization/capture/readback/media/loss refusal, retained original state, maintained demo and installed React18/19 fixtures; matched baseline/DOM edit-heavy/TODO/structural measurements | Full Phase12 INCOMPLETE: production application/hardware and numeric frame/input/capture/resource budgets remain OPEN. Independent23 units/build,55 focused passes/1 human skip,eight installed package contracts, direct-root edges and48 workload entries passed. Observed GPU structural increases disclosed; conservative root-wide capture remains, no speedup. See [policy](api.md#opt-in-settled-readmission-phase12-engineering) and [envelope](measurements.md#phase12-bounded-engineering-envelope). |
 | 13: Independent application adoption | **Proposed; NOT STARTED.** Independent real apps, chosen component/library integrations, public portal/layer ownership, application CSS, actionable diagnostics, stable typed APIs and explicit supported subsets | Reproduce native interaction/fallback/lifecycle in chosen applications and versions; framework/SSR/hydration support only for explicitly selected, verified targets. No custom reconciler, general CSS engine or complete UI kit. |
 | 14: Release engineering and production pilot | **Proposed; NOT STARTED.** Reproducible browser/React CI, external artifact retention, security/dependency review, version/change and migration policy, separately decided licensing/publication, bounded observable pilot with DOM rollback/kill switch | Agreed correctness/compatibility/performance exit gates and demonstrated rollback before release; GPU readiness conditional on actual public native API availability and browser contract. Private packaging alone authorizes neither publication nor a production claim. |
 
@@ -36,15 +37,16 @@ transitions, same-root state through fallback and clean disposal.
 
 ## Proposed continuation milestones
 
-The following work needs separate authorization and chosen application/device
+The remaining work needs separate acceptance/authorization and chosen application/device
 targets. It does not waive Phase11's outstanding human/physical release gates,
 expand current support or promise deadlines/metrics.
 
-**Dynamic lifecycle and performance:** first specify admission/retry/cancellation
-semantics and prove frequent structural/resize/DPR changes during pending capture
-and motion cannot reveal stale output or lose original state. Then measure
-edit-heavy, scrolled and content-changing real workloads against matched DOM,
-agree measurable budgets and validate fallback when those budgets cannot be met.
+**Dynamic lifecycle and performance:** Phase12 engineering specifies and exercises
+opt-in admission/retry/cancellation during structural/resize/DPR changes, pending
+capture/initialization and motion. Its bounded edit-heavy/TODO/structural samples
+and diagnosed native scrolling establish an observed envelope, not deployment
+budgets. Independently accept the stopped implementation, then choose real
+applications/hardware, agree measurable budgets and validate fallback when those budgets cannot be met.
 Loss/reduced-motion/forced-colors and healthy resource retirement remain gates;
 unsafe capture suppression or manufactured speedup is not an optimization.
 
@@ -65,16 +67,18 @@ APIs cannot be certified into ordinary browser availability by these phases.
 The [2026-10-10 user observations](adoption.md#user-observations-2026-10-10)
 report keyboard/DOM/background-return usability and display-move DOM fallback.
 They do not qualify all manual gates; screen reader/OS IME were not tested and
-state retention during the physical display move is unconfirmed. Automatic
-readmission is only a proposal, not implemented or authorized by this
-documentation update. Current recovery still requires explicit fresh admission.
+state retention during the physical display move is unconfirmed. Phase12's
+new automatic policy is opt-in engineering, not a reinterpretation of those
+observations or physical-device certification. Default recovery still requires
+explicit fresh admission.
 
 Phase9 is independently accepted-with-limits and recorded in private main.
 The [archive catalog](archive-catalog.md) records the user-authorized raw-evidence
 cleanup and rewritten phase history; old commit IDs in immutable verdicts are
 archived provenance, not current-main ancestors.
-Current membership/size/DPR changes still recover to DOM and require explicit
-fresh admission. Route/shared-element transitions, springs, virtualization,
+Current membership/size/DPR changes still recover to DOM; fresh admission is
+explicit by default or settled/revalidated on an opted-in host.
+Route/shared-element transitions, springs, virtualization,
 hydration, automatic external-animation conversion, general shader graphs and
 remote shader loading are outside the currently implemented bounded scope.
 

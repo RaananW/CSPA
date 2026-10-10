@@ -26,4 +26,14 @@ test("tracked evidence admits only compact curated verdicts, not raw output", ()
     "evidence/phase11-independent/raw.zip", "evidence/phase11-independent/shot.png"]) {
     assert.throws(() => validateTrackedEvidence([{ path, bytes: 1 }]), /must not be staged/);
   }
+  const phase12 = "evidence/phase12-independent/acceptance-summary.json";
+  assert.doesNotThrow(() => validateTrackedEvidence([{ path: phase12, bytes: 8192 }]));
+  for (const bytes of [8193, NaN, -1]) {
+    assert.throws(() => validateTrackedEvidence([{ path: phase12, bytes }]), /8 KiB/);
+  }
+  for (const path of ["evidence/phase12-independent/acceptance-summary.json/report.json",
+    "evidence/phase12-independent/sol61-20261011/report.json",
+    "evidence/phase12-independent/raw.zip", "evidence/phase12-independent/shot.png"]) {
+    assert.throws(() => validateTrackedEvidence([{ path, bytes: 1 }]), /must not be staged/);
+  }
 });

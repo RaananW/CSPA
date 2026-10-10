@@ -24,7 +24,14 @@ portal-container API. It is useful for evaluating these deliberately adopted
 small applications, not for loading arbitrary websites or libraries unchanged.
 
 Membership/order/position/size/DPR changes hide unsafe output and recover the
-original usable DOM. Fresh GPU admission is explicit. Unsupported scrolling,
+original usable DOM. Fresh GPU admission is explicit by default. Phase12
+engineering adds opt-in `admissionPolicy: "automatic"` for settled supported
+structural changes after explicit enable; errors/policy refusal/loss latch DOM,
+and deliberate disable cancels retries. [Policy and cancellation](docs/api.md#opt-in-settled-readmission-phase12-engineering).
+Phase12 **engineering is independently accepted with limits**
+([verdict](evidence/phase12-independent/acceptance-summary.json)); full Phase12
+production application/hardware and numeric budgets remain open.
+Unsupported scrolling,
 clipping, nesting, capabilities and resource budgets produce diagnostics and
 DOM fallback. Healthy pending GPU fences/readbacks retain resources until safe
 completion; timeout is not permission to destroy a healthy device.
@@ -65,6 +72,7 @@ Open <http://127.0.0.1:5173/> for the default DOM baseline.
 | `/paired.html?example=css` or `?example=typed` | Existing CSS or numeric motion, ownership, inert refraction |
 | `/todo.html` | Original native task controls with bounded task-triggered artwork |
 | `/integration.html` | Authored CSS, original-element refs, Radix Dialog, motion/presence |
+| `/integration.html?auto` or `/runtime.html?auto` | Intentional Phase12 automatic structural readmission; existing disable controls cancel it |
 | `/effects.html` | Inert ripple/chromatic/dissolve/trusted color effects in one shared pass |
 | `/probe.html`, `/recovery.html`, `/surface.html` | Historical feasibility and recovery specimens |
 
@@ -95,7 +103,9 @@ User observations on 2026-10-10 report working keyboard interaction, useful
 everyday-profile DOM with an error on requesting GPU, and usability after
 leaving the application and returning. Moving between displays reportedly
 returns to DOM and stops animations/effects: layout/DPR recovery intentionally
-requires explicit fresh GPU admission, not automatic restart. Retention of
+required explicit fresh GPU admission in the observed Phase11 build, not
+automatic restart. Phase12's new opt-in does not retroactively change this
+observation or certify physical display behavior. Retention of
 application values during that physical move is still unconfirmed.
 Screen-reader and OS IME checks could not be performed on the Mac.
 These reports lack exact browser/mode/timing/DPR details and do not close the
@@ -137,6 +147,10 @@ protection and selected-root sanitization remain intact. Never overwrite
 completed evidence or sanitize historical archives.
 Phase10 package/acceptance writers also share the same validator for
 `evidence/phase10/<distinct-run>` and `evidence/phase10-independent/<distinct-run>`.
+Phase11/12 and their `-independent` counterparts use that same validator;
+use fresh Phase12 roots for `dynamic.test.mjs` and `CANVAS_DYNAMIC_AUDIT=1`
+installed-consumer checks. Never run browser/package checks beside timing
+measurements. [Bounded Phase12 envelope](docs/measurements.md#phase12-bounded-engineering-envelope).
 
 The [archive catalog](docs/archive-catalog.md) records the genuine external
 local byte archive, compact retained verdicts and user-authorized history

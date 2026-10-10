@@ -74,9 +74,55 @@ native presentation geometry synchronously when a supported structural policy
 changes. Membership revision/order, layer origin/size and frame size/DPR are
 revalidated across asynchronous admission. Old captures cannot upload into a
 new generation. Resource retirement still waits for pending native work and
-healthy public GPU fences/readbacks. `enable()` remains explicit fresh admission;
-there is no automatic refresh option or hot shader rebinding. See
+healthy public GPU fences/readbacks. `enable()` remains explicit fresh admission
+by default; Phase12 adds the opt-in policy below, not hot shader rebinding. See
 [adoption/migration](adoption.md) for original-control continuity and limits.
+
+## Opt-in settled readmission (Phase12 engineering)
+
+Set `admissionPolicy: "automatic"` in `mountCanvasApp` options to retry eligible
+structural invalidation after a successful explicit `enable()`. Omit the option
+(or use `"explicit"`) to retain the existing default. This never enables GPU
+at startup or converts an unsupported application.
+
+```tsx
+const controller = mountCanvasApp({
+  captureHost, outputCanvas, ordinaryHost, overlayHost, onStatus,
+  admissionPolicy: "automatic",
+}, <App />);
+await controller.enable();
+// A later supported membership/order/origin/size/frame/DPR change may readmit.
+await controller.disable(); // Cancels desired GPU intent, including queued work.
+```
+
+Every eligible change first hides unsafe GPU output, clears native hit geometry
+and restores the original DOM. The runtime coalesces changes until two animation
+frames have matching public geometry/membership signatures, waits serialized
+native/GPU retirement and runs the complete hidden functional admission again.
+Content invalidation retains normal conservative capture; it is not a reason
+to recreate the engine. In-flight capture, readback and engine initialization
+cannot reveal retired generations. Cancellation preserves original keyed React
+controls/state; existing motion cancellation is not motion replay.
+
+`state().admission` reports `policy`, `intent` (`disabled`, `enabled`, `blocked`),
+`pending`, automatic `attempts` and `reason`. `attempts` counts automatic
+admission calls, not all captures or successful admissions; the existing
+`metrics.admission` remains separate. `runtimeResources.readmissionFrames`
+counts the owned pending retry frame.
+
+Only supported layout/membership/order/size/DPR invalidation is eligible.
+Visibility and reduced motion postpone/intercept automatic admission; clearing
+them resumes only still-valid pending intent, without replaying elapsed motion.
+Forced colors, editing/composition/native scrolling, overlay/animation policy,
+missing capabilities, capture/GPU errors, device loss and unconfirmed healthy
+retirement **block** automatic intent. Removing such a condition is not a retry:
+inspect the diagnostic and explicitly `enable()` again. There is no error retry
+loop, new timer/budget, synthetic device recovery or automatic hot shader update.
+An explicit `disable()` or `dispose()` cancels pending intent immediately;
+disposal/unmount/StrictMode cleanup cannot revive the old lifetime.
+
+This is [independently accepted bounded engineering with limits](../evidence/phase12-independent/acceptance-summary.json), not
+production performance or human/physical certification.
 
 `GPUHost` is the context boundary, **not** a JSX-only canvas/reparenting
 component. Its runtime is established by the explicit adapter. Do not wrap a
@@ -106,8 +152,8 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | `Presence` | Retain one React child subtree through enter/exit inside a stable enrolled boundary; no wrapper, clone or portal relocation |
 | `setEffects(id, descriptors)` | Atomically validate 1..3 decorative-only ripple/chromatic/dissolve/custom operations before replacing ownership; explicit seconds/playback/cancel/dispose handles; static original DOM fallback |
 | `defineEffect(definition)` | Frozen trusted local WGSL color-function schema, 1..4 bounded numeric parameters, layer bounds and WebGPU capability; compile during fresh hidden admission, never a remote loader/sandbox |
-| `enable()` | Serialized structural and functional admission; hidden `admitting` output until probe pixels and native geometry pass; explicitly fresh after recovery/topology change |
-| `disable()` | Same-root DOM recovery, geometry clearing and safe fenced GPU release; repeated calls are harmless |
+| `enable()` | Serialized structural and functional admission; hidden `admitting` output until probe pixels and native geometry pass; establishes desired GPU intent for an opted-in automatic host |
+| `disable()` | Cancels desired/retry/admission intent; same-root DOM recovery, geometry clearing and safe fenced GPU release; repeated calls are harmless |
 | `setTransform(id, transform)` | Replaces a layer's transform; GPU mode updates uniforms/native geometry without React reconciliation |
 | `animate(id, target, frames)` | Frame-counted interpolation of specified fields; unspecified fields stay at their starting values; 1..10000 frames |
 | `createMotion(id, descriptor)` | Numeric keyframes/timing for new applications; creates one managed native source in idle DOM and returns explicit ownership/playback/disposal controls |

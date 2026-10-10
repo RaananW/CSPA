@@ -1,21 +1,31 @@
 import { useEffect, useRef, useState, version } from "react";
+import { flushSync } from "react-dom";
 import {
-  mountCanvasApp, Box, Surface, NativeOverlay, useSurfaceRef,
+  mountCanvasApp, Box, Surface, NativeOverlay, NativeScroll, useSurfaceRef,
   type CanvasController, type Transform,
 } from "canvas-spa-phase-one";
 
 let mounts = 0, cleanups = 0;
+let layout!: (value: { x: number; width: number }) => void;
+let extra!: (count: number) => void;
+let reorder!: () => void;
+let scroll!: (active: boolean) => void;
 function App() {
   const [name, setName] = useState("original");
   const [saved, setSaved] = useState("");
   const [count, setCount] = useState(0);
   const [checked, setChecked] = useState(false);
+  const [geometry, setGeometry] = useState({ x: 20, width: 280 });
+  const [extraCount, setExtraCount] = useState(0);
+  const [reversed, setReversed] = useState(false);
+  const [scrolling, setScrolling] = useState(false);
+  layout = setGeometry; extra = setExtraCount; reorder = () => setReversed(value => !value); scroll = setScrolling;
   const dialog = useRef<HTMLDialogElement>(null);
   const popover = useRef<HTMLDivElement>(null);
   const ref = useSurfaceRef<HTMLElement>({ id: "adopted" });
   useEffect(() => { mounts++; return () => { cleanups++; }; }, []);
   return <>
-    <Surface id="editor" layout={{ x: 20, y: 20, width: 280, height: 240, padding: 12 }}
+    <Surface id="editor" layout={{ ...geometry, y: 20, height: 240, padding: 12 }}
       appearance={{ background: "rgb(240,30,60)", color: "black" }}>
       <Box layout={{ direction: "column", gap: 8 }}>
         <strong id="text">Original native controls</strong>
@@ -27,12 +37,17 @@ function App() {
         </form>
         <input id="native" aria-label="Uncontrolled value" defaultValue="native" />
         <output id="saved">{saved || "Not saved"}</output>
+        {scrolling && <NativeScroll layout={{ height: 15, width: 100 }}><Box layout={{ height: 200 }}>Scroll content</Box></NativeScroll>}
       </Box>
     </Surface>
-    <section ref={ref} id="adopted" style={{ position: "absolute", left: 340, top: 20, width: 160, height: 100, background: "rgb(20,200,90)" }}>
+    {[
+    <section key="adopted" ref={ref} id="adopted" style={{ position: "absolute", left: 340, top: 20, width: 160, height: 100, background: "rgb(20,200,90)" }}>
       <button id="adopted-button" onClick={() => setCount(value => value + 1)}>Adopted control</button>
       <label><input id="checked" type="checkbox" checked={checked} onChange={event => setChecked(event.target.checked)} />Checked</label>
-    </section>
+    </section>,
+    ...Array.from({ length: extraCount }, (_, index) => <Surface key={`extra-${index}`} id={`extra-${index}`}
+      layout={{ x: 520, y: 20 + index * 30, width: 60, height: 25 }} appearance={{ background: "rgb(38,104,215)" }}>Extra</Surface>),
+    ].map((_, index, nodes) => nodes[reversed ? nodes.length - index - 1 : index])}
     <NativeOverlay>
       <div style={{ position: "absolute", left: 20, top: 320 }}>
         <p id="not-enrolled">Ordinary unenrolled text</p>
@@ -62,6 +77,7 @@ function host<T extends HTMLElement>(id: string): T {
 const controller = mountCanvasApp({
   captureHost: host<HTMLCanvasElement>("capture"), outputCanvas: host<HTMLCanvasElement>("output"),
   ordinaryHost: host("ordinary"), overlayHost: host("overlay"), strict: true,
+  admissionPolicy: new URLSearchParams(location.search).has("auto") ? "automatic" : "explicit",
   onStatus: message => { host("status").textContent = message; },
 }, <App />);
 const originalInput = host<HTMLInputElement>("name");
@@ -82,6 +98,10 @@ const contract = {
     value: originalInput.value,
   }),
   transform: (value: Transform) => controller.setTransform("editor", value),
+  layout: (value: { x: number; width: number }) => flushSync(() => layout(value)),
+  extra: (count: number) => flushSync(() => extra(count)),
+  reorder: () => flushSync(reorder),
+  scroll: (active: boolean) => flushSync(() => scroll(active)),
 };
 declare global {
   interface Window {
@@ -90,6 +110,10 @@ declare global {
       dispose: typeof dispose;
       state: typeof contract.state;
       transform: typeof contract.transform;
+      layout: typeof contract.layout;
+      extra: typeof contract.extra;
+      reorder: typeof contract.reorder;
+      scroll: typeof contract.scroll;
     };
   }
 }

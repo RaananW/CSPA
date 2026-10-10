@@ -21,5 +21,8 @@ fixtures/react18/workspace/
 !/evidence/phase11-independent/
 /evidence/phase11-independent/*
 !/evidence/phase11-independent/acceptance-summary.json
+!/evidence/phase12-independent/
+/evidence/phase12-independent/*
+!/evidence/phase12-independent/acceptance-summary.json
 /playwright-report/
 /blob-report/

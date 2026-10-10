@@ -6,8 +6,9 @@ const isolated = !!process.env.CANVAS_TEST_DEV_URL;
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["browser.test.mjs", "recovery.test.mjs", "surface.test.mjs", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "performance.test.mjs", "integration.test.mjs", "effects.test.mjs", "hardening.test.mjs", "interaction.test.mjs"],
+  testMatch: ["browser.test.mjs", "recovery.test.mjs", "surface.test.mjs", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "performance.test.mjs", "integration.test.mjs", "effects.test.mjs", "hardening.test.mjs", "interaction.test.mjs", "dynamic.test.mjs"],
   workers: 1,
+  outputDir: `${evidenceRoot}/test-results`,
   timeout: 60000,
   reporter: [["list"], ["json", { outputFile: `${evidenceRoot}/browser-tests.json` }]],
   use: {

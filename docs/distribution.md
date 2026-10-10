@@ -130,8 +130,19 @@ package and separate direct-consumer contracts, not browser approval.
 | Exact Chrome154, other Chromium builds, Safari, Firefox, everyday profiles | Untested here; no availability or compatibility claim |
 
 Changes to membership/order/origin/size/frame/DPR recover the original DOM;
-await retirement and explicitly enable fresh admission. No automatic refresh
-is provided. The hard layer limit is eight, subject to the pixel budget.
+await retirement and explicitly enable fresh admission by default.
+The Phase12 `admissionPolicy?: "explicit" | "automatic"` mount option intentionally
+opts a host into settled supported structural readmission after explicit enable,
+never startup auto-enable. It keeps the original DOM visible during retirement
+and the full hidden native/GPU probe. Two matching animation-frame geometry
+signatures coalesce changes; pending initialization/capture/readback cannot
+reveal stale generations. `state().admission` reports policy, desired intent,
+pending work, automatic attempts and reason. Disable/disposal cancel retry intent.
+Visibility/reduced motion postpone eligible retry; forced colors, unsupported
+editing/scroll/overlay/animation policy, missing APIs, capture/GPU errors, device
+loss or unconfirmed healthy cleanup block it until explicit enable. There is
+no blind error retry, new timeout or automatic motion replay.
+The hard layer limit is eight, subject to the pixel budget.
 Nested/foreign enrollment, unsupported native scrolling or clipping, forced
 colors, missing APIs and budget/compile failures diagnose usable DOM.
 Editable/top-layer refusal includes the enrolled root itself and
@@ -160,6 +171,8 @@ CANVAS_EVIDENCE_ROOT=evidence/phase10/my-run npm run test:package
 # A reviewer uses evidence/phase10-independent/<fresh-run>.
 # Phase11 focused native compatibility extension, still actual tarball installs:
 CANVAS_EVIDENCE_ROOT=evidence/phase11/my-run CANVAS_INTERACTION_AUDIT=1 npm run test:package
+# Phase12 dynamic/motion/pending-capture/DPR/disable/unmount contracts:
+CANVAS_EVIDENCE_ROOT=evidence/phase12/my-run CANVAS_DYNAMIC_AUDIT=1 npm run test:package
 ```
 
 The runner packs twice, enforces the shared exact contents allowlist,
@@ -169,7 +182,20 @@ safe top-level import, production builds and original mounted React controls.
 Flagged/unflagged browser checks exercise pointer/keyboard/forms, controlled
 and uncontrolled values, same-root recovery, selective enrollment, native/GPU
 decoded pixels and safe disposal. Raw outputs/workspaces/archives are ignored;
-the six historical compact verdicts remain immutable. This gate does not
+the eight historical compact reports remain immutable. The Phase12 extension
+checks actual decoded pixels/native hits, controlled/uncontrolled values,
+checkbox/focus/selection, structural motion cancellation, held public paint,
+CDP DPR changes, scroll refusal and disposal during public engine initialization.
+These are automated bounded fixtures, not physical or accessibility proof.
+The new runtime artifact is not identical to the prior Phase11 tarball; only
+the actual fresh runner's packed/member hashes and installed bytes describe it.
+Phase12 engineering is independently accepted with limits (the repository's compact
+Phase12 verdict). The exact reviewed tarball SHA256 is
+`5f668a38a3c3972457e4cfb246ca354552c606507677b393d09521bda2579944`:
+23 members,47406 packed/232882 unpacked bytes. Accepted-status README/distribution
+edits produce a new artifact; only their member comparison can establish a
+doc-only delta, not an identical tarball or a browser-tested new archive.
+This gate does not
 rerun full benchmarks or certify all UI semantics.
 
 | Release gate | Current boundary |
@@ -178,4 +204,5 @@ rerun full benchmarks or certify all UI semantics.
 | Local pack/install/type/browser checks | Implemented reproducible runner; inspect its fresh results |
 | License, final package name, public visibility, npm publication | Separate user decisions; no publish authorization |
 | Human/device/accessibility and exact154/provenance gates | Open; see limits above and repository adoption checklist |
-| Release CI, lifecycle automatic refresh, broad framework/browser support | Outside Phase10 scope |
+| Phase12 opt-in settled structural readmission | Engineering independently accepted with limits; full Phase12 production application/hardware and numeric budgets remain open |
+| Release CI, broad framework/browser support | Outside current scope |

@@ -11,13 +11,15 @@ export const curatedEvidence = [
   "evidence/phase9-independent/acceptance-v1.json",
   "evidence/phase10-independent/acceptance-summary.json",
   "evidence/phase11-independent/acceptance-summary.json",
+  "evidence/phase12-independent/acceptance-summary.json",
 ];
 
 export function validateTrackedEvidence(files) {
   for (const { path, bytes } of files) {
     if (!curatedEvidence.includes(path)) throw new Error(`Raw evidence must not be staged: ${path}`);
     const boundedSummary = path === "evidence/phase10-independent/acceptance-summary.json"
-      || path === "evidence/phase11-independent/acceptance-summary.json";
+      || path === "evidence/phase11-independent/acceptance-summary.json"
+      || path === "evidence/phase12-independent/acceptance-summary.json";
     const limit = boundedSummary ? 8 * 1024 : 64 * 1024;
     if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > limit) {
       if (limit === 8 * 1024) throw new Error(`Bounded curated summary exceeds its 8 KiB budget: ${path}`);

@@ -1,0 +1,63 @@
+{
+  "phase": 12,
+  "verdict": "engineering-accepted-with-limits",
+  "baselineCommit": "a6b038ce9a854eae9aed1d035c3dd4a2290aead6",
+  "reviewedSourceManifestSha256": "06ccfec2c87a8b19d0009c9f4f67ad5f1a4ca13fcea255cb3116703b102344e1",
+  "reviewedPackage": {
+    "sha256": "5f668a38a3c3972457e4cfb246ca354552c606507677b393d09521bda2579944",
+    "members": 23,
+    "packedBytes": 47406,
+    "unpackedBytes": 232882,
+    "boundary": "Exact independently tested engineering artifact; subsequent accepted-status README/distribution changes require a new doc-only member comparison, not an identical or browser-tested new-tar claim."
+  },
+  "independentChecks": {
+    "unitsPassed": 23,
+    "buildAndTypes": "passed",
+    "focusedBrowsersPassed": 55,
+    "humanHeadfulSkipped": 1,
+    "installedPackageBrowserContractsPassed": 8,
+    "reactPairs": ["18.3.1", "19.3.0"],
+    "installedConsumerChecks": "Actual extracted nonsymlink tarball; strict Bundler/NodeNext skipLibCheck=false, public import/build, native and dynamic contracts",
+    "directRootEdges": "Healthy pending fence retained then successfully retired; advance/layout cancellation; automatic initialization/media/burst/disable/fresh enable; original native state and current-geometry hits; zero completed ledgers",
+    "matchedWorkloadEntriesPassed": 48,
+    "preservation": "18294 original protected files and 41926 immutable inventory entries unchanged; index and baseline unchanged; owned helpers stopped"
+  },
+  "browser": {
+    "actual": "Chrome155.0.8059.40",
+    "revision": "@cfaadc5a132d78e1828635aa8405a499f3e14864",
+    "gpu": "ANGLE Metal Apple M2 Pro, Apple26.7.1",
+    "basis": "Actual per-launch CDP metadata; flagged and unflagged temporary profiles",
+    "exactChrome154": "unverified"
+  },
+  "proofRoutes": {
+    "independentRaw": "evidence/phase12-independent/sol61-20261011/",
+    "writerFinalExplicit": "evidence/phase12/final-explicit-v4/dynamic-measure/final/report.json",
+    "writerFinalAutomatic": "evidence/phase12/final-auto-v3/dynamic-measure/final/report.json",
+    "administrativeDiscrepancy": "The preserved private measurement-summary-final.json names older final-explicit-v3/final-auto-v2. It is not final-source evidence; actual final raw reports and fresh independent reruns support this verdict."
+  },
+  "independentObservedDpr1Dpr2": {
+    "inputCaptures": {"baseline": [34, 34], "explicitFinal": [34, 35], "automaticFinal": [34, 36]},
+    "todoCaptures": {"baseline": [18, 20], "explicitFinal": [20, 20], "automaticFinal": [19, 19]},
+    "structuralGpuMedianMs": {"baseline": [114.5, 113.7], "explicitFinal": [122.2, 133.6]},
+    "structuralDomMedianMs": {"baseline": [32.1, 32.3], "explicitFinal": [32.6, 34.7]},
+    "automaticStructuralMedianMs": [147.9, 146.7],
+    "separateAutomatic12RafBurstMs": [333.4, 332.4],
+    "interpretation": "Observed explicit GPU increases disclosed; no speedup or universal performance-nonregression claim. CPU frame p95 about0.2ms and capture about0.3-0.4ms are not GPU execution. Peak counters4 explicit/5 automatic include probes, not heap bytes. Screenshot latency lower bounds zero with automation uncertainty.",
+    "dpr1RasterDifferingBytes": 0,
+    "dpr2RasterDifferingBytes": 21956,
+    "dpr2Boundary": "Same numeric mismatch in baseline/finals, not text equivalence; older eight-layer23249pixel/68851byte result is separate"
+  },
+  "independentExternalArchives": {
+    "records": {"sha256": "4c2a4063901cbd0d4ad3bdee25c3d6929e43f1df6aaa3c405331704cadf290cf", "bytes": 4119539, "members": 34},
+    "rawPackage": {"sha256": "016fa2152a8d6d83947e066344b8da6e02324000f28b8b6edc042abf8e0a4dea", "bytes": 2769609, "members": 248}
+  },
+  "policy": "Explicit default; opt-in automatic settled supported readmission only after enable. Original React/native ownership retained. Disable/dispose cancels intent; motion not replayed; unsupported/error/loss blocked until explicit enable.",
+  "openGates": [
+    "Full Phase12 production applications/hardware/numeric frame/input/capture/resource budgets",
+    "Phase11 spoken screenreader/OS IME/everyday-profile GPU and genuine background certification",
+    "Physical display move/state retention/device loss/reset",
+    "Exact Chrome154, DPR2 text equivalence and five-original-Phase6 provenance gap",
+    "License/publication and general browser/framework/SSR availability"
+  ],
+  "nextPhases": "Phase13/14 proposed, not started; no manual waiver or production closure"
+}

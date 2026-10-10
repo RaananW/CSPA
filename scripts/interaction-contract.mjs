@@ -1,6 +1,195 @@
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { PNG } from "pngjs";
+
+export async function taskPixelLatency(page, dpr, gpu, trials) {
+  const results = [];
+  await page.evaluate(() => {
+    window.inputTimes = [];
+    window.latencyListener = () => window.inputTimes.push(performance.now());
+    document.getElementById("todo-controls").addEventListener("change", window.latencyListener, { capture: true });
+  });
+  try {
+    for (let trial = 0; trial < trials; trial++) {
+      await page.evaluate(() => window.todoProbe.controller().settle());
+      const row = await page.locator('[data-task-id="1"]').boundingBox(), frame = await page.locator("#frame").boundingBox();
+      const baseline = PNG.sync.read(await page.locator("#frame").screenshot());
+      const checked = await page.getByLabel("Complete task 1", { exact: true }).isChecked();
+      await page.getByLabel("Complete task 1", { exact: true }).click();
+      assert.equal(await page.getByLabel("Complete task 1", { exact: true }).isChecked(), !checked);
+      const eventAt = await page.evaluate(() => window.inputTimes.at(-1));
+      assert.equal(typeof eventAt, "number");
+      let lowerMs = 0, detected;
+      for (let poll = 0; poll < 20; poll++) {
+        const captureStart = await page.evaluate(() => performance.now());
+        const current = PNG.sync.read(await page.locator("#frame").screenshot());
+        const captureEnd = await page.evaluate(() => performance.now());
+        let changed = 0;
+        for (let y = Math.ceil((row.y - frame.y) * dpr); y < Math.floor((row.y - frame.y + row.height) * dpr); y++) {
+          for (let x = Math.ceil((row.x - frame.x) * dpr); x < Math.floor((row.x - frame.x + row.width) * dpr); x++) {
+            const offset = (y * current.width + x) * 4;
+            if ([0, 1, 2].some(channel => baseline.data[offset + channel] !== current.data[offset + channel])) changed++;
+          }
+        }
+        if (changed > 100 * dpr * dpr) {
+          detected = { dpr, gpu, trial, eventAt, lowerMs, upperMs: captureEnd - eventAt,
+            uncertaintyMs: captureEnd - eventAt - lowerMs, captureStart, captureEnd, changedPixels: changed, polls: poll + 1 };
+          break;
+        }
+        lowerMs = Math.max(0, captureStart - eventAt);
+      }
+      assert(detected, "Native task event must visibly change captured control pixels");
+      results.push(detected);
+    }
+    return results;
+  } finally {
+    await page.evaluate(() => {
+      document.getElementById("todo-controls").removeEventListener("change", window.latencyListener, { capture: true });
+      delete window.latencyListener;
+    });
+  }
+}
+
+export async function dynamicContract(context, url, { directory, name, flags, dpr }) {
+  const page = await context.newPage(), observations = [], errors = [], diagnostics = [];
+  page.on("pageerror", error => errors.push(String(error)));
+  page.on("console", message => { if (message.type() === "error") diagnostics.push(message.text()); });
+  const state = () => page.evaluate(() => window.packageConsumer.state());
+  async function settled(mode) {
+    await page.waitForFunction(mode => {
+      const s = window.packageConsumer.state();
+      return s.mode === mode && !s.initializing && !s.transitioning
+        && (mode !== "dom" || s.resources.engines === 0);
+    }, mode);
+    await page.evaluate(() => window.packageConsumer.controller.settle());
+  }
+  async function continuity() {
+    const s = await state();
+    assert.ok(s.sameInput && s.sameRoot);
+    assert.equal(s.value, "retained"); assert.deepEqual(s.selection, [0, 1]); assert.equal(s.focus, "name");
+    assert.equal(await page.locator("#native").inputValue(), "native retained");
+    assert.equal(await page.locator("#checked").isChecked(), true);
+    return s;
+  }
+  async function select() {
+    await page.locator("#name").focus();
+    await page.keyboard.press("Home"); await page.keyboard.press("Shift+ArrowRight");
+  }
+  async function pixels() {
+    const png = PNG.sync.read(await page.locator("#frame").screenshot());
+    const offset = (Math.floor(245 * dpr) * png.width + Math.floor(55 * dpr)) * 4;
+    assert.deepEqual([...png.data.subarray(offset, offset + 4)], [240, 30, 60, 255]);
+  }
+  try {
+    await page.goto(`${url}?auto`); await page.waitForFunction(() => window.packageConsumer);
+    assert.equal((await state()).admission.intent, "disabled");
+    await page.locator("#name").fill("retained");
+    await page.locator("#native").fill("native retained");
+    await page.locator("#checked").check(); await select();
+    const admitted = await page.evaluate(() => window.packageConsumer.controller.enable());
+    assert.equal(admitted.mode, flags ? "gpu" : "dom", admitted.reason);
+    observations.push({ operation: "enable", state: admitted });
+    if (flags) {
+      await settled("gpu"); await continuity();
+      for (const operation of ["membership-order-position", "size", "frame"]) {
+        const barrier = await page.evaluate(operation => {
+          const p = window.packageConsumer;
+          window.packageMotion = p.controller.transition("editor", {
+            keyframes: [{ offset: 0 }, { offset: 1, x: 5 }], timing: { duration: 60000 },
+          });
+          if (operation === "membership-order-position") { p.extra(2); p.reorder(); p.layout({ x: 50, width: 280 }); }
+          if (operation === "size") p.layout({ x: 50, width: 300 });
+          if (operation === "frame") document.querySelector("#frame").style.width = "660px";
+          return { state: p.state(), hidden: document.querySelector("#output").hidden };
+        }, operation);
+        if (operation !== "frame") assert.equal(barrier.hidden, true);
+        if (operation === "frame") await page.waitForFunction(dpr => {
+          const s = window.packageConsumer.state();
+          return s.mode === "gpu" && document.querySelector("#output").width === 660 * dpr;
+        }, dpr);
+        await settled("gpu"); const retained = await continuity(); await pixels();
+        assert.equal((await page.evaluate(() => window.packageMotion.finished)).status, "cancelled");
+        await page.locator("#label").click(); assert.equal(await page.locator("#name").evaluate(node => document.activeElement === node), true);
+        await page.keyboard.press("Enter"); assert.equal(await page.locator("#saved").textContent(), "retained");
+        await select(); observations.push({ operation, barrier, retained });
+      }
+      await page.evaluate(() => {
+        const host = document.querySelector("#capture"), original = host.requestPaint.bind(host);
+        const hold = event => event.stopImmediatePropagation();
+        host.requestPaint = () => {}; host.addEventListener("paint", hold, true);
+        window.restoreDynamicPaint = () => { host.requestPaint = original; host.removeEventListener("paint", hold, true); };
+        window.packageConsumer.controller.invalidate();
+      });
+      await page.waitForFunction(() => window.packageConsumer.state().resources.paintWaits === 1);
+      const pending = await state();
+      await page.evaluate(() => { window.packageConsumer.extra(1); window.packageConsumer.layout({ x: 50, width: 280 }); });
+      assert.equal(await page.locator("#output").evaluate(node => node.hidden), true);
+      assert.equal((await state()).metrics.uploads, pending.metrics.uploads);
+      await page.evaluate(() => window.restoreDynamicPaint()); await settled("gpu"); await continuity(); await pixels();
+      observations.push({ operation: "pending-capture", fixture: "Held public paint delivery", pending, after: await state() });
+      const cdp = await context.newCDPSession(page), next = dpr === 1 ? 2 : 1;
+      await cdp.send("Emulation.setDeviceMetricsOverride", { width: 900, height: 750, deviceScaleFactor: next, mobile: false });
+      await page.evaluate(() => window.packageConsumer.controller.setTransform("editor", { x: 1 }));
+      await page.waitForFunction(next => window.packageConsumer.state().mode === "gpu" && document.querySelector("#output").width === 660 * next, next);
+      await settled("gpu");
+      assert.equal(await page.locator("#output").evaluate(node => node.width), 660 * next);
+      await continuity();
+      await cdp.send("Emulation.setDeviceMetricsOverride", { width: 900, height: 750, deviceScaleFactor: dpr, mobile: false });
+      await page.evaluate(() => window.packageConsumer.controller.setTransform("editor", {}));
+      await page.waitForFunction(dpr => window.packageConsumer.state().mode === "gpu" && document.querySelector("#output").width === 660 * dpr, dpr);
+      await settled("gpu"); await cdp.detach();
+      await page.evaluate(() => window.packageConsumer.scroll(true)); await settled("dom");
+      await page.waitForFunction(() => window.packageConsumer.state().admission.intent === "blocked");
+      const refusal = await state(); assert.equal(refusal.admission.intent, "blocked");
+      await page.evaluate(() => window.packageConsumer.scroll(false));
+      await page.waitForTimeout(150); assert.equal((await state()).admission.intent, "blocked");
+      observations.push({ operation: "scroll-policy", refusal });
+      assert.equal((await page.evaluate(() => window.packageConsumer.controller.enable())).mode, "gpu");
+      await page.evaluate(() => { window.packageConsumer.extra(2); window.disabled = window.packageConsumer.controller.disable(); });
+      await page.evaluate(() => window.disabled); await settled("dom");
+    } else {
+      assert.equal(admitted.admission.intent, "blocked");
+      await page.evaluate(() => { window.packageConsumer.extra(2); window.packageConsumer.layout({ x: 50, width: 280 }); });
+      await page.waitForTimeout(150); assert.equal((await state()).admission.attempts, 0); await continuity(); await pixels();
+    }
+    await page.evaluate(() => window.packageConsumer.controller.disable());
+    const disabled = await state();
+    await page.evaluate(() => window.packageConsumer.extra(0)); await page.waitForTimeout(150);
+    assert.equal((await state()).metrics.admission.attempts, disabled.metrics.admission.attempts);
+    assert.equal((await state()).admission.intent, "disabled");
+    await continuity();
+    if (flags) {
+      await page.evaluate(() => {
+        const gpu = navigator.gpu, original = gpu.requestAdapter.bind(gpu);
+        gpu.requestAdapter = async options => {
+          window.packageAdapterWaiting = true;
+          await new Promise(resolve => { window.packageReleaseAdapter = resolve; });
+          gpu.requestAdapter = original;
+          return original(options);
+        };
+        window.packagePendingEnable = window.packageConsumer.controller.enable();
+      });
+      await page.waitForFunction(() => window.packageAdapterWaiting);
+      await page.evaluate(() => { window.packageDisposal = window.packageConsumer.dispose(); });
+      assert.equal(await page.locator("#output").evaluate(node => node.hidden), true);
+      await page.evaluate(() => window.packageReleaseAdapter());
+      await page.evaluate(() => window.packagePendingEnable); await page.evaluate(() => window.packageDisposal);
+    } else await page.evaluate(() => window.packageConsumer.dispose());
+    const retired = await state();
+    assert.ok(Object.values(retired.resources).every(n => n === 0));
+    assert.ok(Object.values(retired.runtimeResources).every(n => n === 0));
+    assert.equal(retired.mounts, retired.cleanups); assert.deepEqual(errors, []);
+    const result = { flags, dpr, observations, disabled, retired, errors, diagnostics };
+    await writeFile(join(directory, `${name}-dynamic.json`), JSON.stringify(result, null, 2));
+    return result;
+  } catch (error) {
+    await writeFile(join(directory, `${name}-dynamic-failed.json`), JSON.stringify({
+      flags, dpr, failure: String(error), observations, state: await state(), errors, diagnostics,
+    }, null, 2));
+    throw error;
+  } finally { await page.close(); }
+}
 
 // Run against an actual installed consumer, not a source alias.
 export async function interactionContract(context, url, { directory, name, flags }) {

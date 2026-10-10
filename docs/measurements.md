@@ -31,11 +31,99 @@ integration/surface/recovery writer follows this root. Phase8 incremental
 effect CPU samples and resource budgets are reported separately in
 [effects](effects.md), not as a replacement full Phase6 benchmark or a speedup.
 
-Current writers accept only `evidence/regression/current`, `evidence/phase9`,
-`evidence/phase9-independent` and separator-aware resolved descendants.
+Current writers accept only `evidence/regression/current`, the Phase9/10/11/12
+writer and matching `-independent` roots, and separator-aware resolved descendants.
 Accepted Phase6/7/8, Phase8-independent and regression/performance are read-only.
 The historical Phase8 report generator now refuses its archived destination
 before writing. Never rerun a completed measurement into the same root.
+
+## Phase12 bounded engineering envelope
+
+**Engineering independently accepted with limits**
+([verdict](../evidence/phase12-independent/acceptance-summary.json)); full Phase12
+production budgets remain open. **No speedup or capture optimization is established.** The explicit default
+is compared with a genuine isolated build of accepted commit
+`a6b038ce9a854eae9aed1d035c3dd4a2290aead6`, built before implementation.
+Both use React19.3.0, Lite1.33.0, 900x750, DPR1/2 and identical operations.
+Each launch records actual CDP Chrome155.0.8059.40, revision
+`@cfaadc5a132d78e1828635aa8405a499f3e14864`, and ANGLE Metal Apple M2 Pro
+(Apple26.7.1). This does not establish the previously requested Chrome154.
+
+The workload includes ten real native input edits over two seconds, five
+membership/order/origin/size/frame changes, three TODO add/edit/check/delete
+cycles, and actual native scrolling (`scrollTop=100`) with diagnosed DOM
+fallback. Original controls/state and resource retirement are asserted.
+Screenshot checkbox latency uses the shared native interaction helper, three
+trials per variant outside the timing window. All lower bounds were zero:
+upper bounds include automation, screenshot and readback overhead, not physical
+input-to-display latency.
+
+| Observed metric (DPR1 / DPR2) | Accepted explicit baseline | Final explicit |
+| --- | --- | --- |
+| Input-window GPU capture delta | 34 / 36 | 35 / 34 |
+| TODO-window GPU capture delta | 20 / 21 | 21 / 21 |
+| Structural GPU operation median, ms | 112.2 / 115.5 | 114.4 / 112.8 |
+| Structural DOM operation median, ms | 32.9 / 32.8 | 31.8 / 32.2 |
+| Checkbox DOM upper-bound median, ms | 83.3 / 117.5 | 85.8 / 115.0 |
+| Checkbox GPU upper-bound median, ms | 108.8 / 129.2 | 109.4 / 145.2 |
+
+Input GPU CPU-frame p95 was approximately0.2ms and capture p950.3ms in both
+builds; real rAF p95 was approximately16.7-16.8ms. These are CPU/submission
+samples, not GPU execution (unavailable). DOM capture counts were zero.
+Small samples and root-wide paint noise cannot establish improvement or a
+general absence of performance regression. DPR1 input rasters have zero
+differing bytes; DPR2 has21956 differing bytes in both builds for this two-layer
+workload, not pixel-equivalent text. The older eight-layer23249pixel/68851byte
+result remains a separate historical limit.
+
+The additional final `"automatic"` experiment is not a matched baseline
+speedup comparison: structural medians were147.6/147.4ms, followed by one
+12-rAF invalidation burst during motion. Readmission settled safely, cancelled
+motion was not replayed, and native state remained intact. rAF-sampled owned
+peaks were one engine/effect/renderer, up to five textures/staging canvases/
+comparison buffers including admission probes, versus four in explicit
+structural runs. These counters are not heap or driver byte measurements.
+Every tested completed lifetime retired to zero; unconfirmed healthy fences
+still deliberately retain resources rather than force destruction.
+
+Reproduce serially with `npm run build`, then
+`CANVAS_EVIDENCE_ROOT=evidence/phase12/<fresh-run> node scripts/phase12-measure.mjs`.
+For the genuine archived baseline build also set `CANVAS_MEASURE_BUILD` and
+`CANVAS_MEASURE_LABEL=baseline`; for the additional final experiment set
+`CANVAS_MEASURE_POLICY=automatic`. Private proof retains the baseline,
+intermediate runs, failed assertions and the corrected final explicit/automatic
+reports. An earlier automatic run accidentally included the burst inside each
+operation duration; it is retained but excluded from the table above.
+
+Fresh independent reruns passed all48 workload/DPR/mode entries, alongside23
+units/build,55 focused browser passes/one human skip,eight actual installed
+React18/19 package contracts and supplemental direct-root cancellation/fence/
+native-hit cases. Independent structural GPU medians were114.5/113.7ms baseline
+versus122.2/133.6ms final (DPR1/2): **observed increases**, not a speedup or
+universal performance-nonregression claim. DOM medians were32.1/32.3 versus
+32.6/34.7ms. Automatic medians147.9/146.7ms exclude the separate12-rAF
+burst333.4/332.4ms. Input captures were34/34 baseline,34/35 explicit-final,
+34/36 automatic; TODO captures18/20,20/20,19/19 respectively.
+
+The actual writer final raw routes are
+`evidence/phase12/final-explicit-v4/dynamic-measure/final/report.json` and
+`evidence/phase12/final-auto-v3/dynamic-measure/final/report.json`;
+fresh independent proof uses `evidence/phase12-independent/sol61-20261011/`.
+These raw files are ignored/private proof, not shipped repository artifacts.
+The preserved private `measurement-summary-final.json` still names older
+final-explicit-v3/final-auto-v2: an administrative label discrepancy, not
+final-source evidence. It remains unchanged; acceptance rests on audited actual
+final raw reports and fresh independent observations, not that older summary.
+
+**Proposed evaluation targets, not accepted budgets:** retain exact DPR1 output
+and native state/hit continuity, zero capture while content is unchanged,
+coalesced settled readmission without replay or unsupported retries, and zero
+owned counters after confirmed retirement. The observed two-second input
+window, structural medians and resource peaks are starting points for a
+deployment-specific repeated comparison, not universal numeric caps. Selected
+production applications, hardware, frame/input/capture/resource budgets,
+spoken screen-reader/OS IME checks, everyday-profile GPU admission, genuine
+background return and physical display/device-loss certification remain open.
 
 ## Phase9 investigation (accepted-with-limits on actual installed155)
 

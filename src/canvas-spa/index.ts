@@ -7,7 +7,7 @@ export type { Transform, Affine, Point } from "./affine.js";
 export type { Layout, Appearance } from "./compiler.js";
 export { mountApplicationModule } from "./module.js";
 export type { LocalApplicationModule } from "./module.js";
-export type { LayerDefinition, RuntimeOptions } from "./runtime.js";
+export type { AdmissionPolicy, LayerDefinition, RuntimeOptions } from "./runtime.js";
 export type { AnimationPlayback } from "./animation.js";
 export type { CSSAnimationSource } from "./css-animation.js";
 export type { Ripple } from "./ripple.js";

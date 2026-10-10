@@ -8,7 +8,10 @@ Phase10 private distribution preparation is independently accepted with limits;
 [verdict](evidence/phase10-independent/acceptance-summary.json) and
 [local pack/consumer and browser policy](docs/distribution.md).
 Keep the existing package name/private/license decisions. No npm publication,
-release CI or lifecycle automatic-refresh scope is authorized here.
+release CI is authorized here. Phase12 is limited to opted-in settled
+structural readmission and a measured engineering envelope, independently
+accepted with limits ([verdict](evidence/phase12-independent/acceptance-summary.json));
+full Phase12 production budgets remain open, with no Phase13/14 implementation.
 
 Start with [README.md](README.md), the maintained
 [architecture/lifecycle/mount contract](docs/architecture.md), and the
@@ -54,7 +57,8 @@ Raw reports, screenshots, reruns and full performance dumps must stay outside
 tracked history. The [archive catalog](docs/archive-catalog.md) records preserved
 local bytes and access/reproduction limits. Stage source/docs/tests and curated
 verdicts explicitly, then run `node scripts/check-evidence.mjs`; it checks staged
-paths, JSON validity and a64 KiB per-verdict budget, including force-added files.
+paths, JSON validity and a64 KiB per-verdict budget (8 KiB for the exact
+Phase10/11/12 compact summaries), including force-added files.
 Generated evidence is ignored; a new curated verdict needs a deliberate
 allowlist/ignore-policy update. Never use blanket `git add -f evidence`.
 History rewrites/force-pushes require explicit user approval, not an unavailable

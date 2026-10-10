@@ -30,6 +30,7 @@ export interface SurfaceRendererOptions extends MountBoundaryOptions {
   policy?(): string | undefined;
   presentation?(mode: "dom" | "gpu"): void;
   onInterrupt?(): void;
+  onRecovery?(reason: string): void;
   isMoving?(): boolean;
   isPaused?(): boolean;
   comparePixels?: boolean;
@@ -104,6 +105,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let probe: ReturnType<typeof createAdmissionProbe> | undefined;
   let probeReadback: { active: boolean; completion: Promise<void> } | undefined;
   let lifecycle = Promise.resolve();
+  let admissionIntent = 0;
+  let admissionCancellation: string | undefined;
   function serialize<T>(operation: () => Promise<T>): Promise<T> {
     const result = lifecycle.then(operation);
     lifecycle = result.then(() => undefined, () => undefined);
@@ -190,6 +193,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     if (boundary.moveToDOM()) metrics.moves++;
     options.presentation?.("dom");
     host.hidden = true;
+    options.onRecovery?.(message);
   }
   function retainGPUUntil(completion: Promise<IdleOutcome>) {
     resources.pendingCleanups++;
@@ -361,6 +365,11 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     scheduled = requestAnimationFrame(() => {
       scheduled = 0;
       resources.scheduledFrames--;
+      const policy = options.policy?.();
+      if (policy) {
+        void recover(policy).catch(reportFailure);
+        return;
+      }
       const refreshEngine = engine;
       const refreshGeneration = generation;
       work = captureLayers().then(draw).catch(error => {
@@ -534,17 +543,20 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         if (captureAbort === abort) captureAbort = undefined;
       }
     }
-  async function enable() {
+  async function enable(intent: number) {
+    if (intent !== admissionIntent) return state();
     if (mode === "disposed") throw new Error("Surface is disposed");
     if (initializing || resources.pendingEngines) throw new Error("Previous engine admission has not settled");
     if (resources.pendingCleanups) throw new Error("GPU cleanup pending; reentry refused until a confirmed fence or loss");
     if (resources.probeReadbacks) throw new Error("Public admission readback pending; reentry refused until the SDK request settles");
     if (transitioning) throw new Error("Wait for renderer recovery before admission");
     initializing = true;
+    admissionCancellation = undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let abandoned = false;
     try {
       await settle();
+      if (intent !== admissionIntent) throw new Error("Admission cancelled by explicit disable/disposal");
       if (mode === "gpu") return state();
       const policy = options.policy?.();
       if (policy) throw new Error(policy);
@@ -566,6 +578,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       engine = await Promise.race([pending, new Promise<never>((_, reject) => { timer = setTimeout(() => { abandoned = true; reject(new Error("WebGPU initialization timed out after 5000 ms; late engine will be disposed")); }, 5000); })]);
       clearTimeout(timer);
       if (!engine) throw new Error("Engine admission was abandoned");
+      if (intent !== admissionIntent) throw new Error("Admission cancelled during engine initialization");
+      if (admissionCancellation) throw new Error(admissionCancellation);
       lostInfo = undefined;
       const admittedEngine = engine;
       observer = observeConfiguredDevice(output, info => {
@@ -607,6 +621,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       const admissionGeneration = generation;
       await functionalAdmission();
       const assertCurrentAdmission = () => {
+        if (intent !== admissionIntent) throw new Error("Admission cancelled by explicit disable/disposal");
         const current = options.layers();
         if (current.length !== enrolled.length || current.some((layer, index) =>
           layer.id !== enrolled[index]!.id || layer.element !== enrolled[index]!.element)) throw new Error("Enrollment changed during admission; fresh admission required");
@@ -659,10 +674,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       reason = "Native snapshots -> owning 2D canvas -> pixel-only staging canvases -> public Lite textures -> shared shader composition.";
     } catch (error) {
       abandoned = true;
-      await recoverToDOM(lostInfo
+      await recoverToDOM(admissionCancellation ?? (lostInfo
         ? `GPU admission failed: device lost (${lostInfo.reason}): ${lostInfo.message}`
-        : `GPU admission failed: ${String(error)}`);
-      console.error(reason);
+        : `GPU admission failed: ${String(error)}`));
+      if (!admissionCancellation) console.error(reason);
     } finally { clearTimeout(timer); initializing = false; scheduleCapture(); status(); }
     return state();
   }
@@ -717,7 +732,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     return state();
   }
   function recover(message: string) {
-    if (mode !== "gpu" && mode !== "admitting") return Promise.resolve();
+    if (mode !== "gpu" && mode !== "admitting" && !initializing) return Promise.resolve();
+    if (initializing) admissionCancellation = message;
     presentDOM(message);
     return serialize(async () => {
       if (mode !== "disposed" && engine && !resources.pendingCleanups) await recoverToDOM(message);
@@ -736,7 +752,22 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   listen(container, "focusin", queueCapture);
   listen(container, "focusout", queueCapture);
   status();
-  return { container, enable: () => serialize(enable), disable: () => serialize(disable), frames, toggleTint: () => frames(1, dx, tint ? 0 : 1), toggleMotion: () => frames(60, dx ? 0 : 40, tint), settle, state, dispose: () => serialize(dispose), invalidate: queueCapture, draw,
+  function cancelAdmission(message: string) {
+    admissionIntent++;
+    if (initializing) admissionCancellation = message;
+    void recover(message).catch(reportFailure);
+  }
+  return { container, enable: () => {
+    const intent = admissionIntent;
+    return serialize(() => enable(intent));
+  }, disable: () => {
+    cancelAdmission("Explicit disable: original controls and React root retained in ordinary DOM.");
+    return serialize(disable);
+  }, frames, toggleTint: () => frames(1, dx, tint ? 0 : 1), toggleMotion: () => frames(60, dx ? 0 : 40, tint), settle,
+    idle: () => serialize(async () => {}), state, dispose: () => {
+      cancelAdmission("Runtime disposed: pending admission cancelled.");
+      return serialize(dispose);
+    }, invalidate: queueCapture, draw,
     acceptsCustom: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)] === definition,
     phase: () => mode, version: () => generation, resume: scheduleCapture,
     pause: () => {

@@ -11,7 +11,7 @@ import { PNG } from "pngjs";
 import { evidenceRoot, validateEvidenceRoot } from "../tests/evidence.mjs";
 import { packageFiles, validatePackageContents } from "./package-policy.mjs";
 import { curatedEvidence } from "./check-evidence.mjs";
-import { interactionContract } from "./interaction-contract.mjs";
+import { interactionContract, dynamicContract } from "./interaction-contract.mjs";
 
 const root = resolve(".");
 const primary = JSON.parse(await readFile("package.json", "utf8"));
@@ -215,7 +215,9 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
     assert.deepEqual(errors, flags ? [] : [admission.reason], "Only the exact unflagged admission diagnostic is expected");
     const interactions = process.env.CANVAS_INTERACTION_AUDIT === "1" && dpr === 1
       ? await interactionContract(context, url, { directory: evidence, name: `react${major}-${flags}`, flags }) : undefined;
-    return { major, flags, dpr, identity, launch, capability, startup, dom, admission, gpu, recovery, domPixel, gpuPixel, disposed, errors, interactions };
+    const dynamic = process.env.CANVAS_DYNAMIC_AUDIT === "1"
+      ? await dynamicContract(context, url, { directory: evidence, name: `react${major}-${flags}-${dpr}`, flags, dpr }) : undefined;
+    return { major, flags, dpr, identity, launch, capability, startup, dom, admission, gpu, recovery, domPixel, gpuPixel, disposed, errors, interactions, dynamic };
   } finally { await browser.close(); }
 }
 

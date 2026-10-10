@@ -34,7 +34,11 @@ Full Phase11 remains incomplete; the human/device checklist below is open.
    noninteractive decoration separate from essential native controls.
 5. After add/remove/reorder, same-size position change, resize or DPR change,
    expect immediate hidden GPU presentation and original DOM recovery.
-   Await settled retirement, then explicitly request fresh admission. Old
+   By default, await settled retirement, then explicitly request fresh admission.
+   An intentionally opted-in `admissionPolicy: "automatic"` host instead
+   coalesces eligible settled changes after explicit enable; disable cancels it.
+   Unsupported policies/errors/loss require explicit enable, not blind retries.
+   See [policy/cancellation](api.md#opt-in-settled-readmission-phase12-engineering). Old
    generation capture/validation cannot reveal or upload into the replacement.
    Original keyed controls/root/state remain; resources await healthy fences
    and pending readbacks rather than force destruction.
@@ -42,7 +46,7 @@ Full Phase11 remains incomplete; the human/device checklist below is open.
    paint cannot safely be narrowed using React state or MutationObserver alone.
    Test actual decoded changed output, native hits and final retirement.
 
-No automatic refresh, route/shared-element transitions, springs, virtualization,
+No startup auto-enable, route/shared-element transitions, springs, virtualization,
 remote shader loading, general plugin/resource allocator or upstream engine
 modification is introduced. Unsupported scrolling/clipping/nested/foreign
 enrollment and budget excess remain diagnosed DOM cases.
@@ -137,14 +141,17 @@ No tester identity or missing environment details are inferred.
 | Background return | Left the application for a while, returned, and everything worked. | Return usability is reported; prior GPU mode, trusted hidden visibility, measured pause/no catch-up and state continuity were not established. The unsuccessful automated headful capability attempt remains unverified. |
 | Physical display move | Moving between screens returns to DOM and stops animations/effects, feeling like a reset. | DOM fallback is reported and consistent with layout/DPR invalidation. Retention of task/input/checkbox state during this actual move is unconfirmed; no React reset defect is established. |
 
-On a layout/viewport/DPR change, the current contract immediately hides GPU
+On a layout/viewport/DPR change, the default contract immediately hides GPU
 output, recovers the original DOM and retires the old presentation. Motion/effect
 GPU playback does not automatically restart. After layout settles, explicitly
 request `enable()` (**Request GPU** or **Enable GPU** in the specimens) and inspect
 the result; a refusal must leave useful DOM. This recovery is not intended to
 remount/reset React or discard application state. Automated original-state
 preservation checks do not substitute for confirming retained values during the
-reported physical display move. Automatic readmission is not implemented.
+reported physical display move. Phase12 now provides opt-in settled structural
+readmission, independently accepted as bounded engineering with limits
+([verdict](../evidence/phase12-independent/acceptance-summary.json)); it was not enabled in those user
+observations and does not replay cancelled motion or certify physical recovery.
 
 Screen-reader work must use actual spoken navigation/name/role/state and
 duplicate-control checks; an accessibility tree is only an automated semantic

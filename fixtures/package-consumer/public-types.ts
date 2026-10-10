@@ -1,6 +1,6 @@
 import {
   mountApplicationModule, defineEffect,
-  type MountCanvasOptions, type CanvasController, type RuntimeOptions,
+  type AdmissionPolicy, type MountCanvasOptions, type CanvasController, type RuntimeOptions,
   type LocalApplicationModule, type LayerDefinition, type SurfaceProps, type BoxProps,
   type PresenceProps, type Transform, type Affine, type Point, type Layout, type Appearance,
   type EnrollmentOptions, type EnrollmentErrorCode, type AnimationPlayback, type CSSAnimationSource,
@@ -13,10 +13,13 @@ import {
 // @ts-expect-error Only the root export is public.
 import type { CanvasRuntime } from "canvas-spa-phase-one/dist/library/runtime.js";
 export type PublicTypes = [
-  MountCanvasOptions, CanvasController, RuntimeOptions, LocalApplicationModule, LayerDefinition,
+  AdmissionPolicy, MountCanvasOptions, CanvasController, RuntimeOptions, LocalApplicationModule, LayerDefinition,
   SurfaceProps, BoxProps, PresenceProps, Transform, Affine, Point, Layout, Appearance,
   EnrollmentOptions, EnrollmentErrorCode, AnimationPlayback, CSSAnimationSource, Ripple,
   ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult,
   MotionKeyframe, MotionTiming, MotionDescriptor, MotionHandle, TransitionHandle, TransitionResult, CoordinatedMotion,
 ];
 export const publicFunctions = [mountApplicationModule, defineEffect];
+export const automatic: AdmissionPolicy = "automatic";
+// @ts-expect-error Automatic admission is a closed, explicit policy.
+export const invalidPolicy: AdmissionPolicy = "always";
