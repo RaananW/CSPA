@@ -34,7 +34,7 @@ function distribution(values) {
     min: ordered[0], max: ordered.at(-1) };
 }
 function delta(before, after) {
-  return Object.fromEntries(["captures", "pixelCopies", "pixelReadbacks", "uploads", "uploadBytes", "gpuFrames", "geometryUpdates"]
+  return Object.fromEntries(["captures", "pixelCopies", "pixelReadbacks", "uploads", "uploadBytes", "gpuFrames", "geometryUpdates", "paintNotifications"]
     .map(key => [key, after.metrics[key] - before.metrics[key]]));
 }
 function zero(state) {
@@ -56,7 +56,8 @@ function summary(run) {
     perLayer: run.measurement.after.layers.map(layer => {
       const b = run.measurement.before.metrics.perLayer[layer.id], a = run.measurement.after.metrics.perLayer[layer.id];
       const captures = (a?.captures ?? 0) - (b?.captures ?? 0), uploads = (a?.uploads ?? 0) - (b?.uploads ?? 0);
-      return { id: layer.id, captures, uploads, captureHz: captures / (run.measurement.durationMs / 1000),
+      const readbacks = run.measurement.samples.filter(sample => sample.kind === "readbackCompareMs" && sample.layerId === layer.id).length;
+      return { id: layer.id, captures, pixelCopies: captures, pixelReadbacks: readbacks, uploads, captureHz: captures / (run.measurement.durationMs / 1000),
         uploadHz: uploads / (run.measurement.durationMs / 1000), uploadRGBABytes: uploads * layer.width * layer.height * 4 };
     }),
   };
@@ -108,6 +109,7 @@ try {
           const measurement = await page.evaluate(ms => window.measurement.collect(ms), report.method.requestedWindowMs);
           assert.equal(measurement.after.mode, variant.startsWith("gpu") ? "gpu" : "dom");
           assert.equal(measurement.after.layers.length, layers);
+          const beforeInput = PNG.sync.read(await page.locator("#frame").screenshot());
           const inputWindow = page.evaluate(() => window.measurement.collect(1000));
           for (let edit = 0; edit < 5; edit++) {
             await page.getByLabel("Native input", { exact: true }).fill(`edit-${edit}`);
@@ -117,18 +119,36 @@ try {
           assert.equal(inputMeasurement.after.commits - inputMeasurement.before.commits, 5);
           assert.equal(inputMeasurement.after.mode, measurement.after.mode);
           if (variant.startsWith("gpu")) assert(inputMeasurement.after.metrics.uploads - inputMeasurement.before.metrics.uploads >= 5);
+          await page.locator("#measurement-input").evaluate(node => node.blur());
+          await page.evaluate(() => window.measurement.settle());
+          const afterInput = PNG.sync.read(await page.locator("#frame").screenshot());
+          const changedInputBytes = afterInput.data.reduce((total, value, index) => total + Number(value !== beforeInput.data[index]), 0);
+          assert(changedInputBytes > 50, "Actual native edits must change decoded fixture output");
           const estimates = await page.evaluate(() => {
             const s = window.measurement.state(), bytes = s.layers.reduce((sum, layer) => sum + layer.width * layer.height * 4, 0);
             const output = document.querySelector("#output"), capture = document.querySelector("#capture");
             return { textureRGBABytes: s.resources.textures ? bytes : 0, stagingRGBABytes: s.resources.stagingCanvases ? bytes : 0,
               comparisonRGBABytes: s.resources.comparisonBuffers ? bytes : 0,
+              declaredUniformBytes: s.resources.engines ? 16 + s.layers.length * 160 : 0,
+              declaredUniformBuffers: s.resources.engines ? 1 : 0,
               outputBitmapCapacityRGBABytes: output.width * output.height * 4,
               captureBitmapCapacityRGBABytes: capture.width * capture.height * 4 };
           });
           const startup = await page.evaluate(() => ({ startupMs: window.measurement.startupMs }));
+          let inputVsDOMBytes = null;
+          if (variant.endsWith("static")) {
+            await page.evaluate(() => window.measurement.disable());
+            const domInput = PNG.sync.read(await page.locator("#frame").screenshot());
+            inputVsDOMBytes = domInput.data.reduce((total, value, index) => total + Number(value !== afterInput.data[index]), 0);
+            assert.equal(domInput.width, afterInput.width);
+            assert.equal(domInput.height, afterInput.height);
+          }
           const retired = await page.evaluate(() => window.measurement.dispose());
           zero(retired); assert.deepEqual(errors, []);
-          const run = { dpr, layers, variant, repetition, startup, warmup, measurement, inputMeasurement, estimates, retired, errors };
+          const run = { dpr, layers, variant, repetition, startup, warmup, measurement, inputMeasurement,
+            changedInputBytes, inputVsDOMBytes,
+            rasterComparison: "Static-only cross-presentation comparison; DPR2 native capture text can differ from ordinary DOM rasterization. Animated variants are not compared at distinct times.",
+            estimates, retired, errors };
           run.summary = summary(run);
           run.inputSummary = summary({ ...run, measurement: inputMeasurement });
           report.runs.push(run);

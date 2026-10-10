@@ -52,8 +52,13 @@ The [effects composer](docs/effects.md) runs at
 undistorted while inert artwork combines motion, ripple, chromatic displacement,
 dissolve and an application-defined color function. These reuse one shared
 composition pass; they are added non-equivalent work, not a DOM speedup.
-The [roadmap](docs/roadmap.md) distinguishes implemented Phases7/8 from planned
-hardening and documents private phase-history tracking.
+The [roadmap](docs/roadmap.md) records private accepted-phase history.
+Phase9 bounded hardening is [independently accepted-with-limits](evidence/phase9-independent/acceptance-v1.json)
+on actual installed Chrome155; exact154 remains unverified. Autonomous
+coordinator155 continuation is not explicit user155 approval or a154 waiver.
+No speedup, text pixel equivalence or release readiness is claimed.
+[Adoption and migration](docs/adoption.md)
+describe explicit fresh admission, safe structural recovery and manual gates.
 
 Start with the [typed API and example](docs/api.md), the maintained
 [architecture](docs/architecture.md), and the honest
@@ -149,7 +154,8 @@ launch flags; `evidence/regression/current/chrome/report.json` records the actua
 
 New browser/matrix/probe reports default to regenerable `evidence/regression/current`,
 not the historical paths linked below. Use
-`CANVAS_EVIDENCE_ROOT=evidence/phase8` for Phase8 browser/matrix outputs.
+`CANVAS_EVIDENCE_ROOT=evidence/phase9/<distinct-run>` for current browser/matrix
+outputs or `evidence/phase9-independent/<distinct-run>` for separate acceptance.
 Other archive roots are refused, and sanitization touches only the selected
 root. Performance fixtures/comparison/smoke also follow the selected root
 (`evidence/regression/current/performance` by default). Back up/hash versioned evidence before

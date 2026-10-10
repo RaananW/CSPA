@@ -15,17 +15,78 @@ with timing measurements.
 Current reruns write explicitly regenerable outputs under
 `evidence/regression/current/performance/`: the five browser fixtures use `fixtures/`,
 and the full comparison/smoke runner writes `performance.json` or
-`performance-smoke.json`. Selecting `CANVAS_EVIDENCE_ROOT=evidence/phase8`
-routes all these writers to `evidence/phase8/performance` instead, preserving
+`performance-smoke.json`. Selecting `CANVAS_EVIDENCE_ROOT=evidence/phase9/<distinct-run>`
+routes all these writers to a fresh Phase9 destination instead, preserving
 the already-versioned baseline regression samples too. These destinations apply inside the copied
 React18 workspace. Normal tests, matrices and `measure` do not write into the
 archived `evidence/phase6/` reports or independent acceptance reports.
 Archived reports below describe the historical Phase6 run, not current reruns.
 Browser/matrix reruns also now default to `evidence/regression/current` (or explicitly
-`CANVAS_EVIDENCE_ROOT=evidence/phase8`); every old runtime/animation/TODO/
+`CANVAS_EVIDENCE_ROOT=evidence/phase9/<distinct-run>`); every old runtime/animation/TODO/
 integration/surface/recovery writer follows this root. Phase8 incremental
 effect CPU samples and resource budgets are reported separately in
 [effects](effects.md), not as a replacement full Phase6 benchmark or a speedup.
+
+Current writers accept only `evidence/regression/current`, `evidence/phase9`,
+`evidence/phase9-independent` and separator-aware resolved descendants.
+Accepted Phase6/7/8, Phase8-independent and regression/performance are read-only.
+The historical Phase8 report generator now refuses its archived destination
+before writing. Never rerun a completed measurement into the same root.
+
+## Phase9 investigation (accepted-with-limits on actual installed155)
+
+[Independent acceptance](../evidence/phase9-independent/acceptance-v1.json)
+recomputed all90/40 baseline and90/40 final coverage/counts/distributions/
+per-layer sums and retirements, and reran bounded native smoke and final-source
+raster/attribution proof. No safe selective capture optimization or speedup
+was established; conservative root-wide work remains.
+
+**Environment limitation:** raw CDP metadata records Chrome155.0.8059.40
+in both the committed Phase8-baseline and current comparisons. This differs
+from required154.0.8037.98 despite using the unchanged installed executable;
+no browser install/download/switch was performed by this writer. Comparisons
+are matched on actual155 with CDP revision
+`@cfaadc5a132d78e1828635aa8405a499f3e14864`, not evidence of154 compliance.
+Transition reason/date is unknown. Implementation browser runs are stopped;
+the coordinator permits renewed independent bounded155 checks after the user
+was unavailable, **not explicit user155 approval or154 certification**.
+
+The genuine unchanged Phase8 runtime baseline is
+[`phase9/baseline/performance/performance.json`](../evidence/phase9/baseline/performance/performance.json):
+90 runs, 40 screenshot-poll latency trials, five native edits/window,
+2/4/8 layers, DPR1/2, three repetitions. Root-wide paint reproduces roughly
+17/29/53 captures rather than five. No proven public native attribution supports
+selective suppression; conservative capture/readback remains a retained limit.
+Per-layer captures/copies/readbacks/uploads, CPU samples, real RAF intervals,
+owned RGBA/uniform estimates and actual changed output are retained. CPU
+submission is not GPU execution; unavailable GPU timestamps remain null.
+
+The [final corrected-runtime comparison](../evidence/phase9/new-final/performance/performance.json)
+also completed90 runs and40 latency trials with the same timed workloads.
+The earlier [new run](../evidence/phase9/new/performance/performance.json)
+is retained verbatim but predates the final admission-cancellation correction;
+it is not relabeled as final source. New blur/settle/static raster checks and
+uniform estimates are outside measurement windows. The
+[corrected implementation comparison report](../evidence/phase9/handoff-v2/implementation-report.json)
+contains per-group raw counts/median/p95, per-layer work and retirement results.
+No affected-path speedup is claimed: root-wide native paint/readback cost
+remains, and noisy CPU/RAF samples are not GPU-execution measurements.
+The earlier handoff report is preserved, not rewritten after discovery of
+the version discrepancy.
+
+The controlled [raster comparison](../evidence/phase9/raster-comparison/report.json)
+uses an isolated genuine `git archive` build of committed Phase8 `84ac72ca`
+and current source, identical native edits/font/style/blur, eight layers and
+900x750 viewport. Both have zero differing pixels at DPR1 and exactly23249
+differing pixels/68851 differing bytes at DPR2. Paired decoded PNGs/settings
+are preserved. Thus DPR2 text rasterization is baseline-identical, not a new
+Phase9 native state/layout/hit regression or pixel-equivalent text claim.
+The [independent FINAL-source comparison](../evidence/phase9-independent/run-v1/final-native-v2/report.json)
+repeats this exact23249pixels/68851bytes mismatch with byte-identical corresponding
+baseline/final PNGs. The earlier intermediate source is not relabeled final.
+Static presentation comparisons report actual differences; animated variants
+are not compared at distinct times. This does not certify physical display
+movement, browser font behavior generally or display latency.
 
 Phase7 acceptance identified an earlier regression-writer collision in five
 `evidence/phase6/fixtures/*.json` files. Their exact original bytes have not

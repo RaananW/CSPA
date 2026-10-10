@@ -19,7 +19,10 @@ production comparisons, raw samples and still-unperformed manual gates.
 The [Phase7 integration](docs/integration.md), `/integration.html`, adds
 original-element refs, Radix Dialog and bounded motion/presence; the
 [public roadmap](docs/roadmap.md) separates implemented contracts from planned
-Phase9. The [Phase8 effects](docs/effects.md), `/effects.html`, use the same
+Phase9 (bounded hardening accepted-with-limits on actual installed155; exact154
+remains unverified, not waived; see [independent proof](evidence/phase9-independent/acceptance-v1.json)).
+The [adoption checklist](docs/adoption.md) covers migration and manual/device
+gates. The [Phase8 effects](docs/effects.md), `/effects.html`, use the same
 shared compositor and add a trusted application color-function extension.
 Phase8 is independently accepted with explicit limits; the
 [final verdict](evidence/phase8-independent/acceptance-v3.json) preserves earlier
@@ -58,8 +61,12 @@ Unsupported features must give an explicit diagnostic and usable DOM, not
 fake GPU success.
 
 Browser validation is intentionally restricted to the installed executable
-`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`, currently tested
-at 154.0.8037.98. **Do not install/download a Playwright browser or switch builds
+`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`. Accepted phases
+used154.0.8037.98; Phase9 raw CDP records155.0.8059.40 at that same path
+(transition reason/date unknown). Coordinator continuation permits independent
+bounded155 checks, not explicit user155 approval or certification of the
+remaining exact154 requirement; see [verification](docs/verification.md).
+**Do not install/download a Playwright browser or switch builds
 to make tests pass.** Tests launch clean temporary profiles with explicit
 `CanvasDrawElement,ElementCanvasTransform` and experimental-web-platform flags.
 They neither modify nor establish the flags of an everyday user profile.
@@ -86,6 +93,8 @@ npm run test:browser -- todo.test.mjs --reporter=list
 npm run test:browser -- integration.test.mjs --reporter=list
 # Bounded effects, trusted compilation, decoded pixels and healthy fencing:
 npm run test:browser -- effects.test.mjs --reporter=list
+# Membership/order/size/DPR generations and native apps at both DPRs:
+CANVAS_EVIDENCE_ROOT=evidence/phase9/example-run npm run test:browser -- hardening.test.mjs
 # Matched production fixture pixels, public operation sink and cleanup:
 npm run test:browser -- performance.test.mjs
 # Deterministic synthetic cleanup cases only:
@@ -185,8 +194,8 @@ evidence, plus unrelated private-registry URLs in local npm warnings.
 If sanitization fails, that is a runner failure, not a passing suite.
 After an outer redirected log writer exits, sanitize once more; it can append
 an error tail after the inner runner's cleanup. New browser/matrix reports
-default to `evidence/regression/current`; use `CANVAS_EVIDENCE_ROOT=evidence/phase8`
-for implementation evidence or `CANVAS_EVIDENCE_ROOT=evidence/phase8-independent`
+default to `evidence/regression/current`; use `CANVAS_EVIDENCE_ROOT=evidence/phase9`
+for implementation evidence or `CANVAS_EVIDENCE_ROOT=evidence/phase9-independent`
 for the isolated acceptance window. Both exact roots and their descendants are
 supported by test/matrix/reporter/sanitizer and probe routing. Use a fresh
 destination and never point a writer at evidence being protected.

@@ -3,13 +3,72 @@
 This includes the bounded Phase 6 compatibility/production measurements,
 TODO pilot, accepted Phase 4/5 and preserved Phase 2/3 regressions,
 not release or comprehensive manual/device certification.
-Tests use only installed Google Chrome 154.0.8037.98 with explicit
+Accepted Phase6/7/8 tests used installed Google Chrome154.0.8037.98 with explicit
 `CanvasDrawElement,ElementCanvasTransform` and experimental-web-platform flags,
 clean profiles and headless automation. Exact CDP build and sanitized full
 launch arguments are recorded in the independent-layer reports.
 The separate parent-owned report below is bounded **headful** automation.
 Dependencies are pinned in `package.json`/lockfile; the original registry
 verification is retained in `evidence/package-versions.json`.
+
+## Phase9 hardening (accepted-with-limits on actual installed155)
+
+[Independent acceptance](../evidence/phase9-independent/acceptance-v1.json)
+reran React18:21 units/types/build/94 browsers and React19:21 units/types/build/
+140 browsers, with zero failures/skips/flaky results. It independently audited
+90/40 baseline and90/40 final measurements,20 exact300-GPU-frame effect windows,
+four natural-clock300-RAF windows,80 retired lifetimes across both majors,
+native/routing/HMR/loss/healthy-retention and final-source raster proof.
+This acceptance is bounded, not release readiness or arbitrary compatibility.
+
+**Browser-version gate blocked:** the final raw CDP audit reports installed
+Chrome155.0.8059.40 for both genuine Phase8-baseline comparisons and Phase9
+runs, including the raster proof. The configured executable path was unchanged;
+this writer did not install, download or switch browsers. Observed155 passes
+below do not certify the authorized154.0.8037.98 gate. Further browser runs
+are stopped after independent acceptance. The coordinator permitted
+independent bounded155 checks after the user was unavailable; this is autonomous
+continuation, **not explicit user155 approval or154 certification**. No
+environment downgrade/profile change was performed. The transition reason/date
+is unknown. Baseline/new/final gates record CDP revision
+`@cfaadc5a132d78e1828635aa8405a499f3e14864`.
+
+`tests/hardening.test.mjs` adds sixteen serial DPR1/2 cases: keyed membership/
+order/position/resize continuity, actual CDP DPR replacement with normal
+controller stale-bitmap refusal, pending capture/admission generation races,
+rapid replacements/budget refusal, cancellation after a queued public screenshot
+with bounded hidden-frame draining, native hover/selection/font/style/rapid
+edits and unknown-attribution conservative captures, TODO native task/form
+behavior and effects/Dialog/media/layout recovery. CDP DPR can omit native
+resolution/resize events; the fixture explicitly invokes ordinary drawing
+after that emulation and does not claim a physical-display event.
+
+Final serial implementer gates pass **21 units, types/build and94 shared browser
+cases on React18.3.1**, and **21 units, types/build and140 browser cases on
+React19.3.0**. Actual mounted production/development versions and identical
+shared-source hashes are in the [React18 matrix](../evidence/phase9/final-react18-v2/react18/matrix.json)
+and [React19 matrix](../evidence/phase9/final-react19-v2/react19/matrix.json).
+The first React18 final attempt and focused failures remain preserved: an
+admission-cancellation cleanup regression was corrected with bounded hidden
+public-frame draining, not resource destruction or relaxed assertions.
+Separate independent technical acceptance passed within the actual155 limits above.
+Actual known-color/native geometry,
+300-frame normal-invalidation intervals followed by changed output, StrictMode/
+HMR, twenty retired lifetimes, compile/atomic ownership refusal and healthy
+fence/readback tests are preserved, not weakened. The
+[baseline-identical DPR2 raster comparison](../evidence/phase9/raster-comparison/report.json)
+was repeated against FINAL source in the
+[independent raster proof](../evidence/phase9-independent/run-v1/final-native-v2/report.json):
+zero differing pixels atDPR1;23249pixels/68851bytes atDPR2, with corresponding
+baseline/final PNGs byte-identical. It does not establish text pixel equivalence.
+[Adoption](adoption.md) lists exact
+unperformed human/device gates. All2469 accepted Git evidence files were
+genuinely byte-backed-up before runners; new output uses fresh Phase9 roots.
+The [corrected implementation report](../evidence/phase9/handoff-v2/implementation-report.json)
+links raw matched measurements and records protected hashes.
+The [first report](../evidence/phase9/handoff/implementation-report.json) remains
+immutable and predates discovery of the browser-version mismatch; its
+unqualified completion label is not an acceptance verdict.
 
 ## Phase7 original components and declarative presence
 
@@ -51,7 +110,7 @@ Earlier P8-A1/A2 findings remain immutable. The
 trusted authoring. Ten effect cases extend the matching shared suite to78
 browser cases and the full primary suite to124, with21 current units (18 in the
 recorded implementation gate plus three subsequent P8-A1 routing units). Selected
-Phase8 output is `evidence/phase8/`; default reruns use `evidence/regression/current/`,
+Historical Phase8 output is `evidence/phase8/`; default reruns use `evidence/regression/current/`,
 never the accepted historical paths below.
 
 Decoded PNGs prove all four preset/custom identities, distinct time, full

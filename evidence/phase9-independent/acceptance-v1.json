@@ -1,0 +1,122 @@
+{
+  "verdict": "accepted-with-limits",
+  "scope": "Independent technical acceptance of CanvasSPA Phase9 milestones9.1-9.4 on the actual installed Chrome155 and the bounded declared React18/19 applications, contracts and automation specimens. Not Chrome154 certification, manual-gate completion, release readiness, arbitrary application compatibility or authority to commit/push.",
+  "verifier": {
+    "model": "GPT-6.1 Sol",
+    "projectSessionId": "9cbad47b-b735-4a49-a714-0b4d247ff9a7",
+    "nestedAgents": 0,
+    "productHarnessDocsEdits": 0,
+    "commitsPushesInstallsBrowserSwitchesJournalStages": 0
+  },
+  "source": {
+    "acceptedPhase8HEAD": "84ac72ca6a5f86d34104f899d1662914aae7903e",
+    "finalSourceSha256": "457d105465977bf62861992405eb781af6804a83144dee4f811382642cb8e92e",
+    "primaryLockSha256": "10959d287e50785914f00c853afeb132fab4043ba40c4dedc4eef1aebb15bb10",
+    "rendererSha256": "4af5354afd15ecf819b323448ac8e8ec0696b4cbd43986c8e5a731da6312b68d",
+    "runtimeSha256": "3a3e3becb7bbfa60b2100899e869e0554dc0502e8bb173b8ae3e698acdd09b96",
+    "hardeningTestSha256": "70938c97f65a6852e5a443fe947bcec0e565cc239d67eef625d7f7bd6ef4211d"
+  },
+  "browser": {
+    "required": "Chrome/154.0.8037.98",
+    "actual": "Chrome/155.0.8059.40",
+    "revision": "@cfaadc5a132d78e1828635aa8405a499f3e14864",
+    "executable": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "required154Gate": "UNVERIFIED",
+    "authorization": "Coordinator autonomously permits bounded checks on the CURRENT installed155 at the unchanged executable after the user was unavailable. NOT explicit user155 approval,154 certification or a154 waiver.",
+    "transitionCauseDate": "Unknown",
+    "profiles": "Bounded clean automation profiles; no everyday profile.",
+    "flags": [
+      "--enable-blink-features=CanvasDrawElement,ElementCanvasTransform",
+      "--enable-experimental-web-platform-features"
+    ],
+    "confirmation": "CDP checked first, in both matching-major raw runtime reports, in each baseline/final native proof launch and in the final smoke. Same155 revision throughout."
+  },
+  "preservation": {
+    "genuineBackedUpFiles": 3765,
+    "allCurrentEvidenceFiles": 3662,
+    "acceptedCommittedEvidenceFiles": 2469,
+    "backupManifestSha256": "4827e42681fe72a7546da599b6d72c2d38ccf17d16e4853d82f0c59c3439f5f6",
+    "verification": "Every backup byte hash verified; every accepted committed evidence byte checked against Git. Repeated audits after focused, React18, raster, React19 and smoke gates remain unchanged. No restoration or reconstruction performed.",
+    "finalAudit": "run-v1/protected-final.json",
+    "historicalProvenance": "Five Phase6 originals were lost during Phase7:248/253 genuine originals survive. Current five files are disclosed regenerated samples with original/current hashes. Preserving all2469 accepted Git bytes does NOT restore provenance. Autonomous continuation after user unavailability is NOT explicit supersession approval.",
+    "immutableImplementationHistory": "All first/corrected handoff reports, earlier failed runs and P7/P8 original/corrected findings retained. First implementation completion label predates browser discrepancy and is not this verdict."
+  },
+  "milestones": [
+    {
+      "id": "9.1",
+      "result": "accepted-with-limits",
+      "evidence": "run-v1/raw-audit.json; run-v1/final-native-v2/report.json; run-v1/smoke/performance/performance-smoke.json; both major hardening/native-paint reports",
+      "finding": "Native root paint broadly attributes real edits to the persistent root. No safe selective suppression or speedup demonstrated. Independent native hover/focus/selection/font/style/rapid-edit tests passed; null/non-array/malformed member fault inputs recaptured all eight layers at DPR1/2.",
+      "measurements": "Independently recomputed90-run/40-latency-trial baseline and90/40 final report coverage, all raw distributions/counts/per-layer sums/native changed output and94 retired lifetimes each.18292 baseline and18328 final raw samples audited. Identical declared timing method/browser/hardware/content dimensions; untimed added screenshots/blur/settle affect inter-window conditions, so no statistical causal speedup inferred.",
+      "smoke": "Five variants, DPR1/two layers,500ms warmup/settled windows plus1000ms five-native-edit windows;5 commits each, actual changed decoded output;4 native-checkbox screenshot-poll trials,7 zero-ledger retirements. GPU input work17/18/17 captures/copies/readbacks and6 uploads for static/affine/ripple."
+    },
+    {
+      "id": "9.2",
+      "result": "accepted-with-limits",
+      "evidence": "run-v1/focused; matching-major hardening, runtime, integration, effects and animation reports; run-v1/gate-audit.json",
+      "finding": "Synchronous hidden-output/cleared-geometry/adapter-container DOM barrier, revision/order/origin/size/DPR signatures and post-await generation checks pass bounded membership/order/position/size/DPR and pending capture/admission races. Genuine queued public screenshots drain through bounded hidden public rendered frames, without unsafe recapture/reveal or healthy-device destruction. Explicit reentry and concrete refusal reasons remain.",
+      "resources": "Independent raw audit verifies40 retired StrictMode effects/runtime lifetimes per major, actual HMR/configured public-device loss, healthy pending fence released by actual queue completion with loss count0, held admission readback retained until delivery, and queued-cancel public screenshot retired with normal GPU-frame count0. Existing rejected-fence/readback, stale-loss, unmount and prior ownership regressions remain passing."
+    },
+    {
+      "id": "9.3",
+      "result": "accepted-with-limits",
+      "evidence": "Matching-major native integration/TODO/effects/no-flags reports; maintained adoption/API/architecture/integration/effects/verification/measurement/roadmap docs",
+      "finding": "Original native root/controls/state/reconciliation, pointer/keyboard/form/focus/selection, public Radix Dialog Portal.container, media policies and no-flags usable DOM passed declared specimens. Docs accurately retain explicit admission/fallback/copy costs and unperformed human checklist;169 relative documentation links resolved."
+    },
+    {
+      "id": "9.4",
+      "result": "accepted-with-limits",
+      "evidence": "run-v1/react18-gate/react18/matrix.json; run-v1/react19-gate/react19/matrix.json; run-v1/gate-audit.json",
+      "react18": {"mountedProductionDevelopment": "18.3.1", "units": 21, "typesBuild": "passed", "browsers": 94, "failed": 0, "skipped": 0, "flaky": 0},
+      "react19": {"mountedProductionDevelopment": "19.3.0", "units": 21, "typesBuild": "passed", "browsers": 140, "failed": 0, "skipped": 0, "flaky": 0},
+      "integrationDependency": "Radix Dialog1.2.0/MIT with matching declared React major/type resolution, identical final shared-source hash.",
+      "scheduling": "Independently audited20 exact300-real-GPU-frame neutral/effect windows and4 natural-clock motion-plus-effects300-RAF windows across both majors/production/StrictMode. Zero additional React commits/captures/copies/readbacks/uploads/admission changes; actual later content edits changed decoded output. Full unchanged native/ref/Presence/group/effect/routing/hit regressions pass."
+    }
+  ],
+  "raster": {
+    "historicalIntermediateProof": "Eight PNGs independently decoded; baseline and intermediate corresponding PNGs byte-identical. Intermediate sourcefb3adfb is NOT final-source certification.",
+    "finalIndependentProof": "All isolated baseline src bytes checked against accepted Git; genuine baseline sourceea9657d630cfca9690e068406a0becbd1922795ff437e012c82a0581d67a82cf compared against final457d source at900x750/eight layers/same native edits/font/style/blur/DPR1/2. Eight new PNGs decoded; corresponding baseline/final PNGs byte-identical.",
+    "dpr1": {"differingPixelsDOMvsGPU": 0, "differingBytesDOMvsGPU": 0},
+    "dpr2": {"differingPixelsDOMvsGPU": 23249, "differingBytesDOMvsGPU": 68851},
+    "limit": "CSS-resolution native-capture text rasterization differs at DPR2, baseline-identically. Not pixel-equivalent text. Native state/content/layout/essential pixels/hits separately pass; no weakening of original correctness gates."
+  },
+  "commands": [
+    {"command": "python3 <verifier-session>/files/preserve.py freeze; repeated audit", "result": "passed"},
+    {"command": "CANVAS_EVIDENCE_ROOT=evidence/phase9-independent/run-v1/routing node --test tests/evidence.unit.test.mjs tests/effects.unit.test.mjs", "result": "6 passed"},
+    {"command": "CANVAS_EVIDENCE_ROOT=evidence/phase9-independent/run-v1/focused npm run build; npm run test:browser -- hardening.test.mjs --max-failures=1 with same root", "result": "build/types passed;16 browsers passed"},
+    {"command": "CANVAS_EVIDENCE_ROOT=evidence/phase9-independent/run-v1/react18-gate npm run test:react18", "result": "21 units/types/build/94 browsers passed"},
+    {"command": "node <verifier-session>/files/audit.mjs", "result": "raw measurements, eight historical PNGs and docs/privacy checks passed"},
+    {"command": "node <verifier-session>/files/final-native-proof.mjs (v2 fresh root)", "result": "paired baseline/final eight PNGs and eight malformed/unknown fault cases passed"},
+    {"command": "CANVAS_EVIDENCE_ROOT=evidence/phase9-independent/run-v1/react19-gate npm run test:react19", "result": "21 units/types/build/140 browsers passed"},
+    {"command": "CANVAS_EVIDENCE_ROOT=evidence/phase9-independent/run-v1/smoke npm run measure -- --smoke", "result": "5 variant windows/4 latency trials/7 retirements passed"},
+    {"command": "node <verifier-session>/files/gate-audit.mjs", "result": "raw scheduling/native versions/resources/privacy passed"}
+  ],
+  "verifierCorrections": "run-v1/verifier-corrections.json records missing npm script (no runner started), initial valid-empty-attribution expectation error (partial PNGs retained) and explicit temporary-profile redaction after byte-identical private preservation. No product/harness/doc edits or hidden test skips.",
+  "privacy": {
+    "implementationScan": {"decodedPNGs": 820, "parsedJSON": 366, "textFiles": 373, "resolvedDocsLinks": 169},
+    "independentScanBeforeFinalReports": {"decodedPNGs": 612, "parsedJSON": 250, "textFiles": 254},
+    "result": "Shareable evidence scanned for private home/temp/profile/feed paths and common credential tokens; synthetic fixture PNGs decoded. Private raw logs/backups are not copied into shareable outputs."
+  },
+  "limits": [
+    "Exact Chrome154.0.8037.98 gate remains UNVERIFIED; actual155 acceptance is bounded and not explicit user approval or waiver.",
+    "Five permanently lost Phase6 originals remain a provenance exception; genuine byte backup is not provenance repair.",
+    "OS IME, actual screen reader, everyday profile, true background-tab throttling, physical display movement, physical-device/driver reset remain UNVERIFIED.",
+    "Public configured-device destroy/lost is genuine API loss delivery, not physical reset. Synthetic visibility and emulated DPR do not certify native OS events.",
+    "Native root-wide captures/readbacks remain a cost. No selective suppression, speedup or general capture-quality claim.",
+    "CPU-submit timings are not GPU execution; GPU timestamps null. Owned byte estimates are not browser/driver heap. Screenshot polling is not physical input-to-display latency.",
+    "No arbitrary app/library/SSR/hydration compatibility, release-ready claim, new API or new phase."
+  ],
+  "blockingProductFindings": [],
+  "serviceOwnership": {
+    "retained": "Implementation-owned phase7-dev5173/listenerPID30064 remains HTTP200, never stopped/restarted/duplicated.",
+    "boundedHelpers": "All verifier browsers/preview/matrix helpers closed. No listeners at5185/5186/5174/5287/5291 after final gate. No concurrent browser suite/benchmark.",
+    "handoff": "Verifier writes/tests stopped after final verification. Parent owns acceptance-state/private-history decisions; no commit/push or journal staged here."
+  },
+  "evidenceHashes": {
+    "run-v1/gate-audit.json": "ed2f0345b2473d3ec34ba6d159954276102ee0bac00692992e50b8b8b3c94f93",
+    "run-v1/raw-audit.json": "794a1ee7051b5673686c7a0301a3360e6cebda7b463a511559bbcf4906a108ed",
+    "run-v1/final-native-v2/report.json": "c2d874437c9bb63e1007e993b1ba8169de2c44f69d4f2e0da192f3459855730a",
+    "run-v1/smoke/performance/performance-smoke.json": "09a0f65575582bacc6cadda5c782c362134467fd43f471a7a19b49d990ff65ec",
+    "run-v1/environment-first.json": "6701ebacdfd4905a63816d7be96c447fb491d566a8d81128d5b033c67ff18443"
+  }
+}

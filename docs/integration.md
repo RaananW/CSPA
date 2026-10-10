@@ -26,7 +26,10 @@ Chosen contracts before implementation:
 Existing CSS transforms, clipping/scrolling, nested enrollment and competing
 animations remain diagnosed restrictions. React-owned descendants never move.
 Structural child removal can dirty capture; enrollment changes still recover
-to DOM and require fresh admission. Phases 8/9 are not implemented by this gate.
+to DOM and require fresh admission. This section records the historical Phase7
+gate; Phase8 is accepted separately and Phase9 hardening is
+[accepted-with-limits on actual155](../evidence/phase9-independent/acceptance-v1.json),
+not exact154 certification.
 
 ## Runnable integration and contracts
 
@@ -37,6 +40,12 @@ root children are enrolled, with one engine and three textures; Radix's modal
 portal stays external to capture/root. The original native form, uncontrolled
 card input, Dialog activation/focus trap/Escape/Close and ref replacement
 work without cloned controls or descendant relocation.
+
+The Phase9 specimen adds outside-root reorder/move/resize controls and a bounded
+React-managed extra-layer fixture. These intentionally trigger DOM recovery;
+request GPU again for fresh admission. The original keyed nodes, native input
+value/focus/selection and Dialog state are retained. No React descendants move
+outside their original subtree. [Adoption](adoption.md) describes migration.
 
 Application integration imports only `src/canvas-spa/index.ts`. See the
 [API examples](api.md#original-element-refs-and-library-overlays) for
@@ -91,8 +100,10 @@ suite is included in both matrices. Focused transactional checks and the
 original P7-1 reproduction also pass; the independent changes-required report
 is preserved as historical evidence, not replaced by implementer results.
 
-Only installed Chrome154.0.8037.98 and established experimental native flags
-are used; the separate no-flags installed-browser launch confirms useful DOM.
+These accepted Phase7 reports used installed Chrome154.0.8037.98 and established
+experimental native flags; the separate no-flags launch confirms useful DOM.
+Current Phase9 runs record installed155.0.8059.40; their passes do not satisfy
+the remaining exact154 gate. See [current verification](verification.md).
 No browser download, everyday-profile change or upstream-engine patch.
 Radix emits client-directive bundler warnings in this client-only Vite build;
 they are not hidden and do not establish SSR/hydration support.

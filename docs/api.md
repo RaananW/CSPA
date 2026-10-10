@@ -60,6 +60,16 @@ outside-root setup, not JSX refs whose descendants the runtime may move.
 Admission failure resolves to a state with `mode: "dom"` and an explicit reason;
 invalid topology/API/lifecycle calls throw before unsafe mutation.
 
+Phase9 hardening ([accepted-with-limits on actual155](../evidence/phase9-independent/acceptance-v1.json);
+exact154 remains unverified) hides unsafe output and clears
+native presentation geometry synchronously when a supported structural policy
+changes. Membership revision/order, layer origin/size and frame size/DPR are
+revalidated across asynchronous admission. Old captures cannot upload into a
+new generation. Resource retirement still waits for pending native work and
+healthy public GPU fences/readbacks. `enable()` remains explicit fresh admission;
+there is no automatic refresh option or hot shader rebinding. See
+[adoption/migration](adoption.md) for original-control continuity and limits.
+
 `GPUHost` is the context boundary, **not** a JSX-only canvas/reparenting
 component. Its runtime is established by the explicit adapter. Do not wrap a
 framework-owned existing root and assume unchanged-app compatibility.

@@ -65,9 +65,17 @@ new scheduler. Replacement resolves the old handle separately and samples its
 current state. `Presence` lets React retain one original exiting subtree inside
 a stable boundary, removing it after completion/cancellation; parent unmount
 suppresses stale callbacks. Ref-authored CSS remains the settled DOM state.
-Membership, capture bounds and relevant resize/DPR still recover conservatively;
-Phase9 hot membership is not implemented. Healthy queue/readback retention
-remains unchanged. See [API](api.md) and [roadmap](roadmap.md).
+Membership, capture bounds and relevant resize/DPR still recover conservatively.
+Phase9 hardening, [accepted-with-limits on actual155](../evidence/phase9-independent/acceptance-v1.json)
+with exact154 still unverified, adds a synchronous hidden-output/DOM presentation barrier,
+registry revision/order/origin signature and post-await admission generation
+checks. Resource retirement is serialized after outstanding native work, then
+healthy public queue/readback completion; immediate fallback does not forcibly
+destroy those retained resources. No automatic hot membership or shader rebinding
+is introduced. Native `paint.changedElements` in this browser reports the root
+for native edits; malformed/absent attribution captures all enrolled layers.
+React/MutationObserver information is not used to suppress native paint.
+See [API](api.md), [adoption](adoption.md) and [roadmap](roadmap.md).
 
 [Phase8 effects](effects.md) reuse the same clock, compositor, native capture
 and owned-resource lifecycle. The one shared pass supports three unique

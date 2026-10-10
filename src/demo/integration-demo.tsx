@@ -1,7 +1,7 @@
-import { Profiler, version, useState, useEffect, type ProfilerOnRenderCallback } from "react";
+import { Profiler, version, useState, useEffect, type ProfilerOnRenderCallback, type CSSProperties } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { createRoot, flushSync } from "./react-root";
-import { mountCanvasApp, Presence, useSurfaceRef, useNativeOverlayHost, type CanvasController, type MotionDescriptor, type TransitionResult, type TransitionHandle } from "../canvas-spa";
+import { mountCanvasApp, Surface, Presence, useSurfaceRef, useNativeOverlayHost, type CanvasController, type MotionDescriptor, type TransitionResult, type TransitionHandle } from "../canvas-spa";
 import "./integration.css";
 
 const params = new URLSearchParams(location.search);
@@ -15,6 +15,9 @@ let show!: (present: boolean) => void;
 let replace!: () => void;
 let render!: () => void;
 let unmountPresence!: () => void;
+let reorder!: () => void;
+let layout!: (value: CSSProperties) => void;
+let extra!: (count: number) => void;
 let refs: unknown[] = [];
 const listeners: (() => void)[] = [];
 
@@ -29,15 +32,21 @@ function App() {
   const [generation, setGeneration] = useState(0);
   const [count, setCount] = useState(0);
   const [presenceMounted, setPresenceMounted] = useState(true);
+  const [reversed, setReversed] = useState(false);
+  const [panelLayout, setPanelLayout] = useState<CSSProperties>({});
+  const [extraCount, setExtraCount] = useState(0);
   show = setPresent;
   replace = () => setGeneration(value => value + 1);
   render = () => setCount(value => value + 1);
   unmountPresence = () => setPresenceMounted(false);
+  reorder = () => setReversed(value => !value);
+  layout = setPanelLayout;
+  extra = setExtraCount;
   refs = [panel, stage, replacement];
   useEffect(() => { commits.mounts++; return () => { commits.cleanups++; }; }, []);
   return <>
     <Dialog.Root>
-      <section ref={panel} id="library" className="library-panel">
+      <section ref={panel} id="library" className="library-panel" style={panelLayout}>
         <strong>Library and app-owned CSS</strong>
         <form onSubmit={event => { event.preventDefault(); setSaved(name); }}>
           <label id="name-label" htmlFor="name">Name</label>
@@ -61,12 +70,16 @@ function App() {
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
-    <section ref={stage} id="stage" className="presence-stage">
+    {[
+    <section key="stage" ref={stage} id="stage" className="presence-stage">
       {presenceMounted && <Presence id="stage" present={present} enter={enter} exit={exit} onComplete={result => { results.push(result); if (results.length > 32) results.shift(); }}>
         <div className="presence-card" id="card"><strong>One retained subtree</strong><input id="card-input" aria-label="Card value" defaultValue="retained" /></div>
       </Presence>}
-    </section>
-    <div key={generation} ref={replacement} id="replacement" className="replacement">Original ref {generation}</div>
+    </section>,
+    <div key={`replacement-${generation}`} ref={replacement} id="replacement" className="replacement">Original ref {generation}</div>,
+    ].map((_, index, nodes) => nodes[reversed ? nodes.length - index - 1 : index])}
+    {Array.from({ length: extraCount }, (_, index) => <Surface key={index} id={`extra-${index}`}
+      layout={{ x: 570, y: 10 + index * 30, width: 50, height: 25 }} appearance={{ background: "rgb(38,104,215)" }}>Extra</Surface>)}
   </>;
 }
 function mount() {
@@ -96,9 +109,11 @@ const prior: unknown = import.meta.hot?.data.disposal;
 if (prior instanceof Promise) { await prior; restoreCanvases(); }
 mount();
 function install() {
-  for (const [id, operation] of [["enable", () => controller.enable()], ["disable", () => controller.disable()], ["dispose", dispose]] as const) {
+  for (const [id, operation] of [["enable", () => controller.enable()], ["disable", () => controller.disable()], ["dispose", dispose],
+    ["reorder", () => { flushSync(reorder); }], ["layout-move", () => { flushSync(() => layout({ left: 50 })); }],
+    ["layout-resize", () => { flushSync(() => layout({ width: 310 })); }]] as const) {
     const element = document.getElementById(id)!;
-    const listener = () => { void operation().catch(error => { document.querySelector("#status")!.textContent = String(error); console.error(error); }); };
+    const listener = () => { void Promise.resolve().then(async () => { await operation(); }).catch(error => { document.querySelector("#status")!.textContent = String(error); console.error(error); }); };
     element.addEventListener("click", listener);
     listeners.push(() => element.removeEventListener("click", listener));
   }
@@ -108,6 +123,8 @@ window.integrationProbe = {
   state, dispose, show: value => flushSync(() => show(value)), replace: () => flushSync(replace), render: () => flushSync(render),
   refs: () => refs, enable: () => controller.enable(), disable: () => controller.disable(), settle: () => controller.settle(),
   unmountPresence: () => flushSync(unmountPresence),
+  reorder: () => flushSync(reorder), layout: value => flushSync(() => layout(value)),
+  extra: count => flushSync(() => extra(count)),
   transition: (descriptor: MotionDescriptor) => controller.transition("stage", descriptor),
   group: (items, stagger) => controller.transitionGroup(items, stagger),
   enroll: (element: HTMLElement, id: string) => controller.enroll(element, { id }),
@@ -125,6 +142,7 @@ if (import.meta.hot) {
 declare global {
   interface Window { integrationProbe: {
     state: typeof state; dispose: typeof dispose; refs(): unknown[]; show(value: boolean): void; replace(): void; render(): void; unmountPresence(): void;
+    reorder(): void; layout(value: CSSProperties): void; extra(count: number): void;
     enable(): ReturnType<CanvasController["enable"]>; disable(): ReturnType<CanvasController["disable"]>; settle(): Promise<void>;
     transition(descriptor: MotionDescriptor): TransitionHandle; group: CanvasController["transitionGroup"];
     enroll(element: HTMLElement, id: string): () => void; cycle(): Promise<{ retired: ReturnType<typeof state>; active: ReturnType<typeof state> }>;

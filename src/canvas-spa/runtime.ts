@@ -173,7 +173,8 @@ export class CanvasRuntime {
     return { width: frame.clientWidth, height: frame.clientHeight, dpr: window.devicePixelRatio };
   }
   private sizeSignature() {
-    return JSON.stringify({ ...this.size(), layers: this.ordered().map(layer => [layer.id, layer.element.offsetWidth, layer.element.offsetHeight]) });
+    return JSON.stringify({ ...this.size(), revision: this.revision,
+      layers: this.ordered().map(layer => [layer.id, layer.element.offsetWidth, layer.element.offsetHeight, this.origin(layer)]) });
   }
   private ordered() {
     return [...this.registry.values()].sort((a, b) =>
@@ -227,7 +228,7 @@ export class CanvasRuntime {
   }
   private policy(): string | undefined {
     if (this.forced.matches) return "Forced colors requires native ordinary DOM";
-    if (this.core?.phase() === "gpu" && this.admittedSize !== this.sizeSignature()) {
+    if ((this.core?.phase() === "gpu" || this.core?.phase() === "admitting") && this.admittedSize !== this.sizeSignature()) {
       return "Layout/viewport/DPR changed: ordinary DOM until explicit fresh admission";
     }
     const { width, height } = this.size();
@@ -310,11 +311,11 @@ export class CanvasRuntime {
     if (!definition.id || this.registry.has(definition.id)) throw new Error(`Duplicate/empty Surface id: ${definition.id}`);
     if (definition.preserveStyles && definition.element.parentElement !== this.rootContainer) throw new Error("Trusted existing-CSS enrollment must be a direct persistent-root child");
     this.registry.set(definition.id, definition);
-    this.presentation(this.core?.phase() === "gpu" ? "gpu" : "dom");
     this.resources.enrolledLayers++;
     this.revision++;
     this.resize.observe(definition.element);
-    if (this.core?.phase() === "gpu") this.recover("Enrollment changed: ordinary DOM until explicit fresh admission");
+    if (this.core?.phase() === "gpu" || this.core?.phase() === "admitting") this.recover("Enrollment changed: ordinary DOM until explicit fresh admission");
+    this.presentation(this.core?.phase() === "gpu" ? "gpu" : "dom");
     let active = true;
     return () => {
       if (!active) return;
@@ -336,7 +337,7 @@ export class CanvasRuntime {
       if (this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") this.cancelNativeMotion(definition.id);
       this.resources.enrolledLayers--;
       this.revision++;
-      if (this.core?.phase() === "gpu") this.recover("Enrollment removed: ordinary DOM until explicit fresh admission");
+      if (this.core?.phase() === "gpu" || this.core?.phase() === "admitting") this.recover("Enrollment removed: ordinary DOM until explicit fresh admission");
     };
   }
   enroll(element: HTMLElement, options: EnrollmentOptions): () => void {

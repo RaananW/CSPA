@@ -54,8 +54,9 @@ async function run(command, args, name) {
 try {
   if (isPrimary) await run("npm", ["test"], "full");
   else {
+    await run("npm", ["run", "test:unit"], "units");
     await run("npm", ["run", "build"], "build");
-    await run("npm", ["run", "test:browser", "--", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs", "effects.test.mjs", "--max-failures=1"], "behavior");
+    await run("npm", ["run", "test:browser", "--", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs", "effects.test.mjs", "hardening.test.mjs", "--max-failures=1"], "behavior");
     await cp(resolve(destination, evidenceRoot), resolve(evidence, "reports"), { recursive: true });
   }
   const lockAfter = createHash("sha256").update(await readFile(resolve(root, "package-lock.json"))).digest("hex");
@@ -65,7 +66,7 @@ try {
       "source copy, no implementation substitutions; independent resolution from declared fixture node_modules",
     versions: isPrimary ? primary : fixture,
     toolVersions: { ...primary.devDependencies, ...(!isPrimary ? fixture.devDependencies : {}) },
-    behavior: ["runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs", "effects.test.mjs"],
+    behavior: ["runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs", "effects.test.mjs", "hardening.test.mjs"],
     production: "Vite production + react-dom/profiling",
     development: `Actual Vite development React + StrictMode; ports ${isPrimary ? "5173/5174" : "5185/5186"}`,
     executedReact: {

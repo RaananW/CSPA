@@ -2,8 +2,10 @@ import { readFile, readdir, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
+import { validateEvidenceRoot } from "../tests/evidence.mjs";
 
 const root = "evidence/phase8";
+validateEvidenceRoot(root);
 const baseline = "7415d5cbf8550dc374ab2c15d8a454457832012d";
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
 const json = async path => JSON.parse(await readFile(path, "utf8"));

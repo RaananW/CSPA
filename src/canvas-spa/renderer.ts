@@ -57,7 +57,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   }
   const resources = { roots: 1, captureCanvases: 1, outputCanvases: 1, engines: 0, pendingEngines: 0, textures: 0, effects: 0, renderers: 0, stagingCanvases: 0, snapshots: 0, comparisonBuffers: 0, listeners: 0, scheduledFrames: 0, paintWaits: 0, lossObservers: 0, pendingCleanups: 0, probeElements: 0, probeReadbacks: 0 };
   const timing = () => ({ count: 0, totalMs: 0, minMs: null as number | null, maxMs: null as number | null });
-  const layerMetrics: Record<string, { captures: number; uploads: number }> = Object.create(null);
+  const layerMetrics: Record<string, { captures: number; pixelCopies: number; pixelReadbacks: number; uploads: number }> = Object.create(null);
   const metrics = { captures: 0, pixelCopies: 0, pixelReadbacks: 0, reusedUploads: 0, uploads: 0, paintNotifications: 0, deviceLossCount: 0, fenceCount: 0, effectShaderCompilations: 0,
     admission: { attempts: 0, passes: 0, captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0, gpuFrames: 0, gpuReadbacks: 0, geometryChecks: 0,
       last: undefined as { nativePixels: number[][]; gpuPixels: number[][]; geometry: ReturnType<typeof verifyProbeGeometry> } | undefined },
@@ -170,14 +170,26 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     releaseComposition();
     if (engine) { disposeEngine(engine); engine = undefined; resources.engines--; }
   }
-  function clearGeometry() {
+  function clearGeometry(removeProbe = true) {
     clearedGeometry = layers.map(layer => {
       if (!host.contains(layer.element)) return { id: layer.element.id, identity: false };
       nativeHost().clearElementGeometry(layer.element);
       return { id: layer.element.id, identity: nativeHost().getElementTransform(layer.element).isIdentity };
     });
     host.getContext("2d")?.clearRect(0, 0, host.width, host.height);
-    releaseProbe();
+    if (removeProbe) releaseProbe();
+  }
+  function presentDOM(message: string) {
+    mode = "dom";
+    reason = message;
+    generation++;
+    cancelScheduled();
+    output.hidden = true;
+    clearGeometry(false);
+    ordinary.hidden = false;
+    if (boundary.moveToDOM()) metrics.moves++;
+    options.presentation?.("dom");
+    host.hidden = true;
   }
   function retainGPUUntil(completion: Promise<IdleOutcome>) {
     resources.pendingCleanups++;
@@ -196,18 +208,11 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   async function recoverToDOM(message: string) {
     if (transitioning) throw new Error("A renderer recovery is already in progress");
     transitioning = true;
-    mode = "dom";
-    reason = message;
-    generation++;
-    cancelScheduled();
-    clearGeometry();
-    ordinary.hidden = false;
-    if (boundary.moveToDOM()) metrics.moves++;
-    options.presentation?.("dom");
-    output.hidden = true;
-    host.hidden = true;
+    presentDOM(message);
+    releaseProbe();
     let retained = false;
     try {
+      if (work) await work;
       if (engine) {
         const { outcome, completion } = await waitForTeardown(engine, observer?.lost, 1500, probeReadback?.completion);
         sample(metrics.fenceOutcomes, outcome);
@@ -252,9 +257,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     if (!engine || !effect || mode !== "gpu" && mode !== "admitting" || lostInfo || options.isPaused?.()) return;
     const policy = options.policy?.();
     if (policy) {
-      void serialize(async () => {
-        if (mode === "gpu") await recoverToDOM(policy);
-      }).catch(reportFailure);
+      void recover(policy).catch(reportFailure);
       return;
     }
     const now = performance.now();
@@ -321,11 +324,13 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         layer.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
         layer.context.drawImage(host, 0, 0, layer.canvas.width, layer.canvas.height, 0, 0, layer.canvas.width, layer.canvas.height);
         metrics.pixelCopies++;
+        metrics.perLayer[layer.id]!.pixelCopies++;
         recordTiming("captureMs", performance.now() - started, layer.id, layer.canvas.width * layer.canvas.height * 4);
         if (options.comparePixels) {
           const readbackStarted = performance.now();
           const pixels = layer.context.getImageData(0, 0, layer.canvas.width, layer.canvas.height).data;
           metrics.pixelReadbacks++;
+          metrics.perLayer[layer.id]!.pixelReadbacks++;
           const identical = !!layer.pixels && pixels.every((value, index) => value === layer.pixels![index]);
           options.onMeasure?.({ kind: "readbackCompareMs", at: performance.now(), durationMs: performance.now() - readbackStarted,
             phase: mode === "admitting" ? "admission" : "content", layerId: layer.id, bytes: pixels.byteLength });
@@ -465,6 +470,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
           context.drawImage(host, 0, 0, probe.extent, probe.extent, 0, 0, probe.extent, probe.extent);
           metrics.admission.pixelCopies++;
         } finally { snapshot.close(); resources.snapshots--; owner.clearRect(0, 0, host.width, host.height); }
+        await Promise.resolve();
+        abort.signal.throwIfAborted();
         const nativePixels = probe.points.map(point => Array.from(context.getImageData(point.x, point.y, 1, 1).data));
         metrics.admission.pixelReadbacks++;
         verifyProbePixels(nativePixels, "native");
@@ -487,10 +494,20 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
             status();
           });
         probeReadback = pending;
-        while (!result && !failed) {
-          await admissionFrame(abort.signal);
-          if (!result && !failed) { renderFrame(engine, 16.67); metrics.admission.gpuFrames++; }
-        }
+        // A public screenshot request needs rendered frames even after presentation
+        // cancellation. Drain it while hidden; never orphan a healthy queued copy.
+        const readbackFrames = new AbortController();
+        const readbackDeadline = setTimeout(() => readbackFrames.abort(new Error("Functional GPU readback timed out after 1500 ms")), 1500);
+        try {
+          while (!result && !failed) {
+            await admissionFrame(readbackFrames.signal);
+            if (!result && !failed) {
+              if (lostInfo) throw new Error("GPU device lost during functional readback");
+              renderFrame(engine, 16.67); metrics.admission.gpuFrames++;
+            }
+          }
+        } finally { clearTimeout(readbackDeadline); }
+        abort.signal.throwIfAborted();
         if (failed) throw new Error(`Functional GPU readback failed: ${String(failure)}`);
         if (!result || result.width !== output.width || result.height !== output.height) throw new Error("Functional GPU readback dimensions disagree with output");
         const screenshot = result;
@@ -587,6 +604,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       mode = "admitting";
       dx = tint = 0;
       generation++;
+      const admissionGeneration = generation;
       await functionalAdmission();
       const assertCurrentAdmission = () => {
         const current = options.layers();
@@ -597,6 +615,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         if (layers.some(layer => layer.canvas.width !== layer.element.offsetWidth || layer.canvas.height !== layer.element.offsetHeight)) {
           throw new Error("Enrolled capture dimensions changed during admission");
         }
+        if (generation !== admissionGeneration || mode !== "admitting") throw new Error(`Admission generation retired; fresh admission required: ${reason}`);
         const currentPolicy = options.policy?.();
         if (currentPolicy) throw new Error(currentPolicy);
       };
@@ -615,7 +634,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         if (!context) throw new Error("Pixel staging context unavailable");
         const texture = createDynamicTexture(engine, canvas.width, canvas.height, { minFilter: "nearest", magFilter: "nearest" });
         layers.push({ ...spec, canvas, context, texture });
-        metrics.perLayer[id] ??= { captures: 0, uploads: 0 };
+        metrics.perLayer[id] ??= { captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0 };
         dirty.add(id);
         resources.stagingCanvases++;
         resources.textures++;
@@ -697,13 +716,21 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     status();
     return state();
   }
+  function recover(message: string) {
+    if (mode !== "gpu" && mode !== "admitting") return Promise.resolve();
+    presentDOM(message);
+    return serialize(async () => {
+      if (mode !== "disposed" && engine && !resources.pendingCleanups) await recoverToDOM(message);
+    });
+  }
   listen(host, "paint", event => {
+    const policy = options.policy?.();
+    if (policy) { void recover(policy).catch(reportFailure); return; }
     const changed: unknown = Reflect.get(event, "changedElements");
     metrics.paintNotifications++;
     if (Array.isArray(changed)) sample(metrics.paintElements, changed.map(element => element instanceof Element ? element.id || element.tagName : String(element)));
-    if (Array.isArray(changed)) for (const element of changed) {
-      if (element instanceof Element && container.contains(element)) queueCapture(element);
-    }
+    if (!Array.isArray(changed) || changed.some(element => !(element instanceof Element))) queueCapture();
+    else for (const element of changed) if (container.contains(element)) queueCapture(element);
   });
   listen(container, "input", queueCapture);
   listen(container, "focusin", queueCapture);
@@ -716,12 +743,6 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (scheduled) { cancelAnimationFrame(scheduled); scheduled = 0; resources.scheduledFrames--; }
       captureAbort?.abort(new DOMException("Native paint paused while hidden", "AbortError"));
     },
-    recover: (message: string) => {
-      const requestedVersion = generation;
-      const requestedGPU = mode === "gpu";
-      return serialize(async () => {
-        if (requestedGPU && requestedVersion === generation && mode === "gpu" && !resources.pendingCleanups) await recoverToDOM(message);
-      });
-    },
+    recover,
   };
 }

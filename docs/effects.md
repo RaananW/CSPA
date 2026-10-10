@@ -6,6 +6,13 @@ one uniform buffer and one shared composition pass; there are no additional
 textures or intermediate render targets. The limit is three unique operations
 per enrolled layer, within the existing eight-layer budget.
 
+Phase9 [actual155 accepted-with-limits hardening](../evidence/phase9-independent/acceptance-v1.json)
+preserves this API and budget; exact154 remains unverified. Active
+effects do not authorize unsafe structural output: changes to membership,
+order/origin/size/DPR hide GPU presentation and require fresh admission.
+Native capture stays neutral and root-attributed paint remains conservative.
+See [adoption](adoption.md) for lifecycle/manual constraints.
+
 The chosen extension is deliberately a **trusted application color function**,
 not a shader graph, sandbox, remote loader, geometry/sampling extension or
 resource allocator. An application supplies up to four bounded numeric
@@ -115,10 +122,9 @@ Build before focused production tests and keep all browser writers serial:
 ```sh
 npm run test:unit
 npm run build
-CANVAS_EVIDENCE_ROOT=evidence/phase8 npm run test:browser -- effects.test.mjs
-CANVAS_EVIDENCE_ROOT=evidence/phase8 npm run test:react18
-CANVAS_EVIDENCE_ROOT=evidence/phase8 npm run test:react19
-node scripts/phase8-report.mjs
+CANVAS_EVIDENCE_ROOT=evidence/phase9/effects-rerun npm run test:browser -- effects.test.mjs
+CANVAS_EVIDENCE_ROOT=evidence/phase9/react18-rerun npm run test:react18
+CANVAS_EVIDENCE_ROOT=evidence/phase9/react19-rerun npm run test:react19
 ```
 
 Install only the already-pinned matching fixture dependencies if absent, using
@@ -164,8 +170,8 @@ count does not increase. Driver memory and GPU timestamps remain unmeasured.
 ## Evidence routing
 
 All browser/matrix writers default to regenerable `evidence/regression/current`.
-`CANVAS_EVIDENCE_ROOT=evidence/phase8` selects this phase's new output.
-Independent acceptance uses `CANVAS_EVIDENCE_ROOT=evidence/phase8-independent`;
+`CANVAS_EVIDENCE_ROOT=evidence/phase9/<distinct-run>` selects current output.
+Independent acceptance uses `CANVAS_EVIDENCE_ROOT=evidence/phase9-independent/<distinct-run>`;
 the shared test/matrix/reporter/sanitizer routing and probe support that exact
 root and its descendants. The probe defaults to the selected root's `chrome/`
 directory; `EVIDENCE_DIR` overrides must use one of the same named roots.
@@ -173,8 +179,9 @@ Accepted evidence is read-only; other evidence roots are refused. Without a
 selected root, the probe defaults to `evidence/regression/current/chrome`.
 Performance comparison/smoke fixtures follow the same root's `performance/`
 directory, regenerable `evidence/regression/current/performance` by default.
-Phase8 runs use `evidence/phase8/performance`, preserving even versioned
-baseline regression samples. Source-copy React18 reports read the same
+Historical Phase8 runs used `evidence/phase8/performance`; that root and its
+independent reports are now read-only. The Phase8 report generator refuses
+before writing. Source-copy React18 reports read the same
 selected root. Sanitization visits only the selected output root, never all
 archives. Back up/hash committed evidence before runs and audit afterward.
 

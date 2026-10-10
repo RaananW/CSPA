@@ -63,6 +63,8 @@ const startupMs = performance.now() - startup;
 window.measurement = {
   version, count, variant, startupMs,
   state: () => ({ ...controller.state(), commits }),
+  settle: () => controller.settle(),
+  disable: () => controller.disable(),
   async collect(milliseconds: number) {
     if (!Number.isFinite(milliseconds) || milliseconds < 500 || milliseconds > 5000 || collecting) throw new Error("Invalid finite measurement window");
     const before = this.state(), intervals: number[] = [];
@@ -89,6 +91,8 @@ window.measurement = {
 declare global { interface Window { measurement: {
   version: string; count: number; variant: string; startupMs: number;
   state(): ReturnType<typeof controller.state> & { commits: number };
+  settle(): Promise<void>;
+  disable(): ReturnType<typeof controller.disable>;
   collect(milliseconds: number): Promise<{ start: number; durationMs: number; before: ReturnType<Window["measurement"]["state"]>;
     after: ReturnType<Window["measurement"]["state"]>; samples: Sample[]; intervals: number[] }>;
   dispose(): Promise<ReturnType<Window["measurement"]["state"]>>;
