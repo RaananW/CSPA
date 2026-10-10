@@ -3,7 +3,9 @@
 **The bounded implementation includes typed motion, transactional CSS/WAAPI
 ownership, decorative ripple and a real TODO pilot, now exercised against
 React 18/19 with measured production costs. Phase7 adds original-element refs,
-Radix Dialog integration and bounded declarative motion/presence.**
+Radix Dialog integration and bounded declarative motion/presence. Phase8 adds
+validated decorative effect chains and trusted application color effects,
+independently accepted with explicit limits.**
 This is an experimental private package, not a released toolkit or an
 unchanged-app loader. Option 3 remains the recovery direction:
 one host-owned stable container, one persistent React root, and `moveBefore`.
@@ -45,8 +47,13 @@ use `useSurfaceRef`; Radix Dialog uses its public portal-container prop and
 the fixed external overlay host. `Presence` retains one exiting React subtree,
 while bounded numeric transitions update native affine geometry and GPU
 composition. This is one tested Dialog integration, not all-library support.
-The [roadmap](docs/roadmap.md) distinguishes implemented Phase7 from planned
-effects/hardening and documents private phase-history tracking.
+The [effects composer](docs/effects.md) runs at
+<http://127.0.0.1:5173/effects.html>: original poster form/Dialog controls stay
+undistorted while inert artwork combines motion, ripple, chromatic displacement,
+dissolve and an application-defined color function. These reuse one shared
+composition pass; they are added non-equivalent work, not a DOM speedup.
+The [roadmap](docs/roadmap.md) distinguishes implemented Phases7/8 from planned
+hardening and documents private phase-history tracking.
 
 Start with the [typed API and example](docs/api.md), the maintained
 [architecture](docs/architecture.md), and the honest
@@ -55,7 +62,7 @@ Start with the [typed API and example](docs/api.md), the maintained
 `NativeScroll`, `NativeOverlay`, `useGPUHost` and their authoring/controller types.
 It also exports `useSurfaceRef`, `useNativeOverlayHost`, `Presence`,
 `mountApplicationModule` and the narrow numeric motion,
-compatibility animation and ripple contracts.
+compatibility animation, ripple and `defineEffect`/`setEffects` contracts.
 An explicit outside-root mount adapter remains required; a JSX wrapper does
 not silently relocate React-created nodes.
 
@@ -91,7 +98,7 @@ Unsupported capabilities retain working original controls with explicit reasons.
 npm test
 ```
 
-This runs fifteen unit tests, a TypeScript/production build, and 114 serial
+This runs twenty-one unit tests, a TypeScript/production build, and 124 serial
 Playwright browser tests. The browser tests start/stop a production preview at
 port 5174 and a development server at 5173, or reuse existing servers there.
 The recovery cases use production React and real development StrictMode.
@@ -108,8 +115,8 @@ npm run test:react19 # Full primary regression plus actual React19 metadata
 npm run measure    # Builds, owns free preview5287, measures, then closes it
 ```
 
-React18 runs the same 68 runtime/animation/TODO/integration cases, types and build;
-React19's full 114-case suite includes those same cases. Both run production and
+React18 runs the same 78 runtime/animation/TODO/integration/effects cases, types and build;
+React19's full 124-case suite includes those same cases. Both run production and
 genuine development StrictMode. The [measurement report](docs/measurements.md)
 links all seven original milestone outcomes, raw full-window samples and the
 independent headful accessible-tree check. Real OS IME/screen-reader and
@@ -123,7 +130,7 @@ npm run build
 npm run preview -- --port 5174 --strictPort
 # In another terminal:
 npm run probe
-NO_NATIVE_FLAGS=1 EVIDENCE_DIR=evidence/chrome-no-flags npm run probe
+NO_NATIVE_FLAGS=1 EVIDENCE_DIR=evidence/regression/current/chrome-no-flags npm run probe
 ```
 
 Stop the preview with Ctrl+C when finished. `PROBE_URL` overrides its URL.
@@ -138,7 +145,15 @@ Automation uses fresh profiles and explicit
 `--enable-blink-features=CanvasDrawElement,ElementCanvasTransform` and
 `--enable-experimental-web-platform-features` flags. These are not a read of
 your everyday Chrome profile's settings. Playwright also supplies its own
-launch flags; `evidence/chrome/report.json` records the actual command line.
+launch flags; `evidence/regression/current/chrome/report.json` records the actual command line.
+
+New browser/matrix/probe reports default to regenerable `evidence/regression/current`,
+not the historical paths linked below. Use
+`CANVAS_EVIDENCE_ROOT=evidence/phase8` for Phase8 browser/matrix outputs.
+Other archive roots are refused, and sanitization touches only the selected
+root. Performance fixtures/comparison/smoke also follow the selected root
+(`evidence/regression/current/performance` by default). Back up/hash versioned evidence before
+runs and audit afterward; see [effects routing](docs/effects.md#evidence-routing).
 
 See [the feasibility decision](docs/feasibility.md) for the API correction,
 failed fallback transitions, native snapshot ownership restriction, backend
@@ -175,7 +190,7 @@ CSS provenance/module/effect subset and rejection rules. General animation
 libraries, arbitrary existing applications and broad browser/device certification remain
 out of scope. No performance-improvement claim is made.
 
-This writes `evidence/runtime/*.json` and PNGs. Twenty-three tests cover independent
+This writes `evidence/regression/current/runtime/*.json` and PNGs. Twenty-three tests cover independent
 transforms/opacity, native geometry and rendered edges at DPR 1/2, input/form/
 tab/selection, native dialog/popover portals, conservative scroll/clipping
 policies, capture-dirty races, real device loss, healthy pending cleanup,
@@ -255,6 +270,6 @@ npm run test:browser -- recovery.test.mjs
 ```
 
 This writes six per-case JSON reports and DOM/reentry PNGs under
-`evidence/recovery/`, plus an unsupported-`moveBefore` test. Each comparison
+`evidence/regression/current/recovery/`, plus an unsupported-`moveBefore` test. Each comparison
 case exercises eleven round trips. See the
 [comparison and upside recommendation](docs/feasibility.md#follow-up-options-2-and-3).

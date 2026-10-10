@@ -19,7 +19,11 @@ production comparisons, raw samples and still-unperformed manual gates.
 The [Phase7 integration](docs/integration.md), `/integration.html`, adds
 original-element refs, Radix Dialog and bounded motion/presence; the
 [public roadmap](docs/roadmap.md) separates implemented contracts from planned
-Phases8/9. Independent acceptance remains a separate gate.
+Phase9. The [Phase8 effects](docs/effects.md), `/effects.html`, use the same
+shared compositor and add a trusted application color-function extension.
+Phase8 is independently accepted with explicit limits; the
+[final verdict](evidence/phase8-independent/acceptance-v3.json) preserves earlier
+routing findings and does not close manual/device or release gates.
 
 ## Private phase history
 
@@ -27,7 +31,7 @@ The user-authorized history remote is private
 [`RaananW/CSPA`](https://github.com/RaananW/CSPA), `origin`
 `https://github.com/RaananW/CSPA.git`, on `main`. Commit and normally push each
 phase **after separate technical acceptance**, not during an unfinished phase.
-Because the repository starts with unborn main, its first accepted commit
+The first accepted commit
 includes the preexisting accepted Phases1-6 baseline plus Phase7; do not
 fabricate retrospective phase commits. Later accepted phases get individual
 commits. Inspect the exact staging set for secrets, private local paths and
@@ -80,6 +84,8 @@ npm run test:browser -- animation.test.mjs --reporter=list
 npm run test:browser -- todo.test.mjs --reporter=list
 # Original refs, Radix overlay, affine motion/presence and retired lifetimes:
 npm run test:browser -- integration.test.mjs --reporter=list
+# Bounded effects, trusted compilation, decoded pixels and healthy fencing:
+npm run test:browser -- effects.test.mjs --reporter=list
 # Matched production fixture pixels, public operation sink and cleanup:
 npm run test:browser -- performance.test.mjs
 # Deterministic synthetic cleanup cases only:
@@ -94,7 +100,7 @@ servers it started, not a user's existing development server. Do not run
 competing suites/server starts against these ports; evidence filenames are
 shared and runs are serial.
 
-The full suite currently has fifteen unit tests and 114 browser tests;
+The full suite currently has twenty-one unit tests and 124 browser tests;
 the current runtime suite has twenty-three and the historical surface suite
 twenty-five; twenty-three exercise the paired Phase 4/5 contract. Production-profiling and real
 development StrictMode both assert at least 300 GPU-only frames with zero
@@ -131,11 +137,18 @@ measurement deliberately holds a real action-triggered effect through a
 diagnostic facade; a separate subsequent action must finish naturally after
 900ms. Keep that distinction explicit. Application code belongs in
 `src/apps/todo/`; profiling, deterministic clocks and fault injection do not.
-Phase7 adds twelve browser cases, including actual nonidentity native input
+Phase7 adds fifteen browser cases, including actual nonidentity native input
 hits, enter/exit pixels, interrupted exits, shared epochs/stagger, later authored
 declarations, parent unmount, real HMR and diagnostic public device loss. Its
 60000ms transition is held for a measured 300-frame interval, not presented
 as a natural 800ms exit. Keep the independent completion/pixel cases separate.
+Phase8 adds ten browser cases. Effect identity, time, bounds, alpha and both
+sampling/color orders use decoded PNG pixels. Each production/development build
+measures five300-frame neutral/effect intervals plus one actual motion/effect
+interval, with normal invalidation and unchanged compilation/admission counters.
+Content updates must still change actual output. Label synthetic missing
+capability/error-scope/visibility/fence timing distinctly from genuine shader
+compile failure and diagnostic device loss.
 
 ### Compatibility and measurement writers
 
@@ -171,15 +184,28 @@ failure, to redact workspace/home/temporary profile paths in JSON and log
 evidence, plus unrelated private-registry URLs in local npm warnings.
 If sanitization fails, that is a runner failure, not a passing suite.
 After an outer redirected log writer exits, sanitize once more; it can append
-an error tail after the inner runner's cleanup. Historical Phase6 evidence and parent-owned `phase6-parent-*`
-reports are deliberately excluded from rewrites.
+an error tail after the inner runner's cleanup. New browser/matrix reports
+default to `evidence/regression/current`; use `CANVAS_EVIDENCE_ROOT=evidence/phase8`
+for implementation evidence or `CANVAS_EVIDENCE_ROOT=evidence/phase8-independent`
+for the isolated acceptance window. Both exact roots and their descendants are
+supported by test/matrix/reporter/sanitizer and probe routing. Use a fresh
+destination and never point a writer at evidence being protected.
+Only the named roots are writable. Probe output defaults to the selected root's
+`chrome/` directory; performance fixtures/full/smoke follow the selected
+root's `performance/` directory (`evidence/regression/current/performance` by default).
+The sanitizer visits only the selected root.
+All versioned historical evidence, including Phase6/7 and independent findings,
+is read-only: byte-backup/hash before runs and audit afterward. The permanent
+five-original-fixture gap disclosed in [measurements](docs/measurements.md)
+is not repaired or waived by this routing.
 Inspect generated artifacts before sharing: this path redactor is **not** a
 general secret detector. Do not publish raw user profiles, local absolute
 paths, credentials or unrelated machine configuration.
 
 ## Reproduction and evidence
 
-Current API evidence is under `evidence/runtime/`: independent production/
+Historical accepted API evidence is under `evidence/runtime/`; new reruns use
+`evidence/regression/current/runtime/` or the selected phase root: independent production/
 StrictMode intervals, geometry at DPR 1/2, opacity/emulated DPR changes,
 native semantics/overlays, conservative policy refusal, registry/dirty races,
 environment/loss/twenty-cycle accounting, typed pending cleanup, abandoned
@@ -212,7 +238,7 @@ probes, build/start preview5174, then run:
 
 ```sh
 npm run probe
-NO_NATIVE_FLAGS=1 EVIDENCE_DIR=evidence/chrome-no-flags npm run probe
+NO_NATIVE_FLAGS=1 EVIDENCE_DIR=evidence/regression/current/chrome-no-flags npm run probe
 node scripts/sanitize-evidence.mjs
 ```
 

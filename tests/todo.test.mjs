@@ -4,7 +4,8 @@ import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
 import { PNG } from "pngjs";
 
 test.use({ viewport: { width: 900, height: 950 } });
-const directory = "evidence/todo";
+import { evidenceDirectory } from "./evidence.mjs";
+const directory = evidenceDirectory("todo");
 async function save(name, data) {
   await mkdir(directory, { recursive: true });
   await writeFile(`${directory}/${name}.json`, JSON.stringify(data, null, 2));

@@ -3,7 +3,8 @@ import { developmentURL } from "./urls.mjs";
 import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
 import { PNG } from "pngjs";
 
-const evidence = "evidence/runtime";
+import { evidenceDirectory } from "./evidence.mjs";
+const evidence = evidenceDirectory("runtime");
 async function save(name, report) {
   await mkdir(evidence, { recursive: true });
   await writeFile(`${evidence}/${name}.json`, JSON.stringify(report, null, 2));

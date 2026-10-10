@@ -1,8 +1,9 @@
 import { test, expect } from "@playwright/test";
 import { PNG } from "pngjs";
 import { mkdir, writeFile } from "node:fs/promises";
+import { evidenceDirectory } from "./evidence.mjs";
 
-const evidence = "evidence/regression/performance/fixtures";
+const evidence = evidenceDirectory("performance/fixtures");
 
 for (const variant of ["dom-static", "gpu-static", "dom-affine", "gpu-affine", "gpu-ripple"]) {
   test(`wall-clock fixture validates rendering, sampling and cleanup: ${variant}`, async ({ page }) => {

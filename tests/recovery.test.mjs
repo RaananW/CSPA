@@ -3,7 +3,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { PNG } from "pngjs";
 
-const evidence = "evidence/recovery";
+import { evidenceDirectory } from "./evidence.mjs";
+const evidence = evidenceDirectory("recovery");
 const hash = (bytes) => createHash("sha256").update(PNG.sync.read(bytes).data).digest("hex");
 
 test("recovery refuses unsupported moveBefore without remount or append fallback", async ({ page }) => {

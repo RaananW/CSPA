@@ -4,13 +4,15 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
+import { evidenceDirectory } from "../tests/evidence.mjs";
 
 const smoke = process.argv.includes("--smoke");
 const port = Number(process.env.CANVAS_MEASURE_PORT ?? 5287);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Invalid measurement preview port");
 const url = `http://127.0.0.1:${port}`;
-const filename = `evidence/regression/performance/performance${smoke ? "-smoke" : ""}.json`;
-await mkdir("evidence/regression/performance", { recursive: true });
+const directory = evidenceDirectory("performance");
+const filename = `${directory}/performance${smoke ? "-smoke" : ""}.json`;
+await mkdir(directory, { recursive: true });
 try {
   await fetch(url);
   throw new Error(`Measurement port ${port} already serves a page; refusing to reuse an unknown build`);

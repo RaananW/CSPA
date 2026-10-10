@@ -13,7 +13,8 @@ verification is retained in `evidence/package-versions.json`.
 
 ## Phase7 original components and declarative presence
 
-Implemented and awaiting separate technical acceptance; see
+Independently accepted within its bounded scope, with the permanent five-fixture
+provenance exception in [measurements](measurements.md); see
 [integration.md](integration.md) for exact API/library rationale, reproduction,
 pixel/native/lifecycle proof and limitations. Final serial implementer matrices
 pass React19's15 units/type/build/114 browser cases and React18's matching
@@ -36,7 +37,38 @@ Healthy fence/readback retention regressions pass without unsafe destruction.
 This is the listed Radix Dialog pilot, not arbitrary library/CSS compatibility.
 Historical Phase6 evidence below is preserved, not overwritten by the new
 matrix. No speedup or manual screen-reader/OS IME/physical-device/background-tab
-closure is claimed; planned hardening/effects remain [roadmap](roadmap.md) work.
+closure is claimed; planned hardening remains [roadmap](roadmap.md) work.
+
+## Phase8 bounded effects
+
+Independently accepted with explicit limits; see the
+[final v3 verdict](../evidence/phase8-independent/acceptance-v3.json).
+Final independent React19 passed21 units/types/build/124 browsers; retained
+source-identical React18 passed matching types/build/78 shared browsers.
+Direct decoded/native/policy/300-real-RAF proof and bounded smoke passed.
+Earlier P8-A1/A2 findings remain immutable. The
+[effect contract](effects.md) describes bounds/order/media/static fallback and
+trusted authoring. Ten effect cases extend the matching shared suite to78
+browser cases and the full primary suite to124, with21 current units (18 in the
+recorded implementation gate plus three subsequent P8-A1 routing units). Selected
+Phase8 output is `evidence/phase8/`; default reruns use `evidence/regression/current/`,
+never the accepted historical paths below.
+
+Decoded PNGs prove all four preset/custom identities, distinct time, full
+dissolve transparency, clipped bounds, both supported sampling/color orders
+and exact equality in the essential native-control region. Each build records
+five300-frame neutral/effect intervals and one natural RAF motion/effect
+interval with no additional commits/captures/copies/readbacks/uploads/
+compilation/admission work. Actual content edits remain visible. Compiler
+failure is genuine WGSL rejection; missing capability, first-pipeline error
+scope, delayed healthy fence and visibility are explicitly synthetic fixtures.
+Configured-device destruction is actual loss delivery, not physical reset.
+Twenty retired StrictMode lifetimes and actual HMR end with zero ledgers.
+
+Matching-major metadata and reports are linked in [effects](effects.md).
+All955 versioned baseline evidence bytes are protected against new writers,
+including the five already-regenerated Phase6 files; that is preservation of
+the accepted Git bytes, **not** restoration of their lost original provenance.
 
 ## Phase 6 comparison and compatibility
 

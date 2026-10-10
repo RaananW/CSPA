@@ -10,11 +10,12 @@ speedup: root-wide capture/readback on edits remains a measured cost.
 | Phase | State and bounded deliverables | Gate |
 | --- | --- | --- |
 | 7: External components and declarative transitions | Implemented and independently accepted within bounded application/compatibility scope, with the permanent five-fixture provenance exception disclosed in [measurements](measurements.md): original-element `useSurfaceRef` enrollment/restoration; Radix Dialog1.2.0 through public `Portal.container`; numeric `transition`/`transitionGroup`; single-subtree `Presence`; runnable `/integration.html` and maintained contracts | Original native controls, actual motion/exit pixels, atomic refusal, callback-ref identity/replacement/unmount, React18/19, normal-invalidation 300-frame cache interval and zero retirement passed. See [integration](integration.md). |
-| 8: Integrated effects and constrained extensions | Planned, not implemented: validated effect contract preserving ripple; bounded dissolve/chromatic displacement and explicit composition budget; one trusted application-defined effect through public APIs | Native safety, actual alpha/order/bounds/time pixels, capability/compile failures, lifecycle/media/ownership, measured incremental costs and separate acceptance |
+| 8: Integrated effects and constrained extensions | Implemented and independently accepted with explicit limits: validated `setEffects` handles preserving `setRipple`; bounded dissolve/chromatic displacement in one shared pass; trusted `defineEffect` color function; native `/effects.html` composer and [contracts](effects.md) | Native safety, actual alpha/order/bounds/time pixels, capability/compile failures, lifecycle/media/ownership, measured incremental costs and matching React18/19 passed; [final verdict](../evidence/phase8-independent/acceptance-v3.json). Manual/device/release gates remain open. |
 | 9: Scaling and production hardening | Planned, not implemented: profile safe capture attribution for measured edit overhead; generation-safe bounded membership/resize refresh; manual compatibility checklist; adoption/migration docs | Matched old/new2/4/8-layer,DPR1/2 edit workloads with actual changed output; no dropped native invalidation; original state/focus through replacement; healthy fencing/readback retention; precise manual/device gaps and separate acceptance |
 
-No Phase8 work precedes Phase7 acceptance and verified history push; Phase9
-depends on both preceding gates. Names for planned APIs are not promises.
+Phase7 acceptance and verified history push precede this Phase8 implementation;
+Phase9 depends on Phase8 acceptance and its separately authorized checkpoint.
+Names for planned APIs are not promises.
 Current membership/size/DPR changes still recover to DOM and require explicit
 fresh admission. Route/shared-element transitions, springs, virtualization,
 hydration, automatic external-animation conversion, general shader graphs and

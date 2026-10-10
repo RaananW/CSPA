@@ -2,11 +2,12 @@ import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { PNG } from "pngjs";
+import { evidenceDirectory, validateEvidenceRoot } from "../tests/evidence.mjs";
 
 const url = process.env.PROBE_URL || "http://127.0.0.1:5174";
 const executablePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const args = ["--enable-automation", ...(process.env.NO_NATIVE_FLAGS ? [] : ["--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"])];
-const directory = process.env.EVIDENCE_DIR || "evidence/chrome";
+const directory = validateEvidenceRoot(process.env.EVIDENCE_DIR || evidenceDirectory("chrome"));
 await mkdir(directory, { recursive: true });
 const browser = await chromium.launch({ executablePath, headless: true, args });
 const report = { executablePath, version: browser.version(), headless: true, requestedFlags: args, defaultArgs: chromium.defaultArgs?.(), url, startedAt: new Date().toISOString(), results: [] };

@@ -3,7 +3,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { PNG } from "pngjs";
 
-const evidence = "evidence/surface";
+import { evidenceDirectory } from "./evidence.mjs";
+const evidence = evidenceDirectory("surface");
 const hash = bytes => createHash("sha256").update(PNG.sync.read(bytes).data).digest("hex");
 function pixel(bytes, x, y) {
   const png = PNG.sync.read(bytes);

@@ -13,12 +13,19 @@ Keep browser/evidence writers serial. Do not run either matrix concurrently
 with timing measurements.
 
 Current reruns write explicitly regenerable outputs under
-`evidence/regression/performance/`: the five browser fixtures use `fixtures/`,
+`evidence/regression/current/performance/`: the five browser fixtures use `fixtures/`,
 and the full comparison/smoke runner writes `performance.json` or
-`performance-smoke.json`. These destinations also apply inside the copied
+`performance-smoke.json`. Selecting `CANVAS_EVIDENCE_ROOT=evidence/phase8`
+routes all these writers to `evidence/phase8/performance` instead, preserving
+the already-versioned baseline regression samples too. These destinations apply inside the copied
 React18 workspace. Normal tests, matrices and `measure` do not write into the
 archived `evidence/phase6/` reports or independent acceptance reports.
 Archived reports below describe the historical Phase6 run, not current reruns.
+Browser/matrix reruns also now default to `evidence/regression/current` (or explicitly
+`CANVAS_EVIDENCE_ROOT=evidence/phase8`); every old runtime/animation/TODO/
+integration/surface/recovery writer follows this root. Phase8 incremental
+effect CPU samples and resource budgets are reported separately in
+[effects](effects.md), not as a replacement full Phase6 benchmark or a speedup.
 
 Phase7 acceptance identified an earlier regression-writer collision in five
 `evidence/phase6/fixtures/*.json` files. Their exact original bytes have not

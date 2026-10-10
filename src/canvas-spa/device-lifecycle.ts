@@ -6,15 +6,19 @@ export type IdleOutcome =
   | { kind: "rejected"; message: string }
   | { kind: "timeout"; milliseconds: number };
 
-export function observeConfiguredDevice(canvas: HTMLCanvasElement, onLost: (info: GPUDeviceLostInfo) => void) {
+export function configuredDevice(canvas: HTMLCanvasElement) {
   const context = canvas.getContext("webgpu");
   if (typeof GPUCanvasContext === "undefined" || !(context instanceof GPUCanvasContext) || typeof context.getConfiguration !== "function") throw new Error("Public WebGPU configuration/loss observation unavailable");
   const configuration = context.getConfiguration();
   if (!configuration) throw new Error("WebGPU output is not configured");
+  return configuration.device;
+}
+export function observeConfiguredDevice(canvas: HTMLCanvasElement, onLost: (info: GPUDeviceLostInfo) => void) {
+  const device = configuredDevice(canvas);
   let active = true;
-  const lost = configuration.device.lost;
+  const lost = device.lost;
   void lost.then(info => { if (active) onLost(info); });
-  return { lost, maxTextureDimension2D: configuration.device.limits.maxTextureDimension2D, release() { active = false; } };
+  return { lost, maxTextureDimension2D: device.limits.maxTextureDimension2D, release() { active = false; } };
 }
 
 export async function waitForTeardown(engine: EngineContext, lost: Promise<GPUDeviceLostInfo> | undefined, milliseconds = 1500, pendingWork?: Promise<void>) {

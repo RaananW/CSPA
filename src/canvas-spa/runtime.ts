@@ -5,6 +5,7 @@ import type { MountBoundaryOptions } from "./mount-boundary";
 import { DeclarationOwnership, prepareAnimation, rejectImportantPresentation, type AnimationPlayback } from "./animation";
 import { validateCSSSource, type CSSAnimationSource } from "./css-animation";
 import { decorative, validateRipple, type Ripple } from "./ripple";
+import { effectNumber, validateEffects, type EffectDescriptor, type EffectHandle, type EffectResult } from "./effects";
 import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion";
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment";
 
@@ -36,6 +37,7 @@ export class CanvasRuntime {
   private motionFrame: { id: number; reject(error: Error): void } | undefined;
   private readonly visibilityWaiters = new Set<{ resolve(): void; reject(error: Error): void }>();
   private stopped = false;
+  private disposalRequested = false;
   private moving = false;
   private revision = 0;
   private admittedSize = "";
@@ -48,7 +50,7 @@ export class CanvasRuntime {
   private readonly transitions = new Map<string, { finish(status: TransitionResult["status"], reason: string, transferred?: boolean): void; lease: DeclarationOwnership; start: number; end: number }>();
   private clockFrame = 0;
   private clockTime: number | undefined;
-  private readonly ripples = new Map<string, Ripple>();
+  private readonly effects = new Map<string, { values: EffectDescriptor[]; finish(result: EffectResult): void }>();
   private readonly environment = { visible: !document.hidden, reducedMotion: this.reduced.matches, forcedColors: this.forced.matches };
   private readonly resources = { mutationObservers: 1, resizeObservers: 1, environmentListeners: 0, controllerFrames: 0, visibilityWaiters: 0, enrolledLayers: 0, animationOwners: 0, decorativeEffects: 0, nativeMotions: 0, declarativeMotions: 0 };
 
@@ -87,7 +89,8 @@ export class CanvasRuntime {
           id: layer.id, element: layer.element,
           matrix: () => new DOMMatrix(Array.from(affine(layer.transform, this.origin(layer)))),
           opacity: () => layer.transform.opacity ?? 1,
-          ripple: () => this.reduced.matches ? undefined : this.ripples.get(layer.id),
+          effects: () => this.effects.get(layer.id)?.values ?? [],
+          effectsEnabled: () => !this.reduced.matches,
         })),
         size: () => this.size(),
         policy: () => this.policy(),
@@ -139,7 +142,7 @@ export class CanvasRuntime {
       }
       if (this.reduced.matches) {
         for (const owner of this.ownership.values()) owner.lease.playback.pause();
-        for (const ripple of this.ripples.values()) ripple.playing = false;
+        for (const effect of this.effects.values()) for (const value of effect.values) value.time.playing = false;
       }
       this.requestDraw();
     });
@@ -217,8 +220,9 @@ export class CanvasRuntime {
       }
     }
     if (mode === "dom") {
-      this.ripples.clear();
-      this.resources.decorativeEffects = 0;
+      for (const effect of [...this.effects.values()]) effect.finish(this.disposalRequested
+        ? { status: "disposed", reason: "Runtime disposed" }
+        : { status: "fallback", reason: "Ordinary DOM uses static original decoration" });
     }
   }
   private policy(): string | undefined {
@@ -230,7 +234,7 @@ export class CanvasRuntime {
     for (const layer of this.registry.values()) {
       try { const owner = this.ownership.get(layer.id); owner?.check?.(); owner?.lease.check(); this.transitions.get(layer.id)?.lease.check(); this.gpuDeclarations.get(layer.id)?.check(); }
       catch (error) { return `CSS ownership validation failed: ${String(error)}`; }
-      if (this.ripples.has(layer.id) && !decorative(layer.element)) return `Ripple is decorative/inert only: ${layer.id}; ordinary DOM required`;
+      if (this.effects.has(layer.id) && !decorative(layer.element)) return `Effects are decorative/inert only: ${layer.id}; ordinary DOM required`;
       if (layer.element.getAnimations({ subtree: true }).length) return `Unowned/overlapping CSS/WAAPI animation requires explicit adapter: ${layer.id}`;
       if (!layer.element.isConnected) return `Detached enrolled layer: ${layer.id}`;
       if (layer.layout.overflow && layer.layout.overflow !== "visible") return "Clipped/scrolling enrollment requires ordinary DOM";
@@ -318,7 +322,7 @@ export class CanvasRuntime {
       this.transitions.get(definition.id)?.finish("cancelled", "Unenrolled");
       this.gpuDeclarations.get(definition.id)?.restore();
       this.gpuDeclarations.delete(definition.id);
-      if (this.ripples.delete(definition.id)) this.resources.decorativeEffects--;
+      this.effects.get(definition.id)?.finish({ status: "disposed", reason: "Enrollment released" });
       const owned = this.ownership.get(definition.id);
       if (owned && this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") {
         owned.restore?.();
@@ -735,7 +739,7 @@ export class CanvasRuntime {
   private startClock() {
     if (this.stopped || this.clockFrame || this.moving || !this.environment.visible || this.reduced.matches || this.core?.phase() !== "gpu"
       || ![...this.ownership.values()].some(owner => owner.lease.playback.state().playing)
-        && ![...this.ripples.values()].some(ripple => ripple.playing)) return;
+        && ![...this.effects.values()].some(effect => effect.values.some(value => value.time.playing))) return;
     this.resources.controllerFrames++;
     this.clockFrame = requestAnimationFrame(time => {
       this.clockFrame = 0;
@@ -752,21 +756,61 @@ export class CanvasRuntime {
     });
   }
   setRipple(id: string, value: Ripple | null) {
+    if (value) {
+      const ripple = validateRipple(value);
+      this.setEffects(id, [{ kind: "ripple", parameters: { amplitude: ripple.amplitude }, time: { seconds: ripple.seconds, playing: ripple.playing },
+        bounds: "layer", interaction: "decorative", media: "identity", fallback: "static" }]);
+    } else {
+      this.assertLive();
+      if (!this.registry.has(id)) throw new Error(`Unknown Surface: ${id}`);
+      this.effects.get(id)?.finish({ status: "cancelled", reason: "setRipple cleared effect ownership" });
+    }
+  }
+  setEffects(id: string, descriptors: readonly EffectDescriptor[]): EffectHandle {
     this.assertLive();
     const layer = this.registry.get(id);
     if (!layer) throw new Error(`Unknown Surface: ${id}`);
-    if (value) {
-      const ripple = validateRipple(value);
-      if (!layer.decorative || !decorative(layer.element)) throw new Error("Ripple requires explicit decorative, inert, aria-hidden noninteractive enrollment");
-      if (!this.ripples.has(id)) this.resources.decorativeEffects++;
-      this.ripples.set(id, ripple);
-    } else if (this.ripples.delete(id)) this.resources.decorativeEffects--;
+    const values = validateEffects(descriptors);
+    if (!layer.decorative || !decorative(layer.element)) throw new Error("Effects require explicit decorative, inert, aria-hidden noninteractive enrollment");
+    const state = this.renderer().state();
+    if (state.initializing || state.transitioning || state.resources.pendingEngines || state.resources.pendingCleanups || state.resources.probeReadbacks) throw new Error("Effects require idle DOM or admitted GPU without pending lifecycle work");
+    for (const value of values) if (value.kind === "custom") {
+      if (!navigator.gpu) throw new Error("Application effect requires WebGPU; original DOM remains usable");
+      if (state.mode === "gpu" && !this.renderer().acceptsCustom(id, value.definition)) throw new Error("New custom definitions require idle DOM and fresh hidden GPU admission");
+    }
+    if (this.reduced.matches) for (const value of values) value.time.playing = false;
+    let active = true;
+    let resolve!: (result: EffectResult) => void;
+    const finished = new Promise<EffectResult>(done => { resolve = done; });
+    const entry = { values, finish: (result: EffectResult) => {
+      if (!active) return;
+      active = false;
+      if (this.effects.get(id) === entry) { this.effects.delete(id); this.resources.decorativeEffects--; }
+      resolve(result);
+      this.stopClock(); this.requestDraw(); this.startClock();
+    } };
+    this.effects.get(id)?.finish({ status: "replaced", reason: "Validated successor acquired ownership" });
+    this.effects.set(id, entry);
+    this.resources.decorativeEffects++;
     this.stopClock();
     this.requestDraw();
     this.startClock();
+    const change = (operation: () => void) => {
+      this.assertLive();
+      if (!active || this.effects.get(id) !== entry) throw new Error("Effect handle is no longer active");
+      operation(); this.stopClock(); this.requestDraw(); this.startClock();
+    };
+    return {
+      finished, state: () => ({ active, effects: validateEffects(values) }),
+      seek: seconds => { effectNumber(seconds, 0, 1e6, "Effect seconds"); change(() => { for (const value of values) value.time.seconds = seconds; }); },
+      play: () => change(() => { if (this.reduced.matches) throw new Error("Effect playback is disabled by reduced motion"); for (const value of values) value.time.playing = true; }),
+      pause: () => change(() => { for (const value of values) value.time.playing = false; }),
+      cancel: () => entry.finish({ status: "cancelled", reason: "Effect cancelled" }),
+      dispose: () => entry.finish({ status: "disposed", reason: "Effect disposed" }),
+    };
   }
   private tickRipples(milliseconds: number, force = false) {
-    for (const ripple of this.ripples.values()) if (ripple.playing || force) ripple.seconds = (ripple.seconds + milliseconds / 1000) % 1000;
+    for (const effect of this.effects.values()) for (const value of effect.values) if (value.time.playing || force) value.time.seconds = (value.time.seconds + milliseconds / 1000) % 1000;
   }
   async advance(frames = 300, milliseconds = 1000 / 60) {
     this.assertLive();
@@ -805,14 +849,21 @@ export class CanvasRuntime {
         cssReplacementSources: [...this.ownership.values()].reduce((sum, owner) => sum + (owner.resources?.() ?? 0), 0) }, moving: this.moving,
       animationOwnership: [...this.ownership].map(([id, owner]) => ({ id, ...owner.lease.playback.state() })),
       declarativeMotion: [...this.transitions].map(([id, motion]) => ({ id, start: motion.start, end: motion.end })),
-      decorativeEffects: [...this.ripples].map(([id, effect]) => ({ id, ...effect })),
+      decorativeEffects: [...this.effects].map(([id, effect]) => {
+        const ripple = effect.values.find(value => value.kind === "ripple");
+        return { id, amplitude: ripple?.parameters.amplitude ?? 0, seconds: ripple?.time.seconds ?? effect.values[0]!.time.seconds, playing: ripple?.time.playing ?? false,
+          effects: effect.values.map(value => ({ kind: value.kind, parameters: { ...value.parameters }, time: { ...value.time } })) };
+      }),
+      effectBudget: { passes: 1, operationsPerLayer: 3, extraTextures: 0, uniformBytesPerLayer: 160, gpuTimestampMs: null },
     };
   }
   async dispose() {
     if (this.stopped) return this.state();
     this.cancelTransitions("Disposed");
     this.cancelMotion();
-    await this.renderer().dispose();
+    this.disposalRequested = true;
+    try { await this.renderer().dispose(); }
+    finally { this.disposalRequested = false; }
     for (const id of this.motions.keys()) this.cancelNativeMotion(id);
     this.relinquishedDeclarations.clear();
     this.stopped = true;

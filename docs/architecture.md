@@ -2,7 +2,7 @@
 
 This describes the supported **bounded Phase 2/3 runtime plus Phase 4/5
 ownership/module/decorative additions, the bounded Phase 6 matrix and implemented
-Phase7 integration**, not a released
+Phase7 integration and Phase8 effects independently accepted with explicit limits**, not a released
 library or arbitrary React application compatibility. The package remains
 private. Historical alternatives and evidence are in [feasibility.md](feasibility.md);
 contributor commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
@@ -22,6 +22,8 @@ contributor commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 | `src/canvas-spa/admission.ts` | Independent known-color probe DOM, pixel checks, applied geometry and native interior/exterior hit validation |
 | `src/canvas-spa/motion.ts`, `timeline.ts`, `animation.ts`, `css-animation.ts` | Public numeric descriptor contracts, shared whole-effect compilation, per-property presentation ownership, separate CSS/WAAPI compatibility and bounded replacement tracking |
 | `src/canvas-spa/module.ts`, `ripple.ts` | Trusted local mounting contract and decorative-only effect validation |
+| `src/canvas-spa/effects.ts` | Whole-chain descriptor/schema validation, trusted application definitions and shared uniform packing |
+| `src/apps/effects/color-cycle.ts`, `src/demo/effects-demo.tsx`, `effects.html` | Public-API custom effect outside runtime, native poster composer and external measurement/HMR fixture |
 | `src/demo/paired-demo.tsx`, `paired.html` | Shared React behavior in existing-CSS and compiled typed examples; public source/pixel/profiling diagnostic fixture |
 | `src/apps/todo/` | Reusable bounded TODO reducer, typed native-control UI and one replaceable action-transition timer; public CanvasSPA imports only |
 | `src/demo/todo-demo.tsx`, `todo-probe.ts`, `todo.html` | External host/shell, profiling, deterministic/fault test facade and serialized HMR retirement |
@@ -66,6 +68,24 @@ suppresses stale callbacks. Ref-authored CSS remains the settled DOM state.
 Membership, capture bounds and relevant resize/DPR still recover conservatively;
 Phase9 hot membership is not implemented. Healthy queue/readback retention
 remains unchanged. See [API](api.md) and [roadmap](roadmap.md).
+
+[Phase8 effects](effects.md) reuse the same clock, compositor, native capture
+and owned-resource lifecycle. The one shared pass supports three unique
+operations per layer: bounded sampling (ripple/chromatic) followed by
+color/alpha (custom/dissolve). Uniform storage is160bytes per layer versus
+the earlier64; no extra textures or intermediate targets are allocated.
+The shader performs three channel samples even for neutral composition; this
+is additional work, not an optimization claim. Effect shaders never enter the
+native capture path, so snapshots retain neutral original content.
+
+Trusted application functions receive color/local coordinates/extent/time/
+parameters, not engine/device objects. New definitions compile through public
+configured-device diagnostics during hidden admission; the actual application
+draw also checks a public validation error scope before reveal. Compilation
+failure recovers to original DOM using the same healthy-fence rules. Parameter
+or admitted-chain replacement does not recompile or recapture. Only authored
+inert, aria-hidden noninteractive decoration may disappear or distort;
+essential native geometry stays affine and unchanged by effects.
 
 ## Explicit mount boundary
 

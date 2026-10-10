@@ -7,10 +7,11 @@ import {
 } from "@babylonjs/lite";
 import { capabilities, enableDrawable, isDrawableCanvas, isDrawableContext, validateGeometry, validateAppliedGeometry, waitForPaint, type DrawableCanvas } from "./native";
 import { createMountBoundary, type MountBoundaryOptions } from "./mount-boundary";
-import { observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "./device-lifecycle";
+import { configuredDevice, observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "./device-lifecycle";
 import { compositionShader, compositionUniforms } from "./composition";
 import { createAdmissionProbe, verifyProbeGeometry, verifyProbePixels } from "./admission";
 import type { Ripple } from "./ripple";
+import type { ApplicationEffect, EffectDescriptor } from "./effects";
 
 export interface EnrolledLayer {
   id: string;
@@ -18,6 +19,8 @@ export interface EnrolledLayer {
   matrix(): DOMMatrix;
   opacity(): number;
   ripple?(): Ripple | undefined;
+  effects?(): readonly EffectDescriptor[];
+  effectsEnabled?(): boolean;
 }
 
 export interface SurfaceRendererOptions extends MountBoundaryOptions {
@@ -34,7 +37,7 @@ export interface SurfaceRendererOptions extends MountBoundaryOptions {
   onMeasure?(sample: RendererSample): void;
 }
 export interface RendererSample {
-  kind: "captureMs" | "uploadMs" | "frameWorkMs" | "frameIntervalsMs" | "readbackCompareMs";
+  kind: "captureMs" | "uploadMs" | "frameWorkMs" | "frameIntervalsMs" | "readbackCompareMs" | "effectCompileMs";
   at: number;
   durationMs: number;
   phase: "admission" | "content";
@@ -55,7 +58,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   const resources = { roots: 1, captureCanvases: 1, outputCanvases: 1, engines: 0, pendingEngines: 0, textures: 0, effects: 0, renderers: 0, stagingCanvases: 0, snapshots: 0, comparisonBuffers: 0, listeners: 0, scheduledFrames: 0, paintWaits: 0, lossObservers: 0, pendingCleanups: 0, probeElements: 0, probeReadbacks: 0 };
   const timing = () => ({ count: 0, totalMs: 0, minMs: null as number | null, maxMs: null as number | null });
   const layerMetrics: Record<string, { captures: number; uploads: number }> = Object.create(null);
-  const metrics = { captures: 0, pixelCopies: 0, pixelReadbacks: 0, reusedUploads: 0, uploads: 0, paintNotifications: 0, deviceLossCount: 0, fenceCount: 0,
+  const metrics = { captures: 0, pixelCopies: 0, pixelReadbacks: 0, reusedUploads: 0, uploads: 0, paintNotifications: 0, deviceLossCount: 0, fenceCount: 0, effectShaderCompilations: 0,
     admission: { attempts: 0, passes: 0, captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0, gpuFrames: 0, gpuReadbacks: 0, geometryChecks: 0,
       last: undefined as { nativePixels: number[][]; gpuPixels: number[][]; geometry: ReturnType<typeof verifyProbeGeometry> } | undefined },
     timings: { captureMs: timing(), uploadMs: timing(), frameWorkMs: timing(), frameIntervalsMs: timing() },
@@ -91,6 +94,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let tint = 0;
   let dx = 0;
   let previousFrame: number | undefined;
+  let admittedCustom: (ApplicationEffect | undefined)[] = [];
   let clearedGeometry: { id: string; identity: boolean }[] = [];
   const layers: (EnrolledLayer & { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D; texture: DynamicTexture2D; pixels?: Uint8ClampedArray })[] = [];
   const dirty = new Set<string>();
@@ -150,6 +154,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (layer.pixels) resources.comparisonBuffers--;
     }
     layers.length = 0;
+    admittedCustom = [];
   }
   function releaseProbe() {
     if (!probe) return;
@@ -380,9 +385,31 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       else await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     }
   }
-    function createComposition(name: string) {
+    async function createComposition(name: string) {
       if (!engine) throw new Error("Composition requires an admitted engine");
-      effect = createEffectWrapper(engine, { name, ...compositionShader(layers.length) });
+      admittedCustom = layers.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
+      const shader = compositionShader(layers.length, admittedCustom);
+      if (admittedCustom.some(Boolean)) {
+        const started = performance.now();
+        const device = configuredDevice(output);
+        device.pushErrorScope("validation");
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          metrics.effectShaderCompilations++;
+          const module = device.createShaderModule({ code: `struct EffectVertexOutput { @builtin(position) position: vec4f, @location(0) uv: vec2f }; ${shader.fragmentWGSL}` });
+          const compilation = await Promise.race([module.getCompilationInfo(), new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error("Application effect compilation timed out after 5000ms")), 5000);
+          })]);
+          const errors = compilation.messages.filter(message => message.type === "error");
+          if (errors.length) throw new Error(`Application effect compilation failed: ${errors.map(message => `${message.lineNum}:${message.linePos} ${message.message}`).join("; ")}`);
+        } finally {
+          clearTimeout(timer);
+          const error = await device.popErrorScope();
+          options.onMeasure?.({ kind: "effectCompileMs", at: performance.now(), durationMs: performance.now() - started, phase: "admission" });
+          if (error) throw new Error(`Application effect compilation failed: ${error.message}`);
+        }
+      }
+      effect = createEffectWrapper(engine, { name, ...shader });
       resources.effects++;
       layers.forEach((layer, index) => setEffectTexture(effect!, `layer${index}`, layer.texture));
       renderer = createEffectRenderer(engine.surfaces[0], effect);
@@ -420,7 +447,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       layers.push({ id: "admission-probe", element: probe.element, matrix: () => probe!.matrix, opacity: () => 1, canvas, context, texture });
       resources.stagingCanvases++;
       resources.textures++;
-      createComposition("native-functional-admission");
+      await createComposition("native-functional-admission");
       const abort = new AbortController();
       captureAbort = abort;
       const deadline = setTimeout(() => abort.abort(new Error("Functional admission timed out after 1500 ms")), 1500);
@@ -567,6 +594,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
           layer.id !== enrolled[index]!.id || layer.element !== enrolled[index]!.element)) throw new Error("Enrollment changed during admission; fresh admission required");
         const currentSize = options.size();
         if (currentSize.width !== size.width || currentSize.height !== size.height || currentSize.dpr !== size.dpr) throw new Error("Surface dimensions/DPR changed during admission");
+        if (layers.some(layer => layer.canvas.width !== layer.element.offsetWidth || layer.canvas.height !== layer.element.offsetHeight)) {
+          throw new Error("Enrolled capture dimensions changed during admission");
+        }
         const currentPolicy = options.policy?.();
         if (currentPolicy) throw new Error(currentPolicy);
       };
@@ -590,12 +620,20 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         resources.stagingCanvases++;
         resources.textures++;
       }
-      createComposition("native-react-layers");
+      await createComposition("native-react-layers");
       await captureLayers();
       assertCurrentAdmission();
       if (options.isPaused?.()) throw new Error("GPU admission requires a visible surface");
       if (lostInfo) throw new Error("GPU device lost during admission");
-      draw();
+      const device = configuredDevice(output);
+      device.pushErrorScope("validation");
+      try { draw(); }
+      finally {
+        const error = await device.popErrorScope();
+        if (error) throw new Error(`Composition validation failed: ${error.message}`);
+      }
+      assertCurrentAdmission();
+      if (options.isPaused?.()) throw new Error("GPU admission requires a visible surface");
       if (lostInfo) throw new Error("GPU device lost before admission completed");
       mode = "gpu";
       output.hidden = false;
@@ -672,6 +710,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   listen(container, "focusout", queueCapture);
   status();
   return { container, enable: () => serialize(enable), disable: () => serialize(disable), frames, toggleTint: () => frames(1, dx, tint ? 0 : 1), toggleMotion: () => frames(60, dx ? 0 : 40, tint), settle, state, dispose: () => serialize(dispose), invalidate: queueCapture, draw,
+    acceptsCustom: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)] === definition,
     phase: () => mode, version: () => generation, resume: scheduleCapture,
     pause: () => {
       if (scheduled) { cancelAnimationFrame(scheduled); scheduled = 0; resources.scheduledFrames--; }

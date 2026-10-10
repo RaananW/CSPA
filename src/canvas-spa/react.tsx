@@ -17,7 +17,7 @@ function useRuntime() {
   if (!runtime) throw new Error("CanvasSPA components require GPUHost and the explicit mount adapter");
   return runtime;
 }
-export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "createMotion" | "advance" | "setRipple">;
+export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "createMotion" | "advance" | "setRipple" | "setEffects">;
 export function useGPUHost(): CanvasController { return useRuntime(); }
 export function useNativeOverlayHost(): HTMLElement {
   const host = useRuntime().overlayHost;

@@ -1,14 +1,15 @@
 import { defineConfig } from "@playwright/test";
 import { developmentURL, previewURL } from "./tests/urls.mjs";
+import { evidenceRoot } from "./tests/evidence.mjs";
 
 const isolated = !!process.env.CANVAS_TEST_DEV_URL;
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["browser.test.mjs", "recovery.test.mjs", "surface.test.mjs", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "performance.test.mjs", "integration.test.mjs"],
+  testMatch: ["browser.test.mjs", "recovery.test.mjs", "surface.test.mjs", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "performance.test.mjs", "integration.test.mjs", "effects.test.mjs"],
   workers: 1,
   timeout: 60000,
-  reporter: [["list"], ["json", { outputFile: "evidence/browser-tests.json" }]],
+  reporter: [["list"], ["json", { outputFile: `${evidenceRoot}/browser-tests.json` }]],
   use: {
     baseURL: previewURL,
     viewport: { width: 900, height: 750 },

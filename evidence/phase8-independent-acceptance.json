@@ -1,0 +1,50 @@
+{
+  "phase": 8,
+  "milestones": ["8.1", "8.2", "8.3", "8.4"],
+  "verdict": "changes-required",
+  "scope": "Acceptance infrastructure blocker; product acceptance has not been executed",
+  "finding": {
+    "id": "P8-A1",
+    "file": "tests/evidence.mjs",
+    "lines": "5-7",
+    "confidence": "10/10",
+    "description": "The mandated fresh evidence/phase8-independent root is rejected by the writer allowlist. Matrix, browser JSON reporting and sanitizer import this module. Running acceptance under another root would depart from the explicit preservation contract.",
+    "reproduction": "CANVAS_EVIDENCE_ROOT=evidence/phase8-independent node --input-type=module -e 'await import(\"./tests/evidence.mjs\")'",
+    "observed": "Evidence writers require evidence/regression or evidence/phase8; accepted archives are read-only",
+    "correction": "Implementation owner must support the explicit independent output root consistently in evidence writers, matrix copies, probe and sanitizer before acceptance resumes. Do not run the hardcoded implementation report generator."
+  },
+  "before": {
+    "head": "7415d5cbf8550dc374ab2c15d8a454457832012d",
+    "sourceSha256": "ea9657d630cfca9690e068406a0becbd1922795ff437e012c82a0581d67a82cf",
+    "primaryLockSha256": "10959d287e50785914f00c853afeb132fab4043ba40c4dedc4eef1aebb15bb10",
+    "implementationReportSha256": "62707b7d97c245e66ea59da17c419062dd147514d21a3e0221c3f3e0b856e675",
+    "trackedEvidenceFiles": 955,
+    "allProtectedEvidenceFiles": 1675,
+    "evidenceManifestSha256": "363e1f56590fea775740b578fbe49f38789a82b2a627f38f529caeff1ad25b1b",
+    "preservation": "Every tracked and currently untracked source/document/evidence file was genuinely byte-backed-up and its backup hash verified in private session artifacts before the import-only reproduction."
+  },
+  "after": {
+    "protectedFilesChecked": 1774,
+    "protectedEvidenceFilesChecked": 1675,
+    "changedProtectedFiles": [],
+    "evidenceManifestSha256": "363e1f56590fea775740b578fbe49f38789a82b2a627f38f529caeff1ad25b1b",
+    "primaryLockSha256": "10959d287e50785914f00c853afeb132fab4043ba40c4dedc4eef1aebb15bb10",
+    "implementationReportSha256": "62707b7d97c245e66ea59da17c419062dd147514d21a3e0221c3f3e0b856e675",
+    "serviceHttpStatus": 200,
+    "diffCheck": "passed"
+  },
+  "execution": {
+    "testSuitesRun": 0,
+    "browserRuns": 0,
+    "sourceEdits": 0,
+    "commits": 0,
+    "pushes": 0,
+    "independentlyVerified": ["Incoming source/lock/implementation-report hashes match handoff", "955 tracked and 720 implementation evidence files byte-backed-up", "Independent output root deterministically rejected", "Retained dev service HTTP 200 and original listener PID 30064"],
+    "notVerified": ["Effect/native safety and decoded pixels", "Effect admission, validation and lifecycle", "React18/React19 final gates", "300 real GPU frame scheduling", "Incremental submission cost and resource retirement", "Documentation and evidence privacy completeness"]
+  },
+  "limitations": [
+    "Implementation reports are not independent acceptance.",
+    "Prior Phase6 five-original provenance gap is not waived.",
+    "OS IME, real screen readers, everyday profiles, physical device/display/reset and real background throttling remain unverified."
+  ]
+}

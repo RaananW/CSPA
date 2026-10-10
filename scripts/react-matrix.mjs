@@ -3,6 +3,7 @@ import { resolve, dirname } from "node:path";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { evidenceRoot } from "../tests/evidence.mjs";
 
 const root = resolve(".");
 const isPrimary = process.argv.includes("--primary");
@@ -24,7 +25,7 @@ const sourceSha256 = sourceHash.digest("hex");
 if (!isPrimary) {
   await mkdir(destination, { recursive: true });
   for (const path of ["src", "tests", "scripts", "tsconfig.json", "vite.config.ts", "playwright.config.mjs",
-    "index.html", "probe.html", "recovery.html", "surface.html", "runtime.html", "paired.html", "todo.html", "performance.html", "integration.html"]) {
+    "index.html", "probe.html", "recovery.html", "surface.html", "runtime.html", "paired.html", "todo.html", "performance.html", "integration.html", "effects.html"]) {
     await cp(resolve(path), resolve(destination, path), { recursive: true });
   }
   await writeFile(resolve(destination, "package.json"), JSON.stringify({
@@ -37,11 +38,11 @@ const fixtureRequire = createRequire(resolve(destination, "package.json"));
 const dialogPackage = JSON.parse(await readFile(resolve(dirname(fixtureRequire.resolve("@radix-ui/react-dialog")), "../package.json"), "utf8"));
 if (dialogPackage.version !== primary.dependencies["@radix-ui/react-dialog"]) throw new Error("Resolved Dialog integration dependency does not match its primary exact pin");
 await mkdir(resolve(destination, "evidence"), { recursive: true });
-const evidence = resolve(`evidence/phase7/react${isPrimary ? "19" : "18"}`);
+const evidence = resolve(`${evidenceRoot}/react${isPrimary ? "19" : "18"}`);
 await mkdir(evidence, { recursive: true });
 async function run(command, args, name) {
   const child = spawn(command, args, { cwd: destination, env: { ...process.env,
-    CANVAS_EXPECT_REACT_VERSION: version,
+    CANVAS_EXPECT_REACT_VERSION: version, CANVAS_EVIDENCE_ROOT: evidenceRoot,
     ...(!isPrimary ? { CANVAS_TEST_DEV_URL: "http://127.0.0.1:5185", CANVAS_TEST_PREVIEW_URL: "http://127.0.0.1:5186" } : {}) },
     stdio: ["ignore", "pipe", "pipe"] });
   let output = "";
@@ -54,8 +55,8 @@ try {
   if (isPrimary) await run("npm", ["test"], "full");
   else {
     await run("npm", ["run", "build"], "build");
-    await run("npm", ["run", "test:browser", "--", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs", "--max-failures=1"], "behavior");
-    await cp(resolve(destination, "evidence"), resolve(evidence, "reports"), { recursive: true });
+    await run("npm", ["run", "test:browser", "--", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs", "effects.test.mjs", "--max-failures=1"], "behavior");
+    await cp(resolve(destination, evidenceRoot), resolve(evidence, "reports"), { recursive: true });
   }
   const lockAfter = createHash("sha256").update(await readFile(resolve(root, "package-lock.json"))).digest("hex");
   if (lockBefore !== lockAfter) throw new Error("Primary dependency lockfile changed during compatibility validation");
@@ -64,12 +65,12 @@ try {
       "source copy, no implementation substitutions; independent resolution from declared fixture node_modules",
     versions: isPrimary ? primary : fixture,
     toolVersions: { ...primary.devDependencies, ...(!isPrimary ? fixture.devDependencies : {}) },
-    behavior: ["runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs"],
+    behavior: ["runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs", "effects.test.mjs"],
     production: "Vite production + react-dom/profiling",
     development: `Actual Vite development React + StrictMode; ports ${isPrimary ? "5173/5174" : "5185/5186"}`,
     executedReact: {
-      production: JSON.parse(await readFile(resolve(destination, "evidence/runtime/independent-false.json"), "utf8")).initial.reactVersion,
-      development: JSON.parse(await readFile(resolve(destination, "evidence/runtime/independent-true.json"), "utf8")).initial.reactVersion,
+      production: JSON.parse(await readFile(resolve(destination, `${evidenceRoot}/runtime/independent-false.json`), "utf8")).initial.reactVersion,
+      development: JSON.parse(await readFile(resolve(destination, `${evidenceRoot}/runtime/independent-true.json`), "utf8")).initial.reactVersion,
     },
     resolvedIntegration: { name: dialogPackage.name, version: dialogPackage.version, license: dialogPackage.license, peerDependencies: dialogPackage.peerDependencies },
     sourceRoot: "<workspace>/src", sourceSha256, primaryLockUnchanged: true, primaryLockSha256: lockAfter,

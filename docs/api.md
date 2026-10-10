@@ -8,6 +8,9 @@ For an actual bounded application using these exports, see the
 [TODO pilot](todo-pilot.md) and `src/apps/todo/`. Its numeric layout/appearance
 compile to browser CSS; real task events invoke public `setRipple` on a separate
 decorative surface. No additional TODO-specific renderer API is introduced.
+The [bounded effects contract](effects.md) documents `setEffects`, effect
+handles and trusted `defineEffect` authoring; `/effects.html` composes these
+with motion while keeping essential native controls separate.
 
 ## Explicit bootstrap
 
@@ -83,6 +86,8 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | `transition(id, descriptor)` | Bounded declarative numeric motion; explicit completion/cancellation handle, no separate native animation source |
 | `transitionGroup(items, stagger?)` | Prepare 1..8 distinct boundaries, one start epoch, index-based0..1000ms stagger; invalid descriptors/groups have no enrollment/motion side effects |
 | `Presence` | Retain one React child subtree through enter/exit inside a stable enrolled boundary; no wrapper, clone or portal relocation |
+| `setEffects(id, descriptors)` | Atomically validate 1..3 decorative-only ripple/chromatic/dissolve/custom operations before replacing ownership; explicit seconds/playback/cancel/dispose handles; static original DOM fallback |
+| `defineEffect(definition)` | Frozen trusted local WGSL color-function schema, 1..4 bounded numeric parameters, layer bounds and WebGPU capability; compile during fresh hidden admission, never a remote loader/sandbox |
 | `enable()` | Serialized structural and functional admission; hidden `admitting` output until probe pixels and native geometry pass; explicitly fresh after recovery/topology change |
 | `disable()` | Same-root DOM recovery, geometry clearing and safe fenced GPU release; repeated calls are harmless |
 | `setTransform(id, transform)` | Replaces a layer's transform; GPU mode updates uniforms/native geometry without React reconciliation |

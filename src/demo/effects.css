@@ -1,0 +1,9 @@
+@import "./integration.css";
+.composer { position: absolute; left: 24px; top: 30px; width: 260px; height: 330px; box-sizing: border-box; padding: 12px; background: rgb(240,30,60); }
+.composer form { display: grid; gap: 8px; margin-bottom: 12px; }
+.composer input { width: 226px; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; margin: 16px 0; gap: 8px; }
+.poster { position: absolute; left: 330px; top: 50px; width: 240px; height: 260px; background: rgb(20,200,90); }
+.bands { height: 170px; background: repeating-linear-gradient(90deg, rgb(245,196,41) 0px 12px, rgb(30,100,220) 12px 24px, rgb(240,30,60) 24px 36px); }
+.poster strong { display: block; padding: 12px; color: black; }
+.marker { position: absolute; left: 180px; top: 200px; width: 40px; height: 40px; background: rgb(20,60,220); }

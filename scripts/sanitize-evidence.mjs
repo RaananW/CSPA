@@ -1,5 +1,6 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { evidenceRoot } from "../tests/evidence.mjs";
 
 const workspace = resolve(".");
 function sanitize(value) {
@@ -26,4 +27,4 @@ async function visit(directory) {
     }
   }
 }
-await visit("evidence");
+await visit(evidenceRoot);

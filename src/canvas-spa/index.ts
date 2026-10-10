@@ -10,4 +10,6 @@ export type { LayerDefinition } from "./runtime";
 export type { AnimationPlayback } from "./animation";
 export type { CSSAnimationSource } from "./css-animation";
 export type { Ripple } from "./ripple";
+export { defineEffect } from "./effects";
+export type { ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult } from "./effects";
 export type { MotionKeyframe, MotionTiming, MotionDescriptor, MotionHandle, TransitionHandle, TransitionResult, CoordinatedMotion } from "./motion";
