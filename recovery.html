@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 1 recovery comparison</title>
+    <link rel="icon" href="data:," />
+    <style>
+      body { margin: 0; font: 16px sans-serif; background: white; }
+      #capture-host { width: 480px; height: 420px; display: block; margin: 20px; --marker: rgb(240, 30, 60); }
+      #dom-host { margin: 20px; --marker: rgb(30, 100, 220); }
+      .app-container { width: 360px; height: 300px; background: var(--marker); color: white; }
+      .specimen { padding: 12px; }
+      #dom-host .specimen { padding: 18px; }
+      label, input, button { display: block; margin: 4px; }
+      #instructions { margin: 20px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="capture-host" width="480" height="420" content="drawable"></canvas>
+    <div id="dom-host"></div>
+    <p id="instructions">Isolated recovery experiment. Automation selects one candidate; only one authoritative React control tree exists.</p>
+    <script type="module" src="/src/recovery-probe.tsx"></script>
+  </body>
+</html>

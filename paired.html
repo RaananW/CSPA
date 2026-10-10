@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>CanvasSPA animation and decorative effect</title>
+  <style id="paired-styles">
+    body { font: 16px system-ui; margin: 24px; color: #17202a; background: white; }
+    button, input { font: inherit; }
+    [hidden] { display: none !important; }
+    #frame { position: relative; width: 640px; height: 420px; background: white; }
+    #capture, #output, #ordinary { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #output { pointer-events: none; }
+    #status { white-space: pre-wrap; }
+    #legacy { position: absolute; box-sizing: border-box; left: 40px; top: 50px; width: 240px; height: 240px;
+      padding: 12px; background: rgb(240,30,60); display: flex; flex-direction: column; gap: 6px;
+      animation: paired-motion 1000ms linear 100ms infinite alternate both paused; transform-origin: 0 0; }
+    #legacy-art { position: absolute; left: 380px; top: 60px; width: 200px; height: 200px; pointer-events: none; display: flex; }
+    @keyframes paired-motion {
+      from { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
+      to { transform: translate(70px, 20px) rotate(10deg) scale(0.85); opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Paired original DOM: animation ownership and decorative pixels</h1>
+  <p><a href="?example=css">Trusted local HTML/CSS module</a> | <a href="?example=typed">Typed authoring (browser CSS compiled internally)</a></p>
+  <p><button id="gpu">Own source + GPU</button> <button id="dom">Release to DOM</button>
+    <button id="play">Play</button> <button id="pause">Pause</button> <button id="seek">Seek 600ms</button>
+    <button id="dispose">Dispose</button></p>
+  <div id="frame"><canvas id="capture" hidden></canvas><canvas id="output" hidden></canvas><div id="ordinary"></div></div>
+  <pre id="status" role="status">Ordinary DOM; choose explicit GPU ownership.</pre>
+  <script type="module" src="/src/demo/paired-demo.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+body { margin: 0; font: 16px/1.5 system-ui, sans-serif; color: #15263b; background: #f3f5fa; }
+main { max-width: 900px; margin: 32px auto; padding: 24px; }
+aside, section { background: white; border: 1px solid #9eacbf; border-radius: 8px; padding: 16px; margin: 16px 0; }
+button, input { font: inherit; padding: 8px 12px; margin: 6px; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid #2359e8; outline-offset: 2px; }
+form { display: flex; align-items: center; flex-wrap: wrap; }
+[role="alert"] { color: #9b2020; font-weight: 600; }

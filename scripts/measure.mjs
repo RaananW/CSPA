@@ -1,0 +1,194 @@
+import { chromium } from "@playwright/test";
+import { PNG } from "pngjs";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { mkdir, writeFile, readFile } from "node:fs/promises";
+import assert from "node:assert/strict";
+
+const smoke = process.argv.includes("--smoke");
+const port = Number(process.env.CANVAS_MEASURE_PORT ?? 5287);
+if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Invalid measurement preview port");
+const url = `http://127.0.0.1:${port}`;
+const filename = `evidence/regression/performance/performance${smoke ? "-smoke" : ""}.json`;
+await mkdir("evidence/regression/performance", { recursive: true });
+try {
+  await fetch(url);
+  throw new Error(`Measurement port ${port} already serves a page; refusing to reuse an unknown build`);
+} catch (error) {
+  if (error.cause?.code !== "ECONNREFUSED") throw error;
+}
+const vite = fileURLToPath(new URL("./bin/vite.js", import.meta.resolve("vite/package.json")));
+const server = spawn(process.execPath, [vite, "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
+  stdio: ["ignore", "pipe", "pipe"], detached: false,
+});
+let serverOutput = "";
+for (const stream of [server.stdout, server.stderr]) stream.on("data", data => { serverOutput += data; });
+let browser;
+function distribution(values) {
+  if (!values.length) return { count: 0, total: 0, median: null, p95: null, min: null, max: null };
+  const ordered = [...values].sort((a, b) => a - b);
+  return { count: values.length, total: values.reduce((sum, n) => sum + n, 0),
+    median: ordered[Math.ceil(ordered.length * 0.5) - 1], p95: ordered[Math.ceil(ordered.length * 0.95) - 1],
+    min: ordered[0], max: ordered.at(-1) };
+}
+function delta(before, after) {
+  return Object.fromEntries(["captures", "pixelCopies", "pixelReadbacks", "uploads", "uploadBytes", "gpuFrames", "geometryUpdates"]
+    .map(key => [key, after.metrics[key] - before.metrics[key]]));
+}
+function zero(state) {
+  assert.equal(state.mode, "disposed");
+  assert(Object.values(state.resources).every(value => value === 0), "Retired core resources must be zero");
+  assert(Object.values(state.runtimeResources).every(value => value === 0), "Retired runtime resources must be zero");
+}
+function summary(run) {
+  const budget = distribution(run.warmup.intervals).median;
+  const d = delta(run.measurement.before, run.measurement.after);
+  return { dpr: run.dpr, layers: run.layers, variant: run.variant, repetition: run.repetition,
+    durationMs: run.measurement.durationMs, work: d,
+    actualReactCommits: run.measurement.after.commits - run.measurement.before.commits,
+    rafMs: distribution(run.measurement.intervals),
+    estimatedMissedRefreshSlots: budget ? run.measurement.intervals.reduce((sum, dt) => sum + Math.max(0, Math.round(dt / budget) - 1), 0) : null,
+    warmupRefreshBudgetMs: budget,
+    cpuSamples: Object.fromEntries(["captureMs", "readbackCompareMs", "uploadMs", "frameWorkMs", "frameIntervalsMs"].map(kind =>
+      [kind, distribution(run.measurement.samples.filter(sample => sample.kind === kind).map(sample => sample.durationMs))])),
+    perLayer: run.measurement.after.layers.map(layer => {
+      const b = run.measurement.before.metrics.perLayer[layer.id], a = run.measurement.after.metrics.perLayer[layer.id];
+      const captures = (a?.captures ?? 0) - (b?.captures ?? 0), uploads = (a?.uploads ?? 0) - (b?.uploads ?? 0);
+      return { id: layer.id, captures, uploads, captureHz: captures / (run.measurement.durationMs / 1000),
+        uploadHz: uploads / (run.measurement.durationMs / 1000), uploadRGBABytes: uploads * layer.width * layer.height * 4 };
+    }),
+  };
+}
+async function save(report) {
+  await writeFile(filename, JSON.stringify(report, null, 2));
+}
+try {
+  const deadline = Date.now() + 15000;
+  while (true) {
+    try { const response = await fetch(`${url}/performance.html`); if (response.ok) break; }
+    catch (error) { if (error.cause?.code !== "ECONNREFUSED") throw error; }
+    if (server.exitCode !== null || Date.now() > deadline) throw new Error(`Measurement preview failed: ${serverOutput}`);
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  browser = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    args: ["--enable-automation", "--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"] });
+  const cdp = await browser.newBrowserCDPSession();
+  const system = await cdp.send("SystemInfo.getInfo");
+  const environment = { browser: await cdp.send("Browser.getVersion"), launch: await cdp.send("Browser.getBrowserCommandLine"),
+    gpu: system.gpu.devices.map(({ vendorString, deviceString }) => ({ vendorString, deviceString })),
+    renderer: system.gpu.auxAttributes?.glRenderer, gpuExecutionTimestampMs: null,
+    dependencies: JSON.parse(await readFile("package.json", "utf8")), build: "Vite production, react-dom/profiling; installed browser headless, single serial writer" };
+  await cdp.detach();
+  const report = { environment, method: {
+    requestedWindowMs: smoke ? 500 : 2000, warmupMs: 500, repetitions: smoke ? 1 : 3,
+    timer: "performance.now, real wall-clock/rAF, no deterministic timeline advance",
+    samples: "Opt-in synchronous operation sink records every event in finite measurement window, not retained last256 telemetry; all raw rAF intervals included",
+    gpuTiming: "CPU submit/uniform/capture/copy/readback/compare times, not GPU execution; GPU timestamp unavailable, null",
+    missed: "sum(max(0,round(interval / that run warmup median)-1)); estimated refresh slots, not observed compositor drops",
+    memory: "RGBA8 capacities from dimensions and owned texture/staging/comparison counts; excludes browser, driver, engine, MSAA, swapchain and extra native copies",
+    latency: "Real original checkbox click -> changed task-row pixels; screenshots poll outside performance windows; interval bounds include automation/readback uncertainty",
+    isolation: "Matched viewport900x750, same browser/hardware/content; contexts differ only DPR, declared variant/count; variant order rotated each repetition; serial engine lifetimes",
+    inputWorkload: "Separate 1000ms window: five native controlled-input replacements, 80ms spacing; includes automation/wait time, not a maximum throughput benchmark",
+  }, runs: [], latency: [], latencyRetirements: [] };
+  const variants = ["dom-static", "gpu-static", "dom-affine", "gpu-affine", "gpu-ripple"];
+  for (const dpr of smoke ? [1] : [1, 2]) for (const layers of smoke ? [2] : [2, 4, 8]) {
+    for (let repetition = 0; repetition < report.method.repetitions; repetition++) {
+      const order = [...variants.slice(repetition), ...variants.slice(0, repetition)];
+      for (const variant of order) {
+        const context = await browser.newContext({ viewport: { width: 900, height: 750 }, deviceScaleFactor: dpr });
+        const page = await context.newPage(), errors = [];
+        page.on("pageerror", error => errors.push(error.message));
+        try {
+          await page.goto(`${url}/performance.html?layers=${layers}&variant=${variant}`);
+          await page.waitForFunction(() => window.measurement, null, { timeout: 10000 });
+          assert.equal(await page.evaluate(() => window.measurement.version), "19.3.0");
+          const warmup = await page.evaluate(() => window.measurement.collect(500));
+          const measurement = await page.evaluate(ms => window.measurement.collect(ms), report.method.requestedWindowMs);
+          assert.equal(measurement.after.mode, variant.startsWith("gpu") ? "gpu" : "dom");
+          assert.equal(measurement.after.layers.length, layers);
+          const inputWindow = page.evaluate(() => window.measurement.collect(1000));
+          for (let edit = 0; edit < 5; edit++) {
+            await page.getByLabel("Native input", { exact: true }).fill(`edit-${edit}`);
+            await page.waitForTimeout(80);
+          }
+          const inputMeasurement = await inputWindow;
+          assert.equal(inputMeasurement.after.commits - inputMeasurement.before.commits, 5);
+          assert.equal(inputMeasurement.after.mode, measurement.after.mode);
+          if (variant.startsWith("gpu")) assert(inputMeasurement.after.metrics.uploads - inputMeasurement.before.metrics.uploads >= 5);
+          const estimates = await page.evaluate(() => {
+            const s = window.measurement.state(), bytes = s.layers.reduce((sum, layer) => sum + layer.width * layer.height * 4, 0);
+            const output = document.querySelector("#output"), capture = document.querySelector("#capture");
+            return { textureRGBABytes: s.resources.textures ? bytes : 0, stagingRGBABytes: s.resources.stagingCanvases ? bytes : 0,
+              comparisonRGBABytes: s.resources.comparisonBuffers ? bytes : 0,
+              outputBitmapCapacityRGBABytes: output.width * output.height * 4,
+              captureBitmapCapacityRGBABytes: capture.width * capture.height * 4 };
+          });
+          const startup = await page.evaluate(() => ({ startupMs: window.measurement.startupMs }));
+          const retired = await page.evaluate(() => window.measurement.dispose());
+          zero(retired); assert.deepEqual(errors, []);
+          const run = { dpr, layers, variant, repetition, startup, warmup, measurement, inputMeasurement, estimates, retired, errors };
+          run.summary = summary(run);
+          run.inputSummary = summary({ ...run, measurement: inputMeasurement });
+          report.runs.push(run);
+          await save(report);
+          console.log(`${dpr}x ${layers} ${variant} r${repetition + 1}: ${Math.round(measurement.durationMs)}ms, ${run.summary.rafMs.median}/${run.summary.rafMs.p95}ms RAF; ${run.summary.work.gpuFrames} GPU submissions`);
+        } finally { await context.close(); }
+      }
+    }
+  }
+  for (const dpr of smoke ? [1] : [1, 2]) for (const gpu of [false, true]) {
+    const context = await browser.newContext({ viewport: { width: 900, height: 950 }, deviceScaleFactor: dpr });
+    const page = await context.newPage();
+    try {
+      await page.goto(`${url}/todo.html`);
+      await page.waitForFunction(() => window.todoProbe);
+      if (gpu) await page.evaluate(() => window.todoProbe.controller().enable());
+      assert.equal(await page.evaluate(() => window.todoProbe.state().mode), gpu ? "gpu" : "dom");
+      await page.evaluate(() => {
+        window.inputTimes = [];
+        window.latencyListener = () => window.inputTimes.push(performance.now());
+        document.getElementById("todo-controls").addEventListener("change", window.latencyListener, { capture: true });
+      });
+      for (let trial = 0; trial < (smoke ? 2 : 10); trial++) {
+        await page.evaluate(() => window.todoProbe.controller().settle());
+        const row = await page.locator('[data-task-id="1"]').boundingBox(), frame = await page.locator("#frame").boundingBox();
+        const baseline = PNG.sync.read(await page.locator("#frame").screenshot());
+        await page.getByLabel("Complete task 1", { exact: true }).click();
+        const eventAt = await page.evaluate(() => window.inputTimes.at(-1));
+        assert.equal(typeof eventAt, "number");
+        let lowerMs = 0, detected;
+        for (let poll = 0; poll < 20; poll++) {
+          const captureStart = await page.evaluate(() => performance.now());
+          const current = PNG.sync.read(await page.locator("#frame").screenshot());
+          const captureEnd = await page.evaluate(() => performance.now());
+          let changed = 0;
+          for (let y = Math.ceil((row.y - frame.y) * dpr); y < Math.floor((row.y - frame.y + row.height) * dpr); y++) {
+            for (let x = Math.ceil((row.x - frame.x) * dpr); x < Math.floor((row.x - frame.x + row.width) * dpr); x++) {
+              const offset = (y * current.width + x) * 4;
+              if ([0, 1, 2].some(channel => baseline.data[offset + channel] !== current.data[offset + channel])) changed++;
+            }
+          }
+          if (changed > 100 * dpr * dpr) { detected = { dpr, gpu, trial, eventAt, lowerMs, upperMs: captureEnd - eventAt,
+            uncertaintyMs: captureEnd - eventAt - lowerMs, captureStart, captureEnd, changedPixels: changed, polls: poll + 1 }; break; }
+          lowerMs = Math.max(0, captureStart - eventAt);
+        }
+        assert(detected, "Native task event must visibly change captured control pixels");
+        report.latency.push(detected);
+      }
+      await page.evaluate(() => {
+        document.getElementById("todo-controls").removeEventListener("change", window.latencyListener, { capture: true });
+        delete window.latencyListener;
+      });
+      const retired = await page.evaluate(() => window.todoProbe.dispose());
+      zero(retired); assert.equal(retired.transition.timers, 0); assert.equal(retired.demoListeners, 0);
+      report.latencyRetirements.push({ dpr, gpu, retired, measurementListenerRemoved: true });
+    } finally { await context.close(); }
+  }
+  report.completed = true;
+  await save(report);
+} finally {
+  if (browser) await browser.close();
+  server.kill("SIGTERM");
+  await new Promise(resolve => { if (server.exitCode !== null) resolve(); else server.once("exit", resolve); });
+  await import("./sanitize-evidence.mjs");
+}

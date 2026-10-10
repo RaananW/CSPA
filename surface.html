@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>CanvasSPA native GPU surface</title>
+  <style>
+    body { font: 16px system-ui; margin: 24px; color: #17202a; background: white; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    .surface-frame { position: relative; width: 480px; height: 360px; background: white; }
+    #capture-host, #gpu-output { position: absolute; inset: 0; width: 480px; height: 360px; }
+    #gpu-output { pointer-events: none; }
+    [hidden] { display: none !important; }
+    #ordinary-host { padding: 20px; }
+    .app-container, .layers { position: relative; width: 300px; }
+    .card { box-sizing: border-box; width: 300px; height: 220px; padding: 12px; background: rgb(240,30,60); }
+    #ordinary-host .card { background: rgb(30,100,220); padding: 18px; }
+    .badge { position: absolute; left: 160px; top: 160px; width: 100px; height: 60px; background: rgba(20,200,90,.5); }
+    .card h2 { font-size: 18px; margin: 0 0 8px; }
+    .card p { margin: 5px 0; }
+    input { width: 140px; }
+    #diagnostics { white-space: pre-wrap; max-width: 900px; }
+  </style>
+</head>
+<body>
+  <h1>Native capture / Lite WebGPU integration gate</h1>
+  <p>One React root, two native captured layers, one GPU engine. Experimental, not a toolkit.</p>
+  <p>
+    <button id="enable">Enable GPU</button>
+    <button id="disable">Use ordinary DOM</button>
+    <button id="effect">Shader tint</button>
+    <button id="motion">GPU-only movement</button>
+    <button id="dispose">Dispose</button>
+  </p>
+  <div class="surface-frame">
+    <canvas id="capture-host" width="480" height="360" hidden></canvas>
+    <canvas id="gpu-output" width="480" height="360" hidden></canvas>
+    <div id="ordinary-host"></div>
+  </div>
+  <pre id="diagnostics" role="status"></pre>
+  <script type="module" src="/src/surface.tsx"></script>
+</body>
+</html>

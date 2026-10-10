@@ -1,0 +1,105 @@
+{
+  "phase": 7,
+  "gate": "changes-required",
+  "acceptanceComplete": false,
+  "model": "gpt-6.1-sol",
+  "reason": "A high-confidence independent reproducer violates coordinated DOM transition atomicity. Full matrix reruns were deliberately stopped before execution, as required by the acceptance stop condition.",
+  "sourceIdentity": {
+    "expectedSha256": "8cf8c1c449d2882491805891f6e8e65b480f84940564bcd03f5b6bd57361fc19",
+    "actualSha256": "8cf8c1c449d2882491805891f6e8e65b480f84940564bcd03f5b6bd57361fc19",
+    "drift": false,
+    "primaryLockSha256": "10959d287e50785914f00c853afeb132fab4043ba40c4dedc4eef1aebb15bb10",
+    "primaryLockMatchesImplementerMatrix": true
+  },
+  "resolvedPrimary": {
+    "react": "19.3.0",
+    "reactDOM": "19.3.0",
+    "dialog": {
+      "name": "@radix-ui/react-dialog",
+      "version": "1.2.0",
+      "license": "MIT",
+      "reactPeer": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc",
+      "reactDOMPeer": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc"
+    }
+  },
+  "findings": [
+    {
+      "id": "P7-1",
+      "severity": "high",
+      "confidence": "10/10",
+      "title": "Rejected coordinated DOM group leaves an earlier member running",
+      "locations": [
+        {
+          "file": "src/canvas-spa/runtime.ts",
+          "lines": "576-582"
+        },
+        {
+          "file": "src/canvas-spa/runtime.ts",
+          "lines": "590-600"
+        },
+        {
+          "file": "src/canvas-spa/runtime.ts",
+          "lines": "609-621"
+        },
+        {
+          "file": "src/canvas-spa/animation.ts",
+          "lines": "65-69"
+        }
+      ],
+      "reproduction": [
+        "Open /integration.html?dom on the retained development server.",
+        "Add #replacement { transform-origin: 50% 50% !important; } to an authored stylesheet.",
+        "Call integrationProbe.group with stage and replacement, both using identity-to-x30 keyframes and duration 800ms.",
+        "The call throws Declarative DOM presentation was overridden by authored CSS.",
+        "Immediately afterward stage remains registered as an active declarative motion and has new owned inline presentation declarations.",
+        "After 150ms stage has advanced to x=5.617500000447035 despite the group call having failed."
+      ],
+      "cause": "The preparation helper only checks important transform/opacity and individual transforms. Actual transform-origin precedence is checked during beginTransition.apply(0). Group members are begun with sequential map and have no transaction rollback when a later begin throws.",
+      "impact": "The caller receives no returned handles while a prior group member has already mutated and continues animating. This violates the documented all-or-nothing preparation contract, not merely a diagnostic wording expectation.",
+      "requiredCorrection": "Make all potentially failing DOM preparation transactional before starting or replacing any member, or restore every member and preserve prior handles/state when a start fails. Include a focused regression for important transform-origin on a later member and retain existing invalid-group and replacement behavior.",
+      "evidence": "phase7-independent/group-origin-atomicity.json"
+    }
+  ],
+  "independentExecution": {
+    "targetedCheck": {
+      "status": "completed",
+      "processExitCode": 0,
+      "blockingBugReproduced": true,
+      "browserVersion": "154.0.8037.98",
+      "browser": "Installed Google Chrome only",
+      "flags": [
+        "--enable-automation",
+        "--enable-blink-features=CanvasDrawElement,ElementCanvasTransform",
+        "--enable-experimental-web-platform-features"
+      ],
+      "mode": "ordinary DOM",
+      "pageErrors": [],
+      "finalCoreRuntimeAndDemoResourcesAllZero": true,
+      "browserClosed": true
+    },
+    "react18CompleteGate": "not-run: stopped after acceptance-blocking reproducer",
+    "react19CompleteGate": "not-run: stopped after acceptance-blocking reproducer",
+    "implementerMatrices": "Read as implementer evidence only; not independent reruns",
+    "remainingAcceptance": "Native/pixel/ref/StrictMode/loss/retirement and complete matching-major verification remain pending after correction. No partial acceptance is claimed."
+  },
+  "preservation": {
+    "applicationImplementationEdited": false,
+    "parentPlanEdited": false,
+    "historicalEvidenceRegenerated": false,
+    "dependenciesInstalledOrChanged": false,
+    "gitStagedCommittedOrPushed": false,
+    "workLogCandidateStaged": false
+  },
+  "services": {
+    "retainedDevelopmentPort": 5173,
+    "owner": "Phase7 implementation session",
+    "listenerPid": 30064,
+    "integrationHttpStatus": 200,
+    "retainedServiceStoppedOrRestarted": false,
+    "boundedServersCreated": false
+  },
+  "limits": [
+    "No speedup claim.",
+    "Real OS IME, screen reader, physical device/display/reset, everyday profile and genuine background-tab throttling remain manual/unverified."
+  ]
+}

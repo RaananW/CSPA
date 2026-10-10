@@ -1,0 +1,93 @@
+{
+  "version": 2,
+  "gate": "changes-required",
+  "applicationBehavior": "passed-all-assigned-bounded-automated-checks",
+  "blocker": {
+    "id": "P7-2",
+    "title": "Full Phase7 runner overwrites five historical Phase6 fixtures",
+    "file": "tests/performance.test.mjs",
+    "lines": "36-37",
+    "reproduction": "npm run test:react19 includes performance.test.mjs, which writes evidence/phase6/fixtures/{dom-affine,dom-static,gpu-affine,gpu-ripple,gpu-static}.json",
+    "impact": "Historical Phase6 evidence preservation is an explicit acceptance requirement. Five originals differ from independently recorded pre-run hashes; 248 other historical files and both original P7-1 evidence files remain unchanged.",
+    "requiredAction": "Restore the five historical originals from genuine preserved bytes, preserve the fresh performance outputs separately, and isolate subsequent Phase7 runner output from historical Phase6 paths. Verify all 253 hashes before releasing the commit gate.",
+    "evidence": "phase7-independent-corrected/evidence-audit.json",
+    "notAnApplicationFailure": true
+  },
+  "resolvedFinding": {
+    "id": "P7-1",
+    "status": "independently-confirmed-fixed",
+    "evidence": "phase7-independent-corrected/p7-1-corrected.json",
+    "checks": [
+      "Original important-origin refusal from fresh and preexisting-prior-handle states",
+      "Post-inline important-origin refusal and cross-member :has opacity override",
+      "Exact declaration values/priorities/absent style and logical phases unchanged on refusal",
+      "Prior promise remains pending and prior transform keeps progressing",
+      "Replacement cancels predecessor with Replaced; stale cancellation does not cancel successor",
+      "Authored restoration inheritance and zero final resource/timer ledgers",
+      "Full reruns additionally pass scale/post-inline/reduced endpoint-dependent preparation cases"
+    ]
+  },
+  "commands": [
+    { "command": "npm run test:react18", "exitCode": 0, "typesAndBuild": "passed", "browserCases": 68, "integrationCases": 15, "skipped": 0, "flaky": 0 },
+    { "command": "npm run test:react19", "exitCode": 0, "units": 15, "typesAndBuild": "passed", "browserCases": 114, "integrationCases": 15, "skipped": 0, "flaky": 0 },
+    { "command": "phase7-corrected-check.mjs", "exitCode": 0, "kind": "new independent P7-1 reproducer" },
+    { "command": "phase7-behavior-check.mjs", "exitCode": 0, "kind": "new independent native/decoded-pixel/affine/ownership/loss checks" },
+    { "command": "phase7-contract-check.mjs", "exitCode": 0, "kind": "new independent refs/Presence/endpoint/no-flags checks" },
+    { "command": "phase7-evidence-audit.mjs", "exitCode": 0, "kind": "audit explicitly records five historical drifts; does not hide or waive them" }
+  ],
+  "identity": {
+    "model": "gpt-6.1-sol",
+    "sourceSha256": "069805d808e3f1946699c4c327799c147ba5a9813111dae06be5b2e6c8ea1671",
+    "primaryLockSha256": "10959d287e50785914f00c853afeb132fab4043ba40c4dedc4eef1aebb15bb10",
+    "productionAndDevelopmentReact18": "18.3.1",
+    "productionAndDevelopmentReact19": "19.3.0",
+    "dialog": "1.2.0",
+    "dialogLicense": "MIT",
+    "browser": "Installed Google Chrome 154.0.8037.98",
+    "sourceOrLockDrift": false
+  },
+  "independentBehaviorEvidence": {
+    "nativeAndPixels": "phase7-independent-corrected/native-pixels-lifecycle.json",
+    "refsPresenceEndpoints": "phase7-independent-corrected/contracts.json",
+    "audit": "phase7-independent-corrected/evidence-audit.json",
+    "decodedPixelProof": "DPR1/2 actual enter/intermediate/exit/reversal PNG RGBA pixels, original input edits, subsequent GPU output edit differences of 337/1476 region pixels; not compressed PNG byte counts.",
+    "nativeControls": "Original form/label/input, keyboard selection, external Radix Portal.container focus trap, Escape/Close/focus return, recovery and no-flags DOM",
+    "affineHits": "Original moving input clicked at independently calculated translation/rotation/nonuniform-scale geometry; canonical/public native matrices within 1e-5",
+    "presenceAndRefs": "Stable original refs/root/children, replacement/detachment, idempotent release, StrictMode replay, one retained exiting subtree/reversal, descriptor-only changes preserve exact active start/end, parent unmount suppresses stale callback",
+    "completionSemantics": "Completed typed DOM motion retains endpoint declarations; completed original-ref motion restores authored absent transform/opacity/origin",
+    "declarationOwnership": "Later authored value, priority-only change, removal and drawable attribute survive release/recovery",
+    "loss": "Actual public configured-device destruction, original native controls remain usable, explicit successful reentry and final zero ledgers",
+    "settledIntervals": "Four matching-major production/development intervals and two new DPR1/2 intervals each advance 300 actual GPU/RAF frames with zero React/capture/copy/native-readback/upload/admission deltas; subsequent short native edits visibly alter decoded GPU output.",
+    "retirement": "20 zero retired core/runtime/demo-listener lifetimes in each major; independent fixture and loss checks also retire to zero",
+    "healthyRetention": "Both majors preserve nonzero healthy engine/textures/pending readback/fence resources until real delivery or diagnostic device loss; not forced/fake zero",
+    "architecture": "One persistent original root/container; only adapter-owned moveBefore; one shared engine; owning 2D native capture to staging and public Lite dynamic texture/compositor; functional admission before reveal; normal invalidation enabled"
+  },
+  "service": {
+    "retainedPort": 5173,
+    "owner": "implementation-session",
+    "pid": 30064,
+    "todoHTTP": 200,
+    "integrationHTTP": 200,
+    "boundedPorts5174_5185_5186": "no listeners",
+    "acceptanceBrowsers": "all closed",
+    "serverRestartedOrDuplicated": false
+  },
+  "explicitLimits": [
+    "Installed experimental Chrome and bounded React18/19 client-only integration, not general browser/library certification",
+    "No SSR/hydration certification; client-directive build warnings remain visible",
+    "Existing CSS transforms, clipping/scrolling, nested/foreign enrollment and competing owners conservatively refuse or recover to native DOM",
+    "Opacity zero is not a hit/focus disable; original essential controls remain authoritative until React removal",
+    "No speedup claim",
+    "Actual OS IME, screen reader, physical-device/display/reset, everyday-profile and genuine background-tab throttling remain manual/unverified",
+    "Diagnostic device destruction and synthetic visibility are not physical reset/background proof"
+  ],
+  "scope": {
+    "applicationEdits": false,
+    "parentPlanEdits": false,
+    "commitsOrPushes": false,
+    "journalStaging": false,
+    "originalFindingOverwritten": false,
+    "phase8Or9Work": false,
+    "commitGateReleased": false
+  }
+}

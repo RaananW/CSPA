@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>CanvasSPA external component integration</title>
+</head>
+<body>
+  <h1>Original components and declarative presence</h1>
+  <p>Radix Dialog 1.2.0, native input/form, authored CSS, one original React tree.</p>
+  <p><button id="enable">GPU</button> <button id="disable">Ordinary DOM</button> <button id="dispose">Dispose</button></p>
+  <div id="frame"><canvas id="capture" hidden></canvas><canvas id="output" hidden></canvas><div id="ordinary"></div><div id="overlay"></div></div>
+  <pre id="status" role="status"></pre>
+  <script type="module" src="/src/demo/integration-demo.tsx"></script>
+</body>
+</html>

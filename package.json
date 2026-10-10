@@ -1,0 +1,33 @@
+{
+  "name": "canvas-spa-phase-one",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "npm run test:unit && npm run build && npm run test:browser",
+    "test:unit": "node --test tests/*.unit.test.mjs",
+    "test:browser": "node scripts/test-browser.mjs",
+    "probe": "node scripts/browser-probe.mjs",
+    "test:react18": "node scripts/react-matrix.mjs",
+    "test:react19": "node scripts/react-matrix.mjs --primary",
+    "measure": "npm run build && node scripts/measure.mjs"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "1.2.0",
+    "@babylonjs/lite": "1.33.0",
+    "@babylonjs/lite-gl": "1.15.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "pngjs": "7.0.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.4"
+  }
+}

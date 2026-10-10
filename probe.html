@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Native topology probe</title>
+    <style>
+      body { margin: 0; background: white; font: 16px sans-serif; }
+      canvas { display: block; width: 480px; height: 300px; margin: 20px; }
+      #layer { width: 200px; height: 140px; background: rgb(240, 30, 60); color: white; }
+      #nested { width: 30px; height: 30px; background: rgb(20, 200, 90); }
+      #layer button, #layer input { display: block; margin: 4px; }
+      #diagnostics { white-space: pre-wrap; margin: 20px; }
+    </style>
+  </head>
+  <body>
+    <canvas id="host" width="480" height="300" content="drawable">
+      <div id="layer" drawable>
+        <span id="text">Native marker ABC</span>
+        <button id="button">Native increment</button>
+        <input id="editing" aria-label="Probe input" value="original" />
+        <div id="nested" drawable></div>
+      </div>
+    </canvas>
+    <pre id="diagnostics">Disposable probe fixture; no application content is mounted here.</pre>
+    <script type="module" src="/src/probe.ts"></script>
+  </body>
+</html>

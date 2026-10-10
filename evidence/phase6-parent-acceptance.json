@@ -1,0 +1,285 @@
+{
+  "scope": "Independent parent raw-evidence verification, not a new full benchmark",
+  "completed": true,
+  "variants": 5,
+  "runs": 90,
+  "inputWindows": 90,
+  "retirements": 94,
+  "latencyTrials": 40,
+  "steadySeconds": 180.95039999985696,
+  "inputSeconds": 90.89319999974965,
+  "gpuFrames": 4356,
+  "startupMs": {
+    "median": 85.40000003576279,
+    "p95": 193.10000002384186,
+    "max": 312.4000000357628
+  },
+  "groups": [
+    {
+      "dpr": 1,
+      "layers": 2,
+      "captures": {
+        "median": 17,
+        "p95": 18,
+        "max": 18
+      },
+      "uploads": {
+        "median": 6,
+        "p95": 6,
+        "max": 6
+      },
+      "readbackMs": {
+        "median": 1.9000000357627869,
+        "p95": 3.600000023841858,
+        "max": 7.699999988079071
+      },
+      "affineFrameMs": {
+        "median": 0.10000002384185791,
+        "p95": 0.20000004768371582,
+        "max": 0.30000001192092896
+      },
+      "rippleFrameMs": {
+        "median": 0.10000002384185791,
+        "p95": 0.20000004768371582,
+        "max": 0.3999999761581421
+      }
+    },
+    {
+      "dpr": 1,
+      "layers": 4,
+      "captures": {
+        "median": 29,
+        "p95": 33,
+        "max": 33
+      },
+      "uploads": {
+        "median": 6,
+        "p95": 7,
+        "max": 7
+      },
+      "readbackMs": {
+        "median": 1.7000000476837158,
+        "p95": 3.5,
+        "max": 7.900000035762787
+      },
+      "affineFrameMs": {
+        "median": 0.19999998807907104,
+        "p95": 0.20000004768371582,
+        "max": 0.30000001192092896
+      },
+      "rippleFrameMs": {
+        "median": 0.19999998807907104,
+        "p95": 0.20000004768371582,
+        "max": 0.3999999761581421
+      }
+    },
+    {
+      "dpr": 1,
+      "layers": 8,
+      "captures": {
+        "median": 53,
+        "p95": 61,
+        "max": 61
+      },
+      "uploads": {
+        "median": 6,
+        "p95": 7,
+        "max": 7
+      },
+      "readbackMs": {
+        "median": 1.699999988079071,
+        "p95": 3.5,
+        "max": 6.900000035762787
+      },
+      "affineFrameMs": {
+        "median": 0.19999998807907104,
+        "p95": 0.30000001192092896,
+        "max": 0.40000003576278687
+      },
+      "rippleFrameMs": {
+        "median": 0.19999998807907104,
+        "p95": 0.30000001192092896,
+        "max": 0.5
+      }
+    },
+    {
+      "dpr": 2,
+      "layers": 2,
+      "captures": {
+        "median": 17,
+        "p95": 17,
+        "max": 17
+      },
+      "uploads": {
+        "median": 6,
+        "p95": 6,
+        "max": 6
+      },
+      "readbackMs": {
+        "median": 2,
+        "p95": 3.600000023841858,
+        "max": 4.599999964237213
+      },
+      "affineFrameMs": {
+        "median": 0.10000002384185791,
+        "p95": 0.20000004768371582,
+        "max": 0.3999999761581421
+      },
+      "rippleFrameMs": {
+        "median": 0.10000002384185791,
+        "p95": 0.20000004768371582,
+        "max": 0.30000001192092896
+      }
+    },
+    {
+      "dpr": 2,
+      "layers": 4,
+      "captures": {
+        "median": 29,
+        "p95": 32,
+        "max": 32
+      },
+      "uploads": {
+        "median": 6,
+        "p95": 6,
+        "max": 6
+      },
+      "readbackMs": {
+        "median": 1.899999976158142,
+        "p95": 3.300000011920929,
+        "max": 4.5
+      },
+      "affineFrameMs": {
+        "median": 0.19999998807907104,
+        "p95": 0.30000001192092896,
+        "max": 0.40000003576278687
+      },
+      "rippleFrameMs": {
+        "median": 0.19999998807907104,
+        "p95": 0.30000001192092896,
+        "max": 0.40000003576278687
+      }
+    },
+    {
+      "dpr": 2,
+      "layers": 8,
+      "captures": {
+        "median": 53,
+        "p95": 61,
+        "max": 61
+      },
+      "uploads": {
+        "median": 6,
+        "p95": 7,
+        "max": 7
+      },
+      "readbackMs": {
+        "median": 1.800000011920929,
+        "p95": 3.199999988079071,
+        "max": 6.300000011920929
+      },
+      "affineFrameMs": {
+        "median": 0.19999998807907104,
+        "p95": 0.30000001192092896,
+        "max": 0.5
+      },
+      "rippleFrameMs": {
+        "median": 0.20000004768371582,
+        "p95": 0.40000003576278687,
+        "max": 1
+      }
+    }
+  ],
+  "latency": [
+    {
+      "dpr": 1,
+      "gpu": false,
+      "trials": 10,
+      "upperBoundMs": {
+        "median": 83.89999997615814,
+        "p95": 96.59999996423721,
+        "max": 96.59999996423721
+      }
+    },
+    {
+      "dpr": 1,
+      "gpu": true,
+      "trials": 10,
+      "upperBoundMs": {
+        "median": 108,
+        "p95": 124.90000003576279,
+        "max": 124.90000003576279
+      }
+    },
+    {
+      "dpr": 2,
+      "gpu": false,
+      "trials": 10,
+      "upperBoundMs": {
+        "median": 114.69999998807907,
+        "p95": 131.9000000357628,
+        "max": 131.9000000357628
+      }
+    },
+    {
+      "dpr": 2,
+      "gpu": true,
+      "trials": 10,
+      "upperBoundMs": {
+        "median": 145.5,
+        "p95": 163.29999995231628,
+        "max": 163.29999995231628
+      }
+    }
+  ],
+  "matrices": [
+    {
+      "versions": {
+        "production": "19.3.0",
+        "development": "19.3.0"
+      },
+      "sourceSha256": "f17db4c0823bde3bad266ae41c44611932daa8c6de2d08a32378672999584edb",
+      "primaryLockUnchanged": true
+    },
+    {
+      "versions": {
+        "production": "18.3.1",
+        "development": "18.3.1"
+      },
+      "sourceSha256": "f17db4c0823bde3bad266ae41c44611932daa8c6de2d08a32378672999584edb",
+      "primaryLockUnchanged": true
+    }
+  ],
+  "independentRegression": {
+    "react19": {
+      "units": 15,
+      "browserCases": 99
+    },
+    "react18": {
+      "browserCases": 53
+    },
+    "typeBuilds": "passed for both"
+  },
+  "manualGates": "Screen reader, OS IME, real background throttling, physical displays/devices/reset remain unverified",
+  "smoke": {
+    "completed": true,
+    "variants": 5,
+    "latencyTrials": 4,
+    "scope": "Independent abbreviated harness run; original 90-window comparison not overwritten"
+  },
+  "compactDiagnostics": {
+    "input": {
+      "top": 334.4375,
+      "bottom": 357.4375,
+      "left": 60,
+      "right": 266
+    },
+    "detailsOpen": false,
+    "status": "dom: Ordinary DOM startup; admission pending.",
+    "mode": "dom",
+    "nativeTaskWorkflow": true,
+    "noFlagsRefusal": true,
+    "allRetiredLedgersZero": true,
+    "pageErrors": []
+  }
+}
