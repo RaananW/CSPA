@@ -1,5 +1,9 @@
 # Initial typed API
 
+**Evidence storage:** historical raw paths named below refer to the verified
+external local archive, not files in this checkout. Only compact verdicts
+remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+
 The intentional source entry point is `src/canvas-spa/index.ts`. This private
 experimental package has no published package name or stability promise.
 Do not import demo facades or internal renderer classes into application code.

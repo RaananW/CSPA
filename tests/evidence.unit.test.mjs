@@ -34,6 +34,8 @@ test("sanitizer selects independent output without touching adjacent archives", 
     for (const root of ["phase8", "phase9", "phase9-independent"]) await mkdir(join(directory, "evidence", root), { recursive: true });
     const original = '{"path":"/Users/test/private-file"}\n';
     const archive = join(directory, "evidence/phase8/report.json");
+    const verdict = join(directory, "evidence/phase9-independent/acceptance-v1.json");
+    await writeFile(verdict, original);
     for (const root of ["phase9", "phase9-independent"]) {
       const independent = join(directory, `evidence/${root}/report.json`);
       await writeFile(archive, original);
@@ -41,6 +43,7 @@ test("sanitizer selects independent output without touching adjacent archives", 
       execFileSync(process.execPath, [fileURLToPath(new URL("../scripts/sanitize-evidence.mjs", import.meta.url))],
         { cwd: directory, env: { ...process.env, CANVAS_EVIDENCE_ROOT: `evidence/${root}` }, stdio: "pipe" });
       assert.equal(await readFile(archive, "utf8"), original);
+      assert.equal(await readFile(verdict, "utf8"), original);
       assert.equal(JSON.parse(await readFile(independent, "utf8")).path, "<redacted-local-path>");
     }
   } finally {

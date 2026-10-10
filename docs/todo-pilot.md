@@ -1,5 +1,9 @@
 # TODO application pilot
 
+**Evidence storage:** historical raw paths named below refer to the verified
+external local archive, not files in this checkout. Only compact verdicts
+remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+
 Open <http://127.0.0.1:5173/todo.html> (or `?strict` for development StrictMode).
 Ordinary DOM is the default. Add with Enter or the native submit button,
 complete/reopen with a checkbox or Space, edit titles live and confirm with

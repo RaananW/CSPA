@@ -18,14 +18,14 @@ The [Phase 6 report](docs/measurements.md) documents actual React18/19 behavior,
 production comparisons, raw samples and still-unperformed manual gates.
 The [Phase7 integration](docs/integration.md), `/integration.html`, adds
 original-element refs, Radix Dialog and bounded motion/presence; the
-[public roadmap](docs/roadmap.md) separates implemented contracts from planned
-Phase9 (bounded hardening accepted-with-limits on actual installed155; exact154
-remains unverified, not waived; see [independent proof](evidence/phase9-independent/acceptance-v1.json)).
+[public roadmap](docs/roadmap.md) records
+Phase9 bounded hardening accepted-with-limits on actual installed155; exact154
+remains unverified, not waived; see [independent proof](evidence/phase9-independent/acceptance-v1.json).
 The [adoption checklist](docs/adoption.md) covers migration and manual/device
 gates. The [Phase8 effects](docs/effects.md), `/effects.html`, use the same
 shared compositor and add a trusted application color-function extension.
 Phase8 is independently accepted with explicit limits; the
-[final verdict](evidence/phase8-independent/acceptance-v3.json) preserves earlier
+[Phase8 acceptance summary](evidence/phase8-acceptance-summary.json) preserves earlier
 routing findings and does not close manual/device or release gates.
 
 ## Private phase history
@@ -38,12 +38,22 @@ The first accepted commit
 includes the preexisting accepted Phases1-6 baseline plus Phase7; do not
 fabricate retrospective phase commits. Later accepted phases get individual
 commits. Inspect the exact staging set for secrets, private local paths and
-generated artifacts; retain intentional sanitized evidence, keep dependencies,
+generated artifacts; retain only compact curated verdicts, keep dependencies,
 caches and browser profiles ignored, include the standard Copilot coauthor
 trailer, verify the remote stays private and verify matching local/remote main
 SHAs after push. Do not advance phases until this verification. This is private
 history tracking, not authorization to select a license, publish a package,
 make the repository public or modify upstream engines.
+
+Raw reports, screenshots, reruns and full performance dumps must stay outside
+tracked history. The [archive catalog](docs/archive-catalog.md) records preserved
+local bytes and access/reproduction limits. Stage source/docs/tests and curated
+verdicts explicitly, then run `node scripts/check-evidence.mjs`; it checks staged
+paths, JSON validity and a64 KiB per-verdict budget, including force-added files.
+Generated evidence is ignored; a new curated verdict needs a deliberate
+allowlist/ignore-policy update. Never use blanket `git add -f evidence`.
+History rewrites/force-pushes require explicit user approval, not an unavailable
+user or autonomous continuation. The one-time cleanup was explicitly approved.
 
 ## Setup
 
@@ -109,7 +119,8 @@ servers it started, not a user's existing development server. Do not run
 competing suites/server starts against these ports; evidence filenames are
 shared and runs are serial.
 
-The full suite currently has twenty-one unit tests and 124 browser tests;
+The accepted Phase9 suite has twenty-one unit tests and140 browser tests;
+the current harness also includes one deterministic evidence-policy unit.
 the current runtime suite has twenty-three and the historical surface suite
 twenty-five; twenty-three exercise the paired Phase 4/5 contract. Production-profiling and real
 development StrictMode both assert at least 300 GPU-only frames with zero
@@ -161,6 +172,9 @@ compile failure and diagnostic device loss.
 
 ### Compatibility and measurement writers
 
+The current matching React18 browser selection has94 cases; React19 has140.
+Historical Phase8 counts78/124 remain valid for that earlier scope.
+
 ```sh
 npm ci --prefix fixtures/react18 --ignore-scripts
 npm run test:react18
@@ -203,8 +217,9 @@ Only the named roots are writable. Probe output defaults to the selected root's
 `chrome/` directory; performance fixtures/full/smoke follow the selected
 root's `performance/` directory (`evidence/regression/current/performance` by default).
 The sanitizer visits only the selected root.
-All versioned historical evidence, including Phase6/7 and independent findings,
-is read-only: byte-backup/hash before runs and audit afterward. The permanent
+Curated versioned verdicts are read-only. Raw historical evidence is externally
+archived, not available in the current checkout; never reconstruct or regenerate
+it as though it were the original. The permanent
 five-original-fixture gap disclosed in [measurements](docs/measurements.md)
 is not repaired or waived by this routing.
 Inspect generated artifacts before sharing: this path redactor is **not** a

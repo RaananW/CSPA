@@ -1,5 +1,9 @@
 # Phase 6: compatibility and measured costs
 
+**Evidence storage:** historical raw paths named below refer to the verified
+external local archive, not files in this checkout. Only compact verdicts
+remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+
 **The bounded React 18/19 behavior matrix and production comparison pass.
 The measurements do not demonstrate a performance improvement over DOM.**
 The GPU path adds synchronous submission work, root-wide capture/comparison
@@ -52,7 +56,7 @@ the coordinator permits renewed independent bounded155 checks after the user
 was unavailable, **not explicit user155 approval or154 certification**.
 
 The genuine unchanged Phase8 runtime baseline is
-[`phase9/baseline/performance/performance.json`](../evidence/phase9/baseline/performance/performance.json):
+[`phase9/baseline/performance/performance.json` (archived raw)](archive-catalog.md):
 90 runs, 40 screenshot-poll latency trials, five native edits/window,
 2/4/8 layers, DPR1/2, three repetitions. Root-wide paint reproduces roughly
 17/29/53 captures rather than five. No proven public native attribution supports
@@ -61,27 +65,27 @@ Per-layer captures/copies/readbacks/uploads, CPU samples, real RAF intervals,
 owned RGBA/uniform estimates and actual changed output are retained. CPU
 submission is not GPU execution; unavailable GPU timestamps remain null.
 
-The [final corrected-runtime comparison](../evidence/phase9/new-final/performance/performance.json)
+The [final corrected-runtime comparison (archived raw)](archive-catalog.md)
 also completed90 runs and40 latency trials with the same timed workloads.
-The earlier [new run](../evidence/phase9/new/performance/performance.json)
+The earlier [new run (archived raw)](archive-catalog.md)
 is retained verbatim but predates the final admission-cancellation correction;
 it is not relabeled as final source. New blur/settle/static raster checks and
 uniform estimates are outside measurement windows. The
-[corrected implementation comparison report](../evidence/phase9/handoff-v2/implementation-report.json)
+[corrected implementation comparison report (archived raw)](archive-catalog.md)
 contains per-group raw counts/median/p95, per-layer work and retirement results.
 No affected-path speedup is claimed: root-wide native paint/readback cost
 remains, and noisy CPU/RAF samples are not GPU-execution measurements.
 The earlier handoff report is preserved, not rewritten after discovery of
 the version discrepancy.
 
-The controlled [raster comparison](../evidence/phase9/raster-comparison/report.json)
+The controlled [raster comparison (archived raw)](archive-catalog.md)
 uses an isolated genuine `git archive` build of committed Phase8 `84ac72ca`
 and current source, identical native edits/font/style/blur, eight layers and
 900x750 viewport. Both have zero differing pixels at DPR1 and exactly23249
 differing pixels/68851 differing bytes at DPR2. Paired decoded PNGs/settings
 are preserved. Thus DPR2 text rasterization is baseline-identical, not a new
 Phase9 native state/layout/hit regression or pixel-equivalent text claim.
-The [independent FINAL-source comparison](../evidence/phase9-independent/run-v1/final-native-v2/report.json)
+The [independent FINAL-source comparison (archived raw)](archive-catalog.md)
 repeats this exact23249pixels/68851bytes mismatch with byte-identical corresponding
 baseline/final PNGs. The earlier intermediate source is not relabeled final.
 Static presentation comparisons report actual differences; animated variants
@@ -97,8 +101,8 @@ permanent provenance exception; there was **no explicit user supersession
 approval**. Exactly248/253 original historical hashes are preserved, not253/253.
 The full Phase6 benchmark, smoke, matrix and parent reports remain untouched.
 Required original/current hashes are in the
-[P7-2 recovery/isolation audit](../evidence/phase7/harness/p7-2-evidence-isolation.json);
-the [independent continuation disposition](../evidence/phase7-independent-p7-2-continuation.json)
+[P7-2 recovery/isolation audit (archived raw)](archive-catalog.md);
+the [independent continuation disposition (archived raw)](archive-catalog.md)
 records the exception. Earlier held verdicts remain historical findings.
 
 ```sh
@@ -160,17 +164,17 @@ The shared narrow profiling declaration describes verified public exports
 using the matching installed React DOM types; there is no fixture-specific
 type workaround. No primary dependency upgrade was made.
 
-Evidence: [React18 metadata](../evidence/phase6/react18/matrix.json),
-[build](../evidence/phase6/react18/build.log),
-[53-case behavior](../evidence/phase6/react18/behavior.log) and copied
-`evidence/phase6/react18/reports/`; [React19 metadata](../evidence/phase6/react19/matrix.json)
-and [full primary result](../evidence/phase6/react19/full.log).
+Evidence: [React18 metadata (archived raw)](archive-catalog.md),
+[build (archived raw)](archive-catalog.md),
+[53-case behavior (archived raw)](archive-catalog.md) and copied
+`evidence/phase6/react18/reports/`; [React19 metadata (archived raw)](archive-catalog.md)
+and [full primary result (archived raw)](archive-catalog.md).
 Metadata records source and unchanged primary-lock hashes. This is compatibility
 for the declared bounded suite, not all frameworks, hydration or arbitrary CSS.
 
 ## Environment and comparable workloads
 
-The final [raw report](../evidence/phase6/performance.json) records every run,
+The final [raw report (archived raw)](archive-catalog.md) records every run,
 full operation samples, RAF intervals, before/after counters, per-layer
 frequencies/bytes, estimates, retired ledgers, CDP build/launch arguments and
 dependency manifest. It uses installed macOS Chrome **154.0.8037.98**, revision
@@ -327,7 +331,7 @@ emulated. TODO diagnostics now keep accessible mode/reason visible and full
 JSON in collapsed details, placing New task inside a900x750 viewport.
 This shell correction does not change measurement-card geometry.
 
-Independent [parent headful/AX evidence](../evidence/phase6-parent-headful.json)
+Independent [parent headful/AX evidence (archived raw)](archive-catalog.md)
 uses installed Chrome, headless:false, CDP `Accessibility.getFullAXTree`,
 real keyboard and rendered pixels:19 relevant nodes in DOM/GPU,23 after add,
 original named textbox/checkbox, same root/input/focus/selection/title after
@@ -346,17 +350,17 @@ These link the original vertical-slice requirements, not seven new promises:
 
 | Original outcome | Current executable evidence |
 | --- | --- |
-| 1. React text/button/controlled input | [Native semantics](../evidence/runtime/native-semantics.json), [no-flags real TODO workflow](../evidence/todo/ordinary-no-flags.json) |
-| 2. GPU host with live rendered content | [Actual admission colors/pixels and React19 production](../evidence/runtime/independent-false.json), [content edits/captures/uploads](../evidence/phase6/performance.json) |
-| 3. Independent transformed surfaces/native interaction | [DPR1 geometry](../evidence/runtime/geometry-1.json), [DPR2 geometry](../evidence/runtime/geometry-2.json), [React18 behavior](../evidence/phase6/react18/behavior.log) |
-| 4. CSS keyframes transferred to sole GPU owner | [Original CSS source/time/presentation](../evidence/animation/source-css.json), [twenty restoration transactions](../evidence/animation/ownership-cycles-css.json) |
-| 5. Nontrivial sampled-pixel shader effect | [Real task transition](../evidence/todo/task-transition.json), [headful distinct phases](../evidence/phase6-parent-headful.json); decorative only |
-| 6. Same sample without handwritten application CSS | [Typed paired source](../evidence/animation/source-typed.json), [public numeric motion](../evidence/animation/numeric-motion.json), [TODO application](todo-pilot.md) |
-| 7. Visible fallback diagnostics/clean disposal | [No-flags TODO refusal](../evidence/todo/ordinary-no-flags.json), [every retired StrictMode controller](../evidence/runtime/environment-loss-cycles.json), [90+4 measurement retirements](../evidence/phase6/performance.json) |
+| 1. React text/button/controlled input | [Native semantics (archived raw)](archive-catalog.md), [no-flags real TODO workflow (archived raw)](archive-catalog.md) |
+| 2. GPU host with live rendered content | [Actual admission colors/pixels and React19 production (archived raw)](archive-catalog.md), [content edits/captures/uploads (archived raw)](archive-catalog.md) |
+| 3. Independent transformed surfaces/native interaction | [DPR1 geometry (archived raw)](archive-catalog.md), [DPR2 geometry (archived raw)](archive-catalog.md), [React18 behavior (archived raw)](archive-catalog.md) |
+| 4. CSS keyframes transferred to sole GPU owner | [Original CSS source/time/presentation (archived raw)](archive-catalog.md), [twenty restoration transactions (archived raw)](archive-catalog.md) |
+| 5. Nontrivial sampled-pixel shader effect | [Real task transition (archived raw)](archive-catalog.md), [headful distinct phases (archived raw)](archive-catalog.md); decorative only |
+| 6. Same sample without handwritten application CSS | [Typed paired source (archived raw)](archive-catalog.md), [public numeric motion (archived raw)](archive-catalog.md), [TODO application](todo-pilot.md) |
+| 7. Visible fallback diagnostics/clean disposal | [No-flags TODO refusal (archived raw)](archive-catalog.md), [every retired StrictMode controller (archived raw)](archive-catalog.md), [90+4 measurement retirements (archived raw)](archive-catalog.md) |
 
-Preserve historical [Phase2/3](../evidence/full-regression.log),
-[Phase4/5](../evidence/phase45-full-regression.log) and
-[TODO pilot](../evidence/todo-full-regression.log) logs as their own gates.
+Preserve historical [Phase2/3 (archived raw)](archive-catalog.md),
+[Phase4/5 (archived raw)](archive-catalog.md) and
+[TODO pilot (archived raw)](archive-catalog.md) logs as their own gates.
 The historical fixed-subtree fallback/cross-owner ElementImage failures
 remain failures; current success uses the explicitly adopted stable-container/
 owning-canvas pixel-copy contract.
@@ -370,7 +374,7 @@ records the matching source/lock hashes, recomputed statistics and checks of
 all 90 settled/input windows, 40 pixel-latency trials and 94 retired lifetimes.
 Every recorded capture, readback, upload and frame-work sample count agrees
 with its window's counters. The original full comparison is preserved;
-[the separate smoke report](../evidence/phase6/performance-smoke.json) is not a
+[the separate smoke report (archived raw)](archive-catalog.md) is not a
 second 90-window benchmark.
 
 The compact TODO shell was also checked at 900x750 without native flags:

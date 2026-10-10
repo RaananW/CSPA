@@ -1,5 +1,9 @@
 # Bounded adoption and migration
 
+**Evidence storage:** historical raw paths named below refer to the verified
+external local archive, not files in this checkout. Only compact verdicts
+remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+
 Phase9 is [independently accepted-with-limits](../evidence/phase9-independent/acceptance-v1.json)
 for bounded actual155 specimens; exact154 remains unverified.
 This is private experimental software, not a release-ready unchanged

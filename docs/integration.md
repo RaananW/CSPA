@@ -1,5 +1,9 @@
 # Phase 7 integration decisions
 
+**Evidence storage:** historical raw paths named below refer to the verified
+external local archive, not files in this checkout. Only compact verdicts
+remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+
 This bounded pilot uses **@radix-ui/react-dialog 1.2.0**, exactly pinned.
 Registry metadata declares MIT and React/ReactDOM peers
 `^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc`. The installed package's
@@ -110,17 +114,17 @@ they are not hidden and do not establish SSR/hydration support.
 
 | Proof | Maintained evidence |
 | --- | --- |
-| Matching majors/dependency resolution | [React18 matrix](../evidence/phase7/react18/matrix.json), [React19 matrix](../evidence/phase7/react19/matrix.json); matching `build.log`/`behavior.log` or `full.log` |
+| Matching majors/dependency resolution | [React18 matrix (archived raw)](archive-catalog.md), [React19 matrix (archived raw)](archive-catalog.md); matching `build.log`/`behavior.log` or `full.log` |
 | Original native input/form/focus/selection/refs/CSS; public Dialog overlay | `evidence/phase7/integration/native-{false,true}.json`; changed actual screenshot bytes >100, same root/input through recovery, external overlay focus trap/return |
-| Atomic enrollment, callback replacement and20 retired lifetimes | [enrollment.json](../evidence/phase7/integration/enrollment.json); every retired core/runtime ledger and demo listener zero; one new active engine |
+| Atomic enrollment, callback replacement and20 retired lifetimes | [enrollment.json (archived raw)](archive-catalog.md); every retired core/runtime ledger and demo listener zero; one new active engine |
 | Actual entering/exiting/interrupted/exited/reentered pixels | `presence-{false,true}.json` and matching PNGs in `evidence/phase7/integration/`; green `[20,200,90,255]` at rest, white after exit, intermediate alpha/translation pixels on enter/exit |
-| Nonidentity native affine hit | [affine-transition.json](../evidence/phase7/integration/affine-transition.json); translation/rotation/nonuniform scale, canonical/public native coefficients within1e-5, real coordinate click focuses the original input and keyboard edits it |
-| Replacement, repeated cancel, rapid toggles, reduced motion and DOM recovery | [transition-outcomes.json](../evidence/phase7/integration/transition-outcomes.json), presence reports |
-| Shared epoch/stagger and atomic invalid groups | [coordinated.json](../evidence/phase7/integration/coordinated.json), [unmount-and-declarations.json](../evidence/phase7/integration/unmount-and-declarations.json); second DOM boundary's important CSS refuses before first starts |
-| Transactional CSS preparation, prior-handle preservation and reduced motion | [fresh group](../evidence/phase7/integration/group-preparation-false.json), [existing transition](../evidence/phase7/integration/group-preparation-true.json), [reduced endpoint](../evidence/phase7/integration/group-preparation-false-reduced.json), [original P7-1 rerun](../evidence/phase7/integration/p7-1-reproduction.json); exact declarations/priorities, canonical phase and resource counts unchanged on refusal |
+| Nonidentity native affine hit | [affine-transition.json (archived raw)](archive-catalog.md); translation/rotation/nonuniform scale, canonical/public native coefficients within1e-5, real coordinate click focuses the original input and keyboard edits it |
+| Replacement, repeated cancel, rapid toggles, reduced motion and DOM recovery | [transition-outcomes.json (archived raw)](archive-catalog.md), presence reports |
+| Shared epoch/stagger and atomic invalid groups | [coordinated.json (archived raw)](archive-catalog.md), [unmount-and-declarations.json (archived raw)](archive-catalog.md); second DOM boundary's important CSS refuses before first starts |
+| Transactional CSS preparation, prior-handle preservation and reduced motion | [fresh group (archived raw)](archive-catalog.md), [existing transition (archived raw)](archive-catalog.md), [reduced endpoint (archived raw)](archive-catalog.md), [original P7-1 rerun (archived raw)](archive-catalog.md); exact declarations/priorities, canonical phase and resource counts unchanged on refusal |
 | Later app declarations/attribute and parent unmount | Same unmount report: later opacity/priority and drawable value preserved; parent removes one child, cancels motion and emits no stale completion callback |
-| Genuine diagnostic loss and real HMR | [presence-loss.json](../evidence/phase7/integration/presence-loss.json), [hmr.json](../evidence/phase7/integration/hmr.json); usable original controls/reentry, zero final/old lifetimes |
-| Useful ordinary browser DOM | [no-flags.json](../evidence/phase7/integration/no-flags.json); actual native form and Dialog focus/dismissal |
+| Genuine diagnostic loss and real HMR | [presence-loss.json (archived raw)](archive-catalog.md), [hmr.json (archived raw)](archive-catalog.md); usable original controls/reentry, zero final/old lifetimes |
+| Useful ordinary browser DOM | [no-flags.json (archived raw)](archive-catalog.md); actual native form and Dialog focus/dismissal |
 
 React18 reports and PNGs are copied under
 `evidence/phase7/react18/reports/phase7/integration/`; primary reports above
@@ -146,5 +150,5 @@ Historical Phase6/parent reports remain untouched. No speedup is established.
 Actual screen-reader/OS IME, physical-device/display/reset, everyday-profile
 and genuine background-tab throttling remain unverified manual gates. Synthetic
 visibility and diagnostic configured-device destruction do not substitute.
-The [roadmap](roadmap.md) records planned Phases8/9 and private accepted-phase
+The [roadmap](roadmap.md) records accepted-with-limits Phases8/9 and private accepted-phase
 history policy.

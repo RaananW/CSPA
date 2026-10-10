@@ -1,0 +1,34 @@
+{
+  "kind": "Derived archival summary, not the original independent verdict",
+  "phase": 8,
+  "verdict": "accepted-with-limits",
+  "scope": "Milestones8.1-8.4 within declared effects/native/lifecycle/React18/19 specimens; not release or manual/device certification",
+  "original": {
+    "path": "evidence/phase8-independent/acceptance-v3.json",
+    "sha256": "ac49e37a33d3f2849c46eda262c2b07ca908178512b2f039e6a27c152a3c5175",
+    "status": "Unchanged bytes preserved in the external local archive, not this checkout"
+  },
+  "previousFindings": {
+    "P8A1": "Initial independent root-routing refusal; corrected and separately verified",
+    "P8A2": "Effects unit retained an obsolete whitelist; corrected without skip or product change",
+    "initialVerdict": "evidence/phase8-independent-acceptance.json",
+    "v2ArchivedPath": "evidence/phase8-independent/acceptance-v2.json",
+    "v2Sha256": "20d0bb5175bae29321187957699c7b20059c48b77582aa7dacf382f3f5914658"
+  },
+  "gates": {
+    "React19": "21 units, matching types/build,124 browser cases passed",
+    "React18": "Source-identical retained types/build,78 shared browser cases passed",
+    "originalImplementationUnits": 18,
+    "browser": "Historical installed Chrome154.0.8037.98",
+    "pixelsAndLifecycle": "Native/decoded effect-policy output,300 real RAF windows, StrictMode/HMR/loss and healthy pending cleanup passed",
+    "smoke": "5 settled and5 native-input windows,4 decoded-pixel trials,7 retirements"
+  },
+  "limits": [
+    "CPU submission is not GPU execution; decorative shader work is not equivalent DOM work; no speedup claim",
+    "Trusted application color functions are not an untrusted shader sandbox",
+    "OS IME, actual screen reader, everyday profile, true background and physical device/display/reset remain manual UNVERIFIED",
+    "Five Phase6 originals remain lost:248/253 genuine originals; preserving Git bytes does not repair provenance; no explicit user supersession approval",
+    "Phase9 has separate actual155 acceptance and an unverified exact154 requirement"
+  ],
+  "archiveCatalog": "docs/archive-catalog.md"
+}

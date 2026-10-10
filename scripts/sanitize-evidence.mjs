@@ -1,8 +1,10 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { evidenceRoot } from "../tests/evidence.mjs";
+import { curatedEvidence } from "./check-evidence.mjs";
 
 const workspace = resolve(".");
+const curatedPaths = new Set(curatedEvidence.map(path => resolve(path)));
 function sanitize(value) {
   if (typeof value === "string") {
     return value.replaceAll(workspace, "<workspace>")
@@ -16,6 +18,7 @@ function sanitize(value) {
 async function visit(directory) {
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = `${directory}/${entry.name}`;
+    if (curatedPaths.has(resolve(path))) continue;
     if (entry.name.startsWith("phase6-parent-") || path === "evidence/phase6"
       || entry.name.startsWith("phase7-independent")) continue;
     if (entry.isDirectory()) await visit(path);

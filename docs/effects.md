@@ -1,5 +1,9 @@
 # Bounded effects (Phase8 implementation)
 
+**Evidence storage:** historical raw paths named below refer to the verified
+external local archive, not files in this checkout. Only compact verdicts
+remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+
 This gate uses the existing public Lite1.33.0 fullscreen compositor, not a
 second renderer. No dependency changes are needed. Parameter-only updates use
 one uniform buffer and one shared composition pass; there are no additional
@@ -135,20 +139,20 @@ builds. Three routing-only units were added afterward for P8-A1; independent
 final independent acceptance passed21 units/types/build/124 browsers and
 retained source-identical React18 types/build/78 browsers. Actual mounted
 React18.3.1/19.3.0 and Dialog resolution are in the
-[React18 matrix](../evidence/phase8/react18/matrix.json) and
-[React19 matrix](../evidence/phase8/react19/matrix.json).
+[React18 matrix (archived raw)](archive-catalog.md) and
+[React19 matrix (archived raw)](archive-catalog.md).
 
 | Proof | Current Phase8 evidence |
 | --- | --- |
-| Decoded identity/time/alpha/bounds, sampling and color order; essential native equality | [Production pixels](../evidence/phase8/effects/pixels-false.json), [development StrictMode pixels](../evidence/phase8/effects/pixels-true.json), matching named PNGs |
-|300-frame effects and motion/effects, normal invalidation, content update| [Production independence](../evidence/phase8/effects/independence-false.json), [development independence](../evidence/phase8/effects/independence-true.json) |
-| Atomic chain refusal/snapshots/stale cancellation | [Handles](../evidence/phase8/effects/atomic-handles.json) |
-| Media and usable fallback | [Media](../evidence/phase8/effects/media.json) |
-| Genuine compiler rejection, hidden failure and reentry | [Compiler](../evidence/phase8/effects/compiler-failure.json) |
-| Synthetic capability/pipeline failure and late mutation, final active-handle disposal | [Failure paths](../evidence/phase8/effects/capability-pipeline.json) |
-| Actual diagnostic loss, twenty StrictMode retirements and real HMR | [Retirement](../evidence/phase8/effects/loss-hmr-retirement.json) |
-| Healthy pending fence retains resources until genuine queue completion | [Healthy fence](../evidence/phase8/effects/healthy-fence.json) |
-| Byte preservation, matched hashes and CPU/resource costs | [Implementation report](../evidence/phase8/implementation-report.json) |
+| Decoded identity/time/alpha/bounds, sampling and color order; essential native equality | [Production pixels (archived raw)](archive-catalog.md), [development StrictMode pixels (archived raw)](archive-catalog.md), matching named PNGs |
+|300-frame effects and motion/effects, normal invalidation, content update| [Production independence (archived raw)](archive-catalog.md), [development independence (archived raw)](archive-catalog.md) |
+| Atomic chain refusal/snapshots/stale cancellation | [Handles (archived raw)](archive-catalog.md) |
+| Media and usable fallback | [Media (archived raw)](archive-catalog.md) |
+| Genuine compiler rejection, hidden failure and reentry | [Compiler (archived raw)](archive-catalog.md) |
+| Synthetic capability/pipeline failure and late mutation, final active-handle disposal | [Failure paths (archived raw)](archive-catalog.md) |
+| Actual diagnostic loss, twenty StrictMode retirements and real HMR | [Retirement (archived raw)](archive-catalog.md) |
+| Healthy pending fence retains resources until genuine queue completion | [Healthy fence (archived raw)](archive-catalog.md) |
+| Byte preservation, matched hashes and CPU/resource costs | [Implementation report (archived raw)](archive-catalog.md) |
 
 React18 executes the same cases and retains independent outputs under
 `evidence/phase8/react18/reports/effects/`. Existing Phase7 integration and
@@ -186,7 +190,7 @@ selected root. Sanitization visits only the selected output root, never all
 archives. Back up/hash committed evidence before runs and audit afterward.
 
 Phase8 is independently accepted with explicit limits; see the
-[final v3 verdict](../evidence/phase8-independent/acceptance-v3.json) and its
+[Phase8 acceptance summary](../evidence/phase8-acceptance-summary.json) and its
 fresh `run-v3/` reports. Initial P8-A1/A2 findings and the original implementation
 report remain historical and unchanged.
 The implementation report and matrix counts above describe the original

@@ -1,5 +1,9 @@
 # Feasibility, backend decision and historical gates
 
+**Evidence storage:** historical raw paths named below refer to the verified
+external local archive, not files in this checkout. Only compact verdicts
+remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+
 ## Decision
 
 **Current review gate: bounded Phase 6 compatibility/comparison evidence,
@@ -63,7 +67,7 @@ Explicit experimental flags are
 requests `--enable-automation` for CDP command-line retrieval; the follow-up
 browser tests also request it explicitly. Its full actual
 command line, CDP browser/JS versions, executable, and timestamp are in
-[`report.json`](../evidence/chrome/report.json). Playwright's default launch
+[`report.json` (archived raw)](archive-catalog.md). Playwright's default launch
 arguments include GPU/software-rendering choices; this is not a verified
 hardware-accelerated production benchmark.
 
@@ -81,17 +85,17 @@ then installed at exact versions:
 | pngjs | 7.0.0 |
 
 Node 24.19.0/npm 11.17.0 satisfy Vite's supported Node range. See
-[`package-versions.json`](../evidence/package-versions.json),
-`package-lock.json`, and [`npm-audit.json`](../evidence/npm-audit.json).
+[`package-versions.json` (archived raw)](archive-catalog.md),
+`package-lock.json`, and [`npm-audit.json` (archived raw)](archive-catalog.md).
 The audit reports zero vulnerabilities. The React baseline uses shared
 18/19-era APIs; React 18 and a full compatibility matrix were not tested.
 
 Primary definitions for this exact Chromium revision:
 
 - [HTMLCanvasElement IDL](https://github.com/chromium/chromium/blob/b859317bf11f6be47f9b7799ec690a0a42a1fb33/third_party/blink/renderer/core/html/canvas/html_canvas_element.idl),
-  saved in [`chrome-html-canvas.idl`](../evidence/chrome-html-canvas.idl).
+  saved in [`chrome-html-canvas.idl` (archived raw)](archive-catalog.md).
 - [UpdateElementGeometryOptions IDL](https://github.com/chromium/chromium/blob/b859317bf11f6be47f9b7799ec690a0a42a1fb33/third_party/blink/renderer/core/html/canvas/update_element_geometry_options.idl),
-  saved in [`chrome-geometry-options.idl`](../evidence/chrome-geometry-options.idl).
+  saved in [`chrome-geometry-options.idl` (archived raw)](archive-catalog.md).
 - [Runtime feature definitions](https://github.com/chromium/chromium/blob/b859317bf11f6be47f9b7799ec690a0a42a1fb33/third_party/blink/renderer/platform/runtime_enabled_features.json5).
 - [GPUQueue IDL](https://github.com/chromium/chromium/blob/b859317bf11f6be47f9b7799ec690a0a42a1fb33/third_party/blink/renderer/modules/webgpu/gpu_queue.idl).
 - [Current HTML-in-Canvas explainer](https://github.com/WICG/html-in-canvas).
@@ -239,15 +243,15 @@ show explicitly requested messages; they do not inject live renderer faults.
 
 Evidence:
 
-- [`chrome/report.json`](../evidence/chrome/report.json): exact build/launch,
+- [`chrome/report.json` (archived raw)](archive-catalog.md): exact build/launch,
   capture, native editing hashes, three transform hits, eight failed fallback
   transitions, Offscreen error, generated backend pixel checks, timings and disposal.
 - `evidence/chrome/native-*.png`, `geometry-*.png`, `fallback-*.png`,
   `webgpu-*.png`, `webgl2-*.png`: corresponding rendered pixels.
-- [`chrome-no-flags/report.json`](../evidence/chrome-no-flags/report.json):
+- [`chrome-no-flags/report.json` (archived raw)](archive-catalog.md):
   same installed executable with no requested native experimental flags.
-- [`browser-tests.json`](../evidence/browser-tests.json): current full installed
-  Chrome tests; [`final-tests.log`](../evidence/final-tests.log): three unit
+- [`browser-tests.json` (archived raw)](archive-catalog.md): current full installed
+  Chrome tests; [`final-tests.log` (archived raw)](archive-catalog.md): three unit
   passes, TypeScript/production build, browser summary.
 - `evidence/canary/` is historical pre-restriction exploration, not part of
   the approved installed-Chrome verdict.
@@ -588,22 +592,22 @@ installed or switched.
 
 Evidence:
 
-- [`surface/production.json`](../evidence/surface/production.json) and
-  [`surface/development-strict.json`](../evidence/surface/development-strict.json):
+- [`surface/production.json` (archived raw)](archive-catalog.md) and
+  [`surface/development-strict.json` (archived raw)](archive-catalog.md):
   actual CDP version/launch command, native pixels, GPU-only before/after counts,
   production-profiling/development build identity, commit events and positive
   commit-counter controls, state,
   geometry cleanup, cycles, final resources and empty page/console/resource
   error lists.
 - `evidence/surface/{production,development-strict}-{initial,edited,shader-shift,ordinary-DOM,reentry}.png`.
-- [`surface/native-public-backends.json`](../evidence/surface/native-public-backends.json)
+- [`surface/native-public-backends.json` (archived raw)](archive-catalog.md)
   and `native-{webgpu,webgl2}.png`: real native transfer through both engines.
 - `evidence/surface/*-unavailable.json`, `no-gpu.json`, `paint-timeout.json`,
   `gpu-admission-rejected.json`, `geometry-rejected.json`,
   `late-engine-timeout.json`, `runtime-capture-failure.json` and
   `runtime-failure-ordinary-DOM.png`: explicit negative/recovery evidence.
-- [`surface-tests.log`](../evidence/surface-tests.log) and
-  [`surface-build.log`](../evidence/surface-build.log).
+- [`surface-tests.log` (archived raw)](archive-catalog.md) and
+  [`surface-build.log` (archived raw)](archive-catalog.md).
 
 **Upside/next gate:** Option 3 now retains tested local/native state around an
 actual GPU renderer, not only native 2D capture. It still requires an explicit

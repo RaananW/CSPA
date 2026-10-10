@@ -1,5 +1,9 @@
 # Current architecture and lifecycle contract
 
+**Evidence storage:** historical raw paths named below refer to the verified
+external local archive, not files in this checkout. Only compact verdicts
+remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+
 This describes the supported **bounded Phase 2/3 runtime plus Phase 4/5
 ownership/module/decorative additions, the bounded Phase 6 matrix and implemented
 Phase7 integration and Phase8 effects independently accepted with explicit limits**, not a released

@@ -1,5 +1,9 @@
 # Current verification and compatibility matrix
 
+**Evidence storage:** historical raw paths named below refer to the verified
+external local archive, not files in this checkout. Only compact verdicts
+remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+
 This includes the bounded Phase 6 compatibility/production measurements,
 TODO pilot, accepted Phase 4/5 and preserved Phase 2/3 regressions,
 not release or comprehensive manual/device certification.
@@ -46,8 +50,8 @@ after that emulation and does not claim a physical-display event.
 Final serial implementer gates pass **21 units, types/build and94 shared browser
 cases on React18.3.1**, and **21 units, types/build and140 browser cases on
 React19.3.0**. Actual mounted production/development versions and identical
-shared-source hashes are in the [React18 matrix](../evidence/phase9/final-react18-v2/react18/matrix.json)
-and [React19 matrix](../evidence/phase9/final-react19-v2/react19/matrix.json).
+shared-source hashes are in the [React18 matrix (archived raw)](archive-catalog.md)
+and [React19 matrix (archived raw)](archive-catalog.md).
 The first React18 final attempt and focused failures remain preserved: an
 admission-cancellation cleanup regression was corrected with bounded hidden
 public-frame draining, not resource destruction or relaxed assertions.
@@ -56,17 +60,17 @@ Actual known-color/native geometry,
 300-frame normal-invalidation intervals followed by changed output, StrictMode/
 HMR, twenty retired lifetimes, compile/atomic ownership refusal and healthy
 fence/readback tests are preserved, not weakened. The
-[baseline-identical DPR2 raster comparison](../evidence/phase9/raster-comparison/report.json)
+[baseline-identical DPR2 raster comparison (archived raw)](archive-catalog.md)
 was repeated against FINAL source in the
-[independent raster proof](../evidence/phase9-independent/run-v1/final-native-v2/report.json):
+[independent raster proof (archived raw)](archive-catalog.md):
 zero differing pixels atDPR1;23249pixels/68851bytes atDPR2, with corresponding
 baseline/final PNGs byte-identical. It does not establish text pixel equivalence.
 [Adoption](adoption.md) lists exact
 unperformed human/device gates. All2469 accepted Git evidence files were
 genuinely byte-backed-up before runners; new output uses fresh Phase9 roots.
-The [corrected implementation report](../evidence/phase9/handoff-v2/implementation-report.json)
+The [corrected implementation report (archived raw)](archive-catalog.md)
 links raw matched measurements and records protected hashes.
-The [first report](../evidence/phase9/handoff/implementation-report.json) remains
+The [first report (archived raw)](archive-catalog.md) remains
 immutable and predates discovery of the browser-version mismatch; its
 unqualified completion label is not an acceptance verdict.
 
@@ -101,7 +105,7 @@ closure is claimed; planned hardening remains [roadmap](roadmap.md) work.
 ## Phase8 bounded effects
 
 Independently accepted with explicit limits; see the
-[final v3 verdict](../evidence/phase8-independent/acceptance-v3.json).
+[Phase8 acceptance summary](../evidence/phase8-acceptance-summary.json).
 Final independent React19 passed21 units/types/build/124 browsers; retained
 source-identical React18 passed matching types/build/78 shared browsers.
 Direct decoded/native/policy/300-real-RAF proof and bounded smoke passed.
@@ -352,4 +356,4 @@ twenty-five historical surface and sixteen native/backend/recovery cases.
 The corrected Phase 4/5 expanded suite had thirteen units and eighty-seven browser
 cases, including twenty-three focused Phase 4/5 tests.
 The pilot subsequently passed15 units/94 browsers; Phase6's current full
-result is [React19 full.log](../evidence/phase6/react19/full.log),15 units/99 browsers.
+result is [React19 full.log (archived raw)](archive-catalog.md),15 units/99 browsers.
