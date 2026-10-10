@@ -79,7 +79,8 @@ The earlier handoff report is preserved, not rewritten after discovery of
 the version discrepancy.
 
 The controlled [raster comparison (archived raw)](archive-catalog.md)
-uses an isolated genuine `git archive` build of committed Phase8 `84ac72ca`
+used an isolated genuine `git archive` build of pre-rewrite Phase8 `84ac72ca`
+(archived provenance; corresponding current-history commit `8f0ba6b9`)
 and current source, identical native edits/font/style/blur, eight layers and
 900x750 viewport. Both have zero differing pixels at DPR1 and exactly23249
 differing pixels/68851 differing bytes at DPR2. Paired decoded PNGs/settings

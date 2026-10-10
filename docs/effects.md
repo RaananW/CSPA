@@ -158,7 +158,8 @@ React18 executes the same cases and retains independent outputs under
 `evidence/phase8/react18/reports/effects/`. Existing Phase7 integration and
 P7-1 transaction checks are rerun, not replaced. The report compares every
 versioned baseline evidence file to commit
-`7415d5cbf8550dc374ab2c15d8a454457832012d`; the private byte backup was made
+`3c508a848b9673fd1d691e76fa26b651dccf2ab9` (rewritten Phase7; original ID is
+archived in the [catalog](archive-catalog.md)); the private byte backup was made
 before tests.955/955 preserved Git bytes do not restore the five lost
 Phase6 originals or change the permanent disclosure.
 

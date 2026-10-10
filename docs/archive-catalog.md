@@ -78,7 +78,6 @@ output from source. The initial and corrected verdicts are retained separately.
 | [phase7-independent-corrected-acceptance.json](../evidence/phase7-independent-corrected-acceptance.json) | 6944 | `92dbee887aae3830bc6735d0322cdc97bdcedf2837e512d6e8eeacf99f26cf6a` |
 | [phase8-independent-acceptance.json](../evidence/phase8-independent-acceptance.json) | 3269 | `ad2e299cd35bf4aae882698f047743c601d2e55b4076fff74619e94659fbc7da` |
 | [phase9-independent/acceptance-v1.json](../evidence/phase9-independent/acceptance-v1.json) | 12650 | `bed3b96fdbc466ab0daa0b64b0fc46ff64890c519d6596dad73b4631bb57cf1a` |
-
 | [Derived Phase8 acceptance summary](../evidence/phase8-acceptance-summary.json) | 2105 | `915a0d505fb38989105e251b0f5df085d77bddb652c17db9f18a6659aa8a5c30` |
 
 The larger Phase8 v2/v3 verdicts (mostly per-file hash bookkeeping) remain
@@ -113,7 +112,18 @@ release readiness/arbitrary compatibility.
 
 ## Rewritten history
 
-The phase-commit mapping is recorded here after isolated history filtering.
+The isolated filter preserved the three meaningful phase commits and their
+source trees, removing raw evidence from every main ancestor:
+
+| Commit | Archived old SHA | Rewritten SHA |
+| --- | --- | --- |
+| Phases1-6 baseline and Phase7 | `7415d5cbf8550dc374ab2c15d8a454457832012d` | `3c508a848b9673fd1d691e76fa26b651dccf2ab9` |
+| Phase8 | `84ac72ca6a5f86d34104f899d1662914aae7903e` | `8f0ba6b9b1dcb167e1e22c3720b0c50319459d02` |
+| Phase9 | `7f57b7ce5604b0d764c7e527ec1179abeb94b156` | `6c973c3e4e4a929996740f7c0725e0a415ac9159` |
+| Lean-tree maintenance | `bbf841fd533d00fbb56e15b12848b4ed64592f2a` | `76e948788991e2d958235c3ee9c8de8fc3b3daeb` |
+
+The final mapping documentation is a subsequent maintenance commit. Original
+verdicts/report-assembler baseline IDs intentionally remain archived provenance.
 Remote replacement uses an exact expected-old-main force-with-lease. This
 removes bulk evidence from reachable main/clone history, not a guarantee of
 immediate GitHub physical purging of unreachable objects or cached old URLs.
