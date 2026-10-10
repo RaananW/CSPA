@@ -4,6 +4,11 @@ The intended direction is open-source software, but this folder is currently
 an experimental private package, not a published library. License selection,
 repository publication and release policy are unresolved. No maintainer or
 security contact is designated here.
+Phase10 private distribution preparation is independently accepted with limits;
+[verdict](evidence/phase10-independent/acceptance-summary.json) and
+[local pack/consumer and browser policy](docs/distribution.md).
+Keep the existing package name/private/license decisions. No npm publication,
+release CI or lifecycle automatic-refresh scope is authorized here.
 
 Start with [README.md](README.md), the maintained
 [architecture/lifecycle/mount contract](docs/architecture.md), and the
@@ -91,6 +96,8 @@ actual background-tab evidence.
 npm run test:unit
 # TypeScript plus production build:
 npm run build
+# Rebuild/pack/install in isolated matching React18/19 consumers:
+CANVAS_EVIDENCE_ROOT=evidence/phase10/my-run npm run test:package
 # Integrated capture, 300-frame caching, loss and mount-boundary gates:
 npm run test:browser -- runtime.test.mjs --reporter=list
 # Preserved historical surface regressions:
@@ -217,6 +224,16 @@ Only the named roots are writable. Probe output defaults to the selected root's
 `chrome/` directory; performance fixtures/full/smoke follow the selected
 root's `performance/` directory (`evidence/regression/current/performance` by default).
 The sanitizer visits only the selected root.
+The shared validator also admits `evidence/phase10/<fresh-run>` and
+`evidence/phase10-independent/<fresh-run>` for distribution implementation
+and acceptance. `test:package` always creates new ignored evidence/consumer
+subdirectories, never reuses the source-matrix workspace or dev5173, and
+closes its own randomly allocated strict-port previews and browser profiles.
+Its actual npm-installed tarball consumers have no workspace/source aliases,
+matching declared React/types, strict Bundler/NodeNext declarations and
+flagged/unflagged production native/GPU pixel checks. Prepack builds only
+`dist/library`; demo builds still use `dist/` and may replace that generated
+library directory. Packing rebuilds it. No generated output belongs in Git.
 Curated versioned verdicts are read-only. Raw historical evidence is externally
 archived, not available in the current checkout; never reconstruct or regenerate
 it as though it were the original. The permanent

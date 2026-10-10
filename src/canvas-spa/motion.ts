@@ -1,5 +1,5 @@
 import { affine, type Transform } from "./affine.ts";
-import type { AnimationPlayback } from "./animation";
+import type { AnimationPlayback } from "./animation.js";
 import { compileTimeline, type TimelineFrame, type TimelineTiming } from "./timeline.ts";
 
 export interface MotionKeyframe extends Transform {

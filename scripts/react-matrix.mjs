@@ -10,7 +10,7 @@ const isPrimary = process.argv.includes("--primary");
 const destination = isPrimary ? root : resolve("fixtures/react18/workspace");
 const fixture = JSON.parse(await readFile("fixtures/react18/package.json", "utf8"));
 const primary = JSON.parse(await readFile("package.json", "utf8"));
-const version = isPrimary ? primary.dependencies.react : fixture.dependencies.react;
+const version = isPrimary ? primary.devDependencies.react : fixture.dependencies.react;
 const lockBefore = createHash("sha256").update(await readFile("package-lock.json")).digest("hex");
 const sourceHash = createHash("sha256");
 async function hashSource(directory) {
@@ -31,12 +31,12 @@ if (!isPrimary) {
   await writeFile(resolve(destination, "package.json"), JSON.stringify({
     ...primary, name: fixture.name,
     dependencies: { ...primary.dependencies, ...fixture.dependencies },
-    devDependencies: { ...primary.devDependencies, ...fixture.devDependencies },
+    devDependencies: { ...primary.devDependencies, ...fixture.devDependencies, react: fixture.dependencies.react, "react-dom": fixture.dependencies["react-dom"] },
   }, null, 2));
 }
 const fixtureRequire = createRequire(resolve(destination, "package.json"));
 const dialogPackage = JSON.parse(await readFile(resolve(dirname(fixtureRequire.resolve("@radix-ui/react-dialog")), "../package.json"), "utf8"));
-if (dialogPackage.version !== primary.dependencies["@radix-ui/react-dialog"]) throw new Error("Resolved Dialog integration dependency does not match its primary exact pin");
+if (dialogPackage.version !== primary.devDependencies["@radix-ui/react-dialog"]) throw new Error("Resolved Dialog integration dependency does not match its primary exact pin");
 await mkdir(resolve(destination, "evidence"), { recursive: true });
 const evidence = resolve(`${evidenceRoot}/react${isPrimary ? "19" : "18"}`);
 await mkdir(evidence, { recursive: true });

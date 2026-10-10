@@ -1,0 +1,72 @@
+{
+  "phase": 10,
+  "date": "2026-10-10",
+  "verdict": "accepted-with-limits",
+  "scope": "Private package/distribution preparation; not publication or production certification",
+  "independentHandoffSha256": "9a8d4c04d8b079ca981885de26780ee8ab8ab35e69aefaf8c138c6f6e7967f72",
+  "independentlyTestedArchive": {
+    "name": "canvas-spa-phase-one",
+    "version": "0.0.0",
+    "private": true,
+    "files": 23,
+    "packedBytes": 44588,
+    "unpackedBytes": 220188,
+    "sha256": "ed3b00779fe29c043034eb6e200f8884445103d86cdb57a1c758e878f2ae6d1b",
+    "contents": "package.json, README.md, docs/distribution.md, one library JS and19 declarations",
+    "libraryJsSha256": "4f4bfe2b1652691e3518b8943366aa3ddda5c9097764322d75fe6315699e6ab1",
+    "rootDeclarationSha256": "aa816a5644fc0d19723d4d83e22fee17d9020d2dad2ce363fa5cd0555cdf8b91",
+    "packageJsonSha256": "b4c750d57957fe423d1e890633f6413bf2a2a3722c257d2671aecfde738340dd",
+    "boundary": "ESM root only; public React/DOM/Lite externalized; embedded WGSL; no demo, tests, raw evidence, private engine, source maps or external runtime assets"
+  },
+  "postAcceptanceArchive": {
+    "files": 23,
+    "packedBytes": 44701,
+    "unpackedBytes": 220597,
+    "sha256": "d4caea55de8d9198bab3123f68015b736709f77263ec69fb4de402e889b29c35",
+    "comparison": "Deterministic dry/actual repack; only approved README.md and docs/distribution.md acceptance-label/native-scroll documentation differs from independently tested archive",
+    "productBytes": "All library JS,19 declarations and package.json byte-identical to independently tested archive",
+    "validationBoundary": "Documentation-only repack comparison and focused policy tests; no claim that final archive is byte-identical or was browser-rerun"
+  },
+  "validation": {
+    "independentUnits": 23,
+    "independentDemoBuild": "passed",
+    "independentPackageBrowserScenarios": 8,
+    "independentDirectBrowserScenarios": 8,
+    "matrix": "React18/19 x native flags/no native flags x DPR1/2",
+    "consumers": "Actual tarball bytes independently installed; all23 files match; dependency trees, strict Bundler and NodeNext with skipLibCheck=false/types=[], production builds, safe Node import and private-subpath refusals passed",
+    "versions": "React/DOM18.3.1 and19.3.0; types18.3.31/18.3.7 and19.3.0/19.3.0; Lite1.33.0; WebXR types0.5.24; TypeScript7.0.2; Vite8.3.4",
+    "originalReact": "Controlled/uncontrolled input, keyboard Enter form, count/hook state, focus, selection and original root/native nodes retained across presentation and recovery; final ledgers zero",
+    "geometryPixels": "Flagged functional admission, independently derived rotated/nonuniform geometry within1e-5, original elementFromPoint/native coordinate hit; decoded transformed red/white pixels at both DPRs/majors",
+    "faultLoss": "Injected capture fault and genuine GPUDevice.destroy device.lost produced diagnosed useful DOM and explicit fresh GPU reentry; not physical reset",
+    "ownerSourceBrowserCases": 38,
+    "ownerSourceBrowserBoundary": "Inspected owner evidence including HMR, not independently rerun",
+    "oldFullReact18SourceMatrix": "not rerun",
+    "nativeInputScroll": "Actual long-input/selection scroll cancelled GPU admission and retained DOM; initial GPU-wait timeout preserved, corrected short-input scenarios counted separately"
+  },
+  "browser": {
+    "actualCdpProduct": "Chrome/155.0.8059.40",
+    "revision": "@cfaadc5a132d78e1828635aa8405a499f3e14864",
+    "profile": "Installed Chrome only; fresh temporary headless automation profiles",
+    "flaggedAdditions": ["--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"],
+    "unflagged": "Native capture/draw/geometry absent; WebGPU/moveBefore alone insufficient; useful original DOM with exact admission diagnostic",
+    "exact154": "Chrome154.0.8037.98 UNVERIFIED",
+    "approval": "Actual155 observation/autonomous continuation is not explicit user155 approval or154 waiver; transition cause/date unknown",
+    "otherEngines": "Untested"
+  },
+  "protection": {
+    "sourceDigest": "26af46373120510c6c9badd02b0d1508bee060b339d9dd38601c97c2c56b483a",
+    "primaryLockSha256": "db319d90b00eead27d610a92b1f2990da88662d5688652ecd3de1a83ca23994f",
+    "react18FixtureLockSha256": "fcf60fe47c60aadc166f606e6eba245436e12717e59585bd355666c917cac20c",
+    "historicalReports": "All six original curated reports and archive catalog immutable",
+    "rawProof": "Full independent reports, failures, PNGs, tarball and installed consumer artifacts preserved externally and privately; not tracked",
+    "service": "Retained original5173 PID30064 untouched; independent owned helpers closed"
+  },
+  "openLimits": [
+    "Not published; private identity retained; license/public visibility/registry decisions not authorized",
+    "No production GPU, arbitrary-app, broad WebGL fallback, Safari/Firefox or SSR/hydration certification",
+    "Human OS IME, screen readers, everyday profiles, background throttling, physical displays/devices/reset remain open; Phase11 not started",
+    "Eight-layer/pixel-budget bounds; conservative root-wide capture; unsupported native scrolling/clipping/nesting; inert decorative restrictions; explicit structural reentry",
+    "DPR2 text raster mismatch remains; no text pixel-equivalence or speedup claim; no broad raster/performance rerun",
+    "Five lost original Phase6 fixture reports remain a provenance exception"
+  ]
+}

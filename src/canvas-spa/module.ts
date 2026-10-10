@@ -1,5 +1,5 @@
-import { CanvasRuntime, type RuntimeOptions, type LayerDefinition } from "./runtime";
-import type { CanvasController } from "./react";
+import { CanvasRuntime, type RuntimeOptions, type LayerDefinition } from "./runtime.js";
+import type { CanvasController } from "./react.js";
 
 export interface LocalApplicationModule {
   mount(context: { container: HTMLDivElement; enroll(layer: LayerDefinition): () => void }): () => void;

@@ -1,5 +1,5 @@
-import { compileTimeline, parseTransform, type TimelineFrame } from "./timeline";
-import { affine, type Transform } from "./affine";
+import { compileTimeline, parseTransform, type TimelineFrame } from "./timeline.js";
+import { affine, type Transform } from "./affine.js";
 
 const properties = ["transform", "opacity", "transform-origin"] as const;
 export function declarations(element: HTMLElement) {

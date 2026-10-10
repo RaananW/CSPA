@@ -75,6 +75,15 @@ Public exports live in `src/canvas-spa/index.ts`. An explicit outside-root mount
 adapter is required; a JSX wrapper never silently relocates React-created nodes.
 Layout/styles remain browser CSS, not a replacement layout engine.
 
+Phase10 adds an installable private ESM tarball and declarations, **independently
+accepted with limits** ([verdict](evidence/phase10-independent/acceptance-summary.json)). It is prepared, not published or production-ready;
+the existing `canvas-spa-phase-one@0.0.0` name/private status and unresolved
+license remain. See the standalone [distribution/bootstrap/browser
+contract](docs/distribution.md) for local packing, exact contents, matching
+React18/19 peers, host CSS and actual installed-consumer verification.
+That standalone contract ships in the tarball; other links in this README
+describe the repository checkout and its historical evidence.
+
 ## Validation and evidence policy
 
 ```sh
@@ -83,6 +92,8 @@ npm test
 npm ci --prefix fixtures/react18 --ignore-scripts
 npm run test:react18
 npm run test:react19
+# Actual packed installs, not source aliases; fresh ignored outputs:
+CANVAS_EVIDENCE_ROOT=evidence/phase10/my-run npm run test:package
 # Optional costly production measurements, not needed for routine changes:
 npm run measure
 # Before committing, validate the exact staged evidence:
@@ -106,6 +117,8 @@ Raw screenshots, logs, per-run reports and full performance samples are
 `evidence/phase9-independent/<distinct-run>` when needed. Named-root/traversal
 protection and selected-root sanitization remain intact. Never overwrite
 completed evidence or sanitize historical archives.
+Phase10 package/acceptance writers also share the same validator for
+`evidence/phase10/<distinct-run>` and `evidence/phase10-independent/<distinct-run>`.
 
 The [archive catalog](docs/archive-catalog.md) records the genuine external
 local byte archive, compact retained verdicts and user-authorized history

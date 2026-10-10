@@ -7,6 +7,10 @@ remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
 The intentional source entry point is `src/canvas-spa/index.ts`. This private
 experimental package has no published package name or stability promise.
 Do not import demo facades or internal renderer classes into application code.
+The private prepared tarball now exports the same API at
+`canvas-spa-phase-one` with declarations, independently accepted with Phase10
+limits. See [distribution](distribution.md) for actual install commands,
+host CSS, public dependency/type boundaries and the bounded browser contract.
 
 For an actual bounded application using these exports, see the
 [TODO pilot](todo-pilot.md) and `src/apps/todo/`. Its numeric layout/appearance
@@ -27,7 +31,7 @@ Those styles are host integration, not layer authoring.
 
 ```tsx
 import { useState } from "react";
-import { mountCanvasApp, Surface, Box, NativeOverlay } from "../canvas-spa";
+import { mountCanvasApp, Surface, Box, NativeOverlay } from "canvas-spa-phase-one";
 
 function App() {
   const [name, setName] = useState("");

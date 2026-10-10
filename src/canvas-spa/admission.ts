@@ -1,4 +1,4 @@
-import { validateAppliedGeometry, type DrawableCanvas } from "./native";
+import { validateAppliedGeometry, type DrawableCanvas } from "./native.js";
 
 const colors = [[207, 37, 83, 255], [31, 179, 113, 255]];
 

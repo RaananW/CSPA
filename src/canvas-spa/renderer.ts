@@ -5,13 +5,13 @@ import {
   setEngineSize, renderFrame, captureScreenshot,
   type EngineContext, type DynamicTexture2D, type EffectWrapper,
 } from "@babylonjs/lite";
-import { capabilities, enableDrawable, isDrawableCanvas, isDrawableContext, validateGeometry, validateAppliedGeometry, waitForPaint, type DrawableCanvas } from "./native";
-import { createMountBoundary, type MountBoundaryOptions } from "./mount-boundary";
-import { configuredDevice, observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "./device-lifecycle";
-import { compositionShader, compositionUniforms } from "./composition";
-import { createAdmissionProbe, verifyProbeGeometry, verifyProbePixels } from "./admission";
-import type { Ripple } from "./ripple";
-import type { ApplicationEffect, EffectDescriptor } from "./effects";
+import { capabilities, enableDrawable, isDrawableCanvas, isDrawableContext, validateGeometry, validateAppliedGeometry, waitForPaint, type DrawableCanvas } from "./native.js";
+import { createMountBoundary, type MountBoundaryOptions } from "./mount-boundary.js";
+import { configuredDevice, observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "./device-lifecycle.js";
+import { compositionShader, compositionUniforms } from "./composition.js";
+import { createAdmissionProbe, verifyProbeGeometry, verifyProbePixels } from "./admission.js";
+import type { Ripple } from "./ripple.js";
+import type { ApplicationEffect, EffectDescriptor } from "./effects.js";
 
 export interface EnrolledLayer {
   id: string;

@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, StrictMode, type HTMLAttributes, type ReactNode, type RefCallback } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { CanvasRuntime, type RuntimeOptions } from "./runtime";
-import { affine, type Transform } from "./affine";
-import { compileStyle, type Layout, type Appearance } from "./compiler";
-import type { EnrollmentOptions } from "./enrollment";
-import type { MotionDescriptor, TransitionResult } from "./motion";
+import { CanvasRuntime, type RuntimeOptions } from "./runtime.js";
+import { affine, type Transform } from "./affine.js";
+import { compileStyle, type Layout, type Appearance } from "./compiler.js";
+import type { EnrollmentOptions } from "./enrollment.js";
+import type { MotionDescriptor, TransitionResult } from "./motion.js";
 
 const Context = createContext<CanvasRuntime | null>(null);
 

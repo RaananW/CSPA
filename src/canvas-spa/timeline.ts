@@ -1,4 +1,4 @@
-import type { Transform } from "./affine";
+import type { Transform } from "./affine.js";
 
 export interface TimelineTiming {
   duration: number;

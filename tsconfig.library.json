@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rewriteRelativeImportExtensions": true,
+    "outDir": "dist/library",
+    "rootDir": "src/canvas-spa",
+    "skipLibCheck": false
+  },
+  "include": ["src/canvas-spa"]
+}

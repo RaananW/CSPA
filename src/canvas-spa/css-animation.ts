@@ -1,4 +1,4 @@
-import { compileTimeline, parseTransform } from "./timeline";
+import { compileTimeline, parseTransform } from "./timeline.js";
 
 export interface CSSAnimationSource {
   rule: CSSStyleRule;

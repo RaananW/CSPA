@@ -1,7 +1,7 @@
 import type { EffectWrapperOptions } from "@babylonjs/lite";
-import { validateGeometry } from "./native";
-import type { Ripple } from "./ripple";
-import { effectUniforms, type EffectDescriptor, type ApplicationEffect } from "./effects";
+import { validateGeometry } from "./native.js";
+import type { Ripple } from "./ripple.js";
+import { effectUniforms, type EffectDescriptor, type ApplicationEffect } from "./effects.js";
 
 interface CompositeLayer {
   matrix(): DOMMatrix;

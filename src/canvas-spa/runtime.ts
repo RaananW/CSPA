@@ -1,13 +1,13 @@
-import { affine, cssMatrix, point, type Transform } from "./affine";
-import { createSurfaceRenderer, type SurfaceRendererOptions } from "./renderer";
-import type { Layout } from "./compiler";
-import type { MountBoundaryOptions } from "./mount-boundary";
-import { DeclarationOwnership, prepareAnimation, rejectImportantPresentation, type AnimationPlayback } from "./animation";
-import { validateCSSSource, type CSSAnimationSource } from "./css-animation";
-import { decorative, validateRipple, type Ripple } from "./ripple";
-import { effectNumber, validateEffects, type EffectDescriptor, type EffectHandle, type EffectResult } from "./effects";
-import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion";
-import { EnrollmentError, type EnrollmentOptions } from "./enrollment";
+import { affine, cssMatrix, point, type Transform } from "./affine.js";
+import { createSurfaceRenderer, type SurfaceRendererOptions } from "./renderer.js";
+import type { Layout } from "./compiler.js";
+import type { MountBoundaryOptions } from "./mount-boundary.js";
+import { DeclarationOwnership, prepareAnimation, rejectImportantPresentation, type AnimationPlayback } from "./animation.js";
+import { validateCSSSource, type CSSAnimationSource } from "./css-animation.js";
+import { decorative, validateRipple, type Ripple } from "./ripple.js";
+import { effectNumber, validateEffects, type EffectDescriptor, type EffectHandle, type EffectResult } from "./effects.js";
+import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion.js";
+import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
 
 export interface LayerDefinition {
   id: string;

@@ -3,6 +3,7 @@ dist/
 test-results/
 .DS_Store
 fixtures/react18/workspace/
+/fixtures/package-consumer/workspaces/
 
 # Raw automation output is local-only. Curated verdicts are explicit exceptions.
 /evidence/*
@@ -14,5 +15,8 @@ fixtures/react18/workspace/
 !/evidence/phase9-independent/
 /evidence/phase9-independent/*
 !/evidence/phase9-independent/acceptance-v1.json
+!/evidence/phase10-independent/
+/evidence/phase10-independent/*
+!/evidence/phase10-independent/acceptance-summary.json
 /playwright-report/
 /blob-report/

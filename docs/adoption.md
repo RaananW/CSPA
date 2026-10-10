@@ -9,6 +9,9 @@ for bounded actual155 specimens; exact154 remains unverified.
 This is private experimental software, not a release-ready unchanged
 website loader. Existing React18/19 and the single Radix Dialog integration
 are bounded examples, not arbitrary library/SSR/hydration compatibility.
+The Phase10 [private tarball/distribution contract](distribution.md) is
+independently accepted with limits; start from an actual tarball install,
+not demo facades or a source alias. Publication/licensing remain separate.
 
 ## Integrate incrementally
 
