@@ -45,8 +45,9 @@ expand current support or promise deadlines/metrics.
 opt-in admission/retry/cancellation during structural/resize/DPR changes, pending
 capture/initialization and motion. Its bounded edit-heavy/TODO/structural samples
 and diagnosed native scrolling establish an observed envelope, not deployment
-budgets. Independently accept the stopped implementation, then choose real
-applications/hardware, agree measurable budgets and validate fallback when those budgets cannot be met.
+budgets. The engineering implementation has been independently accepted with limits.
+The remaining step is to choose real applications/hardware, agree measurable budgets
+and validate fallback when those budgets cannot be met.
 Loss/reduced-motion/forced-colors and healthy resource retirement remain gates;
 unsafe capture suppression or manufactured speedup is not an optimization.
 
