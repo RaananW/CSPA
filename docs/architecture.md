@@ -265,7 +265,16 @@ without revoking GPU or existing motion ownership. Bounded descendant, enrolled
 and adapter-root viewports (including `NativeScroll`) reconcile actual scroll
 positions and matching native/GPU clips, then refresh native pixels and hits.
 Same-engine membership/ref/layout/DPR preparation and complete-frame gating
-remain active while scrolled. Unsupported transformed/external ancestor chains,
+remain active while scrolled. Ordinary document and untransformed external
+axis-aligned scroll ancestors move the owner and original root together:
+event/resize/style reconciliation refreshes cached local geometry without window
+offsets, external texture cropping, membership generations or motion cancellation.
+The browser's inherited external clip is not reapplied to individual captures.
+Actual owner border/padding offsets apply only to native border-box registration;
+GPU composition remains bitmap-content-local. Explicit owner overflow has matching
+native/GPU local clipping. Chrome157's replaced canvas cannot itself scroll:
+actual offsets remain zero, so no unverified owner-scroll bridge is used.
+Unsupported transformed chains, RTL/writing-mode/zoom or mixed visible/clip axes,
 nested enrollment and unbounded capture overflow remain framework boundaries,
 not demonstrated missing Chrome157 features or unrestricted qualification.
 Synthetic composition listeners do not establish actual OS IME completeness.

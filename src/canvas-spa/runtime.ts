@@ -9,7 +9,7 @@ import { effectNumber, validateEffects, type EffectDescriptor, type EffectHandle
 import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion.js";
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
 import { nativeEditingControl, nativeScrollKind } from "./native.js";
-import { scrollOrigin, intersectViewport, localViewport, type ViewportRect } from "./viewport.js";
+import { scrollOrigin, intersectViewport, localViewport, canvasContentOrigin, viewportContains, type ViewportRect } from "./viewport.js";
 
 export type AdmissionPolicy = "explicit" | "automatic";
 
@@ -81,7 +81,7 @@ export class CanvasRuntime {
       if (this.stopped) return;
       for (const record of records) {
         const target = record.target instanceof Element ? record.target : record.target.parentElement;
-        if (target) this.core?.invalidate(target);
+        if (target && this.rootContainer?.contains(target)) this.core?.invalidate(target);
       }
       this.reconcile();
       this.checkPolicy();
@@ -108,6 +108,7 @@ export class CanvasRuntime {
           effectsEnabled: () => !this.reduced.matches,
         })),
         size: () => this.size(),
+        nativeOrigin: () => this.ownerContentOrigin,
         policy: () => this.policy(),
         presentation: mode => {
           if (mode === "dom") this.cancelTransitions("DOM recovery");
@@ -177,9 +178,9 @@ export class CanvasRuntime {
     this.listen(this.core.container, "scroll", event => this.nativeScroll(event), true);
     this.listen(document, "scroll", event => {
       const target = event.target;
-      if (this.core?.phase() === "gpu" && (target === document || target instanceof Element
-        && !this.core.container.contains(target) && target.contains(this.core.container))) {
-        this.recover("Outer ancestor viewport changes are outside the adapter-owned axis-aligned contract");
+      if (this.core?.phase() === "gpu" && (target === document
+        || target === this.options.outputCanvas || target instanceof HTMLElement && this.externalAncestors.has(target))) {
+        this.reconcileProjection();
       }
     }, true);
     for (const type of ["compositionstart", "compositionupdate", "compositionend"]) {
@@ -251,13 +252,52 @@ export class CanvasRuntime {
   private origin(layer: LayerDefinition) {
     return this.viewportGeometry.get(layer.element)?.origin ?? scrollOrigin(layer.element, this.rootContainer!);
   }
-  private viewportGeometry = new WeakMap<HTMLElement, { origin: { x: number; y: number }; clip?: ViewportRect; own?: ViewportRect; error?: string }>();
+  private externalAncestors = new Set<HTMLElement>();
+  private ownerContentOrigin = { x: 0, y: 0 };
+  private reconcileProjection() {
+    if (this.stopped || this.core?.phase() !== "gpu") return;
+    try {
+      this.refreshViewportGeometry();
+      this.core.draw();
+    } catch (error) {
+      console.error("CanvasSPA viewport projection failed", error);
+      this.recover(`Native/GPU viewport projection failed: ${String(error)}`);
+    }
+  }
+  private viewportGeometry = new WeakMap<HTMLElement, { origin: { x: number; y: number }; extent: { width: number; height: number }; clip?: ViewportRect; own?: ViewportRect; error?: string }>();
   private viewportAncestors = new Set<HTMLElement>();
   private refreshViewportGeometry() {
     const ancestors = new Set<HTMLElement>();
+    const external = new Set<HTMLElement>();
+    const owner = this.options.outputCanvas;
+    const ownerStyle = getComputedStyle(owner);
+    this.ownerContentOrigin = canvasContentOrigin(owner, ownerStyle);
+    let externalError: string | undefined;
+    for (let node: HTMLElement | null = owner; node; node = node.parentElement) {
+      ancestors.add(node);
+      if (node !== owner) external.add(node);
+      const style = getComputedStyle(node);
+      if (style.transform !== "none" || style.rotate !== "none" || style.scale !== "none" || style.translate !== "none") {
+        externalError = "Transformed external viewport ancestors are outside the axis-aligned framework contract";
+      }
+      if (style.direction !== "ltr" || style.writingMode !== "horizontal-tb" || Number(style.zoom) !== 1) {
+        externalError = "RTL, writing mode or zoom is outside the bounded external viewport contract";
+      }
+      if ((style.overflowX === "visible") !== (style.overflowY === "visible")) {
+        externalError = "Single-axis visible/clip external overflow is outside the bounded rectangular viewport contract";
+      }
+    }
+    if ([...external].some(node => !this.externalAncestors.has(node))
+      || [...this.externalAncestors].some(node => !external.has(node))) {
+      this.mutation.disconnect();
+      this.mutation.observe(this.core!.container, { subtree: true, attributes: true, characterData: true, childList: true });
+      for (const node of external) this.mutation.observe(node, { attributes: true, attributeFilter: ["style", "class"] });
+      this.mutation.observe(owner, { attributes: true, attributeFilter: ["style", "class"] });
+    }
+    this.externalAncestors = external;
     for (const layer of this.registry.values()) {
       const origin = scrollOrigin(layer.element, this.rootContainer!);
-      let clip: ViewportRect | undefined, own: ViewportRect | undefined, error: string | undefined;
+      let clip: ViewportRect | undefined, own: ViewportRect | undefined, error = externalError;
       for (let node: HTMLElement | null = layer.element; node; node = node.parentElement) {
         if (node !== layer.element) ancestors.add(node);
         const style = getComputedStyle(node);
@@ -268,7 +308,8 @@ export class CanvasRuntime {
           error = "Transformed viewport ancestors are outside the axis-aligned framework contract";
         }
         if (style.overflowX !== "visible" || style.overflowY !== "visible") {
-          const at = node === layer.element ? origin : node === this.rootContainer ? { x: 0, y: 0 } : scrollOrigin(node, this.rootContainer!);
+          const at = node === layer.element ? origin : node === this.rootContainer
+            ? { x: 0, y: 0 } : scrollOrigin(node, this.rootContainer!);
           const rect = { x: at.x + node.clientLeft, y: at.y + node.clientTop,
             width: node.clientWidth, height: node.clientHeight };
           if (node === layer.element) own = { x: 0, y: 0, width: node.offsetWidth, height: node.offsetHeight };
@@ -276,7 +317,7 @@ export class CanvasRuntime {
         }
         if (node === this.rootContainer) break;
       }
-      this.viewportGeometry.set(layer.element, { origin, clip, own, error });
+      this.viewportGeometry.set(layer.element, { origin, extent: { width: layer.element.offsetWidth, height: layer.element.offsetHeight }, clip, own, error });
     }
     for (const node of this.viewportAncestors) if (!ancestors.has(node)) this.resize.unobserve(node);
     for (const node of ancestors) if (!this.viewportAncestors.has(node)) this.resize.observe(node);
@@ -286,11 +327,12 @@ export class CanvasRuntime {
     const geometry = this.viewportGeometry.get(layer.element);
     if (geometry?.error) throw new Error(geometry.error);
     let clip = geometry?.clip;
-    if (!clip && !geometry?.own) return;
     const { width, height } = this.size();
     const frame = { x: 0, y: 0, width, height };
+    const applied = matrix ?? new DOMMatrix(Array.from(affine(layer.transform, this.origin(layer))));
+    if (!clip && !geometry?.own && geometry && viewportContains(applied, geometry.extent, frame)) return;
     clip = clip ? intersectViewport(clip, frame) : frame;
-    const local = localViewport(matrix ?? new DOMMatrix(Array.from(affine(layer.transform, this.origin(layer)))), clip);
+    const local = localViewport(applied, clip);
     return geometry?.own ? intersectViewport(local, geometry.own) : local;
   }
   private presentation(mode: "dom" | "gpu") {
@@ -645,6 +687,7 @@ export class CanvasRuntime {
   }
   async settle() {
     await new Promise<void>(resolve => queueMicrotask(resolve));
+    this.reconcileProjection();
     if (this.drawFrame) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     await this.renderer().settle();
   }
@@ -1042,6 +1085,7 @@ export class CanvasRuntime {
     this.mutation.disconnect();
     this.resize.disconnect();
     this.viewportAncestors.clear();
+    this.externalAncestors.clear();
     this.viewportGeometry = new WeakMap();
     this.resources.mutationObservers = this.resources.resizeObservers = 0;
     for (const remove of this.removers.splice(0)) remove();

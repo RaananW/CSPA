@@ -129,7 +129,7 @@ async function nativeControls(page, value) {
   assert.equal(await page.locator("#count").textContent(), `Count ${count + 2}`);
   await page.locator("#native").fill("retained native");
   await page.locator("#name").focus();
-  await page.keyboard.press("Home");
+  await page.keyboard.press("Meta+ArrowLeft");
   await page.keyboard.press("Shift+ArrowRight");
   const state = await page.evaluate(() => window.packageConsumer.state());
   assert.equal(state.value, value);
@@ -175,7 +175,7 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
       };
     });
     const admission = await page.evaluate(() => window.packageConsumer.controller.enable());
-    let gpu, recovery, gpuPixel;
+    let gpu, recovery, gpuPixel, externalScroll;
     if (flags) {
       assert.equal(admission.mode, "gpu", admission.reason);
       await waitState(page, "gpu");
@@ -188,6 +188,48 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
       await page.evaluate(() => window.packageConsumer.controller.settle());
       assert.deepEqual(await pixel(page, `${major}-${flags}-${dpr}-translated`, 55, 255), domPixel);
       gpu = await nativeControls(page, "fresh independent native");
+      const externalBefore = await page.evaluate(() => window.packageConsumer.state());
+      await page.evaluate(async () => {
+        const frame = document.querySelector("#frame");
+        window.packageFrameParent = frame.parentElement;
+        const viewport = document.createElement("div");
+        viewport.id = "package-external";
+        viewport.style.cssText = "position:relative;width:620px;height:390px;overflow:auto;border:6px solid black";
+        frame.parentElement.insertBefore(viewport, frame);
+        viewport.append(frame);
+        frame.style.left = "40px"; frame.style.top = "70px";
+        document.body.style.minHeight = "1600px"; document.body.style.minWidth = "1800px";
+        viewport.scrollLeft = 30; viewport.scrollTop = 50;
+        window.scrollTo(20, 30);
+        await window.packageConsumer.controller.settle();
+      });
+      const externalState = await page.evaluate(() => window.packageConsumer.state());
+      assert.equal(externalState.mode, "gpu", externalState.reason);
+      assert.ok(externalState.sameRoot && externalState.sameInput);
+      assert.equal(externalState.metrics.admission.attempts, externalBefore.metrics.admission.attempts);
+      assert.deepEqual(await pixel(page, `${major}-${flags}-${dpr}-external`, 490, 110), [20, 200, 90, 255]);
+      await page.locator("#label").click();
+      await page.keyboard.press("Meta+ArrowRight"); await page.keyboard.type("-external"); await page.keyboard.press("Enter");
+      assert.equal(await page.locator("#saved").textContent(), "fresh independent native-external");
+      await page.locator("h1").click();
+      assert.equal((await page.evaluate(() => window.packageConsumer.state())).mode, "gpu");
+      const externalMotion = await page.evaluate(() => window.packageConsumer.controller.animate("editor", { x: 35, y: 10 }, 30));
+      for (const key of ["captures", "uploads", "pixelReadbacks"]) {
+        assert.equal(externalMotion.after.metrics[key], externalMotion.before.metrics[key]);
+      }
+      await page.evaluate(async () => {
+        const frame = document.querySelector("#frame");
+        window.packageFrameParent.append(frame);
+        frame.style.left = ""; frame.style.top = "";
+        document.querySelector("#package-external").remove();
+        document.body.style.minHeight = ""; document.body.style.minWidth = "";
+        window.scrollTo(0, 0);
+        window.packageConsumer.transform({ x: 30, y: 10 });
+        await window.packageConsumer.controller.settle();
+      });
+      gpu = await nativeControls(page, "fresh independent native");
+      externalScroll = { before: externalBefore, projected: externalState, motion: externalMotion,
+        after: await page.evaluate(() => window.packageConsumer.state()) };
       assert.equal(await page.locator("#not-enrolled").isVisible(), true);
       await page.evaluate(() => window.packageConsumer.controller.disable());
       await waitState(page, "dom");
@@ -223,7 +265,7 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
       ? await interactionContract(context, url, { directory: evidence, name: `react${major}-${flags}`, flags }) : undefined;
     const dynamic = process.env.CANVAS_DYNAMIC_AUDIT === "1"
       ? await dynamicContract(context, url, { directory: evidence, name: `react${major}-${flags}-${dpr}`, flags, dpr }) : undefined;
-    return { major, flags, dpr, identity, launch, capability, startup, dom, admission, gpu, recovery, domPixel, gpuPixel, disposed, errors, interactions, dynamic };
+    return { major, flags, dpr, identity, launch, capability, startup, dom, admission, gpu, recovery, domPixel, gpuPixel, externalScroll, disposed, errors, interactions, dynamic };
   } finally { await browser.close(); }
 }
 

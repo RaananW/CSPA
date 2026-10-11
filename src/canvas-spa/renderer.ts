@@ -29,6 +29,7 @@ export interface SurfaceRendererOptions extends MountBoundaryOptions {
   onStatus(message: string): void;
   layers(): EnrolledLayer[];
   size(): { width: number; height: number; dpr: number };
+  nativeOrigin?(): { x: number; y: number };
   policy?(): string | undefined;
   presentation?(mode: "dom" | "gpu"): void;
   onInterrupt?(): void;
@@ -314,16 +315,19 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       }
       const matrix = new DOMMatrix().translate(dx, 0).multiply(layer.matrix());
       validateGeometry(matrix);
+      const origin = options.nativeOrigin?.() ?? { x: 0, y: 0 };
+      const nativeMatrix = new DOMMatrix().translate(origin.x, origin.y).multiply(matrix);
+      validateGeometry(nativeMatrix);
       const previous = nativeMatrices.get(layer.element);
       const clip = layer.clip?.(matrix) ?? { x: 0, y: 0, width: layer.element.offsetWidth, height: layer.element.offsetHeight };
       const clipKey = JSON.stringify(clip);
-      if (orderChanged || !previous || nativeClips.get(layer.element) !== clipKey || ["a", "b", "c", "d", "e", "f"].some(key => Reflect.get(previous, key) !== Reflect.get(matrix, key))) {
-        nativeHost().updateElementGeometry(layer.element, { canvasTransform: matrix, canvasClip: clip, preserveHitTestOrder: !orderChanged });
-        nativeMatrices.set(layer.element, matrix);
+      if (orderChanged || !previous || nativeClips.get(layer.element) !== clipKey || ["a", "b", "c", "d", "e", "f"].some(key => Reflect.get(previous, key) !== Reflect.get(nativeMatrix, key))) {
+        nativeHost().updateElementGeometry(layer.element, { canvasTransform: nativeMatrix, canvasClip: clip, preserveHitTestOrder: !orderChanged });
+        nativeMatrices.set(layer.element, nativeMatrix);
         nativeClips.set(layer.element, clipKey);
         metrics.geometryUpdates++;
       }
-      validateAppliedGeometry(nativeHost(), layer.element, matrix);
+      validateAppliedGeometry(nativeHost(), layer.element, nativeMatrix);
     }
     nativeOrder = [...ordered];
   }
@@ -721,7 +725,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         abort.signal.throwIfAborted();
         await Promise.resolve();
         abort.signal.throwIfAborted();
-        const geometryResult = verifyProbeGeometry(nativeHost(), probe);
+        const geometryResult = verifyProbeGeometry(nativeHost(), probe, options.nativeOrigin?.());
         metrics.admission.geometryChecks++;
         setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr, 0, 0));
         const readback = captureScreenshot(engine.surfaces[0]);

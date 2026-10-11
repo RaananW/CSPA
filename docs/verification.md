@@ -337,9 +337,21 @@ performance improvement.
   clipping and matching clipped GPU pixels, not method names alone. An offscreen
   probe refuses admission as explicitly unproven until visible and explicitly
   enabled again; applied matrices cannot substitute for a skipped hit witness.
-  Occluded interior witnesses also refuse admission. This fresh viewport correction
-  awaits independent acceptance; broader transformed/external ancestor chains
-  remain framework boundaries, not demonstrated missing Chrome157 functionality
+  Occluded interior witnesses also refuse admission. The accepted bounded
+  root/enrolled viewport checkpoint is distinct from the new external extension,
+  which awaits independent review. Its finite source tests cover the exact
+  formerly failing offscreen-to-visible locator workflow, document axes/native
+  keyboard/wheel/focus scrolling, one/two-level bordered axis-aligned external
+  viewports, live GPU pixels/native clip hits, same-engine internal/ref/DPR/add
+  successors while externally scrolled and capture-independent settled motion.
+  External projection does not duplicate inherited whole-owner clipping or add
+  window offsets. Native border-box registration and GPU bitmap content origin
+  are separately measured. Actual Chrome157 replaced-canvas `overflow:auto`
+  clips with zero scroll offsets; the failed nonzero-owner attempts and their
+  blocked trial freeze remain immutable. `ContentsProperties` ancestry alone
+  did not establish that the canvas itself scrolls. Broader transformed chains,
+  RTL/writing-mode/zoom and mixed visible/clip axes remain framework boundaries,
+  not demonstrated missing Chrome157 functionality
   or unrestricted GPU-first acceptance.
 - General CSS/WAAPI translation, arbitrary selectors/cascade/dependencies,
   unbounded effects, animation libraries, motion/layout toolkit, library

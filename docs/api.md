@@ -185,8 +185,19 @@ visual clipping. Scroll requests fresh native paint; pending capture coverage
 retains the last complete output. Original scroll containers, controls and events
 remain unchanged. Ancestors inside the adapter root must be untransformed;
 clipped layer transforms must be positive axis-aligned. Arbitrary transformed
-chains, external ancestor viewport changes and general CSS clipping remain
-framework boundaries, not demonstrated missing browser functionality.
+chains and general CSS clipping remain framework boundaries, not demonstrated
+missing browser functionality. Ordinary document and untransformed axis-aligned
+external ancestor scrolling refresh the cached owner-local projection without
+adding window offsets, cropping textures by the page viewport, invalidating
+content or cancelling motion. The browser moves/clips the whole owning canvas
+and its original descendants together. External ancestor resize and style/class
+changes use scoped observers; unrelated scrolling does not trigger this route.
+LTR horizontal writing mode and unit CSS zoom are required.
+Owner borders/padding separate native border-box geometry from GPU bitmap content
+coordinates. Owner overflow clipping uses matching local native/GPU clips.
+Actual Chrome157 treats the replaced owning canvas as non-scrollable:
+`overflow:auto` clips but its actual scroll offsets remain zero. No speculative
+owning-canvas scroll subtraction is applied or future-browser behavior promised.
 Functional native clip admission needs an onscreen, unoccluded probe before GPU
 exposure. Offscreen admission remains useful original DOM with an explicit
 unproven/deferred diagnostic, not a missing-browser-feature claim or a successful
@@ -395,8 +406,10 @@ requests fresh capture while original containers/control state remain intact;
 cached complete-frame and resource fences remain unchanged. Supported ancestors
 are observed for resize/mutation and read on reconciliation, not globally each
 animation frame. Obsolete clips are replaced explicitly and retired originals
-clear native geometry. Transformed ancestor chains and external ancestor viewport
-changes remain diagnosed framework boundaries, not missing browser-feature proof.
+clear native geometry. Ordinary external document/axis-aligned ancestor changes
+are projection-only; internal viewports and native editing still request fresh
+capture. Transformed ancestors, RTL/writing-mode/zoom and mixed visible/clip axes
+remain diagnosed framework boundaries, not missing browser-feature proof.
 No general CSS clip/scroll engine or physical continuity qualification is implied. Animation
 translation is restricted to the explicit contract below.
 

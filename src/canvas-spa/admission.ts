@@ -27,12 +27,14 @@ export function verifyProbePixels(pixels: number[][], stage: "native" | "GPU"): 
   }
 }
 
-export function verifyProbeGeometry(host: DrawableCanvas, probe: ReturnType<typeof createAdmissionProbe>) {
-  host.updateElementGeometry(probe.element, { canvasTransform: probe.matrix, canvasClip: probe.clip });
-  validateAppliedGeometry(host, probe.element, probe.matrix);
+export function verifyProbeGeometry(host: DrawableCanvas, probe: ReturnType<typeof createAdmissionProbe>,
+  origin = { x: 0, y: 0 }) {
+  const matrix = new DOMMatrix().translate(origin.x, origin.y).multiply(probe.matrix);
+  host.updateElementGeometry(probe.element, { canvasTransform: matrix, canvasClip: probe.clip });
+  validateAppliedGeometry(host, probe.element, matrix);
   const rect = host.getBoundingClientRect();
   const locations = [...probe.points, { x: probe.extent * 0.9, y: probe.extent / 2 }]
-    .map(point => probe.matrix.transformPoint(point))
+    .map(point => matrix.transformPoint(point))
     .map(point => ({ x: rect.x + point.x, y: rect.y + point.y }));
   const doc = host.ownerDocument;
   const view = doc.defaultView!;
@@ -44,7 +46,7 @@ export function verifyProbeGeometry(host: DrawableCanvas, probe: ReturnType<type
     return hit === probe.element || !!hit && probe.element.contains(hit);
   });
   if (!hits[0] || !hits[1] || hits[2]) throw new Error("Functional native geometry/clip probe failed interior/clipped hit testing (possibly occluded)");
-  return { expected: [probe.matrix.a, probe.matrix.b, probe.matrix.c, probe.matrix.d, probe.matrix.e, probe.matrix.f],
+  return { expected: [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f],
     actual: Array.from(host.getElementTransform(probe.element).toFloat64Array()), hits,
     hitCheck: "elementFromPoint: two interiors and one clipped exterior" };
 }

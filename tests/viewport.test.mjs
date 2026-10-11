@@ -3,12 +3,366 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { evidenceDirectory } from "./evidence.mjs";
 import { PNG } from "pngjs";
 const directory = evidenceDirectory("viewport");
+async function viewportPixel(page, point) {
+  const bytes = await page.screenshot(), image = PNG.sync.read(bytes);
+  const dpr = await page.evaluate(() => window.devicePixelRatio);
+  const offset = (Math.floor(point.y * dpr) * image.width + Math.floor(point.x * dpr)) * 4;
+  return { pixel: [...image.data.subarray(offset, offset + 4)], bytes };
+}
+async function externalDocumentOffset(page, probe = "runtimeProbe") {
+  await page.evaluate(async probe => {
+    document.body.style.minHeight = "1800px"; document.body.style.minWidth = "1800px";
+    document.querySelector("#frame").style.left = "200px";
+    window.scrollTo(40, 20);
+    await window[probe].settle();
+  }, probe);
+  expect(await page.evaluate(() => [window.scrollX, window.scrollY])).toEqual([40, 20]);
+  expect((await page.evaluate(probe => window[probe].state(), probe)).mode).toBe("gpu");
+}
+for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered viewport chain live projection DPR${dpr} levels=${levels}`, async ({ browser }) => {
+  const page = await browser.newPage({ viewport: { width: 1000, height: 850 }, deviceScaleFactor: dpr });
+  try {
+    await page.goto("/runtime.html?dom");
+    await page.waitForFunction(() => window.runtimeProbe);
+    await page.evaluate(levels => {
+      const frame = document.querySelector("#frame"), parent = frame.parentElement;
+      window.externalOriginalParent = parent;
+      window.externalOriginalInput = document.querySelector("#controlled");
+      window.externalOriginalRoot = document.querySelector(".app-container");
+      const outer = document.createElement("div");
+      outer.id = "external-outer"; outer.tabIndex = 0;
+      outer.style.cssText = "position:relative;width:600px;height:480px;border:7px solid black;overflow:auto";
+      parent.insertBefore(outer, frame);
+      let inner = outer;
+      if (levels === 2) {
+        inner = document.createElement("div"); inner.id = "external-inner"; inner.tabIndex = 0;
+        inner.style.cssText = "position:relative;width:740px;height:620px;border:5px solid black;overflow:auto";
+        outer.append(inner);
+      }
+      inner.append(frame);
+      frame.style.left = "140px"; frame.style.top = "120px";
+      const unrelated = document.createElement("div");
+      unrelated.id = "external-unrelated"; unrelated.style.cssText = "width:20px;height:20px;overflow:auto";
+      const filler = document.createElement("div"); filler.style.height = "100px";
+      unrelated.append(filler); parent.append(unrelated);
+    }, levels);
+    expect((await page.evaluate(() => window.runtimeProbe.enable())).mode).toBe("gpu");
+    await page.evaluate(() => window.runtimeProbe.settle());
+    const baseline = await page.evaluate(() => window.runtimeProbe.state());
+    const oldCount = await page.locator("#count").evaluate(node => {
+      const r = node.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+    });
+    const samples = [];
+    await page.evaluate(() => { window.externalLive = window.runtimeProbe.animate({ x: 35 }, 120); });
+    for (const [index, amount] of [30, 75, 110].entries()) {
+      await page.locator("#external-outer").evaluate((node, amount) => { node.scrollLeft = amount; node.scrollTop = amount / 2; }, amount);
+      if (levels === 2) await page.locator("#external-inner").evaluate((node, amount) => { node.scrollLeft = amount / 3; node.scrollTop = amount / 4; }, amount);
+      await page.evaluate(() => window.runtimeProbe.settle());
+      const current = await page.evaluate(() => {
+        const output = document.querySelector("#output").getBoundingClientRect();
+        const outer = document.querySelector("#external-outer").getBoundingClientRect();
+        const badge = document.querySelector("#badge").getBoundingClientRect();
+        const primary = document.querySelector("#primary").getBoundingClientRect();
+        const green = { x: Math.min(output.x + 510, outer.right - 12), y: output.y + 145 };
+        window.externalEvents = [];
+        for (const type of ["pointerdown", "pointerup", "click"]) document.addEventListener(type, event =>
+          window.externalEvents.push({ type, target: event.target.id, trusted: event.isTrusted,
+            path: event.composedPath().filter(node => node instanceof Element).map(node => node.id) }), { once: true });
+        return { green, movingPixel: { x: primary.x + 5, y: primary.bottom - 5 },
+          badge: { x: badge.x + badge.width / 2, y: badge.y + badge.height / 2 },
+          state: window.runtimeProbe.state(), clipped: { x: outer.right + 20, y: output.y + 110 },
+          original: window.externalOriginalInput === document.querySelector("#controlled")
+            && window.externalOriginalRoot === document.querySelector(".app-container") };
+      });
+      expect(current.state.mode).toBe("gpu");
+      expect(current.state.moving).toBe(true);
+      expect(current.state.resources.engines).toBe(1);
+      expect(current.state.metrics.admission.attempts).toBe(baseline.metrics.admission.attempts);
+      expect(current.original).toBe(true);
+      const pixels = await viewportPixel(page, current.green);
+      expect(pixels.pixel).toEqual([20, 200, 90, 255]);
+      const movingPixel = (await viewportPixel(page, current.movingPixel)).pixel;
+      expect(movingPixel).toEqual([240, 30, 60, 255]);
+      const clippedHits = await page.evaluate(point => document.elementsFromPoint(point.x, point.y).map(node => node.id), current.clipped);
+      expect(clippedHits).not.toContain("stationary");
+      expect(clippedHits).not.toContain("badge");
+      const clippedPixel = (await viewportPixel(page, current.clipped)).pixel;
+      expect(clippedPixel).toEqual([255, 255, 255, 255]);
+      await page.mouse.click(current.clipped.x, current.clipped.y);
+      expect((await page.evaluate(() => window.externalEvents)).every(event => event.trusted && !["badge", "stationary"].includes(event.target))).toBe(true);
+      const negativeEvents = await page.evaluate(() => window.externalEvents);
+      expect(await page.evaluate(point => document.elementFromPoint(point.x, point.y)?.id, current.badge)).toBe("badge");
+      await page.evaluate(() => {
+        window.externalCurrentEvents = [];
+        for (const type of ["pointerdown", "pointerup", "click"]) document.addEventListener(type, event =>
+          window.externalCurrentEvents.push({ type, trusted: event.isTrusted, target: event.target.id,
+            path: event.composedPath().filter(node => node instanceof Element).map(node => node.id) }), { once: true });
+      });
+      await page.mouse.click(current.badge.x, current.badge.y);
+      await expect(page.locator("#badge")).toHaveText(`Badge ${index + 1}`);
+      const currentEvents = await page.evaluate(() => window.externalCurrentEvents);
+      expect(currentEvents).toHaveLength(3);
+      expect(currentEvents.every(event => event.trusted && event.target === "badge" && event.path.includes("stationary"))).toBe(true);
+      if (index === 2) {
+        expect(await page.evaluate(point => document.elementsFromPoint(point.x, point.y).map(node => node.id), oldCount)).not.toContain("count");
+        await page.evaluate(() => {
+          window.externalOldEvents = [];
+          for (const type of ["pointerdown", "pointerup", "click"]) document.addEventListener(type, event =>
+            window.externalOldEvents.push({ type, trusted: event.isTrusted, target: event.target.id,
+              path: event.composedPath().filter(node => node instanceof Element).map(node => node.id) }), { once: true });
+        });
+        await page.mouse.click(oldCount.x, oldCount.y);
+        await expect(page.locator("#count")).toHaveText("Count 0");
+        const oldEvents = await page.evaluate(() => window.externalOldEvents);
+        expect(oldEvents).toHaveLength(3);
+        expect(oldEvents.every(event => event.trusted && event.target !== "count")).toBe(true);
+        current.oldPosition = { point: oldCount, events: oldEvents };
+      }
+      samples.push({ amount, ...current, clippedHits, pixel: pixels.pixel, movingPixel, clippedPixel, negativeEvents, currentEvents });
+      await mkdir(directory, { recursive: true });
+      await writeFile(`${directory}/external-chain-live-${dpr}-${levels}-${amount}.png`, pixels.bytes);
+    }
+    const live = await page.evaluate(() => window.externalLive);
+    expect(live.after.mode).toBe("gpu");
+    const attempts = live.after.metrics.admission.attempts;
+    await page.locator("#external-outer").evaluate(node => { node.style.width = "680px"; node.style.height = "510px"; node.scrollLeft = 120; node.scrollTop = 40; });
+    await page.evaluate(() => window.runtimeProbe.settle());
+    await page.locator("#count").click();
+    await expect(page.locator("#count")).toHaveText("Count 1");
+    await page.locator("#name-label").click();
+    await page.keyboard.press("Meta+a"); await page.keyboard.type("fresh independent native");
+    await page.keyboard.press("Enter");
+    await expect(page.locator("#saved")).toHaveText("fresh independent native");
+    await page.locator("#external-outer").evaluate(node => { node.style.height = "400px"; node.scrollTop = 0; });
+    await page.locator("#external-outer").focus();
+    await page.keyboard.press("PageDown");
+    await expect.poll(() => page.locator("#external-outer").evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+    await page.keyboard.press("Home");
+    await page.locator("#external-outer").hover(); await page.mouse.wheel(50, -120);
+    await page.waitForTimeout(350);
+    await page.evaluate(() => window.runtimeProbe.settle());
+    const unrelatedBefore = await page.evaluate(() => window.runtimeProbe.state());
+    await page.locator("#external-unrelated").evaluate(node => { node.scrollTop = 70; });
+    await page.waitForTimeout(30);
+    const unrelatedAfter = await page.evaluate(() => window.runtimeProbe.state());
+    expect(unrelatedAfter.metrics.gpuFrames).toBe(unrelatedBefore.metrics.gpuFrames);
+    expect(unrelatedAfter.mode).toBe("gpu");
+    await page.evaluate(async () => {
+      document.querySelector("#controlled").focus();
+      document.querySelector("#controlled").setSelectionRange(2, 8, "backward");
+      await window.runtimeProbe.settle();
+    });
+    const selection = await page.locator("#controlled").evaluate(node => ({
+      focus: document.activeElement === node, value: node.value, range: [node.selectionStart, node.selectionEnd], direction: node.selectionDirection }));
+    expect(selection).toEqual({ focus: true, value: "fresh independent native", range: [2, 8], direction: "backward" });
+    const independent = await page.evaluate(() => window.runtimeProbe.animate({ x: 5 }, 30));
+    for (const key of ["captures", "uploads", "pixelReadbacks"]) expect(independent.after.metrics[key]).toBe(independent.before.metrics[key]);
+    expect(independent.after.commits.count).toBe(independent.before.commits.count);
+    expect(independent.after.metrics.admission.attempts).toBe(attempts);
+    const disabled = await page.evaluate(() => window.runtimeProbe.disable());
+    expect(disabled.mode).toBe("dom");
+    expect(disabled.resources.engines).toBe(0);
+    await page.locator("#count").click();
+    await expect(page.locator("#count")).toHaveText("Count 2");
+    expect((await page.evaluate(() => window.runtimeProbe.enable())).mode).toBe("gpu");
+    await page.evaluate(async () => {
+      const frame = document.querySelector("#frame");
+      window.externalOriginalParent.append(frame);
+      frame.style.left = "0px"; frame.style.top = "0px";
+      await window.runtimeProbe.settle();
+      document.querySelector("#external-outer").style.transform = "scale(0.9)";
+    });
+    await page.waitForTimeout(30);
+    expect((await page.evaluate(() => window.runtimeProbe.state())).mode).toBe("gpu");
+    await page.evaluate(() => { document.querySelector("#frame").style.transform = "scale(0.95)"; });
+    await expect.poll(() => page.evaluate(() => window.runtimeProbe.state().mode)).toBe("dom");
+    expect((await page.evaluate(() => window.runtimeProbe.state())).reason).toMatch(/Transformed external viewport ancestors.*axis-aligned framework/);
+    await page.locator("#frame").evaluate(node => { node.style.transform = "none"; node.scrollIntoView({ block: "start" }); });
+    const qualifiedReentry = await page.evaluate(() => window.runtimeProbe.enable());
+    expect(qualifiedReentry.mode, qualifiedReentry.reason).toBe("gpu");
+    await writeFile(`${directory}/external-chain-${dpr}-${levels}.json`, JSON.stringify({
+      baseline, samples, live, selection, independent, unrelatedBefore, unrelatedAfter,
+      liveCaptures: live.after.metrics.captures - baseline.metrics.captures,
+      liveUploads: live.after.metrics.uploads - baseline.metrics.uploads }, null, 2));
+    expect(Object.values((await page.evaluate(() => window.runtimeProbe.dispose())).resources).every(value => value === 0)).toBe(true);
+  } finally { await page.close(); }
+});
+for (const dpr of [1, 2]) test(`external document locator scroll and replaced owner clip DPR${dpr}`, async ({ browser }) => {
+  const page = await browser.newPage({ viewport: { width: 900, height: 750 }, deviceScaleFactor: dpr });
+  try {
+    await page.goto("/runtime.html?dom");
+    await page.waitForFunction(() => window.runtimeProbe);
+    await page.locator("#controlled").fill("kept");
+    await page.evaluate(() => {
+      document.activeElement.blur();
+      window.originalInput = document.querySelector("#controlled");
+      window.originalRoot = document.querySelector(".app-container");
+      document.querySelector("#frame").style.left = "1100px";
+    });
+    expect((await page.evaluate(() => window.runtimeProbe.enable())).mode).toBe("dom");
+    await page.setViewportSize({ width: 2000, height: 750 });
+    expect((await page.evaluate(() => window.runtimeProbe.enable())).mode).toBe("gpu");
+    await page.evaluate(async () => {
+      const root = document.querySelector(".app-container");
+      root.style.width = "250px"; root.style.overflow = "auto"; root.scrollLeft = 80;
+      await window.runtimeProbe.settle();
+      root.style.width = "100%"; root.style.overflow = "visible"; root.scrollLeft = 0;
+      await window.runtimeProbe.settle();
+    });
+    await page.locator("#count").click();
+    await expect(page.locator("#count")).toHaveText("Count 1");
+    await page.locator("#name-label").click();
+    await page.keyboard.press("End");
+    await page.keyboard.type("-native");
+    await page.keyboard.press("Enter");
+    await page.evaluate(() => window.runtimeProbe.settle());
+    await expect(page.locator("#saved")).toHaveText("kept-native");
+    const original = await page.evaluate(() => ({
+      input: window.originalInput === document.querySelector("#controlled"),
+      root: window.originalRoot === document.querySelector(".app-container"),
+      value: window.originalInput.value, direction: window.originalInput.selectionDirection,
+      selection: [window.originalInput.selectionStart, window.originalInput.selectionEnd],
+      mode: window.runtimeProbe.state().mode,
+    }));
+    expect(original).toMatchObject({ input: true, root: true, value: "kept-native", selection: [11, 11], mode: "gpu" });
+    await page.locator("h1").click();
+    await page.evaluate(() => window.runtimeProbe.settle());
+    const motion = await page.evaluate(() => window.runtimeProbe.animate({ x: 5 }, 30));
+    expect(motion.after.mode).toBe("gpu");
+    for (const key of ["captures", "uploads", "pixelReadbacks"]) expect(motion.after.metrics[key]).toBe(motion.before.metrics[key]);
+    expect(motion.after.commits.count).toBe(motion.before.commits.count);
+    expect(motion.after.metrics.gpuFrames - motion.before.metrics.gpuFrames).toBe(30);
+    await page.evaluate(async () => {
+      window.scrollTo(0, 0);
+      document.querySelector("#frame").style.left = "0px";
+      await window.runtimeProbe.settle();
+      const output = document.querySelector("#output");
+      output.style.overflow = "auto";
+      document.querySelector(".app-container").style.width = "900px";
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      output.scrollLeft = 30;
+      await window.runtimeProbe.settle();
+    });
+    const owner = await page.evaluate(() => {
+      const output = document.querySelector("#output"), layer = document.querySelector("#primary");
+      const r = layer.getBoundingClientRect(), o = output.getBoundingClientRect();
+      const count = document.querySelector("#count").getBoundingClientRect();
+      return { scroll: output.scrollLeft, raw: [...output.getElementTransform(layer).toFloat64Array()],
+        dimensions: { width: output.clientWidth, scrollWidth: output.scrollWidth, height: output.clientHeight,
+          scrollHeight: output.scrollHeight, rootWidth: document.querySelector(".app-container").offsetWidth,
+          overflow: getComputedStyle(output).overflow, content: output.getAttribute("content") },
+        rect: { x: r.x, y: r.y }, output: { x: o.x, y: o.y },
+        count: { x: count.x + count.width / 2, y: count.y + count.height / 2 },
+        hit: document.elementFromPoint(count.x + count.width / 2, count.y + count.height / 2)?.id,
+        state: window.runtimeProbe.state() };
+    });
+    await mkdir(directory, { recursive: true });
+    await writeFile(`${directory}/external-owner-${dpr}.json`, JSON.stringify({ original, motion, owner }, null, 2));
+    await writeFile(`${directory}/external-owner-${dpr}.png`, await page.locator("#output").screenshot());
+    expect(owner.scroll).toBe(0);
+    expect(owner.dimensions).toMatchObject({ width: 640, scrollWidth: 640, rootWidth: 900, overflow: "auto", content: "drawable" });
+    expect(owner.state.mode).toBe("gpu");
+    expect(owner.raw[12]).toBe(45);
+    expect(owner.rect.x - owner.output.x).toBe(45);
+    expect(owner.hit).toBe("count");
+    await page.mouse.click(owner.count.x, owner.count.y);
+    await expect(page.locator("#count")).toHaveText("Count 2");
+    await page.evaluate(async () => {
+      const output = document.querySelector("#output");
+      output.style.border = "8px solid rgb(30,100,220)";
+      output.style.padding = "4px";
+      await window.runtimeProbe.settle();
+      window.runtimeProbe.transform("stationary", { x: 220 });
+      await window.runtimeProbe.settle();
+    });
+    const clipped = await page.evaluate(() => {
+      const output = document.querySelector("#output"), o = output.getBoundingClientRect();
+      const r = document.querySelector("#primary").getBoundingClientRect();
+      const style = getComputedStyle(output), origin = { x: output.clientLeft + parseFloat(style.paddingLeft), y: output.clientTop + parseFloat(style.paddingTop) };
+      const inside = { x: o.x + origin.x + 630, y: o.y + origin.y + 145 };
+      const outside = { x: o.x + origin.x + 665, y: inside.y };
+      window.ownerClipEvents = [];
+      for (const type of ["pointerdown", "pointerup", "click"]) document.addEventListener(type, event =>
+        window.ownerClipEvents.push({ type, trusted: event.isTrusted, target: event.target.id }));
+      return { inside, outside, primary: { x: r.x - o.x, y: r.y - o.y }, origin,
+        insideHit: document.elementFromPoint(inside.x, inside.y)?.id,
+        outsideHits: document.elementsFromPoint(outside.x, outside.y).map(node => node.id),
+        scroll: output.scrollLeft, state: window.runtimeProbe.state() };
+    });
+    expect(clipped.state.mode).toBe("gpu");
+    expect(clipped.primary.x).toBe(45 + clipped.origin.x);
+    expect(clipped.insideHit).toBe("stationary");
+    expect(clipped.outsideHits).not.toContain("stationary");
+    const outsidePixel = (await viewportPixel(page, clipped.outside)).pixel;
+    expect(outsidePixel).toEqual([255, 255, 255, 255]);
+    const clipBytes = await page.locator("#output").screenshot(), clipImage = PNG.sync.read(clipBytes);
+    const at = ((Math.floor((145 + clipped.origin.y) * dpr)) * clipImage.width + Math.floor((630 + clipped.origin.x) * dpr)) * 4;
+    expect([...clipImage.data.subarray(at, at + 4)]).toEqual([20, 200, 90, 255]);
+    await page.mouse.click(clipped.outside.x, clipped.outside.y);
+    expect((await page.evaluate(() => window.ownerClipEvents)).every(event => event.trusted && !["stationary", "badge"].includes(event.target))).toBe(true);
+    await writeFile(`${directory}/external-owner-clip-${dpr}.json`, JSON.stringify({ ...clipped, outsidePixel }, null, 2));
+    await writeFile(`${directory}/external-owner-clip-${dpr}.png`, clipBytes);
+    await page.evaluate(() => window.runtimeProbe.disable());
+    const borderedAdmission = await page.evaluate(() => window.runtimeProbe.enable());
+    expect(borderedAdmission.mode, borderedAdmission.reason).toBe("gpu");
+    await page.evaluate(async () => {
+      const frame = document.querySelector("#frame");
+      frame.style.left = "300px"; frame.style.top = "20px";
+      document.body.style.minWidth = "2600px"; document.body.style.minHeight = "1800px";
+      window.scrollTo(120, 80);
+      await window.runtimeProbe.settle();
+    });
+    const documentBefore = await page.evaluate(() => window.runtimeProbe.state());
+    const documentScroll = [];
+    for (const position of [{ x: 180, y: 100 }, { x: 210, y: 120 }]) {
+      await page.evaluate(async point => { window.scrollTo(point.x, point.y); await window.runtimeProbe.settle(); }, position);
+      const state = await page.evaluate(() => {
+        const r = document.querySelector("#output").getBoundingClientRect();
+        return { scroll: [window.scrollX, window.scrollY], state: window.runtimeProbe.state(),
+          point: { x: r.x + 622, y: r.y + 157 } };
+      });
+      expect(state.scroll).toEqual([position.x, position.y]);
+      expect(state.state.mode).toBe("gpu");
+      expect(state.state.publication.pending).toBe(false);
+      expect(state.state.metrics.admission.attempts).toBe(documentBefore.metrics.admission.attempts);
+      const pixel = await viewportPixel(page, state.point);
+      expect(pixel.pixel).toEqual([20, 200, 90, 255]);
+      documentScroll.push({ ...state, pixel: pixel.pixel });
+      await writeFile(`${directory}/external-document-${dpr}-${position.x}.png`, pixel.bytes);
+    }
+    await page.locator("h1").click();
+    await page.mouse.wheel(70, 100);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    await page.evaluate(() => { document.body.tabIndex = -1; document.body.focus(); });
+    for (const key of ["PageDown", "End", "Home", "ArrowRight", "ArrowDown"]) {
+      await page.keyboard.press(key); await page.waitForTimeout(180);
+      documentScroll.push({ key, scroll: await page.evaluate(() => [window.scrollX, window.scrollY]), state: await page.evaluate(() => window.runtimeProbe.state()) });
+      expect(documentScroll.at(-1).state.mode).toBe("gpu");
+    }
+    await page.locator("#count").click();
+    await expect(page.locator("#count")).toHaveText("Count 3");
+    await page.locator("#third").click();
+    await expect(page.locator("#third-layer")).toBeAttached();
+    await page.evaluate(() => window.runtimeProbe.settle());
+    const addition = await page.evaluate(() => window.runtimeProbe.state());
+    expect(addition.mode).toBe("gpu");
+    expect(addition.publication.pending).toBe(false);
+    expect(addition.resources.engines).toBe(1);
+    expect(addition.metrics.admission.attempts).toBe(documentBefore.metrics.admission.attempts);
+    await page.locator("#third").click();
+    await expect(page.locator("#third-layer")).toHaveCount(0);
+    await page.evaluate(() => window.runtimeProbe.settle());
+    await writeFile(`${directory}/external-document-axes-${dpr}.json`, JSON.stringify({ documentBefore, documentScroll, addition, after: await page.evaluate(() => window.runtimeProbe.state()) }, null, 2));
+    expect(Object.values((await page.evaluate(() => window.runtimeProbe.dispose())).resources).every(value => value === 0)).toBe(true);
+  } finally { await page.close(); }
+});
 for (const dpr of [1, 2]) test(`bounded root and enrolled NativeScroll retain GPU clip DPR${dpr}`, async ({ browser }) => {
   const page = await browser.newPage({ deviceScaleFactor: dpr });
   try {
     await page.goto("/runtime.html?strict");
     await page.waitForFunction(() => window.runtimeProbe && !window.runtimeProbe.state().initializing);
     expect(await page.evaluate(() => window.runtimeProbe.state().mode)).toBe("gpu");
+    await externalDocumentOffset(page);
     await page.locator("#controlled").fill("fresh independent native");
     await page.evaluate(() => { window.originalInput = document.querySelector("#controlled"); });
     await page.locator("#scroll-toggle").click();
@@ -114,6 +468,7 @@ for (const dpr of [1, 2]) test(`scrolled viewport preserves original ref members
   try {
     await page.goto("/integration.html?strict");
     await page.waitForFunction(() => window.integrationProbe && !window.integrationProbe.state().initializing);
+    await externalDocumentOffset(page, "integrationProbe");
     await page.evaluate(async () => {
       const root = document.querySelector(".app-container");
       root.style.height = "250px"; root.style.overflow = "auto"; root.scrollTop = 50;
@@ -276,6 +631,7 @@ for (const dpr of [1, 2]) test(`scrolled root additions retain complete current 
   try {
     await page.goto("/runtime.html?strict");
     await page.waitForFunction(() => window.runtimeProbe && !window.runtimeProbe.state().initializing);
+    await externalDocumentOffset(page);
     await page.evaluate(async () => {
       const root = document.querySelector(".app-container");
       root.style.width = "460px"; root.style.overflow = "auto"; root.scrollLeft = 60;

@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { intersectViewport, localViewport, scrollOrigin } from "../src/canvas-spa/viewport.ts";
+import { intersectViewport, localViewport, scrollOrigin, canvasContentOrigin, viewportContains } from "../src/canvas-spa/viewport.ts";
+
+test("owner native border-box origin is separate from GPU bitmap content coordinates", () => {
+  assert.deepEqual(canvasContentOrigin({ clientLeft: 8, clientTop: 5 }, { paddingLeft: "4px", paddingTop: "6px" }),
+    { x: 12, y: 11 });
+  assert.deepEqual(canvasContentOrigin({ clientLeft: 0, clientTop: 0 }, { paddingLeft: "0px", paddingTop: "0px" }), { x: 0, y: 0 });
+});
+test("a fully contained rotated layer needs no owner clip or axis-only restriction", () => {
+  const frame = { x: 0, y: 0, width: 640, height: 420 }, extent = { width: 100, height: 50 };
+  assert.equal(viewportContains({ a: 0.9, b: 0.1, c: -0.1, d: 0.9, e: 40, f: 50 }, extent, frame), true);
+  assert.equal(viewportContains({ a: 1, b: 0, c: 0, d: 1, e: 600, f: 50 }, extent, frame), false);
+});
 
 test("axis-aligned viewport intersection maps CSS clip to native local coordinates", () => {
   const clip = intersectViewport({ x: 20, y: 10, width: 80, height: 60 }, { x: 60, y: 0, width: 100, height: 40 });

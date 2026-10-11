@@ -131,8 +131,18 @@ adapter-owned root retain GPU, reconcile actual scroll offsets and intersect
 supported ancestor viewports for identical native hit and GPU visual clips.
 Native wheel/key/programmatic scroll requests fresh owning paint rather than
 replaying input or replacing controls. Newly uncovered capture coverage keeps
-the last complete GPU output until fresh paint. General transformed clip chains,
-external ancestor viewport changes and arbitrary CSS scrolling remain framework
+the last complete GPU output until fresh paint. Ordinary document and
+untransformed axis-aligned external ancestor scrolling retain GPU by refreshing
+owner-local projection; they do not dirty content, crop textures to the page,
+add window offsets or cancel independent motion. Browser inheritance clips the
+whole owner and originals together. Scoped external resize/style observations
+are not global per-frame layout reads. Owner border/padding coordinates and
+explicit overflow clips are reconciled separately. Actual Chrome157's replaced
+owning canvas clips `overflow:auto` content but does not scroll; nonzero
+canvas-scroll support is inapplicable to this measured contract, not a missing
+browser feature or a fallback waiver. No future implementation guarantee follows.
+General transformed clip chains, RTL/writing-mode/zoom, mixed visible/clip axes
+and arbitrary CSS scrolling remain framework
 qualification boundaries—not demonstrated missing Chrome157 features or
 accepted unrestricted GPU-first fallback. Manual physical continuity remains open.
 
