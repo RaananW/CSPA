@@ -19,6 +19,18 @@ Full Phase11 remains incomplete; the human/device checklist below is open.
 
 ## Integrate incrementally
 
+**GPU-first target:** every implemented transition, component add/remove/change
+and undo/redo flow must remain GPU-presented after enable, with fresh output and
+current original native hits. Only GPU errors or factual missing required
+GPU/capture/geometry features justify diagnosed fallback; explicit disable and
+disposal remain caller lifecycle. Normal layout/DPR updates, visibility pauses
+and reduced motion are not failure classifications. The current structural
+recovery in step5 is a known unfulfilled framework gate, not a satisfactory
+normal-update policy. See the [capability matrix](architecture.md#capability-versus-implementation-matrix).
+Component GPU support should layer over the standard native React implementation
+with a small typed declarative CSS/JS fallback and the same controls/state,
+not a second tree or an automatic arbitrary-library/CSS adapter.
+
 1. Keep original React state, native inputs/forms and authored CSS. Bootstrap
    one persistent root in the adapter-owned container, with connected sibling
    ordinary/capture/output/native-overlay hosts outside every React root.
@@ -33,7 +45,7 @@ Full Phase11 remains incomplete; the human/device checklist below is open.
    running both. Nonaffine/disappearing effects require inert, aria-hidden,
    noninteractive decoration separate from essential native controls.
 5. After add/remove/reorder, same-size position change, resize or DPR change,
-   expect immediate hidden GPU presentation and original DOM recovery.
+   the current incomplete runtime hides GPU and recovers original DOM.
    By default, await settled retirement, then explicitly request fresh admission.
    An intentionally opted-in `admissionPolicy: "automatic"` host instead
    coalesces eligible settled changes after explicit enable; disable cancels it.

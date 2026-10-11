@@ -50,8 +50,12 @@ budgets. Historical engineering was independently accepted with limits, not
 seamless presentation. First resolve and independently verify the demonstrated
 structural flicker: supported updates must remain GPU-presented with fresh pixels,
 current original native hits and no blank application frames. Permanent DOM
-fallback is not an accepted fix. Production application/hardware selection,
-measurable budgets and genuine unsupported/unsafe/failure fallback remain separate gates.
+fallback is not an accepted fix. Normal structure/layout/DPR updates, visibility
+pauses and reduced motion must retain GPU ownership. Every implemented
+transition/component/undo-redo flow shares this requirement. Production
+application/hardware selection, measurable budgets and diagnosed GPU-error or
+factual missing-feature fallback remain separate gates; missing framework
+implementation is not an unsupported-capability classification.
 Loss/reduced-motion/forced-colors and healthy resource retirement remain gates;
 unsafe capture suppression or manufactured speedup is not an optimization.
 

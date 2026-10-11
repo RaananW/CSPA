@@ -16,8 +16,15 @@ contributor commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 CanvasSPA is a GPU-first framework. Supported React layer, ref and content
 updates must remain GPU-presented with fresh pixels, current original native
 interaction geometry and no blank application frames. DOM fallback is reserved
-for genuine unsupported capabilities, unsafe conditions, failures or explicit
-disable, not a replacement for normal supported GPU updates.
+for GPU errors or factual lack of required GPU/capture/geometry feature support,
+not missing framework implementation. Explicit disable/disposal is caller-owned
+lifecycle. Structure/layout/DPR updates, visibility pauses and reduced motion
+must not themselves revoke GPU. Every implemented transition, component
+add/remove/change and undo/redo flow must use continuous GPU presentation.
+Components should layer GPU support and a small typed declarative CSS/JS
+fallback over their standard native React implementation, sharing originals
+and state. Complex GPU visual apps with HTML semantics/native input are the
+target, not current certification or automatic third-party adaptation.
 
 React owns the original descendants, controls and state; the adapter owns only
 the stable external root-container boundary. Preserve one shared renderer and
@@ -35,6 +42,18 @@ Acceptance must prove GPU remains active through supported updates together
 with fresh output and correct original native hits, not just fallback safety.
 Any revised capture/presentation boundary needs factual public-API feasibility
 evidence; no atomic browser transaction or required React patch is presumed.
+
+### Capability versus implementation matrix
+
+| Area | Current bounded evidence | Remaining boundary |
+| --- | --- | --- |
+| Initial native capture, public texture upload, shared GPU composition and affine native hits | Working on the recorded experimental Chrome155 path and bounded React18/19 specimens | Required experimental capture/geometry APIs are not general browser support |
+| Content invalidation and numeric GPU motion | Existing capture/uniform/native-geometry paths and bounded tests | Continuous fresh-pixel/current-hit publication through all present updates still needs compositor-level proof |
+| Layer/ref/membership/layout/DPR updates | Current runtime restores DOM and performs fresh admission | Missing framework implementation of continuous GPU updates; demonstrated automatic readmission flicker, not an accepted feature fallback |
+| Visibility/reduced motion | Current scheduling/cancellation policies | Pause/resume and reduced motion must preserve GPU ownership rather than treat the preference as missing capability |
+| Editing, scroll/clipping, overlays and effects | Specific conservative guards and native overlays exist | Establish actual capture/geometry limits separately from unimplemented GPU support; ordinary mutation is not a capability failure |
+| Component CSS/JS fallback | Original DOM, typed browser styles, numeric native motion and explicit disable exist | No unified per-component declarative GPU/fallback contract yet; implement without duplicate controls/state |
+| Complex apps and undo/redo | Framework target | Not currently certified; future application flows depend on the same continuous-GPU core |
 
 ## Module boundaries
 

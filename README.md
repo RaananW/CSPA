@@ -3,8 +3,15 @@
 **CanvasSPA is a GPU-first framework.** Supported React layer, ref and content
 updates must remain GPU-presented with fresh pixels, current original native
 interaction geometry and no blank application frames. DOM fallback is reserved
-for genuine unsupported capabilities, unsafe conditions, failures or explicit
-disable; it is not a substitute for implementing supported GPU updates.
+for GPU errors or factual lack of required GPU/capture/geometry feature support;
+explicit disable/disposal remains caller-owned lifecycle. Normal structure,
+layout, DPR, visibility pauses and reduced motion must not themselves revoke
+GPU. Every implemented transition, component add/remove/change and undo/redo
+flow must run through the continuous-GPU core, not a DOM substitute.
+Components should layer GPU visuals and a small typed declarative CSS/JS
+fallback over the same standard native React controls/state. Complex GPU visual
+apps retaining HTML semantics/input are the target, not certified support for
+arbitrary libraries or an automatic CSS translator.
 See the [GPU-first contract and current gap](docs/architecture.md#gpu-first-contract)
 and [contributor instructions](CONTRIBUTING.md).
 

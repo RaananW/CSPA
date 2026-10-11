@@ -22,6 +22,15 @@ with motion while keeping essential native controls separate.
 
 ## Explicit bootstrap
 
+**Required target versus current API:** follow the
+[GPU-first contract and capability matrix](architecture.md#gpu-first-contract).
+After enabling GPU, normal structure/layout/DPR changes, visibility pauses and
+reduced motion must not revoke GPU. Only GPU errors or factual missing required
+GPU/capture/geometry support justify diagnosed fallback; explicit disable and
+disposal are caller lifecycle. The structural DOM recovery/readmission API
+described below is current incomplete behavior, not an acceptable implementation
+of the continuous-GPU promise. Its demonstrated flicker remains unresolved.
+
 Create empty capture/output canvases and ordinary/overlay hosts as connected,
 same-document siblings **outside all React roots**. Put them inside a sized,
 positioned frame. The capture/output canvases must fill that frame at the same
@@ -103,6 +112,11 @@ Content invalidation retains normal conservative capture; it is not a reason
 to recreate the engine. In-flight capture, readback and engine initialization
 cannot reveal retired generations. Cancellation preserves original keyed React
 controls/state; existing motion cancellation is not motion replay.
+
+This recovery algorithm must be replaced for supported updates. Historical
+acceptance validated bounded safety/retirement, not seamless GPU presentation.
+The policy description is not permission to classify normal mutations or
+preferences as missing browser support.
 
 `state().admission` reports `policy`, `intent` (`disabled`, `enabled`, `blocked`),
 `pending`, automatic `attempts` and `reason`. `attempts` counts automatic

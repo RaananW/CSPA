@@ -11,6 +11,14 @@ Exercise GPU remaining active through repeated supported updates alongside
 rendered-pixel and original native-interaction checks; retain separate genuine
 unsupported/fault/explicit-disable recovery tests. The structural flicker is
 currently unresolved, and earlier engineering acceptance is not seamless proof.
+Once GPU is enabled, only GPU errors or factual missing required
+GPU/capture/geometry feature support justify diagnosed fallback. Normal
+structure/layout/DPR updates, visibility pauses and reduced motion must retain
+GPU intent/presentation; caller-requested disable/disposal remains lifecycle.
+Apply this gate to every implemented transition, component add/remove/change
+and undo/redo flow. Distinguish missing framework implementation from browser
+feature limits. Component GPU support and typed declarative CSS/JS fallback
+must share the standard implementation's original controls/state.
 
 The intended direction is open-source software, but this folder is currently
 an experimental private package, not a published library. License selection,
