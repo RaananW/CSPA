@@ -1,4 +1,5 @@
-import { test, expect, chromium } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import { test, expect } from "./current-browser.mjs";
 import { developmentURL, previewURL } from "./urls.mjs";
 import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
 import { PNG } from "pngjs";
@@ -42,7 +43,8 @@ for (const strict of [false, true]) test(`ref enrollment and original Radix nati
   expect(initial.reactVersion).toBe(process.env.CANVAS_EXPECT_REACT_VERSION ?? "19.3.0");
   expect(initial.runtimeResources.enrolledLayers).toBe(3);
   expect(initial.resources.engines).toBe(1);
-  expect(initial.metrics.admission.last.nativePixels).toEqual(initial.metrics.admission.last.gpuPixels);
+  expect(initial.metrics.admission.last.nativePixels).toEqual([]);
+  expect(initial.metrics.admission.last.gpuPixels).toEqual([[207, 37, 83, 255], [31, 179, 113, 255]]);
   await page.locator("#name-label").click();
   await expect(page.locator("#name")).toBeFocused();
   await page.keyboard.press("Meta+a");
@@ -102,6 +104,40 @@ for (const strict of [false, true]) test(`ref enrollment and original Radix nati
   await save(`native-${strict}`, { initial, selection, changed, changedBytes, authored, disposed, errors });
 });
 
+for (const dpr of [1, 2]) test(`original Replace ref actions retain GPU ownership DPR${dpr}`, async ({ browser }) => {
+  const page = await browser.newPage({ deviceScaleFactor: dpr });
+  try {
+    await ready(page);
+    const cdp = await page.context().newCDPSession(page);
+    const environment = { browser: await cdp.send("Browser.getVersion"), launch: await cdp.send("Browser.getBrowserCommandLine") };
+    await cdp.detach();
+    const observations = [];
+    for (let index = 0; index < 8; index++) {
+      await page.evaluate(() => { window.replacedOriginal = document.querySelector("#replacement"); });
+      await page.locator("#replace").click();
+      await expect(page.locator("#replacement")).toHaveText(`Original ref ${index + 1}`);
+      await page.evaluate(() => window.integrationProbe.settle());
+      const state = await page.evaluate(() => ({ ...window.integrationProbe.state(),
+        retired: !window.replacedOriginal.isConnected && !window.replacedOriginal.hasAttribute("drawable"),
+        owner: document.querySelector(".app-container").parentElement.id, originals: document.querySelectorAll("#replacement").length }));
+      expect(state.mode, state.reason).toBe("gpu"); expect(state.retired).toBe(true);
+      expect(state.owner).toBe("output"); expect(state.originals).toBe(1);
+      expect(state.metrics.admission.attempts).toBe(1);
+      expect(state.publication.captures).toHaveLength(3);
+      await page.locator("#count").click(); await expect(page.locator("#count")).toHaveText(`Count ${index + 1}`);
+      const png = PNG.sync.read(await page.locator("#frame").screenshot());
+      const ratio = png.width / 640;
+      for (const [x, y, expected] of [[55, 345, [240, 30, 60, 255]], [400, 200, [20, 200, 90, 255]]]) {
+        const offset = (Math.floor(y * ratio) * png.width + Math.floor(x * ratio)) * 4;
+        expect([...png.data.subarray(offset, offset + 4)]).toEqual(expected);
+      }
+      observations.push(state);
+    }
+    zero(await page.evaluate(() => window.integrationProbe.dispose()));
+    await save(`replacement-${dpr}`, { environment, observations, limitation: "Decoded source screenshots/trusted actions; physical display continuity remains unqualified" });
+  } finally { await page.close(); }
+});
+
 test("atomic ref refusal, replacement, authored attribute cleanup and twenty retired lifetimes", async ({ page }) => {
   await ready(page, true);
   const atomic = await page.evaluate(() => {
@@ -117,9 +153,9 @@ test("atomic ref refusal, replacement, authored attribute cleanup and twenty ret
   expect(atomic.rejected.every(value => value.unchanged)).toBe(true);
   expect(atomic.after.registryRevision).toBe(atomic.before.registryRevision);
   await page.evaluate(() => { window.oldRefElement = document.querySelector("#replacement"); window.integrationProbe.replace(); });
-  await page.waitForFunction(() => window.integrationProbe.state().mode === "dom");
+  await page.evaluate(() => window.integrationProbe.settle());
+  expect((await page.evaluate(() => window.integrationProbe.state())).mode).toBe("gpu");
   expect(await page.evaluate(() => window.oldRefElement !== document.querySelector("#replacement") && !window.oldRefElement.hasAttribute("drawable") && !window.oldRefElement.isConnected)).toBe(true);
-  expect((await page.evaluate(() => window.integrationProbe.enable())).mode).toBe("gpu");
   const lifetimes = [];
   for (let index = 0; index < 20; index++) {
     const cycle = await page.evaluate(() => window.integrationProbe.cycle());
@@ -462,9 +498,11 @@ test("real development HMR retires the prior ref and presence lifetime", async (
 });
 
 test("installed Chrome without experimental flags keeps usable original library DOM", async () => {
-  const browser = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args: ["--enable-automation"] });
+  const browser = await chromium.launch({ executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args: ["--enable-automation", "--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"] });
   const page = await browser.newPage({ viewport: { width: 900, height: 750 } });
   try {
+    const cdp = await browser.newBrowserCDPSession();
+    const environment = { browser: await cdp.send("Browser.getVersion"), launch: await cdp.send("Browser.getBrowserCommandLine") };
     await page.goto(`${previewURL}/integration.html`);
     await page.waitForFunction(() => window.integrationProbe && !window.integrationProbe.state().initializing);
     expect((await page.evaluate(() => window.integrationProbe.state())).mode).toBe("dom");
@@ -477,6 +515,6 @@ test("installed Chrome without experimental flags keeps usable original library 
     await expect(page.locator("#dialog-open")).toBeFocused();
     const state = await page.evaluate(() => window.integrationProbe.state());
     zero(await page.evaluate(() => window.integrationProbe.dispose()));
-    await save("no-flags", { state });
+    await save("no-flags", { state, environment });
   } finally { await browser.close(); }
 });

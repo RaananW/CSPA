@@ -33,15 +33,14 @@ compiles browser styles rather than implementing a custom CSS/layout engine.
 Cloned controls, stale screenshot covers, wrong native hits and cosmetic status
 debouncing cannot satisfy the presentation contract.
 
-**Current gap:** structural recovery/re-admission described below does not yet
-meet this contract. Runtime **Layer** and integration **Replace ref** exposed
-blank frames during automatic re-admission. Earlier bounded Phase12 engineering
-acceptance did not establish seamless presentation. A permanent-DOM restriction
-was proposed, rejected and never merged; the flicker remains unresolved.
-Acceptance must prove GPU remains active through supported updates together
-with fresh output and correct original native hits, not just fallback safety.
-Any revised capture/presentation boundary needs factual public-API feasibility
-evidence; no atomic browser transaction or required React patch is presumed.
+**Current correction, not acceptance:** Runtime **Layer** and integration
+**Replace ref** previously exposed readmission blank frames. The uncommitted
+core now replaces that mechanism with same-owner membership/geometry and
+complete-frame successors. Missing/new/extent-grown slots retain the last
+complete output until prepared fresh native-paint uploads. Fresh independent
+acceptance must verify this exact source. Neither decoded automated frames nor
+queue completion prove physical-display continuity, text fidelity, accessibility
+or performance budgets. Historical verdicts remain immutable and non-current.
 
 ### Capability versus implementation matrix
 
@@ -53,12 +52,10 @@ was checked at main commit `5fb3df86d84de598c7f0fcfc5ee53de1df067e7d`
 `GPUQueue.drawElementImageToTexture`, not only 2D capture/staging. Drawing in
 `paint` belongs to the current rendering update; DOM changes belong to the next.
 Offscreen geometry batching prevents task interleaving, not a proven shared
-GPU/native presentation transaction. Current code still accepts legacy
-`layoutSubtree`, and the installed Lite HTML-texture helper uses the older
-`copyElementImageToTexture` contract and makes hosted content inert; neither
-is a qualified current-spec integration for original interactive React controls.
-Migration and continuous publication remain implementation gates, not solved
-by renaming an attribute. Anonymous browser review of the
+GPU/native presentation transaction. Current core rejects silent legacy
+`layoutSubtree` qualification and uses public `DynamicTexture2D.texture` with
+direct owning-paint upload, not Lite's older inert HTML-texture helper.
+Anonymous browser review of the
 [Chromium hotlist](https://issues.chromium.org/hotlists/6783002) reports
 [content drawable](https://issues.chromium.org/issues/561849343),
 [legacy layoutsubtree removal](https://issues.chromium.org/issues/568010578),
@@ -69,14 +66,18 @@ establishes the shipped API. Landed revisions/release availability were not
 verified in this assessment. Actual secure-localhost Chrome155 inspection
 found no reflected `content` property, legacy `layoutSubtree` present and both
 direct-GPU upload names present; property inspection is not functional
-qualification. Future changes must repeat current proposal/tracker review and
+qualification. Current source qualification targets actual Canary157.0.8098.0; its reflected
+content and transform getter are functionally tested despite tracker divergence.
+Default native grids are read inside owning paint because new originals do not
+yet have a cached paint record. WebGL2 direct capture remains explicitly
+unqualified. Future changes must repeat current proposal/tracker review and
 distinguish it from actual browser functional qualification.
 
 | Area | Current bounded evidence | Remaining boundary |
 | --- | --- | --- |
 | Initial native capture, public texture upload, shared GPU composition and affine native hits | Working on the recorded experimental Chrome155 path and bounded React18/19 specimens | Required experimental capture/geometry APIs are not general browser support |
 | Content invalidation and numeric GPU motion | Existing capture/uniform/native-geometry paths and bounded tests | Continuous fresh-pixel/current-hit publication through all present updates still needs compositor-level proof |
-| Layer/ref/membership/layout/DPR updates | Current runtime restores DOM and performs fresh admission | Missing framework implementation of continuous GPU updates; demonstrated automatic readmission flicker, not an accepted feature fallback |
+| Layer/ref/membership/layout/DPR updates | Same renderer/root, synchronous current geometry, prepared textures and complete-frame publication | Uncommitted correction requires fresh independent acceptance; decoded source frames are not physical refresh proof |
 | Visibility/reduced motion | Current scheduling/cancellation policies | Pause/resume and reduced motion must preserve GPU ownership rather than treat the preference as missing capability |
 | Editing, scroll/clipping, overlays and effects | Specific conservative guards and native overlays exist | Establish actual capture/geometry limits separately from unimplemented GPU support; ordinary mutation is not a capability failure |
 | Component CSS/JS fallback | Original DOM, typed browser styles, numeric native motion and explicit disable exist | No unified per-component declarative GPU/fallback contract yet; implement without duplicate controls/state |
@@ -94,7 +95,7 @@ distinguish it from actual browser functional qualification.
 | `src/canvas-spa/mount-boundary.ts` | Destination validation, one mount callback, stable-container moves and final unmount |
 | `src/canvas-spa/device-lifecycle.ts` | Public configured-device loss observation and bounded idle synchronization |
 | `src/canvas-spa/renderer.ts` | Native capture, public texture/effect composition, independent dirty scheduling, serialized recovery and resource accounting |
-| `src/canvas-spa/admission.ts` | Independent known-color probe DOM, pixel checks, applied geometry and native interior/exterior hit validation |
+| `src/canvas-spa/admission.ts` | Independent known-color probe DOM, pixel checks, applied geometry and native interior/clipped-exterior hit validation |
 | `src/canvas-spa/motion.ts`, `timeline.ts`, `animation.ts`, `css-animation.ts` | Public numeric descriptor contracts, shared whole-effect compilation, per-property presentation ownership, separate CSS/WAAPI compatibility and bounded replacement tracking |
 | `src/canvas-spa/module.ts`, `ripple.ts` | Trusted local mounting contract and decorative-only effect validation |
 | `src/canvas-spa/effects.ts` | Whole-chain descriptor/schema validation, trusted application definitions and shared uniform packing |
@@ -114,8 +115,8 @@ distinguish it from actual browser functional qualification.
 
 The renderer has no fixed specimen IDs, dimensions or shader slots. An
 admitted registry generates one shader for its current layer count. Membership
-changes intentionally recover to DOM before fresh admission; there is no live
-shader rebinding. Root-level native/lifecycle/renderer files are compatibility
+changes prepare public bindings in the same engine and fence retired resources;
+they do not restore DOM or create another root. Root-level native/lifecycle/renderer files are compatibility
 re-exports for historical probes. `window.runtimeProbe`/`surfaceProbe` are
 diagnostic facades, not published APIs. No reusable module destroys a device.
 
@@ -140,14 +141,15 @@ new scheduler. Replacement resolves the old handle separately and samples its
 current state. `Presence` lets React retain one original exiting subtree inside
 a stable boundary, removing it after completion/cancellation; parent unmount
 suppresses stale callbacks. Ref-authored CSS remains the settled DOM state.
-Membership, capture bounds and relevant resize/DPR still recover conservatively.
+Membership and relevant resize/DPR now reconcile without healthy DOM recovery.
+Factual clipping/content-coverage restrictions remain diagnosed.
 Phase9 hardening, [accepted-with-limits on actual155](../evidence/phase9-independent/acceptance-v1.json)
-with exact154 still unverified, adds a synchronous hidden-output/DOM presentation barrier,
+with exact154 still unverified, historically added a synchronous hidden-output/DOM presentation barrier,
 registry revision/order/origin signature and post-await admission generation
 checks. Resource retirement is serialized after outstanding native work, then
 healthy public queue/readback completion; immediate fallback does not forcibly
-destroy those retained resources. No automatic hot membership or shader rebinding
-is introduced. Native `paint.changedElements` in this browser reports the root
+destroy those retained resources. That historical barrier is not the current
+healthy-update route. Native `paint.changedElements` in that browser reported the root
 for native edits; malformed/absent attribution captures all enrolled layers.
 React/MutationObserver information is not used to suppress native paint.
 See [API](api.md), [adoption](adoption.md) and [roadmap](roadmap.md).
@@ -163,8 +165,8 @@ native capture path, so snapshots retain neutral original content.
 
 Trusted application functions receive color/local coordinates/extent/time/
 parameters, not engine/device objects. New definitions compile through public
-configured-device diagnostics during hidden admission; the actual application
-draw also checks a public validation error scope before reveal. Compilation
+configured-device diagnostics during prepared admission/successor creation; the actual application
+draw also checks a public validation error scope. Compilation
 failure recovers to original DOM using the same healthy-fence rules. Parameter
 or admitted-chain replacement does not recompile or recapture. Only authored
 inert, aria-hidden noninteractive decoration may disappear or distort;
@@ -173,7 +175,7 @@ essential native geometry stays affine and unchanged by effects.
 ## Explicit mount boundary
 
 The caller provides empty, distinct, connected, same-document sibling hosts:
-an ordinary DOM host, a native 2D capture canvas and a GPU output canvas. The
+an ordinary DOM host, a compatibility capture canvas and the owning GPU output canvas. The
 adapter creates its `app-container` before calling `mount(container)` once.
 The callback creates one root with `createRoot(container)` and returns that
 root's unmount function. React owns everything **inside** this persistent root;
@@ -204,28 +206,34 @@ One shared Lite/WebGPU engine renders the enrolled public dynamic textures throu
 registered fullscreen effect renderer:
 
 ```text
-Original React layer -> native ElementImage -> owning 2D capture canvas
-                    -> reusable pixel-only 2D staging canvas
-                    -> public dynamic-texture upload -> shared GPU shader
+Original drawable React layer under owning content="drawable" GPU output canvas
+  -> synchronous native paint -> GPUQueue.drawElementImageToTexture
+  -> public per-layer DynamicTexture2D.texture -> shared GPU shader
 ```
 
-Each snapshot closes in `finally`. `drawElementImage` uses
-`preserveElementGeometry: true`; the capture canvas bitmap is then cleared so
-there is no second visible painted image. The pointer-transparent GPU overlay
-is the sole visual output. Explicit `updateElementGeometry` on the original
-layers uses the same canonical affine matrix as inverse shader sampling and
-keeps native hits on the original
-controls. Reentry rebuilds capture sizes and geometry.
+There is no owning 2D context, staging canvas, application flat texture or
+snapshot cover. The original stable adapter root initially moves under the
+same output owner; React descendants never relocate or clone. Public
+`updateElementGeometry`/verified getter reconcile connected current originals
+before paint, and `clearElementGeometry` clears retired originals even after
+React removal. Order changes rebuild hit order. One canonical affine matrix
+drives native hits and inverse shader sampling.
 
-This is copy-based, not zero-copy. Native paint/input/committed React updates
-schedule captures; GPU transforms/effects draw without intentionally requesting
-React updates, captures, pixel copies or uploads. Invalidation remains enabled.
-Dirty IDs are removed before starting capture, so new invalidation during a
-capture remains scheduled afterward. Native root-wide paint still dirties all
-affected layers; retained staging pixel comparisons skip unchanged uploads.
-Readbacks/copies are explicit costs, separately counted. Samples are bounded
-to 256; aggregate counts/timings remain cumulative. One comparison buffer per
-live layer is released with its texture.
+Direct upload is not a zero-copy or performance claim. Native paint uploads
+all current originals conservatively; no stale React attribution suppresses it.
+GPU motion updates uniforms/current geometry without React renders or requested
+recapture. Complete cached coverage is required for every submitted composition,
+including motion while membership is pending. Native CSS extent, captured pixel
+grid and allocated texture dimensions remain distinct. Actual default grids use
+DPR without CSS downsampling; resize/growth prepares successors and preserves
+last output until complete. Queue fences retain superseded resources; unexpected
+errors are reported. Samples remain bounded, counts cumulative.
+Complete cached reorder/removal reuses the validated pipeline capacity
+synchronously: inactive lanes have zero extent, and already compiled custom
+functions are selected independently of lane order. Bound textures remain
+retained until that composition is fenced. Successor validation has a bounded
+deadline; healthy retirement waits do not block ordinary GPU motion, and
+explicit disable reports pending cleanup instead of awaiting a fence forever.
 Optional `onMeasure` emits per-operation phase/layer/byte samples without
 runtime retention, including a distinct native-readback/comparison span.
 Only the diagnostic fixture collects all events in finite windows; its full
@@ -237,24 +245,32 @@ warm-up is outside that interval; live editing still causes captures/uploads.
 
 Moving across ancestors changes real CSS/layout. The historical specimen deliberately changes ancestry-dependent colors/padding.
 The typed demo uses the same compiled authoring in both destinations. Neither
-copies/normalizes arbitrary styles. The owner bitmap must contain every layer's
-untransformed capture extent, even if GPU scaling makes that layer fit visually.
-Admission rejects oversized, zero, detached, nested, over-budget or
-out-of-frame layers; capture rechecks stale sizes before transfer. Captured
+copies/normalizes arbitrary styles. Per-layer native textures contain each layer's valid
+untransformed capture extent independently of the output bitmap.
+Admission rejects zero, detached, nested, over-budget or
+out-of-frame layers; capture rechecks current sizes before transfer. Captured
 pixel budgets and a four-times-budget output-pixel safety limit are explicit,
 and output dimensions respect the configured public device limit.
 
-Output bitmap size is CSS frame size times DPR; native captures/staging are
-currently CSS-resolution. Integrated geometry/pixels pass at DPR 1 and 2,
-not a high-resolution capture-quality claim. Resize/DPR changes recover to DOM
-and need explicit reentry. Resolution listeners rearm per generation; controller,
-capture and draw paths also reject stale dimensions when an event is absent.
-CDP can omit resolution-change events; emulated DPR tests exercise that guard,
-not physical display migration.
+Output bitmap size is CSS frame size times DPR. Direct native captures use
+`getElementImageDefaultSize` and omit a downsampling `size` argument. Allocation
+and valid content grid are distinct; resize/DPR reconcile prepared successors
+without healthy DOM recovery. Actual grid metadata is obtained inside native
+paint and can reflect prior backing during resize, requiring subsequent fresh
+paint. Emulated DPR tests do not prove physical display migration/text parity.
 
-Native scroll, unsupported clipped/nested enrollment, overflowing captured
-content, composition editing and forced colors conservatively use ordinary DOM.
-Reduced motion refuses/cancels motion. Hidden-state policy pauses scheduling,
+Eligible original INPUT/TEXTAREA internal caret scrolling and composition
+start/update/end invalidate their enrolled capture for fresh owning native paint
+without revoking GPU or existing motion ownership. Bounded descendant, enrolled
+and adapter-root viewports (including `NativeScroll`) reconcile actual scroll
+positions and matching native/GPU clips, then refresh native pixels and hits.
+Same-engine membership/ref/layout/DPR preparation and complete-frame gating
+remain active while scrolled. Unsupported transformed/external ancestor chains,
+nested enrollment and unbounded capture overflow remain framework boundaries,
+not demonstrated missing Chrome157 features or unrestricted qualification.
+Synthetic composition listeners do not establish actual OS IME completeness.
+Forced colors refreshes content in GPU; reduced motion uses canonical
+endpoint/identity behavior. Hidden-state policy pauses scheduling,
 aborts paint waits while retaining dirty work and resumes frame-counted motion
 without elapsed-time catch-up. Actual background-tab and OS IME behavior are
 not established by synthetic policy tests.
@@ -262,7 +278,7 @@ not established by synthetic policy tests.
 ## Functional admission, separate from content work
 
 Method presence is only a structural precondition. An admission generation
-enters `admitting` with output hidden, observes its configured device, and
+enters `admitting`, observes its configured device, and
 temporarily adds two adapter-owned, noninteractive DIVs directly under the
 native canvas, **outside** the persistent React root. No controls are cloned or
 React descendants mutated. A 4..16 CSS-pixel marker contains opaque RGBA
@@ -270,9 +286,11 @@ React descendants mutated. A 4..16 CSS-pixel marker contains opaque RGBA
 per axis. Its independent colors avoid mistaking transparent application
 content for missing capture support.
 
-The marker traverses the actual owning-native-canvas -> pixel-only staging ->
-public dynamic texture -> generated shared compositor path. Native pixel
-samples must match within two channel values. Public Lite
+The owning native canvas is laid out and visible during this initial probe;
+hidden native owners cannot provide the current capture record. Initial
+admission is not a hidden-output publication guarantee. The marker traverses
+owning native paint -> direct public dynamic texture -> generated shared
+compositor, without a 2D owner or staging. Public Lite
 `captureScreenshot(engine.surfaces[0])`, serviced with bounded public
 `renderFrame` calls, verifies those colors in actual GPU output at the canonical
 transformed positions/DPR. No private engine/device access, second engine, or
@@ -281,12 +299,15 @@ steady-state GPU readback is introduced.
 Native geometry applies translation, 11-degree rotation and 0.75 scale.
 `getElementTransform` must match all six requested affine coefficients within
 1e-5. In-viewport `elementFromPoint` checks two transformed interiors and one
-exterior without synthesizing control interaction. In-viewport occlusion
-conservatively refuses admission; offscreen hit checks are recorded as skipped,
-not passed. Probe geometry must clear to identity before removing its DOM.
+clipped exterior without synthesizing control interaction. Occlusion refuses
+admission; offscreen witnesses defer admission as explicitly unproven, with
+useful original DOM and explicit visible `enable()` reentry. Applied matrices
+never substitute for a skipped functional native clip witness. This initial
+admission bound does not revoke already-qualified GPU on ordinary visibility
+changes. Probe geometry must clear to identity before removing its DOM.
 After a confirmed idle/readback completion, temporary texture/composition/
-staging resources are released. Actual content layers are then captured and
-their applied geometry checked before declaring `gpu` or revealing output.
+resources are released. Actual content layers are then captured and
+their applied geometry checked before declaring `gpu`.
 Subsequent geometry updates validate the applied matrix too; draw failures
 request same-generation DOM recovery. Enrollment, dimensions/DPR and policy
 are rechecked across asynchronous admission, and hidden-state admission is
@@ -431,10 +452,11 @@ ordinary-DOM event cannot tear down a subsequently admitted replacement.
 | Transition | Behavior |
 | --- | --- |
 | Initial admission failure | Keep/recover the same usable DOM root with a visible reason; fence any created engine before healthy destruction |
-| Successful admission | Observe device, move container, prove/release temporary native/GPU probe, capture/validate content, then reveal verified output |
+| Successful admission | Observe device, move container once beneath the visible owning canvas, prove/release temporary native/GPU probe, then capture and publish complete application content; initial admitting output is not a seamless-display guarantee |
 | Explicit disable or capture failure | Cancel refresh, clear owned geometry/bitmap, move to DOM, hide obsolete surfaces, synchronize, then destroy |
 | Confirmed device loss | Same DOM transition; actual loss authorizes destruction even if the healthy idle fence rejects or cannot complete |
-| Healthy idle timeout/rejection | Keep DOM usable and **retain** GPU resources, observer and staging pixels; report `pendingCleanups: 1` |
+| Healthy teardown idle timeout/rejection | Keep DOM usable and **retain** GPU resources, observer and native capture textures; report pending cleanup |
+| Healthy successor pending preparation/capture/fence | Keep the last complete GPU output and retained textures; current original geometry remains registered, and complete cached commits may reuse validated pipeline capacity |
 | Retained cleanup completion | Serialized release only after a confirmed fence or confirmed loss; then permit fresh admission |
 | Explicit reentry | Create a fresh engine, observer, textures and geometry; preserve the existing root/control objects |
 | Final disposal | Refuse while cleanup is pending; otherwise recover, unmount, remove owned canvases/listeners and release ledgers |
@@ -488,7 +510,7 @@ destruction in the pending/rejected cases still delivers actual loss.
 No mocks are substituted for the four main actual-loss tests.
 
 Resource ledgers count owned roots, canvases, pending/active engines, textures,
-effects/renderers, snapshots, staging pixels, listeners, native paint waits, scheduled refresh,
+effects/renderers, retained native capture textures, listeners, native paint waits, scheduled refresh,
 loss observers, probe DOM/readbacks and pending cleanup. Motion RAF waits and demo startup RAF are
 also cancelled/accounted on recovery/disposal. Retention is visible, not a leak-free
 claim. Final successful cleanup reaches zero; this is not a heap or driver

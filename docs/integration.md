@@ -29,8 +29,9 @@ Chosen contracts before implementation:
 
 Existing CSS transforms, clipping/scrolling, nested enrollment and competing
 animations remain diagnosed restrictions. React-owned descendants never move.
-Structural child removal can dirty capture; enrollment changes still recover
-to DOM and require fresh admission. This section records the historical Phase7
+Structural child removal dirties capture. Current corrected enrollment changes
+reconcile native geometry and prepared complete-frame successors without DOM
+readmission; fresh independent acceptance is pending. This section records the historical Phase7
 gate; Phase8 is accepted separately and Phase9 hardening is
 [accepted-with-limits on actual155](../evidence/phase9-independent/acceptance-v1.json),
 not exact154 certification.
@@ -46,8 +47,8 @@ card input, Dialog activation/focus trap/Escape/Close and ref replacement
 work without cloned controls or descendant relocation.
 
 The Phase9 specimen adds outside-root reorder/move/resize controls and a bounded
-React-managed extra-layer fixture. These intentionally trigger DOM recovery;
-request GPU again for fresh admission. The original keyed nodes, native input
+React-managed extra-layer fixture. These now preserve the same GPU renderer;
+missing capture coverage waits for native paint, not DOM recovery. The original keyed nodes, native input
 value/focus/selection and Dialog state are retained. No React descendants move
 outside their original subtree. [Adoption](adoption.md) describes migration.
 
@@ -82,9 +83,9 @@ and suppresses stale callbacks. Initial present content is settled. Native
 content stays interactive until React removes it; zero opacity is not a focus
 or hit-test disable. Animate only the intended stable boundary. Content changes
 still invalidate/capture normally. Membership/bounds/DPR/unsupported clipping
-still require conservative DOM recovery and explicit fresh admission by default.
-`/integration.html?auto` intentionally enables Phase12's host-level settled
-readmission policy. Its existing disable control cancels desired GPU intent;
+use complete-frame native successors; unsupported clipping remains diagnosed DOM.
+`/integration.html?auto` retains the compatibility policy option but does not
+run a healthy structural readmission loop. Its existing disable control cancels desired GPU intent;
 refusal/errors/loss remain latched DOM. See [API policy](api.md#opt-in-settled-readmission-phase12-engineering).
 
 ## Implementer validation (engineering independently accepted with limits)

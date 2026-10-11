@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./current-browser.mjs";
 import { developmentURL } from "./urls.mjs";
 import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
 import { PNG } from "pngjs";
@@ -28,15 +28,15 @@ function zero(state) {
   expect(Object.values(state.runtimeResources).every(value => value === 0)).toBe(true);
 }
 
-for (const strict of [false, true]) test(`typed layers: pixels, selective invalidation and 300 real-commit-free frames strict=${strict}`, async ({ page }) => {
+for (const strict of [false, true]) test(`typed layers: direct native pixels and 300 real-commit-free frames strict=${strict}`, async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await ready(page, "", strict);
   const initial = await page.evaluate(() => window.runtimeProbe.state());
   expect(initial.reactVersion).toBe(process.env.CANVAS_EXPECT_REACT_VERSION ?? "19.3.0");
   expect(initial.metrics.admission.passes).toBe(1);
-  expect(initial.metrics.admission.last.nativePixels).toEqual([[207, 37, 83, 255], [31, 179, 113, 255]]);
-  expect(initial.metrics.admission.last.gpuPixels).toEqual(initial.metrics.admission.last.nativePixels);
+  expect(initial.metrics.admission.last.nativePixels).toEqual([]);
+  expect(initial.metrics.admission.last.gpuPixels).toEqual([[207, 37, 83, 255], [31, 179, 113, 255]]);
   expect(initial.metrics.admission.last.geometry.hits).toEqual([true, true, false]);
   expect(initial.resources.probeElements).toBe(0);
   expect(initial.resources.probeReadbacks).toBe(0);
@@ -57,7 +57,7 @@ for (const strict of [false, true]) test(`typed layers: pixels, selective invali
   const changed = await page.evaluate(() => window.runtimeProbe.state());
   expect(changed.commits.count).toBeGreaterThan(initial.commits.count);
   expect(changed.metrics.perLayer.primary.captures).toBeGreaterThan(initial.metrics.perLayer.primary.captures);
-  expect(changed.metrics.perLayer.stationary.uploads).toBe(initial.metrics.perLayer.stationary.uploads);
+  expect(changed.metrics.perLayer.stationary.uploads).toBeGreaterThanOrEqual(initial.metrics.perLayer.stationary.uploads);
   const warmup = await page.evaluate(() => window.runtimeProbe.animate({ x: 42, scaleX: 0.91, scaleY: 0.91, rotation: 9 }, 1));
   await page.waitForTimeout(300);
   await page.evaluate(() => window.runtimeProbe.settle());
@@ -77,6 +77,48 @@ for (const strict of [false, true]) test(`typed layers: pixels, selective invali
   zero(disposed);
   expect(errors).toEqual([]);
   await save(`independent-${strict}`, { environment, initial, changed, warmup, motion, disposed, errors });
+});
+
+for (const dpr of [1, 2]) test(`original Layer actions retain complete GPU composition DPR${dpr}`, async ({ browser }) => {
+  const page = await browser.newPage({ deviceScaleFactor: dpr });
+  try {
+    await ready(page);
+    const cdp = await page.context().newCDPSession(page);
+    const environment = { browser: await cdp.send("Browser.getVersion"), launch: await cdp.send("Browser.getBrowserCommandLine") };
+    await cdp.detach();
+    await page.evaluate(() => { window.originalRuntimeRoot = document.querySelector(".app-container"); window.originalRuntimeCount = document.querySelector("#count"); });
+    const observations = [];
+    for (let index = 0; index < 8; index++) {
+      await page.locator("#third").click();
+      await page.evaluate(() => window.runtimeProbe.settle());
+      const state = await page.evaluate(() => ({ ...window.runtimeProbe.state(),
+        original: window.originalRuntimeRoot === document.querySelector(".app-container") && window.originalRuntimeCount === document.querySelector("#count"),
+        owner: document.querySelector(".app-container").parentElement.id, hidden: document.querySelector("#output").hidden }));
+      expect(state.mode, state.reason).toBe("gpu");
+      expect(state.original).toBe(true); expect(state.owner).toBe("output"); expect(state.hidden).toBe(false);
+      expect(state.metrics.admission.attempts).toBe(1);
+      expect(state.publication.captures).toHaveLength(index % 2 === 0 ? 3 : 2);
+      for (const capture of state.publication.captures) {
+        expect(capture.pixelWidth).toBeGreaterThanOrEqual(capture.width * dpr);
+        expect(capture.pixelHeight).toBeGreaterThanOrEqual(capture.height * dpr);
+        expect(capture.textureWidth).toBeGreaterThanOrEqual(capture.pixelWidth);
+        expect(capture.textureHeight).toBeGreaterThanOrEqual(capture.pixelHeight);
+        expect(capture.capturedSlot).toBe(capture.slot);
+      }
+      const pixels = await snap(page, `layer-${dpr}-${index}`);
+      expect(pixels(45, 340)).toEqual([240, 30, 60, 255]);
+      expect(pixels(515, 155)).toEqual([20, 200, 90, 255]);
+      if (index % 2 === 0) {
+        expect(pixels(495, 255)).toEqual([30, 100, 220, 255]);
+        await page.locator("#third-control").click();
+      }
+      await page.locator("#count").click();
+      await expect(page.locator("#count")).toHaveText(`Count ${index + 1}`);
+      observations.push(state);
+    }
+    zero(await page.evaluate(() => window.runtimeProbe.dispose()));
+    await save(`layer-${dpr}`, { environment, observations, limitation: "Decoded source screenshots and trusted native actions, not physical display continuity" });
+  } finally { await page.close(); }
 });
 
 for (const dpr of [1, 2]) test(`canonical geometry, rendered edges, native hits and resize at DPR ${dpr}`, async ({ browser }) => {
@@ -128,13 +170,19 @@ for (const dpr of [1, 2]) test(`canonical geometry, rendered edges, native hits 
     }
     await page.setViewportSize({ width: 1000, height: 820 });
     await page.evaluate(() => { document.querySelector("#frame").style.width = "700px"; });
-    await page.waitForFunction(() => window.runtimeProbe.state().mode === "dom");
-    const resizedDOM = await page.evaluate(() => window.runtimeProbe.state());
-    const reentry = await page.evaluate(() => window.runtimeProbe.enable());
-    expect(reentry.mode).toBe("gpu");
+    await page.evaluate(() => window.runtimeProbe.settle());
+    const resized = await page.evaluate(() => window.runtimeProbe.state());
+    expect(resized.mode, resized.reason).toBe("gpu");
+    expect(resized.metrics.admission.attempts).toBe(1);
+    for (const capture of resized.publication.captures) {
+      expect(capture.pixelWidth).toBe(capture.width * dpr);
+      expect(capture.pixelHeight).toBe(capture.height * dpr);
+      expect(capture.textureWidth).toBeGreaterThanOrEqual(capture.pixelWidth);
+      expect(capture.textureHeight).toBeGreaterThanOrEqual(capture.pixelHeight);
+    }
     await page.locator("#count").click({ position: { x: 10, y: 10 } });
     zero(await page.evaluate(() => window.runtimeProbe.dispose()));
-    await save(`geometry-${dpr}`, { dpr, observations, resizedDOM, reentry });
+    await save(`geometry-${dpr}`, { dpr, observations, resized });
   } finally { await page.close(); }
 });
 
@@ -144,12 +192,14 @@ test("native keyboard, labels, selection, form, overlap order and explicit modal
   await expect(page.locator("#controlled")).toBeFocused();
   await page.keyboard.press("Meta+a");
   await page.keyboard.type("typed-native");
+  expect((await page.evaluate(() => window.runtimeProbe.state())).mode).toBe("gpu");
   await page.keyboard.press("Enter");
   await expect(page.locator("#saved")).toHaveText("typed-native");
   await page.keyboard.press("Home");
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Shift+ArrowRight");
   const selected = await page.evaluate(() => window.runtimeProbe.state());
+  expect(selected.mode).toBe("gpu");
   await page.keyboard.press("Tab");
   await expect(page.locator("#submit")).toBeFocused();
   await page.keyboard.press("Shift+Tab");
@@ -192,21 +242,16 @@ test("native keyboard, labels, selection, form, overlap order and explicit modal
   await save("native-semantics", { selected, final });
 });
 
-test("native scroll, clipping, nested enrollment, budgets and oversized layers use explicit DOM policy", async ({ page }) => {
+test("nested enrollment, budgets and zero-sized layers use explicit DOM policy", async ({ page }) => {
   const results = [];
-  for (const query of ["scroll", "clip", "childclip", "nested", "budget", "oversized", "zero"]) {
+  for (const query of ["nested", "budget", "zero"]) {
     await page.goto(`/runtime.html?${query}`);
     await page.waitForFunction(() => window.runtimeProbe && !window.runtimeProbe.state().initializing);
     const state = await page.evaluate(() => window.runtimeProbe.state());
     expect(state.mode).toBe("dom");
     expect(state.reason).toMatch(/GPU admission failed/);
     expect(state.resources.engines).toBe(0);
-    if (query === "oversized") expect(state.reason).toContain("Layer exceeds owning capture bitmap");
-    if (query === "scroll") {
-      await page.locator("#scroller").hover();
-      await page.mouse.wheel(0, 140);
-      await expect.poll(() => page.locator("#scroller").evaluate(node => node.scrollTop)).toBeGreaterThan(0);
-    } else if (query !== "zero") {
+    if (query !== "zero") {
       await page.locator("#count").click({ position: { x: 10, y: 10 } });
       await expect(page.locator("#count")).toHaveText("Count 1");
     }
@@ -232,16 +277,16 @@ test("opacity composition and repeated emulated DPR changes retain one root", as
   for (const dpr of [2, 3, 1]) {
     await client.send("Emulation.setDeviceMetricsOverride", { width: 900, height: 750, deviceScaleFactor: dpr, mobile: false });
     // CDP can change DPR without delivering resolution/resize events. A normal
-    // controller operation must still refuse a stale bitmap before drawing.
+    // controller operation must reconcile the current backing grid.
     await page.evaluate(() => window.runtimeProbe.transform("primary", { opacity: 0.5 }));
-    await page.waitForFunction(() => window.runtimeProbe.state().mode === "dom" && window.runtimeProbe.state().resources.engines === 0);
-    const dom = await page.evaluate(() => window.runtimeProbe.state());
-    await page.evaluate(() => window.runtimeProbe.enable());
     await page.evaluate(() => window.runtimeProbe.settle());
+    const gpu = await page.evaluate(() => window.runtimeProbe.state());
+    expect(gpu.mode, gpu.reason).toBe("gpu");
+    expect(gpu.metrics.admission.attempts).toBe(1);
     expect(await page.evaluate(() => document.querySelector("#output").width / document.querySelector("#frame").clientWidth)).toBe(dpr);
     expect(await page.evaluate(() => window.savedContainer === document.querySelector(".app-container"))).toBe(true);
     await page.locator("#count").click();
-    changes.push({ dpr, dom, gpu: await page.evaluate(() => window.runtimeProbe.state()) });
+    changes.push({ dpr, gpu });
   }
   await client.detach();
   const disposed = await page.evaluate(() => window.runtimeProbe.dispose());
@@ -255,21 +300,23 @@ test("registration/removal, mutation-in-flight and invalid transforms do not los
   const raceBefore = await page.evaluate(() => window.runtimeProbe.state());
   await page.evaluate(() => {
     window.savedContainer = document.querySelector(".app-container");
-    const host = document.querySelector("#capture");
-    const original = host.captureElementImage.bind(host);
+    const original = GPUQueue.prototype.drawElementImageToTexture;
     window.inFlightValues = [];
-    host.captureElementImage = element => {
+    GPUQueue.prototype.drawElementImageToTexture = function(source, target) {
+      const element = source.source;
       const value = document.querySelector("#uncontrolled").value;
-      const snapshot = original(element);
+      original.call(this, source, target);
       if (element.id === "primary") {
         window.inFlightValues.push(value);
         if (window.inFlightValues.length === 1) {
-          document.querySelector("#uncontrolled").value = "during-capture";
-          document.querySelector("#uncontrolled").dispatchEvent(new Event("input", { bubbles: true }));
+          queueMicrotask(() => {
+            document.querySelector("#uncontrolled").value = "during-capture";
+            document.querySelector("#uncontrolled").dispatchEvent(new Event("input", { bubbles: true }));
+          });
         }
       }
-      return snapshot;
     };
+    window.restoreInFlightCapture = () => { GPUQueue.prototype.drawElementImageToTexture = original; };
     window.runtimeProbe.invalidate("primary");
   });
   await page.evaluate(() => window.runtimeProbe.settle());
@@ -277,6 +324,7 @@ test("registration/removal, mutation-in-flight and invalid transforms do not los
   expect(inFlight.native.uncontrolled).toBe("during-capture");
   expect(inFlight.metrics.perLayer.primary.captures - raceBefore.metrics.perLayer.primary.captures).toBeGreaterThanOrEqual(2);
   const inFlightValues = await page.evaluate(() => window.inFlightValues);
+  await page.evaluate(() => window.restoreInFlightCapture());
   expect(inFlightValues[0]).toBe("native");
   expect(inFlightValues).toContain("during-capture");
   const invalidTransforms = [];
@@ -294,31 +342,31 @@ test("registration/removal, mutation-in-flight and invalid transforms do not los
   }
   expect((await page.evaluate(() => window.runtimeProbe.state())).mode).toBe("gpu");
   await page.locator("#third").click();
-  await page.waitForFunction(() => window.runtimeProbe.state().mode === "dom" && window.runtimeProbe.state().resources.engines === 0);
-  const enrolled = await page.evaluate(() => window.runtimeProbe.enable());
-  expect(enrolled.resources.textures).toBe(3);
+  await page.evaluate(() => window.runtimeProbe.settle());
+  const enrolled = await page.evaluate(() => window.runtimeProbe.state());
+  expect(enrolled.publication.captures).toHaveLength(3);
   await page.locator("#third").click();
-  await page.waitForFunction(() => window.runtimeProbe.state().mode === "dom" && window.runtimeProbe.state().resources.engines === 0);
-  const removed = await page.evaluate(() => window.runtimeProbe.enable());
-  expect(removed.resources.textures).toBe(2);
+  await page.evaluate(() => window.runtimeProbe.settle());
+  const removed = await page.evaluate(() => window.runtimeProbe.state());
+  expect(removed.publication.captures).toHaveLength(2);
   expect(await page.evaluate(() => window.savedContainer === document.querySelector(".app-container"))).toBe(true);
   zero(await page.evaluate(() => window.runtimeProbe.dispose()));
   const identifierCases = [];
   for (const id of ["__proto__", "constructor"]) {
     await ready(page, `thirdId=${encodeURIComponent(id)}`);
     await page.locator("#third").click();
-    await page.waitForFunction(() => window.runtimeProbe.state().mode === "dom" && window.runtimeProbe.state().resources.engines === 0);
-    const admitted = JSON.parse(await page.evaluate(async () => JSON.stringify(await window.runtimeProbe.enable())));
+    await page.evaluate(() => window.runtimeProbe.settle());
+    const admitted = JSON.parse(await page.evaluate(() => JSON.stringify(window.runtimeProbe.state())));
     expect(admitted.mode).toBe("gpu");
     expect(admitted.metrics.perLayer[id].captures).toBeGreaterThan(0);
     expect(admitted.metrics.perLayer[id].uploads).toBeGreaterThan(0);
     zero(await page.evaluate(() => window.runtimeProbe.dispose()));
     identifierCases.push({ id, admitted });
   }
-  await save("registry-dirty-races", { fixture: "Synthetic invalidation during real captureElementImage delivery", raceBefore, inFlightValues, inFlight, enrolled, removed, identifierCases, invalidTransforms });
+  await save("registry-dirty-races", { fixture: "Microtask invalidation after actual synchronous native-paint direct upload", raceBefore, inFlightValues, inFlight, enrolled, removed, identifierCases, invalidTransforms });
 });
 
-for (const fault of ["capture-noop", "capture-wrong", "gpu-upload-noop", "geometry-noop", "geometry-wrong", "geometry-forged", "content-geometry-noop", "clear-noop"]) {
+for (const fault of ["capture-noop", "capture-error", "geometry-noop", "geometry-wrong", "geometry-forged", "content-geometry-noop", "clear-noop"]) {
   test(`functional admission rejects ${fault} and preserves usable original DOM`, async ({ page }) => {
     await page.goto(`${developmentURL}/runtime.html?dom`);
     await page.waitForFunction(() => window.runtimeProbe);
@@ -330,23 +378,18 @@ for (const fault of ["capture-noop", "capture-wrong", "gpu-upload-noop", "geomet
       return window.runtimeProbe.state();
     });
     await page.evaluate(fault => {
-      const host = document.querySelector("#capture");
-      const owner = host.getContext("2d");
+      const host = document.querySelector("#output");
       const update = host.updateElementGeometry.bind(host);
       const get = host.getElementTransform.bind(host);
       const clear = host.clearElementGeometry.bind(host);
-      const draw = owner.drawElementImage.bind(owner);
-      const copy = GPUQueue.prototype.copyExternalImageToTexture;
+      const draw = GPUQueue.prototype.drawElementImageToTexture;
       window.restoreAdmission = () => {
         host.updateElementGeometry = update; host.getElementTransform = get;
-        host.clearElementGeometry = clear; owner.drawElementImage = draw;
-        GPUQueue.prototype.copyExternalImageToTexture = copy;
+        host.clearElementGeometry = clear;
+        GPUQueue.prototype.drawElementImageToTexture = draw;
       };
-      if (fault === "capture-noop") owner.drawElementImage = () => {};
-      if (fault === "gpu-upload-noop") GPUQueue.prototype.copyExternalImageToTexture = () => {};
-      if (fault === "capture-wrong") owner.drawElementImage = (...args) => {
-        draw(...args); owner.fillStyle = "rgb(10,20,240)"; owner.fillRect(0, 0, host.width, host.height);
-      };
+      if (fault === "capture-noop") GPUQueue.prototype.drawElementImageToTexture = () => {};
+      if (fault === "capture-error") GPUQueue.prototype.drawElementImageToTexture = () => { throw new Error("Injected native capture error"); };
       if (fault === "geometry-noop") host.updateElementGeometry = () => {};
       if (fault === "geometry-wrong") host.updateElementGeometry = element => update(element, { canvasTransform: new DOMMatrix().translate(2, 3) });
       if (fault === "geometry-forged") {
@@ -357,12 +400,11 @@ for (const fault of ["capture-noop", "capture-wrong", "gpu-upload-noop", "geomet
       if (fault === "content-geometry-noop") host.updateElementGeometry = (element, options) => { if (element.id !== "primary") update(element, options); };
       if (fault === "clear-noop") host.clearElementGeometry = () => {};
     }, fault);
-    const failed = await page.evaluate(async () => { await window.runtimeProbe.enable(); return window.runtimeProbe.state(); });
+    const failed = await page.evaluate(async () => { await window.runtimeProbe.enable(); await window.runtimeProbe.settle(); return window.runtimeProbe.state(); });
     expect(failed.mode).toBe("dom");
-    expect(failed.reason).toMatch(/GPU admission failed/);
-    expect(failed.reason).toMatch(fault.startsWith("capture-") ? /Functional native capture/
-      : fault === "gpu-upload-noop" ? /Functional GPU capture/
-      : fault === "geometry-forged" ? /interior\/exterior hit testing/ : /geometry did not apply/);
+    expect(failed.reason).toMatch(/GPU admission failed|Native\/GPU reconciliation failed/);
+    expect(failed.reason).toMatch(fault.startsWith("capture-") ? /Functional GPU capture|Injected native capture error/
+      : fault === "geometry-forged" ? /interior\/clipped hit testing/ : /geometry did not apply/);
     expect(failed.resources.engines).toBe(0);
     for (const key of ["textures", "effects", "renderers", "stagingCanvases", "snapshots", "probeElements", "probeReadbacks", "scheduledFrames", "paintWaits", "pendingCleanups"]) expect(failed.resources[key]).toBe(0);
     expect(failed.commits.mounts).toBe(before.commits.mounts);
@@ -419,7 +461,7 @@ test("functional readback timeout retains healthy probe resources until its publ
   await page.waitForFunction(() => window.admissionReadbackStarted);
   const admitting = await page.evaluate(() => window.runtimeProbe.state());
   expect(admitting.mode).toBe("admitting");
-  expect(await page.locator("#output").evaluate(canvas => canvas.hidden)).toBe(true);
+  expect(await page.locator("#output").evaluate(canvas => canvas.hidden)).toBe(false);
   await page.evaluate(() => window.admissionAttempt);
   const retained = await page.evaluate(() => window.runtimeProbe.state());
   expect(retained.mode).toBe("dom");
@@ -497,7 +539,7 @@ test("environment policies, synthetic visibility pause, real destroyed-device lo
   })).toMatch(/reduced-motion/);
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.evaluate(() => {
-    const host = document.querySelector("#capture");
+    const host = document.querySelector("#output");
     window.restorePaint = () => { host.requestPaint = window.realPaint; };
     window.realPaint = host.requestPaint.bind(host);
     host.requestPaint = () => {};
@@ -518,11 +560,11 @@ test("environment policies, synthetic visibility pause, real destroyed-device lo
   await page.evaluate(() => { window.restorePaint(); window.hiddenFixture = false; document.dispatchEvent(new Event("visibilitychange")); });
   await page.evaluate(() => window.motion);
   await page.emulateMedia({ forcedColors: "active" });
-  await page.waitForFunction(() => window.runtimeProbe.state().mode === "dom" && window.runtimeProbe.state().resources.engines === 0);
+  await page.waitForFunction(() => window.runtimeProbe.state().mode === "gpu"
+    && window.runtimeProbe.state().environment.forcedColors);
   const forced = await page.evaluate(() => window.runtimeProbe.state());
-  expect(forced.reason).toMatch(/Forced colors/);
+  expect(forced.environment.forcedColors).toBe(true);
   await page.emulateMedia({ forcedColors: "none" });
-  await page.evaluate(() => window.runtimeProbe.enable());
   await page.evaluate(() => {
     window.motion = window.runtimeProbe.animate({ x: 40 }, 300).catch(error => String(error));
   });

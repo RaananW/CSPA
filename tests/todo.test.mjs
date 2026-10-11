@@ -1,4 +1,5 @@
-import { test, expect, chromium } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import { test, expect } from "./current-browser.mjs";
 import { developmentURL, previewURL } from "./urls.mjs";
 import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
 import { PNG } from "pngjs";
@@ -38,8 +39,8 @@ function differences(a, b, x, y, width, height) {
 }
 
 test("TODO app without experimental flags retains a useful real native workflow", async () => {
-  const browser = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    args: ["--enable-automation"] });
+  const browser = await chromium.launch({ executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    args: ["--enable-automation", "--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"] });
   try {
     const page = await browser.newPage({ viewport: { width: 900, height: 750 } });
     await page.goto(`${previewURL}/todo.html`);
@@ -67,7 +68,8 @@ test("TODO app without experimental flags retains a useful real native workflow"
     await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
     await page.waitForFunction(() => !window.todoProbe.state().initializing && window.todoProbe.state().mode === "dom");
     const refused = await page.evaluate(() => window.todoProbe.state());
-    expect(refused.reason).toMatch(/capture|native|unavailable|support/i);
+    expect(refused.reason).toContain("requestPaint");
+    expect(refused.reason).toContain("canvas.content");
     await expect(page.locator("#status")).toContainText(refused.reason);
     await expect(page.getByLabel("Task 3 title", { exact: true })).toHaveValue("Edited without GPU");
     await page.getByLabel("Delete task 3", { exact: true }).click();
@@ -167,14 +169,13 @@ test("real task action produces decorative pixels and a settled shader-only inte
     triggered, geometry0, changed: [differences(identity, phase0, 460, 90, 280, 360), differences(phase0, phase7, 460, 90, 280, 360)], interval, disposed });
 });
 
-test("capture failure and viewport recovery preserve TODO edits and explicit reentry", async ({ page }) => {
+test("capture failure and continuous viewport reconciliation preserve TODO edits", async ({ page }) => {
   await ready(page);
   await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
   await page.waitForFunction(() => window.todoProbe.state().mode === "gpu");
   await page.evaluate(() => {
-    const capture = document.getElementById("capture");
-    window.originalCapture = capture.captureElementImage;
-    capture.captureElementImage = () => { throw new Error("TODO diagnostic capture failure"); };
+    window.originalCapture = GPUQueue.prototype.drawElementImageToTexture;
+    GPUQueue.prototype.drawElementImageToTexture = () => { throw new Error("TODO diagnostic capture failure"); };
     window.taskInput = document.querySelector('[aria-label="Task 1 title"]');
     window.taskRoot = window.todoProbe.controller().container;
   });
@@ -184,20 +185,21 @@ test("capture failure and viewport recovery preserve TODO edits and explicit ree
   expect(failure.reason).toContain("TODO diagnostic capture failure");
   await expect(page.getByLabel("Task 1 title", { exact: true })).toHaveValue("Survives capture failure");
   expect(await page.evaluate(() => window.taskInput === document.querySelector('[aria-label="Task 1 title"]') && window.taskRoot === window.todoProbe.controller().container)).toBe(true);
-  await page.evaluate(() => { document.getElementById("capture").captureElementImage = window.originalCapture; });
+  await page.evaluate(() => { GPUQueue.prototype.drawElementImageToTexture = window.originalCapture; });
   await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
   await page.waitForFunction(() => window.todoProbe.state().mode === "gpu");
   await page.setViewportSize({ width: 800, height: 980 });
-  await page.waitForFunction(() => window.todoProbe.state().mode === "dom");
+  await page.evaluate(() => window.todoProbe.controller().settle());
   const resized = await page.evaluate(() => window.todoProbe.state());
-  expect(resized.reason).toMatch(/viewport|Layout|resize/i);
-  await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
-  await page.waitForFunction(() => window.todoProbe.state().mode === "gpu");
+  expect(resized.mode).toBe("gpu");
+  expect(resized.resources.engines).toBe(1);
+  expect(await page.evaluate(() => window.taskInput === document.querySelector('[aria-label="Task 1 title"]')
+    && window.taskRoot === window.todoProbe.controller().container)).toBe(true);
   await add(page, "After fresh admission");
   await expect(page.getByRole("listitem")).toHaveCount(3);
   const disposed = await page.evaluate(() => window.todoProbe.dispose());
   zero(disposed);
-  await save("fallback-reentry", { fixture: "synthetic capture exception; real viewport resize and explicit fresh admission", failure, resized, disposed });
+  await save("fallback-reentry", { fixture: "synthetic capture exception and explicit reentry; subsequent real viewport resize remains GPU", failure, resized, disposed });
 });
 
 test("six-task capacity stays one engine/two layers and rejects extra tasks explicitly", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./current-browser.mjs";
 import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
 import { PNG } from "pngjs";
 import { createHash } from "node:crypto";
@@ -89,7 +89,8 @@ for (const strict of [false, true]) test(`decoded effect identity, time, alpha, 
   const state = await page.evaluate(() => window.effectsProbe.state());
   expect(state.reactVersion).toBe(process.env.CANVAS_EXPECT_REACT_VERSION ?? "19.3.0");
   expect(state.resources.engines).toBe(1); expect(state.resources.effects).toBe(1);
-  expect(state.metrics.admission.last.nativePixels).toEqual(state.metrics.admission.last.gpuPixels);
+  expect(state.metrics.admission.last.nativePixels).toEqual([]);
+  expect(state.metrics.admission.last.gpuPixels).toHaveLength(2);
   const compileSamples = await page.evaluate(() => window.effectsProbe.samples().filter(sample => sample.kind === "effectCompileMs"));
   expect(compileSamples).toHaveLength(1);
   const disposed = await page.evaluate(() => window.effectsProbe.dispose()); zero(disposed);
@@ -181,7 +182,7 @@ test("whole-chain atomic refusal, immutable descriptors and precise stale-handle
   await save("atomic-handles", result);
 });
 
-test("reduced motion identity, synthetic visibility pause and forced-color static fallback", async ({ page }) => {
+test("reduced motion identity, synthetic visibility pause and forced-color GPU ownership", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await ready(page);
   const neutral = await pixels(page, "media-neutral");
@@ -211,9 +212,9 @@ test("reduced motion identity, synthetic visibility pause and forced-color stati
   expect(hiddenAfter.metrics.gpuFrames).toBe(hiddenBefore.metrics.gpuFrames);
   await page.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event("visibilitychange")); });
   await page.emulateMedia({ forcedColors: "active" });
-  await page.waitForFunction(() => window.effectsProbe.state().mode === "dom");
-  const result = await page.evaluate(() => window.effectsProbe.handle().finished);
-  expect(result.status).toBe("fallback");
+  await page.evaluate(() => window.effectsProbe.controller().settle());
+  const result = await page.evaluate(() => ({ mode: window.effectsProbe.state().mode, handle: window.effectsProbe.handle().state() }));
+  expect(result.mode).toBe("gpu");
   await page.locator("#title").fill("Usable DOM"); await page.locator("#save").click(); await expect(page.locator("#saved")).toHaveText("Usable DOM");
   const disposed = await page.evaluate(() => window.effectsProbe.dispose()); zero(disposed);
   await save("media", { initial, reduced, fixture: "Synthetic hidden getter/event, not real background throttling", hiddenBefore, hiddenAfter, result, disposed });
@@ -284,15 +285,15 @@ test("unsupported capability and public pipeline validation failure preserve usa
     };
     try {
       const state = await probe.controller().enable();
-      return { state, result: await probe.handle().finished, hidden: document.querySelector("#output").hidden };
+      return { state, result: probe.handle().state(), hidden: document.querySelector("#output").hidden };
     } finally {
       GPUDevice.prototype.popErrorScope = original;
       document.querySelector("#art").style.removeProperty("width");
     }
   });
   expect(lateGeometry.state.mode).toBe("dom"); expect(lateGeometry.hidden).toBe(true);
-  expect(lateGeometry.state.reason).toContain("capture dimensions changed during admission");
-  expect(lateGeometry.result.status).toBe("fallback");
+  expect(lateGeometry.state.reason).toContain("Content extends beyond enrolled capture bounds");
+  expect(lateGeometry.result.active).toBe(false);
   await page.evaluate(() => window.effectsProbe.compile("return color;"));
   const retirement = await page.evaluate(async () => {
     const handle = window.effectsProbe.handle();

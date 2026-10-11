@@ -27,14 +27,14 @@ with motion while keeping essential native controls separate.
 After enabling GPU, normal structure/layout/DPR changes, visibility pauses and
 reduced motion must not revoke GPU. Only GPU errors or factual missing required
 GPU/capture/geometry support justify diagnosed fallback; explicit disable and
-disposal are caller lifecycle. The structural DOM recovery/readmission API
-described below is current incomplete behavior, not an acceptable implementation
-of the continuous-GPU promise. Its demonstrated flicker remains unresolved.
+disposal are caller lifecycle. The uncommitted current-spec correction reconciles
+membership and geometry in the same renderer/output owner. It is not independently
+accepted yet; historical readmission acceptance does not certify this route.
 
 Create empty capture/output canvases and ordinary/overlay hosts as connected,
 same-document siblings **outside all React roots**. Put them inside a sized,
 positioned frame. The capture/output canvases must fill that frame at the same
-origin; GPU output must be pointer-transparent. Supply the ordinary host at the
+origin; the GPU output owns original native hit testing when enabled. Supply the ordinary host at the
 same layout origin. See `runtime.html` for the minimal host scaffolding.
 Those styles are host integration, not layer authoring.
 
@@ -77,22 +77,19 @@ outside-root setup, not JSX refs whose descendants the runtime may move.
 Admission failure resolves to a state with `mode: "dom"` and an explicit reason;
 invalid topology/API/lifecycle calls throw before unsafe mutation.
 
-Phase9 hardening ([accepted-with-limits on actual155](../evidence/phase9-independent/acceptance-v1.json);
-exact154 remains unverified) hides unsafe output and clears
-native presentation geometry synchronously when a supported structural policy
-changes. Membership revision/order, layer origin/size and frame size/DPR are
-revalidated across asynchronous admission. Old captures cannot upload into a
-new generation. Resource retirement still waits for pending native work and
-healthy public GPU fences/readbacks. `enable()` remains explicit fresh admission
-by default; Phase12 adds the opt-in policy below, not hot shader rebinding. See
-[adoption/migration](adoption.md) for original-control continuity and limits.
+Historical Phase9/12 acceptance concerns the former recovery route. Current
+normal commits synchronously register current-original native geometry and
+reconcile logical capture slots. Complete cached coverage may recompose; new
+slots or extent/density growth retain the last complete GPU output until prepared
+textures receive fresh native-paint uploads. Old resources await healthy queue
+fences or confirmed loss. Initial `enable()` remains explicit by default.
 
 ## Opt-in settled readmission (Phase12 engineering)
 
-Set `admissionPolicy: "automatic"` in `mountCanvasApp` options to retry eligible
-structural invalidation after a successful explicit `enable()`. Omit the option
-(or use `"explicit"`) to retain the existing default. This never enables GPU
-at startup or converts an unsupported application.
+The option `admissionPolicy: "automatic"` remains source-compatible, but no
+structural DOM retirement/readmission loop runs in the corrected core. Both
+policies preserve GPU after supported updates; neither enables it at startup
+or retries factual errors. The heading preserves historical inbound links.
 
 ```tsx
 const controller = mountCanvasApp({
@@ -100,43 +97,31 @@ const controller = mountCanvasApp({
   admissionPolicy: "automatic",
 }, <App />);
 await controller.enable();
-// A later supported membership/order/origin/size/frame/DPR change may readmit.
+// Supported membership/order/origin/size/frame/DPR updates stay in this renderer.
 await controller.disable(); // Cancels desired GPU intent, including queued work.
 ```
 
-Every eligible change first hides unsafe GPU output, clears native hit geometry
-and restores the original DOM. The runtime coalesces changes until two animation
-frames have matching public geometry/membership signatures, waits serialized
-native/GPU retirement and runs the complete hidden functional admission again.
-Content invalidation retains normal conservative capture; it is not a reason
-to recreate the engine. In-flight capture, readback and engine initialization
-cannot reveal retired generations. Cancellation preserves original keyed React
-controls/state; existing motion cancellation is not motion replay.
+Membership resources are prepared without submitting a frame. Publication
+requires every current visible slot to have valid capture coverage for its CSS
+extent and native pixel grid. Pending membership also blocks motion/cached
+submissions that would be incomplete. Additions first publish in the synchronous
+owning native `paint` callback after all current originals are uploaded. Retired
+original nodes are not kept or cloned. Coverage provenance is separate from
+current composition geometry. Native capture uses the actual default grid,
+not CSS-sized downsampling; allocation growth prepares a successor.
 
-This recovery algorithm must be replaced for supported updates. Historical
-acceptance validated bounded safety/retirement, not seamless GPU presentation.
-The policy description is not permission to classify normal mutations or
-preferences as missing browser support.
+`state().publication` exposes generation, pending state and capture coverage;
+`metrics.incompleteFramesSkipped` counts withheld incomplete compositions.
+Compatibility admission/readmission counters remain, but automatic attempts
+and retry frames stay zero. Visibility pauses scheduling, reduced motion uses
+its canonical endpoint/identity contract and forced colors refreshes native
+content without revoking healthy ownership. Explicit disable/dispose, factual
+unsupported native/effect boundaries and GPU errors diagnose useful DOM.
+There is no error retry loop.
 
-`state().admission` reports `policy`, `intent` (`disabled`, `enabled`, `blocked`),
-`pending`, automatic `attempts` and `reason`. `attempts` counts automatic
-admission calls, not all captures or successful admissions; the existing
-`metrics.admission` remains separate. `runtimeResources.readmissionFrames`
-counts the owned pending retry frame.
-
-Only supported layout/membership/order/size/DPR invalidation is eligible.
-Visibility and reduced motion postpone/intercept automatic admission; clearing
-them resumes only still-valid pending intent, without replaying elapsed motion.
-Forced colors, editing/composition/native scrolling, overlay/animation policy,
-missing capabilities, capture/GPU errors, device loss and unconfirmed healthy
-retirement **block** automatic intent. Removing such a condition is not a retry:
-inspect the diagnostic and explicitly `enable()` again. There is no error retry
-loop, new timer/budget, synthetic device recovery or automatic hot shader update.
-An explicit `disable()` or `dispose()` cancels pending intent immediately;
-disposal/unmount/StrictMode cleanup cannot revive the old lifetime.
-
-This is [independently accepted bounded engineering with limits](../evidence/phase12-independent/acceptance-summary.json), not
-production performance or human/physical certification.
+The [historical accepted verdict](../evidence/phase12-independent/acceptance-summary.json)
+is immutable and not acceptance of this correction. Fresh independent acceptance,
+physical-display/text/accessibility and application performance budgets remain open.
 
 `GPUHost` is the context boundary, **not** a JSX-only canvas/reparenting
 component. Its runtime is established by the explicit adapter. Do not wrap a
@@ -156,7 +141,7 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | --- | --- |
 | `Surface` | Original native `<section>`, unique nonempty ID, enrolled through layout effects; registration is StrictMode-safe |
 | `Box` | Ordinary native `<div>` with compiled layout/appearance; no engine or extra capture |
-| `NativeScroll` | Ordinary browser scroll container; intentionally forces DOM policy when inside an enrolled layer |
+| `NativeScroll` | Original browser scroll container; bounded axis-aligned scrolling refreshes native captures without revoking GPU |
 | `NativeOverlay` | Portal to one fixed adapter-owned external host; original native dialog/popover controls, not GPU-painted clones |
 | `useGPUHost()` | Returns the narrow controller inside the adapter tree |
 | `useSurfaceRef<T>({id, decorative?})` / `enroll(element, options)` | Enroll an original direct-root element, preserve authored layout/CSS; callback stable for stable options, release on replacement/null; imperative form returns an idempotent release |
@@ -165,8 +150,8 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | `transitionGroup(items, stagger?)` | Prepare 1..8 distinct boundaries, one start epoch, index-based0..1000ms stagger; invalid descriptors/groups have no enrollment/motion side effects |
 | `Presence` | Retain one React child subtree through enter/exit inside a stable enrolled boundary; no wrapper, clone or portal relocation |
 | `setEffects(id, descriptors)` | Atomically validate 1..3 decorative-only ripple/chromatic/dissolve/custom operations before replacing ownership; explicit seconds/playback/cancel/dispose handles; static original DOM fallback |
-| `defineEffect(definition)` | Frozen trusted local WGSL color-function schema, 1..4 bounded numeric parameters, layer bounds and WebGPU capability; compile during fresh hidden admission, never a remote loader/sandbox |
-| `enable()` | Serialized structural and functional admission; hidden `admitting` output until probe pixels and native geometry pass; establishes desired GPU intent for an opted-in automatic host |
+| `defineEffect(definition)` | Frozen trusted local WGSL color-function schema, 1..4 bounded numeric parameters, layer bounds and WebGPU capability; compile before successor publication, never a remote loader/sandbox |
+| `enable()` | Serialized structural and functional admission; owning native canvas must be laid out/visible for paint and functional probes during `admitting`; only complete application capture establishes `gpu`. No automatic initial enable |
 | `disable()` | Cancels desired/retry/admission intent; same-root DOM recovery, geometry clearing and safe fenced GPU release; repeated calls are harmless |
 | `setTransform(id, transform)` | Replaces a layer's transform; GPU mode updates uniforms/native geometry without React reconciliation |
 | `animate(id, target, frames)` | Frame-counted interpolation of specified fields; unspecified fields stay at their starting values; 1..10000 frames |
@@ -178,12 +163,35 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 
 Editable and top-layer admission checks include the enrolled element itself,
 not just descendants. Native `contenteditable` (including empty and
-`plaintext-only` values or inherited editing), dialog/popover and explicit
-scroll/clipping boundaries retain ordinary DOM. The native ASCII
+`plaintext-only` values or inherited editing) and dialog/popover boundaries
+retain ordinary DOM. The native ASCII
 case-insensitive `contenteditable="false"` keyword (also `FALSE`/`False`)
 does not itself require fallback, including when overriding inherited editing.
 Move supported overlays through the fixed
 `NativeOverlay` portal, not by relocating already-mounted React controls.
+
+Original connected eligible text-entry INPUT/TEXTAREA descendants use native
+scroll/composition events to invalidate their enrolled capture for fresh owning
+native paint. Internal caret scrolling is not ancestor viewport motion and must
+not revoke healthy GPU or its animation ownership. Value, focus, selection and
+native events stay on the original control. Manual OS IME/candidate-window
+certification remains open.
+
+Bounded descendant viewports, `NativeScroll`, enrolled viewports and the
+adapter-owned root retain GPU during ordinary native scrolling. Root-relative
+geometry subtracts actual ancestor scroll offsets; supported ancestor viewport
+intersections feed identical transform-local native `canvasClip` and explicit GPU
+visual clipping. Scroll requests fresh native paint; pending capture coverage
+retains the last complete output. Original scroll containers, controls and events
+remain unchanged. Ancestors inside the adapter root must be untransformed;
+clipped layer transforms must be positive axis-aligned. Arbitrary transformed
+chains, external ancestor viewport changes and general CSS clipping remain
+framework boundaries, not demonstrated missing browser functionality.
+Functional native clip admission needs an onscreen, unoccluded probe before GPU
+exposure. Offscreen admission remains useful original DOM with an explicit
+unproven/deferred diagnostic, not a missing-browser-feature claim or a successful
+skipped test. Once visible, call `enable()` again; actual native clip hits must
+pass before GPU can be exposed.
 
 `Layout` supports x/y positioning, width/height, padding, gap, row/column
 direction and visible/hidden/scroll overflow. `Appearance` supports background,
@@ -329,10 +337,13 @@ interactive DOM until React removes it; opacity0 does not disable focus/hits.
 Presence animates the enrolled boundary, so place only the intended subtree
 inside it and do not run a second transition owner on that same boundary.
 
-Content mutation can dirty capture; capture bounds, enrollment membership,
-scrolling/clipping and DPR changes retain conservative DOM recovery and explicit
-fresh admission. This is not the planned hot-membership/route/shared-element/
-spring API. No controls are hidden or duplicated to simulate exit retention.
+Content mutation and native editing dirty capture. Supported capture bounds,
+membership, layout and DPR updates retain GPU with complete prepared successors;
+internal editor scrolling refreshes native contents without explicit readmission.
+Unsupported authored clipping and unreconciled enrolled/ancestor viewport
+scrolling remain disclosed framework gaps, not missing-browser-feature claims.
+This is not a general CSS scroll/route/shared-element/spring engine.
+No controls are hidden or duplicated to simulate exit retention.
 
 ### Opt-in operation measurements
 
@@ -361,17 +372,32 @@ Functional admission requires at least 16 CSS pixels on each surface axis for
 its independent known-color marker. It uses the same single engine and legal
 capture/upload path as content, plus one bounded public GPU readback.
 Transparent application pixels are not a failure heuristic. In-viewport probe
-occlusion/hit disagreement conservatively refuses admission; offscreen probe
-hit checks are explicitly marked skipped while applied-matrix checks still run.
+occlusion/hit disagreement refuses admission. Offscreen native clip witnesses
+are explicitly unproven and defer admission in useful original DOM until visible
+and explicitly enabled again; applied-matrix checks cannot substitute for hits.
 The output is not revealed until application geometry validates too.
 An oversized source is refused even if scaling would fit its visual rectangle:
 the owning capture bitmap must contain the untransformed source.
 
-Nested/zero/detached/foreign layers, overflowing capture content, unsupported
+Nested/zero/detached/foreign layers, unbounded overflowing capture content, unsupported
 clipping/scrolling/top-layer descendants, custom stacking and out-of-frame
-transforms use refusal or diagnosed DOM recovery. Dynamic membership, size and
-DPR changes recover to DOM and require explicit reentry. No hot GPU rebind,
-GPU scissor system or transformed scroll implementation is implied. Animation
+transforms use refusal or diagnosed DOM recovery. Supported dynamic membership,
+size and DPR updates reconcile current original geometry and prepared complete
+successors in the same renderer/root without healthy DOM recovery or explicit
+reentry. Missing/new/grown capture coverage retains the last complete GPU output
+until fresh owning native paint can publish the complete successor. This bounded
+behavior is not physical seamless-presentation or universal layout qualification.
+The bounded adapter-root/enrolled viewport route subtracts actual ancestor scroll
+offsets and intersects axis-aligned ancestor client boxes. The same transform-local
+clip is registered with public `canvasClip` and applied explicitly in the GPU
+shader: native clips alone neither render pixels nor request paint. Native scroll
+requests fresh capture while original containers/control state remain intact;
+cached complete-frame and resource fences remain unchanged. Supported ancestors
+are observed for resize/mutation and read on reconciliation, not globally each
+animation frame. Obsolete clips are replaced explicitly and retired originals
+clear native geometry. Transformed ancestor chains and external ancestor viewport
+changes remain diagnosed framework boundaries, not missing browser-feature proof.
+No general CSS clip/scroll engine or physical continuity qualification is implied. Animation
 translation is restricted to the explicit contract below.
 
 The adapter alone may move its stable container with `moveBefore`. Never move

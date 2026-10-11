@@ -1,17 +1,43 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { capabilities, waitForPaint, validateGeometry } from "../src/canvas-spa/native.ts";
+import { capabilities, waitForPaint, validateGeometry, nativeEditingControl, nativeScrollKind } from "../src/canvas-spa/native.ts";
+
+test("native editing eligibility distinguishes original text controls from viewport targets", () => {
+  class Input { type = "text"; disabled = false; isConnected = true; }
+  class Textarea { disabled = false; isConnected = true; }
+  const document = { defaultView: { HTMLInputElement: Input, HTMLTextAreaElement: Textarea } };
+  const input = Object.assign(new Input(), { ownerDocument: document });
+  const textarea = Object.assign(new Textarea(), { ownerDocument: document });
+  const viewport = { ownerDocument: document, isConnected: true };
+  assert.equal(nativeEditingControl(input), true);
+  assert.equal(nativeEditingControl(textarea), true);
+  assert.equal(nativeScrollKind(input, viewport), "editing");
+  assert.equal(nativeScrollKind(viewport, viewport), "enrolled-viewport");
+  assert.equal(nativeScrollKind({ ...viewport }, viewport), "descendant-viewport");
+  for (const type of ["checkbox", "button", "file", "range", "hidden"]) {
+    input.type = type;
+    assert.equal(nativeEditingControl(input), false);
+  }
+  input.type = "text"; input.disabled = true;
+  assert.equal(nativeEditingControl(input), false);
+  input.disabled = false; input.isConnected = false;
+  assert.equal(nativeEditingControl(input), false);
+  assert.equal(nativeEditingControl({ ...viewport, ownerDocument: { defaultView: null } }), false);
+});
 
 test("capability detection accepts functions, not names or dictionary constructors", () => {
   const unavailable = capabilities({ getContext: () => ({}) });
   assert.equal(unavailable.available, false);
   assert.equal(unavailable.dialect, "unavailable");
   const canvas = {
-    layoutSubtree: false, getContext: () => ({ drawElementImage() {} }),
-    requestPaint() {}, captureElementImage() {}, updateElementGeometry() {},
+    content: "fallback", getContext: () => { throw Error("Must not acquire a 2D owner"); },
+    requestPaint() {}, getElementImageDefaultSize() {}, updateElementGeometry() {},
     clearElementGeometry() {}, getElementTransform() {},
   };
-  assert.deepEqual(capabilities(canvas), { available: true, missing: [], dialect: "layoutSubtree" });
+  assert.deepEqual(capabilities(canvas), { available: true, missing: [], dialect: "content-drawable" });
+  assert.equal(capabilities({ ...canvas, content: undefined }).available, true);
+  const { content, ...legacy } = canvas;
+  assert.equal(capabilities({ ...legacy, layoutSubtree: true }).available, false);
   canvas.updateElementGeometry = "not a function";
   assert.ok(capabilities(canvas).missing.includes("updateElementGeometry"));
 });

@@ -1,4 +1,5 @@
-import { test, expect, chromium } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import { test, expect } from "./current-browser.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { PNG } from "pngjs";
 import { evidenceDirectory } from "./evidence.mjs";
@@ -68,6 +69,42 @@ async function continuity(page) {
   return result;
 }
 
+test("successor retirement and explicit disable retain healthy resources behind a bounded fence", async ({ page }) => {
+  const metadata = await ready(page);
+  await native(page);
+  await page.evaluate(() => {
+    const original = GPUQueue.prototype.onSubmittedWorkDone;
+    const held = new Promise(resolve => { window.releaseSuccessorFence = resolve; });
+    GPUQueue.prototype.onSubmittedWorkDone = function(...args) {
+      return original.apply(this, args).then(() => held);
+    };
+    window.restoreSuccessorFence = () => { GPUQueue.prototype.onSubmittedWorkDone = original; };
+    window.integrationProbe.extra(1);
+  });
+  await page.evaluate(() => window.integrationProbe.settle());
+  const successor = await state(page);
+  expect(successor.mode).toBe("gpu");
+  expect(successor.resources.pendingCleanups).toBeGreaterThan(0);
+  const motion = await page.evaluate(async () => {
+    const transition = window.integrationProbe.transition({
+      keyframes: [{ offset: 0 }, { offset: 1, x: 5 }], timing: { duration: 60000 },
+    });
+    transition.cancel();
+    return transition.finished;
+  });
+  expect(motion.status).toBe("cancelled");
+  const retired = await page.evaluate(() => window.integrationProbe.disable());
+  expect(retired.mode).toBe("dom");
+  expect(retired.resources.pendingCleanups).toBeGreaterThan(0);
+  expect(retired.resources.engines).toBe(1);
+  expect(retired.reason).toMatch(/cleanup pending/);
+  await continuity(page);
+  await page.evaluate(() => { window.restoreSuccessorFence(); window.releaseSuccessorFence(); });
+  await page.waitForFunction(() => window.integrationProbe.state().resources.pendingCleanups === 0);
+  const disposed = await zero(page);
+  await save("successor-retirement-fence", { metadata, successor, motion, retired, disposed });
+});
+
 for (const dpr of [1, 2]) {
   test(`opt-in coalesces structural changes during motion with original native hits DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
@@ -83,9 +120,11 @@ for (const dpr of [1, 2]) {
           if (operation === "remove") p.extra(0);
           return { state: p.state(), hidden: document.querySelector("#output").hidden };
         }, operation);
-        if (operation !== "size-frame") expect(barrier.hidden).toBe(true);
+        expect(barrier.hidden).toBe(false);
+        expect(barrier.state.mode).toBe("gpu");
         await settled(page, "gpu");
         const retained = await continuity(page);
+        await page.evaluate(() => window.dynamicMotion.cancel());
         expect((await page.evaluate(() => window.dynamicMotion.finished)).status).toBe("cancelled");
         expect(await color(page)).toEqual([240, 30, 60, 255]);
         await page.locator("#save").click(); await expect(page.locator("#saved")).toHaveText("retained");
@@ -94,7 +133,8 @@ for (const dpr of [1, 2]) {
         observations.push({ operation, barrier, retained });
       }
       const after = await state(page);
-      expect(after.admission.attempts - before.admission.attempts).toBe(3);
+      expect(after.admission.attempts - before.admission.attempts).toBe(0);
+      expect(after.metrics.admission.attempts).toBe(1);
       const retired = await zero(page);
       await save(`structural-${dpr}`, { metadata, before, after, observations, retired });
     } finally { await page.close(); }
@@ -105,10 +145,10 @@ for (const dpr of [1, 2]) {
     try {
       const metadata = await ready(page); await native(page);
       await page.evaluate(() => {
-        const host = document.querySelector("#capture");
+        const host = document.querySelector("#output");
         const original = host.requestPaint.bind(host), hold = event => event.stopImmediatePropagation();
         host.addEventListener("paint", hold, true); host.requestPaint = () => {};
-        window.restorePaint = () => { host.removeEventListener("paint", hold, true); host.requestPaint = original; };
+        window.restorePaint = () => { host.removeEventListener("paint", hold, true); host.requestPaint = original; original(); };
         window.integrationProbe.render();
       });
       await page.waitForFunction(() => window.integrationProbe.state().resources.paintWaits === 1);
@@ -118,14 +158,26 @@ for (const dpr of [1, 2]) {
         return { state: window.integrationProbe.state(), hidden: document.querySelector("#output").hidden,
           parent: document.querySelector(".app-container").parentElement.id };
       });
-      expect(barrier.hidden).toBe(true); expect(barrier.parent).toBe("ordinary");
+      expect(barrier.hidden).toBe(false); expect(barrier.parent).toBe("output");
       expect(barrier.state.metrics.uploads).toBe(before.metrics.uploads);
+      const retainedPixels = PNG.sync.read(await page.locator("#frame").screenshot());
+      const ratio = retainedPixels.width / 640;
+      const retainedColor = (x, y) => {
+        const offset = (Math.floor(y * ratio) * retainedPixels.width + Math.floor(x * ratio)) * 4;
+        return [...retainedPixels.data.subarray(offset, offset + 4)];
+      };
+      expect(retainedColor(55, 345)).toEqual([240, 30, 60, 255]);
+      expect(retainedColor(400, 200)).toEqual([20, 200, 90, 255]);
+      const held = await state(page);
+      expect(held.mode).toBe("gpu");
+      expect(held.metrics.gpuFrames).toBe(before.metrics.gpuFrames);
+      expect(held.metrics.incompleteFramesSkipped).toBeGreaterThan(before.metrics.incompleteFramesSkipped);
       await page.evaluate(() => window.restorePaint());
       await settled(page, "gpu"); await continuity(page);
       await page.evaluate(() => window.integrationProbe.disable());
       await settled(page, "dom");
       const result = await page.evaluate(async () => {
-        const host = document.querySelector("#capture"), original = host.getElementTransform;
+        const host = document.querySelector("#output"), original = host.getElementTransform;
         let queued = false;
         host.getElementTransform = function(element) {
           const matrix = original.call(this, element);
@@ -141,13 +193,15 @@ for (const dpr of [1, 2]) {
         };
         const admission = await window.integrationProbe.enable();
         host.getElementTransform = original;
-        return { admission, before: window.beforeQueued, barrier: window.queuedBarrier };
+        return { admission, before: window.beforeQueued, barrier: window.queuedBarrier, style: document.querySelector("#library").getAttribute("style") };
       });
-      expect(result.before.resources.probeReadbacks).toBe(1); expect(result.barrier.hidden).toBe(true);
+      expect(result.before.resources.probeReadbacks).toBe(1);
+      expect(result.barrier.state.mode).toBe("admitting");
+      expect(result.admission.mode, `${result.admission.reason}; ${result.style}`).toBe("gpu");
       await settled(page, "gpu"); await continuity(page);
       expect(await color(page)).toEqual([240, 30, 60, 255]);
       const retired = await zero(page);
-      await save(`pending-${dpr}`, { metadata, fixture: "Synthetic public-paint hold and native geometry callback cancellation; actual queued public readback/fences", before, barrier, result, retired });
+      await save(`pending-${dpr}`, { metadata, fixture: "Synthetic public-paint hold and native geometry callback coalescing; actual queued public readback/fences", before, barrier, held, result, retired });
     } finally { await page.close(); }
   });
 
@@ -174,9 +228,9 @@ for (const dpr of [1, 2]) {
   });
 }
 
-test("default explicit policy does not automatically reenter after layout", async ({ page }) => {
+test("default explicit policy reconciles supported layout without reentry", async ({ page }) => {
   const metadata = await ready(page, false);
-  await page.evaluate(() => window.integrationProbe.extra(1)); await settled(page, "dom");
+  await page.evaluate(() => window.integrationProbe.extra(1)); await settled(page, "gpu");
   const before = await state(page); await page.waitForTimeout(150); const after = await state(page);
   expect(after.admission.policy).toBe("explicit"); expect(after.admission.attempts).toBe(0);
   expect(after.metrics.admission.attempts).toBe(before.metrics.admission.attempts);
@@ -223,32 +277,25 @@ for (const operation of ["layout", "disable", "dispose"]) {
   });
 }
 
-test("reduced motion interrupts an in-flight automatic admission without revival", async ({ page }) => {
+test("reduced motion preserves structural GPU ownership without new admission", async ({ page }) => {
   const metadata = await ready(page);
   await page.evaluate(() => {
-    const gpu = navigator.gpu, original = gpu.requestAdapter.bind(gpu);
-    gpu.requestAdapter = async options => {
-      window.adapterWaiting = true;
-      await new Promise(resolve => { window.releaseAdapter = resolve; });
-      gpu.requestAdapter = original;
-      return original(options);
-    };
     window.integrationProbe.extra(1);
   });
-  await page.waitForFunction(() => window.adapterWaiting);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.evaluate(() => window.releaseAdapter()); await settled(page, "dom");
+  await settled(page, "gpu");
   const held = await state(page);
-  expect(held.admission.intent).toBe("enabled"); expect(held.admission.pending).toBe(true);
+  expect(held.admission.intent).toBe("enabled"); expect(held.admission.pending).toBe(false);
+  expect(held.metrics.admission.attempts).toBe(1);
   await page.waitForTimeout(150); expect((await state(page)).admission.attempts).toBe(held.admission.attempts);
   await page.emulateMedia({ reducedMotion: "no-preference" }); await settled(page, "gpu");
-  await save("inflight-media", { metadata, held, retired: await zero(page), fixture: "Emulated reduced motion plus held public requestAdapter" });
+  await save("inflight-media", { metadata, held, retired: await zero(page), fixture: "Emulated reduced motion; no new engine/admission" });
 });
 
 test("policy/media/fault/loss refusal latches until explicit enable", async ({ page }) => {
   const metadata = await ready(page);
-  await page.emulateMedia({ forcedColors: "active" }); await settled(page, "dom");
-  const forced = await state(page); expect(forced.admission.intent).toBe("blocked");
+  await page.emulateMedia({ forcedColors: "active" }); await settled(page, "gpu");
+  const forced = await state(page); expect(forced.admission.intent).toBe("enabled");
   await page.emulateMedia({ forcedColors: "none" });
   await page.evaluate(() => window.integrationProbe.extra(1)); await page.waitForTimeout(150);
   expect((await state(page)).metrics.admission.attempts).toBe(forced.metrics.admission.attempts);
@@ -259,9 +306,9 @@ test("policy/media/fault/loss refusal latches until explicit enable", async ({ p
   await page.waitForTimeout(150); expect((await state(page)).admission.intent).toBe("blocked");
   expect((await page.evaluate(() => window.integrationProbe.enable())).mode).toBe("gpu");
   await page.evaluate(() => {
-    const host = document.querySelector("#capture"), original = host.captureElementImage.bind(host);
-    host.captureElementImage = () => { throw new Error("Injected capture error"); };
-    window.restoreCapture = () => { host.captureElementImage = original; };
+    const original = GPUQueue.prototype.drawElementImageToTexture;
+    GPUQueue.prototype.drawElementImageToTexture = () => { throw new Error("Injected capture error"); };
+    window.restoreCapture = () => { GPUQueue.prototype.drawElementImageToTexture = original; };
     window.integrationProbe.render();
   });
   await settled(page, "dom"); const failed = await state(page);
@@ -281,11 +328,11 @@ test("policy/media/fault/loss refusal latches until explicit enable", async ({ p
     fixture: "Emulated media, injected native capture error and public configured-device destroy; not physical loss/accessibility proof" });
 });
 
-test("pending automatic admission pauses under reduced motion/hidden and unmount cancels it", async ({ page }) => {
+test("healthy GPU publication pauses while hidden and unmount cancels pending work", async ({ page }) => {
   const metadata = await ready(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.evaluate(() => window.integrationProbe.extra(1)); await settled(page, "dom");
-  const reduced = await state(page); expect(reduced.admission.pending).toBe(true);
+  await page.evaluate(() => window.integrationProbe.extra(1)); await settled(page, "gpu");
+  const reduced = await state(page); expect(reduced.admission.pending).toBe(false);
   await page.waitForTimeout(150); expect((await state(page)).admission.attempts).toBe(reduced.admission.attempts);
   await page.emulateMedia({ reducedMotion: "no-preference" }); await settled(page, "gpu");
   await page.evaluate(() => {
@@ -293,7 +340,8 @@ test("pending automatic admission pauses under reduced motion/hidden and unmount
     document.dispatchEvent(new Event("visibilitychange"));
     window.integrationProbe.extra(2);
   });
-  await settled(page, "dom"); const hidden = await state(page);
+  const hidden = await state(page);
+  expect(hidden.mode).toBe("gpu");
   expect(hidden.runtimeResources.readmissionFrames).toBe(0);
   await page.evaluate(() => {
     delete document.hidden; document.dispatchEvent(new Event("visibilitychange"));
@@ -307,7 +355,7 @@ test("pending automatic admission pauses under reduced motion/hidden and unmount
 });
 
 test("opt-in without native flags refuses useful DOM once and retains real controls", async () => {
-  const browser = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args: ["--enable-automation"] });
+  const browser = await chromium.launch({ executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args: ["--enable-automation", "--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"] });
   try {
     const page = await browser.newPage();
     const cdp = await page.context().newCDPSession(page);

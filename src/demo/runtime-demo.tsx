@@ -31,11 +31,27 @@ function App() {
   useEffect(() => { commits.mounts++; return () => { commits.cleanups++; }; }, []);
   if (params.has("transparent")) return <Surface id="primary"
     layout={{ x: 40, y: 50, width: 260, height: 300 }} appearance={{ background: "transparent" }} />;
+  if (params.has("editing")) return <>
+    <Surface id="primary" layout={{ x: 40, y: 50, width: 260, height: 300, padding: 12 }}
+      appearance={{ background: "rgb(240,30,60)", color: "black" }}>
+      <label htmlFor="controlled">Name</label>
+      <input id="controlled" value={name} onChange={event => setName(event.target.value)} />
+      <label htmlFor="editor">Original multiline editor</label>
+      <textarea id="editor" wrap="off" rows={2} style={{ display: "block", width: 175, height: 45 }} />
+      <div id="native-viewport" tabIndex={0} style={{ width: 175, height: 60, overflow: "auto" }}>
+        <div style={{ height: 160, background: "rgb(30,100,220)" }}>Viewport start</div>
+        <button id="viewport-control" onClick={() => setCount(count + 1)}
+          style={{ display: "block", width: 160, height: 55, background: "rgb(20,200,90)" }}>Viewport count {count}</button>
+      </div>
+      <button id="count" onClick={() => setCount(count + 1)}>Count {count}</button>
+    </Surface>
+    <Stationary />
+  </>;
   return <>
     <Surface id="primary" layout={{
       x: 40, y: 50, width: params.has("oversized") ? 800 : params.has("zero") ? 0 : 260,
       height: 300, padding: 12,
-      overflow: params.has("clip") ? "hidden" : "visible",
+      overflow: params.has("clip") ? "hidden" : scroll ? "scroll" : "visible",
     }} transform={params.has("oversized") ? { scaleX: 0.6 } : undefined}
       appearance={{ background: "rgb(240,30,60)", color: "black" }}>
       <Box layout={{ direction: "column", gap: 5, overflow: params.has("childclip") ? "hidden" : "visible" }}>
@@ -59,7 +75,9 @@ function App() {
           <button id="dialog-open" onClick={() => dialog.current!.showModal()}>Dialog</button>
         </Box>
         {scroll && <NativeScroll id="scroller" layout={{ height: 70, width: 210 }}>
-          <Box layout={{ height: 400 }} appearance={{ background: "rgb(40,90,200)" }}>Native wheel content</Box>
+          <Box layout={{ height: 180 }} appearance={{ background: "rgb(40,90,200)" }}>Native wheel content</Box>
+          <button id="scroll-tail" onClick={() => setCount(count + 1)}
+            style={{ height: 55, width: 180, background: "rgb(20,200,90)" }}>Scroll count {count}</button>
         </NativeScroll>}
         {params.has("nested") && <Surface id="nested-layer" layout={{ width: 30, height: 30 }} appearance={{ background: "orange" }} />}
       </Box>

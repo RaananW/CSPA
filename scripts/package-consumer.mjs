@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
-import { cp, mkdir, mkdtemp, readFile, writeFile, lstat, readdir } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { cp, mkdir, readFile, writeFile, lstat, readdir, symlink } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
@@ -14,6 +14,7 @@ import { curatedEvidence } from "./check-evidence.mjs";
 import { interactionContract, dynamicContract } from "./interaction-contract.mjs";
 
 const root = resolve(".");
+const reuseDependencies = process.argv.includes("--reuse-dependencies");
 const primary = JSON.parse(await readFile("package.json", "utf8"));
 const react18 = JSON.parse(await readFile("fixtures/react18/package.json", "utf8"));
 const env = { ...process.env, npm_config_userconfig: "/dev/null", npm_config_registry: "https://registry.npmjs.org" };
@@ -35,10 +36,13 @@ async function fingerprints() {
 }
 const before = await fingerprints();
 await mkdir(resolve(evidenceRoot), { recursive: true });
-const evidence = await mkdtemp(join(resolve(evidenceRoot), "package-"));
+const runId = randomUUID();
+const evidence = join(resolve(evidenceRoot), `package-${runId}`);
+await mkdir(evidence);
 validateEvidenceRoot(evidence);
 await mkdir("fixtures/package-consumer/workspaces", { recursive: true });
-const workspace = await mkdtemp(resolve("fixtures/package-consumer/workspaces/run-"));
+const workspace = resolve(`fixtures/package-consumer/workspaces/run-${runId}`);
+await mkdir(workspace);
 const results = { status: "running", head: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
   package: {}, consumers: [], protectedBefore: before };
 async function run(command, args, cwd, label) {
@@ -111,6 +115,7 @@ async function pixel(page, name, x, y) {
   return [...png.data.subarray(offset, offset + 4)];
 }
 async function nativeControls(page, value) {
+  const mode = (await page.evaluate(() => window.packageConsumer.state())).mode;
   const count = Number((await page.locator("#count").textContent()).replace("Count ", ""));
   await page.locator("#label").click();
   assert.equal(await page.locator("#name").evaluate(node => document.activeElement === node), true);
@@ -128,15 +133,16 @@ async function nativeControls(page, value) {
   await page.keyboard.press("Shift+ArrowRight");
   const state = await page.evaluate(() => window.packageConsumer.state());
   assert.equal(state.value, value);
+  assert.equal(state.mode, mode, "Native editing must not revoke healthy GPU ownership");
   assert.deepEqual(state.selection, [0, 1]);
   assert.equal(state.focus, "name");
   assert.ok(state.sameInput && state.sameRoot);
   return state;
 }
 async function browserContract(url, major, expectedVersion, flags, dpr) {
-  const args = ["--enable-automation", ...(flags ? ["--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"] : [])];
+  const args = ["--enable-automation", ...(flags ? ["--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"] : ["--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"])];
   const browser = await chromium.launch({
-    executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args,
+    executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args,
   });
   const errors = [];
   try {
@@ -173,20 +179,21 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
     if (flags) {
       assert.equal(admission.mode, "gpu", admission.reason);
       await waitState(page, "gpu");
-      assert.deepEqual(admission.metrics.admission.last.nativePixels, admission.metrics.admission.last.gpuPixels);
+      assert.deepEqual(admission.metrics.admission.last.nativePixels, []);
+      assert.equal(admission.metrics.admission.last.gpuPixels.length, 2);
       gpuPixel = await pixel(page, `${major}-${flags}-${dpr}-gpu`, 25, 245);
       assert.deepEqual(gpuPixel, domPixel);
       assert.deepEqual(await pixel(page, `${major}-${flags}-${dpr}-adopted`, 490, 110), [20, 200, 90, 255]);
       await page.evaluate(() => window.packageConsumer.transform({ x: 30, y: 10 }));
       await page.evaluate(() => window.packageConsumer.controller.settle());
       assert.deepEqual(await pixel(page, `${major}-${flags}-${dpr}-translated`, 55, 255), domPixel);
-      gpu = await nativeControls(page, `React${major} GPU`);
+      gpu = await nativeControls(page, "fresh independent native");
       assert.equal(await page.locator("#not-enrolled").isVisible(), true);
       await page.evaluate(() => window.packageConsumer.controller.disable());
       await waitState(page, "dom");
       recovery = await page.evaluate(() => window.packageConsumer.state());
       assert.ok(recovery.sameInput && recovery.sameRoot);
-      assert.equal(recovery.value, `React${major} GPU`);
+      assert.equal(recovery.value, "fresh independent native");
       assert.deepEqual(recovery.selection, [0, 1]);
       assert.equal(recovery.focus, "name");
       assert.equal(await page.locator("#native").inputValue(), "retained native");
@@ -197,9 +204,8 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
       await waitState(page, "gpu");
       await page.evaluate(() => window.packageConsumer.controller.disable());
     } else {
-      assert.equal(capability.capture, false, "Unflagged native API unexpectedly available; revise the recorded browser contract");
       assert.equal(admission.mode, "dom");
-      assert.match(admission.reason, /GPU admission failed:.*captureElementImage/);
+      assert.match(admission.reason, /GPU admission failed:.*content/);
       await nativeControls(page, `React${major} refused`);
       assert.deepEqual(await pixel(page, `${major}-${flags}-${dpr}-refused`, 25, 245), domPixel);
     }
@@ -243,7 +249,29 @@ try {
       devDependencies: { "@types/react": versions.devDependencies["@types/react"], "@types/react-dom": versions.devDependencies["@types/react-dom"],
         typescript: primary.devDependencies.typescript, vite: primary.devDependencies.vite } };
     await writeFile(join(cwd, "package.json"), JSON.stringify(manifest, null, 2));
-    await run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], cwd, `react${major}-install`);
+    if (reuseDependencies) {
+      const dependencyRoots = [resolve("node_modules"), ...(major === 18 ? [resolve("fixtures/react18/node_modules")] : [])];
+      const dependencies = new Map();
+      for (const directory of dependencyRoots) for (const entry of await readdir(directory)) {
+        if (entry === ".bin" || entry === ".package-lock.json") continue;
+        if (entry.startsWith("@")) {
+          for (const name of await readdir(join(directory, entry))) dependencies.set(`${entry}/${name}`, join(directory, entry, name));
+        } else dependencies.set(entry, join(directory, entry));
+      }
+      dependencies.delete(primary.name);
+      await mkdir(join(cwd, "node_modules"));
+      for (const [name, source] of dependencies) {
+        await mkdir(dirname(join(cwd, "node_modules", name)), { recursive: true });
+        await symlink(source, join(cwd, "node_modules", name));
+      }
+      const unpacked = join(cwd, "node_modules", primary.name);
+      await mkdir(unpacked);
+      execFileSync("tar", ["-xzf", tarball, "--strip-components=1", "-C", unpacked]);
+      await writeFile(join(evidence, `react${major}-dependency-reuse.json`), JSON.stringify({
+        mode: "No installation; existing exact dependency resolutions, physically extracted current archive",
+        dependencies: dependencyRoots.map(directory => directory.slice(root.length + 1)),
+      }, null, 2));
+    } else await run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], cwd, `react${major}-install`);
     const require = createRequire(join(cwd, "package.json"));
     const installed = join(cwd, "node_modules", primary.name);
     assert.equal((await lstat(installed)).isSymbolicLink(), false, "Must install tarball bytes, not a workspace alias");
@@ -259,7 +287,7 @@ try {
     for (const [name, version] of Object.entries({ ...manifest.dependencies, ...manifest.devDependencies, ...primary.dependencies })) {
       if (name !== primary.name) assert.equal(actual[name], version);
     }
-    await run("npm", ["ls", "--all", "--json"], cwd, `react${major}-dependency-tree`);
+    if (!reuseDependencies) await run("npm", ["ls", "--all", "--json"], cwd, `react${major}-dependency-tree`);
     const tsc = join(dirname(require.resolve("typescript/package.json")), "bin/tsc");
     await run(process.execPath, [tsc, "-p", "tsconfig.json"], cwd, `react${major}-types-bundler`);
     await run(process.execPath, [tsc, "-p", "tsconfig.json", "--module", "NodeNext", "--moduleResolution", "NodeNext"], cwd, `react${major}-types-nodenext`);
@@ -269,7 +297,8 @@ try {
     const vite = join(dirname(require.resolve("vite/package.json")), "bin/vite.js");
     await run(process.execPath, [vite, "build"], cwd, `react${major}-build`);
     const server = await startPreview(cwd, vite);
-    const consumer = { major, actual, manifest, lockSha256: hash(await readFile(join(cwd, "package-lock.json"))), server: { port: new URL(server.url).port, pid: server.pid }, browsers: [] };
+    const consumer = { major, actual, manifest, dependencyMode: reuseDependencies ? "existing-exact-resolutions" : "installed",
+      lockSha256: reuseDependencies ? null : hash(await readFile(join(cwd, "package-lock.json"))), server: { port: new URL(server.url).port, pid: server.pid }, browsers: [] };
     results.consumers.push(consumer);
     try {
       for (const flags of [false, true]) for (const dpr of [1, 2]) {

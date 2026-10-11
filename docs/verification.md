@@ -309,19 +309,38 @@ probe tests preserve the earlier API and Option 2/3 comparisons.
 
 The historical fixed-subtree fallback and direct cross-owner ElementImage draw
 remain failed paths. Neither is used by the typed runtime. The public
-owning-canvas -> staging pixels -> dynamic texture bridge remains copy-based;
-no zero-copy or performance-improvement claim is made.
+owning-canvas -> staging pixels -> dynamic texture bridge was copy-based and is
+historical, not the current implementation. The current bounded WebGPU route
+uses owning native-paint `GPUQueue.drawElementImageToTexture` uploads to public
+dynamic `Texture2D` resources without an owning 2D/staging bridge. Neither this
+API change nor the historical measurements establish zero-copy operation or
+performance improvement.
 
 ## Not established / deliberately deferred
 
 - Other browser builds/devices, everyday-profile flags, broader headful behavior,
   physical GPU reset/driver/browser crashes.
-- Actual OS IME and screen-reader/accessibility review; compositionstart uses a
-  conservative DOM policy, not an IME-completeness claim.
+- Actual OS IME and screen-reader/accessibility review. The bounded synthetic
+  compositionstart/update/end listener tests preserve eligible original
+  INPUT/TEXTAREA GPU capture refresh and existing motion ownership; they are
+  untrusted synthetic events, not OS IME/candidate-window completeness evidence.
 - Arbitrary framework/hydrated roots, arbitrary portal targets,
   iframe continuity, broad ancestor CSS/stacking/clipping behavior.
-- Transformed GPU scrolling/scissoring, high-DPR native capture texture quality,
-  seamless same-engine resize or live membership rebind.
+- General transformed GPU scrolling/scissoring and universal high-DPR native
+  text/capture quality. Recorded bounded same-engine resize/DPR/membership,
+  complete-frame publication and original Layer/Replace-ref source tests pass;
+  physical seamless presentation and universal layout/device qualification remain
+  open. The current bounded viewport implementation measures actual native
+  wheel/key/programmatic scroll, original hits and explicit GPU visual clipping
+  for adapter-root/enrolled `NativeScroll` at DPR1/2, plus scrolled ref/DPR
+  successors. Before GPU exposure admission requires functional native hit
+  clipping and matching clipped GPU pixels, not method names alone. An offscreen
+  probe refuses admission as explicitly unproven until visible and explicitly
+  enabled again; applied matrices cannot substitute for a skipped hit witness.
+  Occluded interior witnesses also refuse admission. This fresh viewport correction
+  awaits independent acceptance; broader transformed/external ancestor chains
+  remain framework boundaries, not demonstrated missing Chrome157 functionality
+  or unrestricted GPU-first acceptance.
 - General CSS/WAAPI translation, arbitrary selectors/cascade/dependencies,
   unbounded effects, animation libraries, motion/layout toolkit, library
   packaging, licensing, publishing or release support.

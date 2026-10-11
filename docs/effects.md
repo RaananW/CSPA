@@ -61,8 +61,9 @@ Reduced motion presents identity and pauses playback; explicit `play` while
 reduced motion is active throws. Fresh admission still compiles declared custom
 definitions under reduced motion, so returning to normal motion can apply
 them without a rebuild. Hidden documents pause clocks/drawing; visible
-resumption does not catch up elapsed hidden time. Forced colors, loss,
-structural recovery and explicit disable retain usable original DOM with static
+resumption does not catch up elapsed hidden time. Forced colors refreshes native
+GPU content and supported structure changes retain motion and ownership. Loss,
+factual unsupported effect/native boundaries and explicit disable retain usable original DOM with static
 decoration and resolve active handles as `fallback`. Static fallback is not
 claimed to reproduce a shader with CSS. Unmount disposes enrollment handles.
 Normal native content invalidation stays enabled.

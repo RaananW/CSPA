@@ -15,7 +15,8 @@ export function createAdmissionProbe(host: DrawableCanvas) {
   host.append(element);
   const matrix = new DOMMatrix().translate(extent * 1.5, extent * 1.5).rotate(11).scale(0.75);
   const points = [{ x: extent / 4, y: extent / 2 }, { x: extent * 3 / 4, y: extent / 2 }];
-  return { element, extent, matrix, points };
+  return { element, extent, matrix, points,
+    clip: { x: 0, y: 0, width: extent * 0.8, height: extent } };
 }
 
 export function verifyProbePixels(pixels: number[][], stage: "native" | "GPU"): void {
@@ -27,25 +28,23 @@ export function verifyProbePixels(pixels: number[][], stage: "native" | "GPU"): 
 }
 
 export function verifyProbeGeometry(host: DrawableCanvas, probe: ReturnType<typeof createAdmissionProbe>) {
-  host.updateElementGeometry(probe.element, { canvasTransform: probe.matrix });
+  host.updateElementGeometry(probe.element, { canvasTransform: probe.matrix, canvasClip: probe.clip });
   validateAppliedGeometry(host, probe.element, probe.matrix);
   const rect = host.getBoundingClientRect();
-  const locations = [...probe.points, { x: probe.extent + 4, y: probe.extent / 2 }]
+  const locations = [...probe.points, { x: probe.extent * 0.9, y: probe.extent / 2 }]
     .map(point => probe.matrix.transformPoint(point))
     .map(point => ({ x: rect.x + point.x, y: rect.y + point.y }));
   const doc = host.ownerDocument;
   const view = doc.defaultView!;
   const inViewport = locations.every(point => point.x >= 0 && point.y >= 0
     && point.x < view.innerWidth && point.y < view.innerHeight);
-  let hits: boolean[] | undefined;
-  if (inViewport) {
-    hits = locations.map(point => {
-      const hit = doc.elementFromPoint(point.x, point.y);
-      return hit === probe.element || !!hit && probe.element.contains(hit);
-    });
-    if (!hits[0] || !hits[1] || hits[2]) throw new Error("Functional native geometry probe failed interior/exterior hit testing (possibly occluded)");
-  }
+  if (!inViewport) throw new Error("Functional native clipping is unproven: admission deferred until the owning output probe is inside the viewport; explicitly enable again when visible");
+  const hits = locations.map(point => {
+    const hit = doc.elementFromPoint(point.x, point.y);
+    return hit === probe.element || !!hit && probe.element.contains(hit);
+  });
+  if (!hits[0] || !hits[1] || hits[2]) throw new Error("Functional native geometry/clip probe failed interior/clipped hit testing (possibly occluded)");
   return { expected: [probe.matrix.a, probe.matrix.b, probe.matrix.c, probe.matrix.d, probe.matrix.e, probe.matrix.f],
     actual: Array.from(host.getElementTransform(probe.element).toFloat64Array()), hits,
-    hitCheck: inViewport ? "elementFromPoint: two interiors and one exterior" : "Skipped: probe outside viewport; applied matrix checked" };
+    hitCheck: "elementFromPoint: two interiors and one clipped exterior" };
 }

@@ -6,7 +6,7 @@ const isolated = !!process.env.CANVAS_TEST_DEV_URL;
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["browser.test.mjs", "recovery.test.mjs", "surface.test.mjs", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "performance.test.mjs", "integration.test.mjs", "effects.test.mjs", "hardening.test.mjs", "interaction.test.mjs", "dynamic.test.mjs"],
+  testMatch: ["browser.test.mjs", "recovery.test.mjs", "surface.test.mjs", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "performance.test.mjs", "integration.test.mjs", "effects.test.mjs", "hardening.test.mjs", "interaction.test.mjs", "dynamic.test.mjs", "native-editing.test.mjs", "viewport.test.mjs"],
   workers: 1,
   outputDir: `${evidenceRoot}/test-results`,
   timeout: 60000,
@@ -15,7 +15,7 @@ export default defineConfig({
     baseURL: previewURL,
     viewport: { width: 900, height: 750 },
     launchOptions: {
-      executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
       args: ["--enable-automation", "--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"],
     },
   },

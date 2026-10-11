@@ -30,10 +30,10 @@ export function createMountBoundary(options: MountBoundaryOptions) {
   function assertMovable() {
     if (disposed) throw new Error("Mount boundary is disposed");
     validateDestinations();
-    if (container.parentElement !== ordinaryHost && container.parentElement !== captureHost) {
+    if (container.parentElement !== ordinaryHost && container.parentElement !== outputCanvas) {
       throw new Error("Root container left the adapter-owned destinations");
     }
-    if (typeof ordinaryHost.moveBefore !== "function" || typeof captureHost.moveBefore !== "function") {
+    if (typeof ordinaryHost.moveBefore !== "function" || typeof outputCanvas.moveBefore !== "function") {
       throw new Error("State-preserving Element.moveBefore unavailable");
     }
   }
@@ -47,7 +47,7 @@ export function createMountBoundary(options: MountBoundaryOptions) {
   return {
     container,
     assertMovable,
-    moveToCapture: () => moveTo(captureHost),
+    moveToCapture: () => moveTo(outputCanvas),
     moveToDOM: () => moveTo(ordinaryHost),
     dispose() {
       if (disposed) return;

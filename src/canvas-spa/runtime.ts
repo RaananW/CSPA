@@ -8,9 +8,10 @@ import { decorative, validateRipple, type Ripple } from "./ripple.js";
 import { effectNumber, validateEffects, type EffectDescriptor, type EffectHandle, type EffectResult } from "./effects.js";
 import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion.js";
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
+import { nativeEditingControl, nativeScrollKind } from "./native.js";
+import { scrollOrigin, intersectViewport, localViewport, type ViewportRect } from "./viewport.js";
 
 export type AdmissionPolicy = "explicit" | "automatic";
-const layoutRecovery = "Layout/viewport/DPR changed: ordinary DOM until fresh admission";
 
 export interface LayerDefinition {
   id: string;
@@ -44,12 +45,10 @@ export class CanvasRuntime {
   private disposalRequested = false;
   private moving = false;
   private revision = 0;
+  private membershipCommitPending = false;
   private admittedSize = "";
   private admissionIntent: "disabled" | "enabled" | "blocked" = "disabled";
   private readmissionPending = false;
-  private readmissionFrame = 0;
-  private readmissionWork: Promise<void> | undefined;
-  private readmissionSignature: string | undefined;
   private admissionEpoch = 0;
   private automaticAttempts = 0;
   private admissionReason = "Explicit enable required";
@@ -84,12 +83,13 @@ export class CanvasRuntime {
         const target = record.target instanceof Element ? record.target : record.target.parentElement;
         if (target) this.core?.invalidate(target);
       }
+      this.reconcile();
       this.checkPolicy();
     });
     this.resize = new ResizeObserver(() => {
       if (this.stopped || !this.core) return;
+      this.reconcile();
       this.checkPolicy();
-      this.scheduleReadmission();
     });
     try {
       this.core = createSurfaceRenderer({
@@ -102,6 +102,7 @@ export class CanvasRuntime {
         layers: () => this.ordered().map(layer => ({
           id: layer.id, element: layer.element,
           matrix: () => new DOMMatrix(Array.from(affine(layer.transform, this.origin(layer)))),
+          clip: matrix => this.viewportClip(layer, matrix),
           opacity: () => layer.transform.opacity ?? 1,
           effects: () => this.effects.get(layer.id)?.values ?? [],
           effectsEnabled: () => !this.reduced.matches,
@@ -132,7 +133,6 @@ export class CanvasRuntime {
     this.listen(document, "visibilitychange", () => {
       this.environment.visible = !document.hidden;
       if (!this.environment.visible) this.cancelReadmissionFrame();
-      if (!this.environment.visible && this.readmissionWork && this.core?.state().initializing) this.recover(layoutRecovery);
       if (!this.environment.visible && this.drawFrame) {
         cancelAnimationFrame(this.drawFrame);
         this.drawFrame = 0;
@@ -154,7 +154,6 @@ export class CanvasRuntime {
     this.listen(this.reduced, "change", () => {
       this.environment.reducedMotion = this.reduced.matches;
       if (this.reduced.matches) this.cancelReadmissionFrame();
-      if (this.reduced.matches && this.readmissionWork && this.core?.state().initializing) this.recover(layoutRecovery);
       if (this.reduced.matches) this.cancelMotion();
       if (this.reduced.matches) for (const transition of [...this.transitions.values()]) {
         try { transition.finish("completed", "Reduced motion"); }
@@ -169,19 +168,67 @@ export class CanvasRuntime {
     });
     this.listen(this.forced, "change", () => {
       this.environment.forcedColors = this.forced.matches;
-      this.checkPolicy();
+      this.core?.invalidate();
+      this.requestDraw();
     });
     this.listen(window, "resize", () => {
-      if (this.core?.phase() === "gpu" && this.sizeSignature() !== this.admittedSize) {
-        this.recover(layoutRecovery);
-      }
+      this.reconcile();
     });
-    this.listen(this.core.container, "scroll", () => this.recover("Native scroll uses conservative ordinary DOM"), true);
-    this.listen(this.core.container, "compositionstart", () => this.recover("Native composition editing uses conservative ordinary DOM"));
+    this.listen(this.core.container, "scroll", event => this.nativeScroll(event), true);
+    this.listen(document, "scroll", event => {
+      const target = event.target;
+      if (this.core?.phase() === "gpu" && (target === document || target instanceof Element
+        && !this.core.container.contains(target) && target.contains(this.core.container))) {
+        this.recover("Outer ancestor viewport changes are outside the adapter-owned axis-aligned contract");
+      }
+    }, true);
+    for (const type of ["compositionstart", "compositionupdate", "compositionend"]) {
+      this.listen(this.core.container, type, event => this.nativeComposition(event));
+    }
     this.watchDPR();
     this.removers.push(() => this.releaseDPR?.());
   }
 
+  private nativeEventLayer(event: Event) {
+    const target = event.target;
+    if (!(target instanceof Element) || !target.isConnected || !this.core?.container.contains(target)) return;
+    const layer = [...this.registry.values()].find(layer => layer.element.isConnected
+      && layer.element.hasAttribute("drawable") && layer.element.contains(target));
+    return layer ? { target, layer } : undefined;
+  }
+  private nativeScroll(event: Event) {
+    if (this.stopped || this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") return;
+    const source = this.nativeEventLayer(event);
+    if (!source) {
+      if (event.target === this.rootContainer || event.target instanceof HTMLElement
+        && [...this.registry.values()].some(layer => event.target instanceof HTMLElement && event.target.contains(layer.element))) {
+        this.reconcile();
+        this.core?.invalidate();
+        return;
+      }
+      this.recover("Scroll target is outside the bounded adapter-owned viewport contract");
+      return;
+    }
+    const kind = nativeScrollKind(source.target, source.layer.element);
+    if (kind === "enrolled-viewport") {
+      this.reconcile();
+      this.core?.invalidate(source.target);
+      return;
+    }
+    // A descendant viewport changes native contents/hits, not the enrolled boundary's transform.
+    this.checkPolicy();
+    this.core?.invalidate(source.target);
+  }
+  private nativeComposition(event: Event) {
+    if (this.stopped || this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") return;
+    const source = this.nativeEventLayer(event);
+    if (!source || !nativeEditingControl(source.target)) {
+      this.recover("Native composition target is outside the enrolled input/textarea editing contract");
+      return;
+    }
+    this.checkPolicy();
+    this.core?.invalidate(source.target);
+  }
   get overlayHost() { return this.options.overlayHost; }
   get container() { return this.renderer().container; }
   private renderer() {
@@ -202,13 +249,49 @@ export class CanvasRuntime {
       a.element.compareDocumentPosition(b.element) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
   }
   private origin(layer: LayerDefinition) {
-    let x = 0, y = 0;
-    for (let node: HTMLElement | null = layer.element; node && node !== this.rootContainer; node = node.offsetParent instanceof HTMLElement ? node.offsetParent : null) {
-      x += node.offsetLeft;
-      y += node.offsetTop;
-      if (node.parentElement === this.rootContainer) break;
+    return this.viewportGeometry.get(layer.element)?.origin ?? scrollOrigin(layer.element, this.rootContainer!);
+  }
+  private viewportGeometry = new WeakMap<HTMLElement, { origin: { x: number; y: number }; clip?: ViewportRect; own?: ViewportRect; error?: string }>();
+  private viewportAncestors = new Set<HTMLElement>();
+  private refreshViewportGeometry() {
+    const ancestors = new Set<HTMLElement>();
+    for (const layer of this.registry.values()) {
+      const origin = scrollOrigin(layer.element, this.rootContainer!);
+      let clip: ViewportRect | undefined, own: ViewportRect | undefined, error: string | undefined;
+      for (let node: HTMLElement | null = layer.element; node; node = node.parentElement) {
+        if (node !== layer.element) ancestors.add(node);
+        const style = getComputedStyle(node);
+        if ((style.overflowX === "visible") !== (style.overflowY === "visible")) {
+          error = "Single-axis visible/clip overflow is outside the bounded rectangular viewport contract";
+        }
+        if (node !== layer.element && (style.transform !== "none" || style.rotate !== "none" || style.scale !== "none" || style.translate !== "none")) {
+          error = "Transformed viewport ancestors are outside the axis-aligned framework contract";
+        }
+        if (style.overflowX !== "visible" || style.overflowY !== "visible") {
+          const at = node === layer.element ? origin : node === this.rootContainer ? { x: 0, y: 0 } : scrollOrigin(node, this.rootContainer!);
+          const rect = { x: at.x + node.clientLeft, y: at.y + node.clientTop,
+            width: node.clientWidth, height: node.clientHeight };
+          if (node === layer.element) own = { x: 0, y: 0, width: node.offsetWidth, height: node.offsetHeight };
+          else clip = clip ? intersectViewport(clip, rect) : rect;
+        }
+        if (node === this.rootContainer) break;
+      }
+      this.viewportGeometry.set(layer.element, { origin, clip, own, error });
     }
-    return { x, y };
+    for (const node of this.viewportAncestors) if (!ancestors.has(node)) this.resize.unobserve(node);
+    for (const node of ancestors) if (!this.viewportAncestors.has(node)) this.resize.observe(node);
+    this.viewportAncestors = ancestors;
+  }
+  private viewportClip(layer: LayerDefinition, matrix?: DOMMatrixReadOnly): ViewportRect | undefined {
+    const geometry = this.viewportGeometry.get(layer.element);
+    if (geometry?.error) throw new Error(geometry.error);
+    let clip = geometry?.clip;
+    if (!clip && !geometry?.own) return;
+    const { width, height } = this.size();
+    const frame = { x: 0, y: 0, width, height };
+    clip = clip ? intersectViewport(clip, frame) : frame;
+    const local = localViewport(matrix ?? new DOMMatrix(Array.from(affine(layer.transform, this.origin(layer)))), clip);
+    return geometry?.own ? intersectViewport(local, geometry.own) : local;
   }
   private presentation(mode: "dom" | "gpu") {
     const restored = new Map<string, ReturnType<DeclarationOwnership["restore"]>>();
@@ -248,29 +331,29 @@ export class CanvasRuntime {
     }
   }
   private policy(): string | undefined {
-    if (this.forced.matches) return "Forced colors requires native ordinary DOM";
-    if ((this.core?.phase() === "gpu" || this.core?.phase() === "admitting" || this.core?.state().initializing) && this.admittedSize !== this.sizeSignature()) {
-      return layoutRecovery;
-    }
     const { width, height } = this.size();
     for (const layer of this.registry.values()) {
-      const nativeBoundary = '[data-canvas-spa-clipped], [data-canvas-spa-scroll], [contenteditable]:not([contenteditable="false" i]), dialog, [popover]';
+      const nativeBoundary = '[contenteditable]:not([contenteditable="false" i]), dialog, [popover]';
       if (layer.element.isContentEditable || layer.element.matches(nativeBoundary) || layer.element.querySelector(nativeBoundary)) {
-        return "Clipped/scroll/editable/top-layer boundaries require DOM or the explicit NativeOverlay boundary";
+        return "Editable/top-layer boundaries require DOM or the explicit NativeOverlay boundary";
       }
       try { const owner = this.ownership.get(layer.id); owner?.check?.(); owner?.lease.check(); this.transitions.get(layer.id)?.lease.check(); this.gpuDeclarations.get(layer.id)?.check(); }
       catch (error) { return `CSS ownership validation failed: ${String(error)}`; }
       if (this.effects.has(layer.id) && !decorative(layer.element)) return `Effects are decorative/inert only: ${layer.id}; ordinary DOM required`;
       if (layer.element.getAnimations({ subtree: true }).length) return `Unowned/overlapping CSS/WAAPI animation requires explicit adapter: ${layer.id}`;
       if (!layer.element.isConnected) return `Detached enrolled layer: ${layer.id}`;
-      if (layer.layout.overflow && layer.layout.overflow !== "visible") return "Clipped/scrolling enrollment requires ordinary DOM";
       if (layer.layout.width === 0 || layer.layout.height === 0 || !layer.element.offsetWidth || !layer.element.offsetHeight) return `Zero-sized layer: ${layer.id}`;
-      if (layer.element.scrollWidth > layer.element.clientWidth || layer.element.scrollHeight > layer.element.clientHeight) {
+      const layerStyle = getComputedStyle(layer.element);
+      if ((layer.element.scrollWidth > layer.element.clientWidth || layer.element.scrollHeight > layer.element.clientHeight)
+        && layerStyle.overflowX === "visible" && layerStyle.overflowY === "visible") {
         return `Content extends beyond enrolled capture bounds: ${layer.id}; ordinary DOM required`;
       }
       const matrix = affine(layer.transform, this.origin(layer));
+      let viewport: ViewportRect | undefined;
+      try { viewport = this.viewportClip(layer); }
+      catch (error) { return String(error); }
       const corners = [[0, 0], [layer.element.offsetWidth, 0], [0, layer.element.offsetHeight], [layer.element.offsetWidth, layer.element.offsetHeight]];
-      if (corners.some(([x, y]) => {
+      if (!viewport && corners.some(([x, y]) => {
         const p = point(matrix, { x: x!, y: y! });
         return p.x < 0 || p.y < 0 || p.x > width || p.y > height;
       })) return `Transformed layer requires unsupported outer clipping: ${layer.id}`;
@@ -284,7 +367,7 @@ export class CanvasRuntime {
           || style.translate !== "none" || style.rotate !== "none" || style.scale !== "none")) {
         return `Exclusive GPU presentation declarations were changed: ${layer.id}; ordinary DOM required`;
       }
-      if (style.zIndex !== "auto" && style.zIndex !== "0" || style.overflowX !== "visible" || style.overflowY !== "visible") {
+      if (style.zIndex !== "auto" && style.zIndex !== "0") {
         return "Custom stacking/clipping requires ordinary DOM";
       }
     }
@@ -295,82 +378,19 @@ export class CanvasRuntime {
     if (policy) this.recover(policy);
   }
   private cancelReadmissionFrame() {
-    if (this.readmissionFrame) {
-      cancelAnimationFrame(this.readmissionFrame);
-      this.readmissionFrame = 0;
-      this.resources.readmissionFrames--;
-    }
-    this.readmissionSignature = undefined;
+    this.readmissionPending = false;
   }
   private recovered(reason: string) {
     if (this.options.admissionPolicy !== "automatic" || this.admissionIntent !== "enabled"
       || this.stopped || this.disposalRequested) return;
     this.admissionReason = reason;
-    if (reason !== layoutRecovery) {
-      this.admissionIntent = "blocked";
-      this.readmissionPending = false;
-      this.cancelReadmissionFrame();
-      return;
-    }
-    this.readmissionPending = true;
-    this.readmissionSignature = undefined;
-    this.scheduleReadmission();
+    this.admissionIntent = "blocked";
+    this.readmissionPending = false;
+    this.cancelReadmissionFrame();
   }
   private scheduleReadmission() {
-    if (!this.readmissionPending || this.admissionIntent !== "enabled" || this.options.admissionPolicy !== "automatic"
-      || this.stopped || this.disposalRequested || this.readmissionFrame || this.readmissionWork
-      || !this.environment.visible || this.environment.reducedMotion || this.moving) return;
-    this.resources.readmissionFrames++;
-    this.readmissionFrame = requestAnimationFrame(() => {
-      this.readmissionFrame = 0;
-      this.resources.readmissionFrames--;
-      const signature = this.sizeSignature();
-      if (signature !== this.readmissionSignature) {
-        this.readmissionSignature = signature;
-        this.scheduleReadmission();
-        return;
-      }
-      const epoch = this.admissionEpoch;
-      this.readmissionWork = this.readmit(epoch, signature).catch(error => {
-        if (epoch !== this.admissionEpoch) return;
-        this.admissionIntent = "blocked";
-        this.readmissionPending = false;
-        this.admissionReason = `Automatic admission failed: ${String(error)}`;
-        console.error(this.admissionReason);
-        this.options.onStatus(this.admissionReason);
-      }).finally(() => {
-        this.readmissionWork = undefined;
-        this.scheduleReadmission();
-      });
-    });
-  }
-  private async readmit(epoch: number, signature: string) {
-    await this.renderer().idle();
-    if (epoch !== this.admissionEpoch || this.admissionIntent !== "enabled" || this.stopped || this.disposalRequested
-      || !this.environment.visible || this.environment.reducedMotion || this.moving) return;
-    if (signature !== this.sizeSignature()) { this.readmissionSignature = undefined; return; }
-    const policy = this.policy();
-    const state = this.renderer().state();
-    if (policy || state.resources.pendingCleanups || state.resources.pendingEngines || state.resources.probeReadbacks) {
-      this.admissionIntent = "blocked";
-      this.readmissionPending = false;
-      this.admissionReason = policy ?? "Automatic admission blocked by pending healthy GPU retirement";
-      this.options.onStatus(this.admissionReason);
-      return;
-    }
-    this.readmissionPending = false;
-    this.automaticAttempts++;
-    this.admittedSize = signature;
-    const result = await this.renderer().enable();
-    if (epoch !== this.admissionEpoch) return;
-    if (result.mode === "gpu") {
-      this.admittedSize = this.sizeSignature();
-      this.admissionReason = "Automatic admission completed after settled layout and retirement";
-      this.startClock();
-    } else if (!this.readmissionPending && this.admissionIntent === "enabled") {
-      this.admissionIntent = "blocked";
-      this.admissionReason = result.reason;
-    }
+    // Kept as a lifecycle compatibility hook: healthy updates reconcile in the
+    // existing engine; diagnosed failures always require explicit reentry.
   }
   private recover(reason: string) {
     if (this.stopped || !this.core) return;
@@ -391,7 +411,7 @@ export class CanvasRuntime {
     this.releaseDPR?.();
     const query = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
     const listener = () => {
-      this.recover(layoutRecovery);
+      this.reconcile();
       this.watchDPR();
     };
     query.addEventListener("change", listener);
@@ -414,8 +434,8 @@ export class CanvasRuntime {
     this.resources.enrolledLayers++;
     this.revision++;
     this.resize.observe(definition.element);
-    if (this.core?.phase() === "gpu" || this.core?.phase() === "admitting" || this.core?.state().initializing) this.recover(layoutRecovery);
-    this.presentation(this.core?.phase() === "gpu" ? "gpu" : "dom");
+    this.presentation(this.core?.phase() === "gpu" || this.core?.phase() === "admitting" ? "gpu" : "dom");
+    this.reconcileMembership();
     let active = true;
     return () => {
       if (!active) return;
@@ -425,7 +445,7 @@ export class CanvasRuntime {
       this.gpuDeclarations.delete(definition.id);
       this.effects.get(definition.id)?.finish({ status: "disposed", reason: "Enrollment released" });
       const owned = this.ownership.get(definition.id);
-      if (owned && this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") {
+      if (owned) {
         owned.restore?.();
         owned.lease.restore();
         this.ownership.delete(definition.id);
@@ -434,10 +454,10 @@ export class CanvasRuntime {
       this.resize.unobserve(definition.element);
       this.registry.delete(definition.id);
       this.relinquishedDeclarations.delete(definition.id);
-      if (this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") this.cancelNativeMotion(definition.id);
+      this.cancelNativeMotion(definition.id);
       this.resources.enrolledLayers--;
       this.revision++;
-      if (this.core?.phase() === "gpu" || this.core?.phase() === "admitting" || this.core?.state().initializing) this.recover(layoutRecovery);
+      this.reconcileMembership();
     };
   }
   enroll(element: HTMLElement, options: EnrollmentOptions): () => void {
@@ -452,8 +472,13 @@ export class CanvasRuntime {
     }
     if (options.decorative && !decorative(element)) throw new EnrollmentError("decorative-element", "Decorative enrollment requires authored inert, aria-hidden noninteractive content");
     const drawable = element.getAttribute("drawable");
-    const release = this.register({ ...options, element, layout: {}, transform: {}, preserveStyles: true });
     element.setAttribute("drawable", "");
+    let release: () => void;
+    try { release = this.register({ ...options, element, layout: {}, transform: {}, preserveStyles: true }); }
+    catch (error) {
+      if (drawable === null) element.removeAttribute("drawable"); else element.setAttribute("drawable", drawable);
+      throw error;
+    }
     let active = true;
     return () => {
       if (!active) return;
@@ -469,18 +494,15 @@ export class CanvasRuntime {
     this.assertLive();
     const layer = this.registry.get(id);
     if (!layer) throw new Error(`Unknown Surface: ${id}`);
-    if (JSON.stringify(layer.layout) !== JSON.stringify(layout)
-      && (this.core?.phase() === "gpu" || this.core?.phase() === "admitting" || this.core?.state().initializing)) {
-      this.recover(layoutRecovery);
-    }
     if (this.transitions.has(id)) throw new Error("React transform change conflicts with declarative motion; cancel first");
     if (this.ownership.has(id) && JSON.stringify(transform) !== JSON.stringify(this.ownership.get(id)!.base)) throw new Error("React transform change conflicts with animation ownership; release first");
     affine(transform, this.origin(layer));
     if (JSON.stringify(layer.transform) !== JSON.stringify(transform)) this.relinquishedDeclarations.delete(id);
     layer.layout = layout;
     if (!this.ownership.has(id)) layer.transform = { ...transform };
+    this.reconcile();
     this.checkPolicy();
-    if (this.core?.phase() !== "gpu") this.presentation("dom");
+    if (this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") this.presentation("dom");
     this.core?.invalidate(layer.element);
     this.requestDraw();
   }
@@ -494,7 +516,7 @@ export class CanvasRuntime {
     layer.transform = { ...transform };
     this.checkPolicy();
     if (this.core?.phase() !== "gpu") this.presentation("dom");
-    else this.requestDraw();
+    else this.reconcile();
   }
   private requestDraw() {
     if (this.stopped || this.drawFrame || !this.environment.visible || this.core?.phase() !== "gpu") return;
@@ -503,6 +525,31 @@ export class CanvasRuntime {
       this.drawFrame = 0;
       this.resources.controllerFrames--;
       try { this.core?.draw(); } catch (error) { this.recover(`Geometry/draw failure: ${String(error)}`); }
+    });
+  }
+  reconcile() {
+    if (this.stopped || !this.core || this.core.phase() !== "gpu" && this.core.phase() !== "admitting") return;
+    try {
+      this.refreshViewportGeometry();
+      this.presentation("gpu");
+      if (this.core.phase() === "admitting") { this.core.reconcileGeometry(); return; }
+      if (this.membershipCommitPending) { this.core.reconcileGeometry(); return; }
+      const signature = this.sizeSignature();
+      if (signature === this.admittedSize) { this.core.draw(); return; }
+      this.admittedSize = signature;
+      this.core.reconcile();
+    }
+    catch (error) { console.error("CanvasSPA reconciliation failed", error); this.recover(`Native/GPU reconciliation failed: ${String(error)}`); }
+  }
+  private reconcileMembership() {
+    if (this.stopped || this.core?.phase() !== "gpu") return;
+    this.refreshViewportGeometry();
+    this.core.reconcileGeometry();
+    if (this.membershipCommitPending) return;
+    this.membershipCommitPending = true;
+    queueMicrotask(() => {
+      this.membershipCommitPending = false;
+      this.reconcile();
     });
   }
   private cancelMotion() {
@@ -569,6 +616,7 @@ export class CanvasRuntime {
     return { before, after: this.state() };
   }
   async enable() {
+    this.refreshViewportGeometry();
     this.assertLive();
     const epoch = ++this.admissionEpoch;
     this.admissionIntent = "enabled";
@@ -682,7 +730,7 @@ export class CanvasRuntime {
     this.assertLive();
     const state = this.renderer().state();
     const layer = this.registry.get(id);
-    if (!layer || state.initializing || state.transitioning || state.resources.pendingCleanups || state.resources.probeReadbacks
+    if (!layer || state.initializing || state.transitioning || (state.resources.pendingCleanups && state.mode !== "gpu") || state.resources.probeReadbacks
       || this.moving || this.ownership.has(id) || this.motions.has(id) || layer.element.getAnimations({ subtree: true }).length) {
       throw new Error("Declarative motion requires an idle enrolled boundary without competing animation owners");
     }
@@ -891,10 +939,10 @@ export class CanvasRuntime {
     const values = validateEffects(descriptors);
     if (!layer.decorative || !decorative(layer.element)) throw new Error("Effects require explicit decorative, inert, aria-hidden noninteractive enrollment");
     const state = this.renderer().state();
-    if (state.initializing || state.transitioning || state.resources.pendingEngines || state.resources.pendingCleanups || state.resources.probeReadbacks) throw new Error("Effects require idle DOM or admitted GPU without pending lifecycle work");
+    if (state.initializing || state.transitioning || state.resources.pendingEngines || (state.resources.pendingCleanups && state.mode !== "gpu") || state.resources.probeReadbacks) throw new Error("Effects require idle DOM or admitted GPU without pending lifecycle work");
     for (const value of values) if (value.kind === "custom") {
       if (!navigator.gpu) throw new Error("Application effect requires WebGPU; original DOM remains usable");
-      if (state.mode === "gpu" && !this.renderer().acceptsCustom(id, value.definition)) throw new Error("New custom definitions require idle DOM and fresh hidden GPU admission");
+      if (state.mode === "gpu" && !this.renderer().acceptsCustom(id, value.definition)) throw new Error("New custom definitions require idle DOM and explicit fresh GPU admission");
     }
     if (this.reduced.matches) for (const value of values) value.time.playing = false;
     let active = true;
@@ -993,6 +1041,8 @@ export class CanvasRuntime {
     this.stopped = true;
     this.mutation.disconnect();
     this.resize.disconnect();
+    this.viewportAncestors.clear();
+    this.viewportGeometry = new WeakMap();
     this.resources.mutationObservers = this.resources.resizeObservers = 0;
     for (const remove of this.removers.splice(0)) remove();
     return this.state();

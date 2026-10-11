@@ -11,6 +11,13 @@ package, change visibility or infer redistribution permission from this build.
 
 ## Build and install locally
 
+**Current source correction is unaccepted:** legacy installed-consumer verdicts
+below are immutable historical evidence, not current-spec qualification. The
+current WebGPU route requires reflected owner `content="drawable"`, descendant
+`drawable` and owning-native-paint public direct upload. WebGL2 direct capture
+is unqualified. No publication or dependency installation is authorized by the
+local correction; use existing dependency resolutions for exact archive checks.
+
 ```sh
 npm run build:library
 npm pack --dry-run --json
@@ -57,7 +64,7 @@ export or automatic global CSS injection.
   #capture, #output, #ordinary {
     position: absolute; inset: 0; width: 100%; height: 100%;
   }
-  #output { pointer-events: none; }
+  #output { pointer-events: none; } /* Adapter owns native hits while GPU-enabled. */
 </style>
 <div id="frame">
   <canvas id="capture" hidden></canvas><canvas id="output" hidden></canvas>
@@ -129,19 +136,13 @@ package and separate direct-consumer contracts, not browser approval.
 | Same installed build, clean headless profile, explicit native/experimental flags, DPR1/2, React18/19 | Native/GPU admission pixels, red/green decoded application pixels, transformed native hits, controlled input/form/counters and same-root DOM recovery/reentry |
 | Exact Chrome154, other Chromium builds, Safari, Firefox, everyday profiles | Untested here; no availability or compatibility claim |
 
-Changes to membership/order/origin/size/frame/DPR recover the original DOM;
-await retirement and explicitly enable fresh admission by default.
-The Phase12 `admissionPolicy?: "explicit" | "automatic"` mount option intentionally
-opts a host into settled supported structural readmission after explicit enable,
-never startup auto-enable. It keeps the original DOM visible during retirement
-and the full hidden native/GPU probe. Two matching animation-frame geometry
-signatures coalesce changes; pending initialization/capture/readback cannot
-reveal stale generations. `state().admission` reports policy, desired intent,
-pending work, automatic attempts and reason. Disable/disposal cancel retry intent.
-Visibility/reduced motion postpone eligible retry; forced colors, unsupported
-editing/scroll/overlay/animation policy, missing APIs, capture/GPU errors, device
-loss or unconfirmed healthy cleanup block it until explicit enable. There is
-no blind error retry, new timeout or automatic motion replay.
+The preceding Chrome155 table is historical and non-current. Corrected source
+uses one owning GPU canvas, prepared per-layer native-grid textures and complete
+same-renderer successors for normal membership/ref/layout/DPR changes.
+`admissionPolicy?: "explicit" | "automatic"` is retained for compatibility;
+neither option starts GPU automatically or runs structural DOM readmission.
+Visibility/media preserve healthy ownership; factual unsupported boundaries and
+GPU errors diagnose DOM until explicit retry. See [current source API](api.md).
 The hard layer limit is eight, subject to the pixel budget.
 Nested/foreign enrollment, unsupported native scrolling or clipping, forced
 colors, missing APIs and budget/compile failures diagnose usable DOM.

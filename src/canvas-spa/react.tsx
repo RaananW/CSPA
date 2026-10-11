@@ -10,6 +10,7 @@ import type { MotionDescriptor, TransitionResult } from "./motion.js";
 const Context = createContext<CanvasRuntime | null>(null);
 
 export function GPUHost({ runtime, children }: { runtime: CanvasRuntime; children: ReactNode }) {
+  useLayoutEffect(() => runtime.reconcile());
   return <Context.Provider value={runtime}>{children}</Context.Provider>;
 }
 function useRuntime() {
@@ -43,6 +44,7 @@ export function useSurfaceRef<T extends HTMLElement = HTMLElement>({ id, decorat
     if (attached.current && !release.current) release.current = runtime.enroll(attached.current, { id, decorative });
     return () => { release.current?.(); release.current = undefined; };
   }, [runtime, id, decorative]);
+  useLayoutEffect(() => runtime.reconcile());
   return ref;
 }
 export interface PresenceProps {
@@ -99,6 +101,7 @@ export function Surface({ id, layout = {}, appearance = {}, transform = {}, deco
   useLayoutEffect(() => { element.current!.inert = decorative || inert; }, [decorative, inert]);
   useLayoutEffect(() => runtime.register({ id, element: element.current!, layout, transform: { ...transform }, decorative }), [runtime, id, decorative]);
   useLayoutEffect(() => runtime.update(id, layout, transform), [runtime, id, layoutKey, transformKey]);
+  useLayoutEffect(() => runtime.reconcile());
   return <section {...attributes} aria-hidden={decorative ? true : attributes["aria-hidden"]}
     ref={element} id={id} {...{ drawable: "" }} style={{
     ...compileStyle(layout, appearance, true), transformOrigin: "0 0",

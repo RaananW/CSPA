@@ -23,8 +23,9 @@ The [independent verdict](evidence/phase9-independent/acceptance-v1.json),
 describe the scope and remaining gates.
 
 Ordinary DOM is usable without experimental flags. GPU use requires explicit
-adoption and functional admission: native capture through its owning2D canvas,
-ordinary pixel staging, public Lite textures and one shared WebGPU compositor.
+adoption and functional admission: current native paint on its owning
+`content="drawable"` GPU canvas, direct public Lite textures and one shared
+WebGPU compositor. Owning2D/staging captures are historical, not this route.
 React owns the original controls, descendants and application state. One
 persistent root lives in an adapter-owned container; only that container can
 move via same-document connected-sibling `moveBefore`. There are no cloned
@@ -38,17 +39,18 @@ inert decorative effects and one real Radix Dialog integration using its public
 portal-container API. It is useful for evaluating these deliberately adopted
 small applications, not for loading arbitrary websites or libraries unchanged.
 
-Membership/order/position/size/DPR changes hide unsafe output and recover the
-original usable DOM. Fresh GPU admission is explicit by default. Phase12
-engineering adds opt-in `admissionPolicy: "automatic"` for settled supported
-structural changes after explicit enable; errors/policy refusal/loss latch DOM,
-and deliberate disable cancels retries. [Policy and cancellation](docs/api.md#opt-in-settled-readmission-phase12-engineering).
+The uncommitted current-spec correction keeps supported membership/ref/layout/
+DPR changes in one GPU renderer and synchronously reconciles original native
+geometry. Complete cached frames may recompose; new or extent-grown capture
+slots retain last complete output until fresh owning native paint. Default
+initial admission remains explicit. [Publication and cancellation](docs/api.md#opt-in-settled-readmission-phase12-engineering).
 Phase12 **engineering is independently accepted with limits**
 ([verdict](evidence/phase12-independent/acceptance-summary.json)); full Phase12
 production application/hardware and numeric budgets remain open.
 That historical acceptance did not establish seamless structural presentation.
-The current automatic readmission path visibly flickers on runtime **Layer**
-and integration **Replace ref**; the continuous-GPU gate remains unresolved.
+The historical automatic readmission path visibly flickered on runtime **Layer**
+and integration **Replace ref**. Its replacement requires fresh independent
+acceptance; physical display/text/accessibility and performance budgets remain open.
 The proposed permanent-DOM restriction was rejected and never merged.
 Unsupported scrolling,
 clipping, nesting, capabilities and resource budgets produce diagnostics and
@@ -56,11 +58,11 @@ DOM fallback. Healthy pending GPU fences/readbacks retain resources until safe
 completion; timeout is not permission to destroy a healthy device.
 
 No capture-cost optimization or speedup has been established: conservative
-root-wide capture/readback remains on native edits. Settled supported GPU motion
+root-wide direct native uploads remain on native edits. Settled supported GPU motion
 can run300 frames without additional React commits/capture/copy/readback/upload
 or admission work, but that is not a claim about arbitrary content updates.
 CPU submission measurements are not GPU execution or physical input latency.
-The final-source DPR2 native/GPU text mismatch is baseline-identical
+The historical final-source DPR2 native/GPU text mismatch was baseline-identical
 (23249pixels/68851bytes), **not text pixel equivalence**.
 
 Exact Chrome154.0.8037.98 remains **UNVERIFIED**. Autonomous coordinator
@@ -91,7 +93,7 @@ Open <http://127.0.0.1:5173/> for the default DOM baseline.
 | `/paired.html?example=css` or `?example=typed` | Existing CSS or numeric motion, ownership, inert refraction |
 | `/todo.html` | Original native task controls with bounded task-triggered artwork |
 | `/integration.html` | Authored CSS, original-element refs, Radix Dialog, motion/presence |
-| `/integration.html?auto` or `/runtime.html?auto` | Intentional Phase12 automatic structural readmission; existing disable controls cancel it |
+| `/integration.html?auto` or `/runtime.html?auto` | Compatibility option specimen; initial enable is explicit, normal updates reconcile without readmission |
 | `/effects.html` | Inert ripple/chromatic/dissolve/trusted color effects in one shared pass |
 | `/probe.html`, `/recovery.html`, `/surface.html` | Historical feasibility and recovery specimens |
 

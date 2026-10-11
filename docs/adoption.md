@@ -24,9 +24,9 @@ and undo/redo flow must remain GPU-presented after enable, with fresh output and
 current original native hits. Only GPU errors or factual missing required
 GPU/capture/geometry features justify diagnosed fallback; explicit disable and
 disposal remain caller lifecycle. Normal layout/DPR updates, visibility pauses
-and reduced motion are not failure classifications. The current structural
-recovery in step5 is a known unfulfilled framework gate, not a satisfactory
-normal-update policy. See the [capability matrix](architecture.md#capability-versus-implementation-matrix).
+and reduced motion are not failure classifications. The current uncommitted
+correction implements same-owner successors; fresh independent acceptance is
+still required. See the [capability matrix](architecture.md#capability-versus-implementation-matrix).
 Component GPU support should layer over the standard native React implementation
 with a small typed declarative CSS/JS fallback and the same controls/state,
 not a second tree or an automatic arbitrary-library/CSS adapter.
@@ -37,23 +37,22 @@ not a second tree or an automatic arbitrary-library/CSS adapter.
 2. Start in useful DOM. Enroll at most eight bounded direct-root layers using
    `Surface` or `useSurfaceRef`. Use an external public portal-container API
    for overlays; do not relocate existing library/React descendants.
-3. Request `enable()` and inspect its explicit result/reason. GPU output stays
-   hidden until actual known-color pixels and applied native geometry pass.
-   Missing capabilities, incompatible layout or compilation errors retain DOM.
+3. Request `enable()` and inspect its explicit result/reason. The current owning
+   canvas must be visible and laid out during its native/GPU functional probe;
+   initial admission is not a hidden-output or seamless-display guarantee.
+   Missing capabilities, incompatible layout or compilation errors recover DOM.
 4. Give supported motion properties one owner. Prepare numeric/native-animation
    ownership in idle DOM; diagnose competing CSS/WAAPI properties rather than
    running both. Nonaffine/disappearing effects require inert, aria-hidden,
    noninteractive decoration separate from essential native controls.
-5. After add/remove/reorder, same-size position change, resize or DPR change,
-   the current incomplete runtime hides GPU and recovers original DOM.
-   By default, await settled retirement, then explicitly request fresh admission.
-   An intentionally opted-in `admissionPolicy: "automatic"` host instead
-   coalesces eligible settled changes after explicit enable; disable cancels it.
-   Unsupported policies/errors/loss require explicit enable, not blind retries.
-   See [policy/cancellation](api.md#opt-in-settled-readmission-phase12-engineering). Old
-   generation capture/validation cannot reveal or upload into the replacement.
-   Original keyed controls/root/state remain; resources await healthy fences
-   and pending readbacks rather than force destruction.
+5. Supported add/remove/reorder/ref/layout/resize/DPR changes retain GPU
+   ownership and synchronously reconcile original native geometry. Complete
+   cached coverage recomposes; missing/new/extent-grown coverage waits for
+   prepared resources and fresh owning native paint while retaining last
+   complete output. Do not call `enable()` for each commit. Both admission
+   policy values use this route. Factual unsupported boundaries/errors/loss
+   require explicit retry, not blind readmission. Original keyed controls and
+   root remain; superseded resources await queue fences.
 6. Keep normal native invalidation. Root-attributed hover/focus/caret/style/font
    paint cannot safely be narrowed using React state or MutationObserver alone.
    Test actual decoded changed output, native hits and final retirement.
@@ -100,12 +99,14 @@ uncontrolled inputs, checkbox, form and native external Dialog/Popover.
 The status displays explicit admission/recovery reasons. Values are synthetic,
 local and not persisted. Do not put real personal data in the specimen.
 
-Use short text for supported GPU editing. Separately type a long value, press
-Home/Shift+ArrowRight, and confirm that an actual horizontal input scroll can
-recover useful DOM: the same control/value/selection remains usable and GPU
-output is hidden. Shorten the value and request explicit fresh admission.
+Type both short and long values into original eligible INPUT/TEXTAREA controls.
+Use Home/selection navigation and multiline caret movement to exercise actual
+horizontal/vertical internal scrolling. GPU ownership must remain active; native
+paint refreshes the scrolled contents without replacing the control or changing
+its value/focus/selection. Check native hits and GPU-only motion afterward.
 For effects/motion and task semantics, use the existing `/effects.html` and
-`/todo.html` specimens; for `NativeScroll`, use `/runtime.html?scroll&dom`.
+`/todo.html` specimens; for `NativeScroll`, compare `/runtime.html?scroll`
+with `/runtime.html?scroll&dom`.
 Tab/Shift+Tab through originals, use Enter to submit and Space to toggle, open
 the external overlays, test modal sequential focus, Escape and focus return.
 Repeat across useful DOM, admitted GPU where available and recovered DOM.
@@ -121,8 +122,19 @@ unsupported editing. Live plaintext editing recovers useful original DOM.
 Native Dialog sequential focus can visit browser UI; it is not Radix's strict
 JavaScript focus trap. Fresh GPU admission with an open modal can be refused
 by the occluded native hit probe without losing overlay focus/value; close the
-modal before explicitly retrying. Long input horizontal scrolling similarly
-recovers DOM rather than forcing unsupported GPU geometry.
+modal before explicitly retrying. The current correction handles eligible
+input/textarea internal scrolling and composition events through native-paint
+invalidation, without revoking healthy GPU or cancelling animation ownership.
+Synthetic composition tests are listener contracts, not OS IME certification.
+Bounded axis-aligned descendant/enrolled viewports, `NativeScroll` and the
+adapter-owned root retain GPU, reconcile actual scroll offsets and intersect
+supported ancestor viewports for identical native hit and GPU visual clips.
+Native wheel/key/programmatic scroll requests fresh owning paint rather than
+replaying input or replacing controls. Newly uncovered capture coverage keeps
+the last complete GPU output until fresh paint. General transformed clip chains,
+external ancestor viewport changes and arbitrary CSS scrolling remain framework
+qualification boundaries—not demonstrated missing Chrome157 features or
+accepted unrestricted GPU-first fallback. Manual physical continuity remains open.
 
 The opt-in clean-profile headful background check uses actual page switching,
 removes Playwright's background-throttling-disable flags, and records CDP
@@ -151,24 +163,21 @@ No tester identity or missing environment details are inferred.
 | OS IME | Could not test on this Mac. | Untested, not passed or waived; composition/candidate-window/selection/recovery checks remain open. |
 | Everyday profile | Works; requesting GPU shows an error. | Useful DOM is reported. A capability refusal is expected where GPU prerequisites are unavailable, but the exact diagnostic and profile/build are unconfirmed; GPU compatibility is not certified. |
 | Background return | Left the application for a while, returned, and everything worked. | Return usability is reported; prior GPU mode, trusted hidden visibility, measured pause/no catch-up and state continuity were not established. The unsuccessful automated headful capability attempt remains unverified. |
-| Physical display move | Moving between screens returns to DOM and stops animations/effects, feeling like a reset. | DOM fallback is reported and consistent with layout/DPR invalidation. Retention of task/input/checkbox state during this actual move is unconfirmed; no React reset defect is established. |
+| Physical display move | Moving between screens returns to DOM and stops animations/effects, feeling like a reset. | Historical fallback report; not the current GPU-first contract or an accepted correction. Original state retention and physical continuity during a real display move remain unconfirmed. |
 
-On a layout/viewport/DPR change, the default contract immediately hides GPU
-output, recovers the original DOM and retires the old presentation. Motion/effect
-GPU playback does not automatically restart. After layout settles, explicitly
-request `enable()` (**Request GPU** or **Enable GPU** in the specimens) and inspect
-the result; a refusal must leave useful DOM. This recovery is not intended to
-remount/reset React or discard application state. Automated original-state
-preservation checks do not substitute for confirming retained values during the
-reported physical display move. Phase12 now provides opt-in settled structural
-readmission, independently accepted as bounded engineering with limits
-([verdict](../evidence/phase12-independent/acceptance-summary.json)); it was not enabled in those user
-observations and does not replay cancelled motion or certify physical recovery.
+The current unaccepted correction reconciles supported layout/membership/DPR
+changes within the same GPU renderer/root and preserves the last complete output
+while fresh capture coverage is pending. Healthy changes do not require explicit
+reentry. The historical Phase12 settled-readmission verdict
+([verdict](../evidence/phase12-independent/acceptance-summary.json)) does not accept
+this correction, waive viewport framework gaps or certify physical recovery.
+Automated original-state checks do not substitute for retained values and
+continuous presentation during the reported physical display move.
 
 Screen-reader work must use actual spoken navigation/name/role/state and
 duplicate-control checks; an accessibility tree is only an automated semantic
 audit. IME work must use the OS composition/candidate UI, including recovery
-during composition; a dispatched composition event is only a recovery fixture.
+during composition; a dispatched composition event is only a listener/refresh fixture.
 Record results outside this checkout only with consent: date, browser/build/
 flags/profile class, OS/device/display, steps, expected/observed behavior and
 pass/fail/recovery. No automatic tester identity, private profile or spoken/

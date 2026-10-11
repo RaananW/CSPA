@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 const declarations = [
   "admission", "affine", "animation", "compiler", "composition", "css-animation",
   "device-lifecycle", "effects", "enrollment", "index", "module", "motion",
-  "mount-boundary", "native", "react", "renderer", "ripple", "runtime", "timeline",
+  "mount-boundary", "native", "publication", "react", "renderer", "ripple", "runtime", "timeline", "viewport",
 ];
 export const packageFiles = [
   "package.json", "README.md", "docs/distribution.md", "dist/library/index.js",

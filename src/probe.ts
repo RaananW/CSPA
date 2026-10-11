@@ -99,7 +99,7 @@ const api = {
       case "display-block": host.style.display = "block"; break;
       case "zero-bitmap": host.width = 0; host.height = 0; break;
       case "layout-subtree-off":
-        if (isDrawableCanvas(host)) host.layoutSubtree = false;
+        if (isDrawableCanvas(host)) host.content = "fallback";
         break;
       case "display-none": host.style.display = "none"; break;
       case "visibility-hidden-child-visible":

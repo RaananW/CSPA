@@ -5,13 +5,13 @@ export interface ElementSnapshot {
 }
 
 export interface DrawableCanvas extends HTMLCanvasElement {
-  content?: string;
-  layoutSubtree?: boolean;
+  content: string;
+  getElementImageDefaultSize(element: Element): { width: number; height: number };
   requestPaint(): void;
   captureElementImage(element: Element): ElementSnapshot;
   updateElementGeometry(
     element: Element,
-    options: { canvasTransform?: DOMMatrixInit; preserveHitTestOrder?: boolean },
+    options: { canvasTransform?: DOMMatrixInit; canvasClip?: DOMRectInit; preserveHitTestOrder?: boolean },
   ): void;
   clearElementGeometry(element: Element): void;
   getElementTransform(element: Element): DOMMatrix;
@@ -29,23 +29,47 @@ export interface DrawableContext extends CanvasRenderingContext2D {
 export interface CapabilityResult {
   available: boolean;
   missing: string[];
-  dialect: "content-drawable" | "layoutSubtree" | "unavailable";
+  dialect: "content-drawable" | "unavailable";
 }
 
 export function capabilities(canvas: HTMLCanvasElement): CapabilityResult {
-  const context = canvas.getContext("2d");
-  const required = ["requestPaint", "captureElementImage", "updateElementGeometry", "clearElementGeometry", "getElementTransform"];
+  // Do not acquire a 2D context: this canvas owns the WebGPU output.
+  const required = ["requestPaint", "getElementImageDefaultSize", "updateElementGeometry", "clearElementGeometry", "getElementTransform"];
   const missing = required.filter((key) => typeof Reflect.get(canvas, key) !== "function");
-  const dialect = "content" in canvas ? "content-drawable" : "layoutSubtree" in canvas ? "layoutSubtree" : "unavailable";
-  if (dialect === "unavailable") missing.push("canvas.content or canvas.layoutSubtree");
-  if (!context || !isDrawableContext(context)) missing.push("2d.drawElementImage");
+  const dialect = "content" in canvas ? "content-drawable" : "unavailable";
+  if (dialect === "unavailable") missing.push("canvas.content");
   return { available: missing.length === 0, missing, dialect };
 }
 
 export function enableDrawable(canvas: DrawableCanvas): void {
-  if ("content" in canvas) canvas.content = "drawable";
-  else if ("layoutSubtree" in canvas) canvas.layoutSubtree = true;
-  else throw new Error("No supported native layout dialect");
+  if (!("content" in canvas)) throw new Error("Current canvas.content reflection unavailable");
+  canvas.content = "drawable";
+  if (canvas.content !== "drawable" || canvas.getAttribute("content") !== "drawable") {
+    throw new Error("Current canvas.content drawable reflection failed");
+  }
+}
+
+export interface DrawableQueue extends GPUQueue {
+  drawElementImageToTexture(source: { source: Element }, destination: { texture: GPUTexture }): void;
+}
+
+export function nativeEditingControl(element: Element): boolean {
+  const view = element.ownerDocument.defaultView;
+  if (!view || !element.isConnected) return false;
+  if (element instanceof view.HTMLTextAreaElement) return !element.disabled;
+  return element instanceof view.HTMLInputElement && !element.disabled
+    && ["text", "search", "tel", "url", "email", "password", "number"].includes(element.type);
+}
+
+export function nativeScrollKind(
+  target: Element,
+  enrolled: Element,
+): "editing" | "descendant-viewport" | "enrolled-viewport" {
+  if (nativeEditingControl(target)) return "editing";
+  return target === enrolled ? "enrolled-viewport" : "descendant-viewport";
+}
+export function isDrawableQueue(queue: GPUQueue): queue is DrawableQueue {
+  return typeof Reflect.get(queue, "drawElementImageToTexture") === "function";
 }
 
 export function isDrawableCanvas(canvas: HTMLCanvasElement): canvas is DrawableCanvas {

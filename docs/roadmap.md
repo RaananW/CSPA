@@ -1,5 +1,12 @@
 # CanvasSPA implementation roadmap
 
+**Current uncommitted correction:** same-owner public WebGPU native paint,
+logical-slot complete-frame publication and default native DPR capture replace
+healthy structural readmission. This is implementation for fresh independent
+acceptance, not a revised historical verdict or Phase12 completion. Physical
+display continuity, text/accessibility and application numeric budgets remain
+open; Phases13/14 and release work remain unauthorized.
+
 **Evidence storage:** historical raw paths named below refer to the verified
 external local archive, not files in this checkout. Only compact verdicts
 remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
@@ -85,8 +92,12 @@ Phase9 is independently accepted-with-limits and recorded in private main.
 The [archive catalog](archive-catalog.md) records the user-authorized raw-evidence
 cleanup and rewritten phase history; old commit IDs in immutable verdicts are
 archived provenance, not current-main ancestors.
-Current membership/size/DPR changes still recover to DOM; fresh admission is
-explicit by default or settled/revalidated on an opted-in host.
+The current uncommitted correction reconciles supported membership/size/DPR
+updates in the same renderer/root, retaining complete output while fresh native
+capture coverage is pending. This bounded source behavior does not establish
+physical seamless presentation or universal framework qualification; whole
+correction acceptance and manual/display gates remain open. Diagnosed failures
+still require explicit fresh admission, not structural DOM readmission.
 Route/shared-element transitions, springs, virtualization,
 hydration, automatic external-animation conversion, general shader graphs and
 remote shader loading are outside the currently implemented bounded scope.

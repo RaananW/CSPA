@@ -1,11 +1,12 @@
 import {
-  createEngine, disposeEngine, createDynamicTexture, updateDynamicTexture, releaseTexture,
+  createEngine, disposeEngine, createDynamicTexture, releaseTexture,
   createEffectWrapper, disposeEffectWrapper, setEffectTexture, setEffectUniforms,
   createEffectRenderer, disposeEffectRenderer, registerEffectRenderer, unregisterEffectRenderer,
   setEngineSize, renderFrame, captureScreenshot,
   type EngineContext, type DynamicTexture2D, type EffectWrapper,
 } from "@babylonjs/lite";
-import { capabilities, enableDrawable, isDrawableCanvas, isDrawableContext, validateGeometry, validateAppliedGeometry, waitForPaint, type DrawableCanvas } from "./native.js";
+import { capabilities, enableDrawable, isDrawableCanvas, isDrawableQueue, validateGeometry, validateAppliedGeometry, type DrawableCanvas, type DrawableQueue } from "./native.js";
+import { completeCoverage, type CaptureCoverage } from "./publication.js";
 import { createMountBoundary, type MountBoundaryOptions } from "./mount-boundary.js";
 import { configuredDevice, observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "./device-lifecycle.js";
 import { compositionShader, compositionUniforms } from "./composition.js";
@@ -17,6 +18,7 @@ export interface EnrolledLayer {
   id: string;
   element: HTMLElement;
   matrix(): DOMMatrix;
+  clip?(matrix?: DOMMatrixReadOnly): { x: number; y: number; width: number; height: number } | undefined;
   opacity(): number;
   ripple?(): Ripple | undefined;
   effects?(): readonly EffectDescriptor[];
@@ -50,7 +52,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   const { outputCanvas: output, ordinaryHost: ordinary } = options;
   const boundary = createMountBoundary(options);
   const container = boundary.container;
-  const host = options.captureHost;
+  const host = output;
+  const outputPointer = { value: output.style.getPropertyValue("pointer-events"), priority: output.style.getPropertyPriority("pointer-events") };
   let drawable: DrawableCanvas | undefined;
   function nativeHost(): DrawableCanvas {
     if (!drawable) throw new Error("Native canvas has not passed admission");
@@ -59,7 +62,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   const resources = { roots: 1, captureCanvases: 1, outputCanvases: 1, engines: 0, pendingEngines: 0, textures: 0, effects: 0, renderers: 0, stagingCanvases: 0, snapshots: 0, comparisonBuffers: 0, listeners: 0, scheduledFrames: 0, paintWaits: 0, lossObservers: 0, pendingCleanups: 0, probeElements: 0, probeReadbacks: 0 };
   const timing = () => ({ count: 0, totalMs: 0, minMs: null as number | null, maxMs: null as number | null });
   const layerMetrics: Record<string, { captures: number; pixelCopies: number; pixelReadbacks: number; uploads: number }> = Object.create(null);
-  const metrics = { captures: 0, pixelCopies: 0, pixelReadbacks: 0, reusedUploads: 0, uploads: 0, paintNotifications: 0, deviceLossCount: 0, fenceCount: 0, effectShaderCompilations: 0,
+  const metrics = { captures: 0, pixelCopies: 0, pixelReadbacks: 0, reusedUploads: 0, uploads: 0, paintNotifications: 0, deviceLossCount: 0, fenceCount: 0, effectShaderCompilations: 0, incompleteFramesSkipped: 0,
     admission: { attempts: 0, passes: 0, captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0, gpuFrames: 0, gpuReadbacks: 0, geometryChecks: 0,
       last: undefined as { nativePixels: number[][]; gpuPixels: number[][]; geometry: ReturnType<typeof verifyProbeGeometry> } | undefined },
     timings: { captureMs: timing(), uploadMs: timing(), frameWorkMs: timing(), frameIntervalsMs: timing() },
@@ -96,8 +99,33 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let dx = 0;
   let previousFrame: number | undefined;
   let admittedCustom: (ApplicationEffect | undefined)[] = [];
-  let clearedGeometry: { id: string; identity: boolean }[] = [];
-  const layers: (EnrolledLayer & { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D; texture: DynamicTexture2D; pixels?: Uint8ClampedArray })[] = [];
+  let clearedGeometry: { id: string; identity: boolean | null }[] = [];
+  type Layer = EnrolledLayer & { canvas: HTMLCanvasElement; texture: DynamicTexture2D;
+    coverage: CaptureCoverage; contentExtent: { width: number; height: number; pixelWidth: number; pixelHeight: number } };
+  type Composition = { layers: Layer[]; effect: EffectWrapper; renderer: ReturnType<typeof createEffectRenderer>;
+    textures: DynamicTexture2D[]; custom: (ApplicationEffect | undefined)[]; capacity: number;
+    ready: boolean; size: ReturnType<SurfaceRendererOptions["size"]> };
+  let layers: Layer[] = [];
+  let current: EnrolledLayer[] = [];
+  let pending: Composition | undefined;
+  let active: Composition | undefined;
+  let preparation: Promise<void> | undefined;
+  let slotSerial = 0;
+  let publicationGeneration = 0;
+  let submittedGeneration = -1;
+  let paintRequested = false;
+  let membershipPending = false;
+  let paintTimer: ReturnType<typeof setTimeout> | undefined;
+  let queue: DrawableQueue | undefined;
+  const compositions = new Set<Composition>();
+  const retiring = new Set<Composition>();
+  const textures = new Set<DynamicTexture2D>();
+  const logicalSlots = new Map<string, number>();
+  const nativeMatrices = new WeakMap<Element, DOMMatrix>();
+  const nativeClips = new WeakMap<Element, string>();
+  const nativeGrids = new WeakMap<Element, { width: number; height: number; dpr: number; pixelWidth: number; pixelHeight: number }>();
+  let nativeOrder: EnrolledLayer[] = [];
+  const retirements = new Set<Promise<void>>();
   const dirty = new Set<string>();
   const removers: (() => void)[] = [];
   let observer: ReturnType<typeof observeConfiguredDevice> | undefined;
@@ -107,6 +135,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let lifecycle = Promise.resolve();
   let admissionIntent = 0;
   let admissionCancellation: string | undefined;
+  let terminalCleanupPending = false;
   function serialize<T>(operation: () => Promise<T>): Promise<T> {
     const result = lifecycle.then(operation);
     lifecycle = result.then(() => undefined, () => undefined);
@@ -124,8 +153,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   function state() {
     return {
       mode, reason, initializing, transitioning, moving, clearedGeometry: [...clearedGeometry], resources: { ...resources }, metrics: structuredClone(metrics),
+      publication: { generation: publicationGeneration, submittedGeneration, pending: membershipPending || !!pending || paintRequested,
+        captures: layers.map(layer => ({ id: layer.id, ...layer.coverage, textureWidth: layer.texture.texture.width, textureHeight: layer.texture.texture.height })) },
       rootContainer: container.parentElement?.id,
-      transforms: mode === "gpu" ? layers.map(layer => ({ id: layer.element.id, matrix: Array.from(nativeHost().getElementTransform(layer.element).toFloat64Array()) })) : [],
+      transforms: mode === "gpu" ? current.map(layer => ({ id: layer.element.id, matrix: Array.from(nativeHost().getElementTransform(layer.element).toFloat64Array()) })) : [],
     };
   }
   function listen(target: EventTarget, name: string, listener: EventListener) {
@@ -136,6 +167,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   function cancelScheduled() {
     options.onInterrupt?.();
     captureAbort?.abort(new DOMException("Native paint cancelled by lifecycle transition", "AbortError"));
+    clearTimeout(paintTimer);
+    paintRequested = false;
+    resources.paintWaits = 0;
     if (scheduled) { cancelAnimationFrame(scheduled); scheduled = 0; resources.scheduledFrames--; }
     if (motionFrame) {
       cancelAnimationFrame(motionFrame.id);
@@ -147,16 +181,24 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   function releaseComposition() {
     if (renderer && registered) unregisterEffectRenderer(renderer);
     registered = false;
-    if (renderer) { disposeEffectRenderer(renderer); renderer = undefined; resources.renderers--; }
-    if (effect) { disposeEffectWrapper(effect); effect = undefined; resources.effects--; }
-    for (const layer of layers) {
-      releaseTexture(layer.texture);
-      resources.textures--;
-      layer.canvas.width = layer.canvas.height = 0;
-      resources.stagingCanvases--;
-      if (layer.pixels) resources.comparisonBuffers--;
+    if (renderer && ![...compositions].some(composition => composition.renderer === renderer)) {
+      disposeEffectRenderer(renderer); resources.renderers--;
     }
-    layers.length = 0;
+    if (effect && ![...compositions].some(composition => composition.effect === effect)) {
+      disposeEffectWrapper(effect); resources.effects--;
+    }
+    for (const composition of compositions) {
+      disposeEffectRenderer(composition.renderer); resources.renderers--;
+      disposeEffectWrapper(composition.effect); resources.effects--;
+    }
+    compositions.clear();
+    for (const texture of textures) { releaseTexture(texture); resources.textures--; }
+    textures.clear();
+    layers = [];
+    current = [];
+    pending = active = undefined;
+    effect = renderer = undefined;
+    logicalSlots.clear();
     admittedCustom = [];
   }
   function releaseProbe() {
@@ -174,12 +216,12 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     if (engine) { disposeEngine(engine); engine = undefined; resources.engines--; }
   }
   function clearGeometry(removeProbe = true) {
-    clearedGeometry = layers.map(layer => {
-      if (!host.contains(layer.element)) return { id: layer.element.id, identity: false };
+    clearedGeometry = nativeOrder.map(layer => {
       nativeHost().clearElementGeometry(layer.element);
-      return { id: layer.element.id, identity: nativeHost().getElementTransform(layer.element).isIdentity };
+      return { id: layer.element.id, identity: layer.element.isConnected && layer.element.hasAttribute("drawable") && layer.element.closest("canvas") === host
+        ? nativeHost().getElementTransform(layer.element).isIdentity : null };
     });
-    host.getContext("2d")?.clearRect(0, 0, host.width, host.height);
+    nativeOrder = [];
     if (removeProbe) releaseProbe();
   }
   function presentDOM(message: string) {
@@ -188,14 +230,18 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     generation++;
     cancelScheduled();
     output.hidden = true;
+    if (output.style.getPropertyValue("pointer-events") === "auto") {
+      if (outputPointer.value) output.style.setProperty("pointer-events", outputPointer.value, outputPointer.priority);
+      else output.style.removeProperty("pointer-events");
+    }
     clearGeometry(false);
     ordinary.hidden = false;
     if (boundary.moveToDOM()) metrics.moves++;
     options.presentation?.("dom");
-    host.hidden = true;
     options.onRecovery?.(message);
   }
   function retainGPUUntil(completion: Promise<IdleOutcome>) {
+    terminalCleanupPending = true;
     resources.pendingCleanups++;
     const retainedEngine = engine;
     void completion.then(result => serialize(async () => {
@@ -205,6 +251,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       metrics.fenceCount++;
       destroyGPU();
       resources.pendingCleanups--;
+      terminalCleanupPending = false;
       reason += ` Pending cleanup settled: ${result.kind}.`;
       status();
     })).catch(reportFailure);
@@ -217,8 +264,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     let retained = false;
     try {
       if (work) await work;
+      if (preparation) await preparation;
       if (engine) {
-        const { outcome, completion } = await waitForTeardown(engine, observer?.lost, 1500, probeReadback?.completion);
+       const outstanding = Promise.all([...retirements, ...(probeReadback?.active ? [probeReadback.completion] : [])]).then(() => undefined);
+       const { outcome, completion } = await waitForTeardown(engine, observer?.lost, 1500, outstanding);
         sample(metrics.fenceOutcomes, outcome);
         metrics.fenceCount++;
         if (outcome.kind === "rejected" || outcome.kind === "timeout") {
@@ -249,13 +298,34 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     status();
   }
   function geometry() {
-    for (const layer of layers) {
+    const ordered = current;
+    const orderChanged = ordered.length !== nativeOrder.length || ordered.some((layer, index) => layer.element !== nativeOrder[index]?.element);
+    clearedGeometry = [];
+    for (const layer of nativeOrder) if (!ordered.some(next => next.element === layer.element)) {
+      nativeHost().clearElementGeometry(layer.element);
+      nativeMatrices.delete(layer.element);
+      nativeClips.delete(layer.element);
+      clearedGeometry.push({ id: layer.element.id, identity: layer.element.isConnected && layer.element.hasAttribute("drawable") && layer.element.closest("canvas") === host
+        ? nativeHost().getElementTransform(layer.element).isIdentity : null });
+    }
+    for (const layer of ordered) {
+      if (!layer.element.isConnected || !layer.element.hasAttribute("drawable") || layer.element.closest("canvas") !== host) {
+        throw new Error(`Required current original drawable/owner unavailable: ${layer.id}`);
+      }
       const matrix = new DOMMatrix().translate(dx, 0).multiply(layer.matrix());
       validateGeometry(matrix);
-      nativeHost().updateElementGeometry(layer.element, { canvasTransform: matrix });
+      const previous = nativeMatrices.get(layer.element);
+      const clip = layer.clip?.(matrix) ?? { x: 0, y: 0, width: layer.element.offsetWidth, height: layer.element.offsetHeight };
+      const clipKey = JSON.stringify(clip);
+      if (orderChanged || !previous || nativeClips.get(layer.element) !== clipKey || ["a", "b", "c", "d", "e", "f"].some(key => Reflect.get(previous, key) !== Reflect.get(matrix, key))) {
+        nativeHost().updateElementGeometry(layer.element, { canvasTransform: matrix, canvasClip: clip, preserveHitTestOrder: !orderChanged });
+        nativeMatrices.set(layer.element, matrix);
+        nativeClips.set(layer.element, clipKey);
+        metrics.geometryUpdates++;
+      }
       validateAppliedGeometry(nativeHost(), layer.element, matrix);
-      metrics.geometryUpdates++;
     }
+    nativeOrder = [...ordered];
   }
   function draw() {
     if (!engine || !effect || mode !== "gpu" && mode !== "admitting" || lostInfo || options.isPaused?.()) return;
@@ -268,9 +338,11 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     if (previousFrame !== undefined) recordTiming("frameIntervalsMs", now - previousFrame);
     previousFrame = now;
     try {
-      setEffectUniforms(effect, compositionUniforms(layers, options.size().dpr, dx, tint));
       geometry();
+      if (membershipPending || pending || !complete()) { metrics.incompleteFramesSkipped++; requestPaint(); return; }
+      setEffectUniforms(effect, compositionUniforms(layers, options.size().dpr, dx, tint, active?.capacity, active?.custom));
       renderFrame(engine, 16.67);
+      submittedGeneration = publicationGeneration;
     } catch (error) {
       if (mode === "gpu") {
         const failedGeneration = generation;
@@ -284,108 +356,15 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     recordTiming("frameWorkMs", performance.now() - now);
   }
   async function captureLayers() {
-    const policy = options.policy?.();
-    if (policy) throw new Error(policy);
-    if (options.isPaused?.()) throw new Error("GPU admission requires a visible surface");
-    const selected = layers.filter(layer => dirty.has(layer.id));
-    if (!selected.length) return;
-    for (const layer of selected) dirty.delete(layer.id);
-    const version = generation;
-    const abort = new AbortController();
-    captureAbort = abort;
-    resources.paintWaits++;
-    try { await waitForPaint(nativeHost(), 1500, abort.signal); }
-    catch (error) {
-      if (options.isPaused?.() && abort.signal.aborted) {
-        for (const layer of selected) dirty.add(layer.id);
-        return;
-      }
-      throw error;
-    }
-    finally {
-      resources.paintWaits--;
-      if (captureAbort === abort) captureAbort = undefined;
-    }
-    if (version !== generation || mode !== "gpu" && mode !== "admitting" || lostInfo) return;
-    if (options.isPaused?.()) {
-      for (const layer of selected) dirty.add(layer.id);
-      return;
-    }
-    const owner = host.getContext("2d");
-    if (!owner || !isDrawableContext(owner) || !engine) throw new Error("Owning native 2D canvas or engine unavailable");
-    for (const layer of selected) {
-      if (layer.element.offsetWidth !== layer.canvas.width || layer.element.offsetHeight !== layer.canvas.height) {
-        throw new Error(`Layer resized during capture: ${layer.id}; stale-size transfer refused`);
-      }
-      const started = performance.now();
-      const snapshot = nativeHost().captureElementImage(layer.element);
-      resources.snapshots++;
-      metrics.captures++;
-      metrics.perLayer[layer.id]!.captures++;
-      try {
-        owner.clearRect(0, 0, host.width, host.height);
-        owner.drawElementImage(snapshot, 0, 0, { preserveElementGeometry: true });
-        layer.context.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-        layer.context.drawImage(host, 0, 0, layer.canvas.width, layer.canvas.height, 0, 0, layer.canvas.width, layer.canvas.height);
-        metrics.pixelCopies++;
-        metrics.perLayer[layer.id]!.pixelCopies++;
-        recordTiming("captureMs", performance.now() - started, layer.id, layer.canvas.width * layer.canvas.height * 4);
-        if (options.comparePixels) {
-          const readbackStarted = performance.now();
-          const pixels = layer.context.getImageData(0, 0, layer.canvas.width, layer.canvas.height).data;
-          metrics.pixelReadbacks++;
-          metrics.perLayer[layer.id]!.pixelReadbacks++;
-          const identical = !!layer.pixels && pixels.every((value, index) => value === layer.pixels![index]);
-          options.onMeasure?.({ kind: "readbackCompareMs", at: performance.now(), durationMs: performance.now() - readbackStarted,
-            phase: mode === "admitting" ? "admission" : "content", layerId: layer.id, bytes: pixels.byteLength });
-          if (identical) {
-            metrics.reusedUploads++;
-            continue;
-          }
-          if (!layer.pixels) resources.comparisonBuffers++;
-          layer.pixels = pixels;
-        }
-        const uploadStarted = performance.now();
-        updateDynamicTexture(engine, layer.texture, layer.canvas, { invertY: false, premultiplyAlpha: false });
-        recordTiming("uploadMs", performance.now() - uploadStarted, layer.id, layer.canvas.width * layer.canvas.height * 4);
-        metrics.uploads++;
-        metrics.perLayer[layer.id]!.uploads++;
-        metrics.uploadBytes += layer.canvas.width * layer.canvas.height * 4;
-      } finally {
-        snapshot.close();
-        resources.snapshots--;
-        // The native host keeps hit geometry, but never presents a second painted image.
-        owner.clearRect(0, 0, host.width, host.height);
-      }
-    }
+    requestPaint();
+    await settle();
   }
   function scheduleCapture() {
-    if (mode !== "gpu" || lostInfo || initializing || work || scheduled || !dirty.size || options.isPaused?.()) return;
-    resources.scheduledFrames++;
-    scheduled = requestAnimationFrame(() => {
-      scheduled = 0;
-      resources.scheduledFrames--;
-      const policy = options.policy?.();
-      if (policy) {
-        void recover(policy).catch(reportFailure);
-        return;
-      }
-      const refreshEngine = engine;
-      const refreshGeneration = generation;
-      work = captureLayers().then(draw).catch(error => {
-        if (lostInfo || mode !== "gpu" || generation !== refreshGeneration) return;
-        console.error("CanvasSPA runtime capture failed", error);
-        void serialize(async () => {
-          if (engine === refreshEngine && generation === refreshGeneration && mode === "gpu") {
-            await recoverToDOM(`Runtime capture failure: ${String(error)}`);
-          }
-        }).catch(reportFailure);
-      }).finally(() => { work = undefined; scheduleCapture(); status(); });
-    });
+    if (mode === "gpu" && dirty.size) requestPaint();
   }
   function queueCapture(target?: Event | Element | string) {
     const node = target instanceof Event ? target.target : target;
-    for (const layer of layers) {
+    for (const layer of current) {
       if (!node || typeof node === "string" && layer.id === node
         || node instanceof Element && (layer.element.contains(node) || node.contains(layer.element))) dirty.add(layer.id);
     }
@@ -393,10 +372,255 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   }
   async function settle() {
     const deadline = performance.now() + 3000;
-    while (scheduled || work) {
+    while (scheduled || work || preparation || paintRequested || pending) {
       if (performance.now() > deadline) throw new Error("Native refresh did not settle within 3000 ms");
       if (work) await work;
+      else if (preparation) await preparation;
       else await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    }
+  }
+  function required(layer: EnrolledLayer, size = options.size()) {
+    const width = layer.element.offsetWidth, height = layer.element.offsetHeight;
+    // New originals have no cached native paint record yet. Reserve the target
+    // grid before paint; only paint reads the browser's actual default extent.
+    const recorded = nativeGrids.get(layer.element);
+    const matching = recorded?.width === width && recorded.height === height && recorded.dpr === size.dpr;
+    return { width, height, pixelWidth: matching ? recorded.pixelWidth : Math.ceil(width * size.dpr),
+      pixelHeight: matching ? recorded.pixelHeight : Math.ceil(height * size.dpr) };
+  }
+  function complete(candidate = layers) {
+    return candidate.length === current.length && candidate.every((layer, index) =>
+      layer.id === current[index]!.id && completeCoverage(layer.coverage, required(current[index]!)));
+  }
+  function requestPaint() {
+    if (paintRequested || lostInfo || options.isPaused?.() || mode !== "gpu" && mode !== "admitting") return;
+    paintRequested = true;
+    resources.paintWaits = 1;
+    paintTimer = setTimeout(() => {
+      paintRequested = false; resources.paintWaits = 0;
+      void recover("Required owning native paint timed out after 1500 ms").catch(reportFailure);
+    }, 1500);
+    nativeHost().requestPaint();
+  }
+  function retire(composition: Composition) {
+    if (!queue || !compositions.has(composition) || retiring.has(composition)) return;
+    retiring.add(composition);
+    unregisterEffectRenderer(composition.renderer);
+    resources.pendingCleanups++;
+    const finish = () => {
+      retiring.delete(composition);
+      resources.pendingCleanups--;
+      if (!compositions.delete(composition)) return;
+      disposeEffectRenderer(composition.renderer); resources.renderers--;
+      disposeEffectWrapper(composition.effect); resources.effects--;
+      for (const texture of composition.textures) if (![...compositions].some(other => other.textures.includes(texture))) {
+        if (textures.delete(texture)) { releaseTexture(texture); resources.textures--; }
+      }
+      metrics.fenceCount++;
+    };
+    const lost = observer!.lost;
+    const fence = Promise.race([queue.onSubmittedWorkDone(), lost.then(() => undefined)]).then(finish).catch(error => {
+      // A rejected queue promise is not permission to destroy healthy resources.
+      console.error("CanvasSPA successor retirement fence failed; retaining resources", error);
+      return lost.then(finish);
+    }).finally(() => { retirements.delete(fence); });
+    retirements.add(fence);
+  }
+  function reconcile() {
+    if (!engine || mode !== "gpu" && mode !== "admitting" || lostInfo) return;
+    membershipPending = false;
+    current = options.layers();
+    const ids = new Set(current.map(layer => layer.id));
+    for (const id of logicalSlots.keys()) if (!ids.has(id)) logicalSlots.delete(id);
+    for (const layer of current) if (!logicalSlots.has(layer.id)) logicalSlots.set(layer.id, ++slotSerial);
+    publicationGeneration++;
+    geometry();
+    const size = options.size();
+    const budget = options.budgets ?? { layers: 8, pixels: 2_000_000 };
+    if (current.length > budget.layers || ids.size !== current.length) throw new Error("Layer-count/identity budget exceeded");
+    const extents = current.map(spec => {
+      const extent = required(spec, size);
+      if (!extent.width || !extent.height || ![extent.pixelWidth, extent.pixelHeight].every(value => Number.isFinite(value) && value > 0 && value <= observer!.maxTextureDimension2D)) {
+        throw new Error(`Invalid native capture grid: ${spec.id}`);
+      }
+      return extent;
+    });
+    const outputWidth = Math.round(size.width * size.dpr), outputHeight = Math.round(size.height * size.dpr);
+    if (extents.reduce((sum, extent) => sum + extent.pixelWidth * extent.pixelHeight, 0) > budget.pixels * size.dpr * size.dpr) throw new Error("Captured-pixel safety budget exceeded");
+    if (![size.width, size.height, size.dpr].every(value => Number.isFinite(value) && value > 0)
+      || Math.max(outputWidth, outputHeight) > observer!.maxTextureDimension2D
+      || outputWidth * outputHeight > budget.pixels * 4) throw new Error("GPU output size/device budget exceeded");
+    let pixels = 0;
+    const next = current.map((spec, index) => {
+      const extent = extents[index]!;
+      if (!extent.width || !extent.height || ![extent.pixelWidth, extent.pixelHeight].every(value => Number.isFinite(value) && value > 0 && value <= observer!.maxTextureDimension2D)) {
+        throw new Error(`Invalid native capture grid: ${spec.id}`);
+      }
+      pixels += extent.pixelWidth * extent.pixelHeight;
+      const retained = (pending?.layers ?? layers).find(layer => layer.id === spec.id
+        && layer.coverage.slot === logicalSlots.get(spec.id)
+        && layer.texture.texture.width >= extent.pixelWidth && layer.texture.texture.height >= extent.pixelHeight);
+      const canvas = document.createElement("canvas");
+      canvas.width = extent.width; canvas.height = extent.height;
+      if (retained) return { ...retained, ...spec, canvas };
+      const texture = createDynamicTexture(engine!, extent.pixelWidth, extent.pixelHeight, { minFilter: "nearest", magFilter: "nearest" });
+      textures.add(texture); resources.textures++;
+      return { ...spec, canvas, texture,
+        coverage: { slot: logicalSlots.get(spec.id)!, capturedSlot: -1, width: 0, height: 0, pixelWidth: 0, pixelHeight: 0 },
+        contentExtent: { width: 0, height: 0, pixelWidth: 0, pixelHeight: 0 } };
+    });
+    if (pixels > budget.pixels * size.dpr * size.dpr) throw new Error("Captured-pixel safety budget exceeded");
+    if (![size.width, size.height, size.dpr].every(value => Number.isFinite(value) && value > 0)
+      || Math.max(outputWidth, outputHeight) > observer!.maxTextureDimension2D
+      || outputWidth * outputHeight > budget.pixels * 4) throw new Error("GPU output size/device budget exceeded");
+    for (const spec of current) metrics.perLayer[spec.id] ??= { captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0 };
+    const compatibleBindings = active && next.length <= active.capacity && next.every(layer => {
+      const definition = layer.effects?.().find(value => value.kind === "custom")?.definition;
+      return active!.textures.includes(layer.texture) && (!definition || active!.custom.includes(definition));
+    });
+    if (compatibleBindings && !pending && output.width === outputWidth && output.height === outputHeight && complete(next)) {
+      // Keep the validated pipeline's capacity; unused lanes have zero extent.
+      // Retain all of its bound textures until its submitted work is fenced.
+      next.forEach((layer, index) => setEffectTexture(active!.effect, `layer${index}`, layer.texture));
+      registerEffectRenderer(active!.renderer);
+      layers = next; active!.layers = next;
+      admittedCustom = next.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
+      draw(); queueCapture(); return;
+    }
+    const previous = pending;
+    const custom = next.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
+    const shader = compositionShader(next.length, custom);
+    const device = configuredDevice(output);
+    const compileStarted = performance.now();
+    let compilation: Promise<void> = Promise.resolve();
+    device.pushErrorScope("validation");
+    let nextEffect: EffectWrapper | undefined, nextRenderer: ReturnType<typeof createEffectRenderer> | undefined;
+    try {
+      if (custom.some(Boolean)) {
+        metrics.effectShaderCompilations++;
+        const module = device.createShaderModule({ code: `struct EffectVertexOutput { @builtin(position) position: vec4f, @location(0) uv: vec2f }; ${shader.fragmentWGSL}` });
+        compilation = module.getCompilationInfo().then(info => {
+          const errors = info.messages.filter(message => message.type === "error");
+          if (errors.length) throw new Error(`Application effect compilation failed: ${errors.map(message => `${message.lineNum}:${message.linePos} ${message.message}`).join("; ")}`);
+        }).finally(() => {
+          options.onMeasure?.({ kind: "effectCompileMs", at: performance.now(), durationMs: performance.now() - compileStarted, phase: "admission" });
+        });
+      }
+      nextEffect = createEffectWrapper(engine, { name: `native-successor-${publicationGeneration}`, ...shader });
+      resources.effects++;
+      next.forEach((layer, index) => setEffectTexture(nextEffect!, `layer${index}`, layer.texture));
+      nextRenderer = createEffectRenderer(engine.surfaces[0], nextEffect);
+      resources.renderers++;
+      // Public registration prepares pipelines/bindings, without a submitted frame.
+      registerEffectRenderer(nextRenderer); unregisterEffectRenderer(nextRenderer);
+    } catch (error) {
+      // No commands were submitted by preparation, so these bindings are idle.
+      if (nextRenderer) { disposeEffectRenderer(nextRenderer); resources.renderers--; }
+      if (nextEffect) { disposeEffectWrapper(nextEffect); resources.effects--; }
+      void compilation.catch(reportFailure);
+      void device.popErrorScope().catch(reportFailure);
+      throw error;
+    }
+    const successor = { layers: next, textures: next.map(layer => layer.texture), custom, capacity: next.length,
+      effect: nextEffect, renderer: nextRenderer, ready: false, size };
+    pending = successor; compositions.add(successor);
+    if (previous) retire(previous);
+    const publishCached = () => {
+      if (!complete(next) || output.width !== outputWidth || output.height !== outputHeight) return false;
+      const previousActive = active;
+      if (renderer && registered) unregisterEffectRenderer(renderer);
+      layers = next; effect = nextEffect; renderer = nextRenderer;
+      registerEffectRenderer(renderer); registered = true;
+      successor.ready = true; active = successor; pending = undefined;
+      admittedCustom = custom;
+      draw();
+      if (previousActive) retire(previousActive);
+      queueCapture();
+      return true;
+    };
+    let preparationTimer: ReturnType<typeof setTimeout>;
+    const preparationTimeout = new Promise<never>((_, reject) => {
+      preparationTimer = setTimeout(() => reject(new Error("Successor composition preparation timed out after 1500 ms")), 1500);
+    });
+    const prepared = Promise.race([Promise.all([device.popErrorScope(), compilation]), preparationTimeout]).then(([error]) => {
+      if (error) throw new Error(`Successor composition preparation failed: ${error.message}`);
+      if (pending === successor && mode !== "dom" && mode !== "disposed") {
+        successor.ready = true;
+        if (!publishCached()) requestPaint();
+      }
+    }).catch(error => {
+      console.error(error);
+      if (pending === successor || active === successor) void recover(`GPU successor failure: ${String(error)}`).catch(reportFailure);
+    })
+      .finally(() => { clearTimeout(preparationTimer); if (preparation === prepared) preparation = undefined; });
+    preparation = prepared;
+  }
+  function publishPaint() {
+    clearTimeout(paintTimer); paintRequested = false; resources.paintWaits = 0;
+    if (!engine || !queue || lostInfo || options.isPaused?.() || mode !== "gpu" && mode !== "admitting") return;
+    if (pending && !pending.ready) { requestPaint(); return; }
+    const successor = pending ?? active;
+    if (!successor) return;
+    const grids = successor.layers.map(layer => {
+      const native = nativeHost().getElementImageDefaultSize(layer.element);
+      nativeGrids.set(layer.element, { width: layer.element.offsetWidth, height: layer.element.offsetHeight,
+        dpr: options.size().dpr, pixelWidth: native.width, pixelHeight: native.height });
+      return native;
+    });
+    if (successor.layers.some((layer, index) => grids[index]!.width > layer.texture.texture.width
+      || grids[index]!.height > layer.texture.texture.height)) {
+      queueMicrotask(() => {
+        try { reconcile(); requestPaint(); }
+        catch (error) { void recover(`Native successor preparation failed: ${String(error)}`).catch(reportFailure); }
+      });
+      return;
+    }
+    const device = configuredDevice(output);
+    device.pushErrorScope("validation");
+    try {
+      geometry();
+      const width = Math.round(successor.size.width * successor.size.dpr), height = Math.round(successor.size.height * successor.size.dpr);
+      for (const [index, layer] of successor.layers.entries()) {
+        const native = grids[index]!;
+        const started = performance.now();
+        queue.drawElementImageToTexture({ source: layer.element }, { texture: layer.texture.texture });
+        const contentExtent = { width: layer.element.offsetWidth, height: layer.element.offsetHeight,
+          pixelWidth: native.width, pixelHeight: native.height };
+        layer.contentExtent = contentExtent;
+        layer.coverage = { ...contentExtent, slot: layer.coverage.slot, capturedSlot: layer.coverage.slot };
+        metrics.captures++; metrics.uploads++;
+        metrics.perLayer[layer.id]!.captures++; metrics.perLayer[layer.id]!.uploads++;
+        metrics.uploadBytes += native.width * native.height * 4;
+        recordTiming("captureMs", performance.now() - started, layer.id, native.width * native.height * 4);
+        recordTiming("uploadMs", performance.now() - started, layer.id, native.width * native.height * 4);
+      }
+      if (!complete(successor.layers)) {
+        // Layout/DPR can advance between preparation and the next paint. Keep
+        // the prior complete output and prepare the newly observed generation.
+        queueMicrotask(() => {
+          try { reconcile(); requestPaint(); }
+          catch (error) { void recover(`Native successor preparation failed: ${String(error)}`).catch(reportFailure); }
+        });
+        return;
+      }
+      const resized = output.width !== width || output.height !== height;
+      if (resized) setEngineSize(engine, width, height);
+      const previous = active;
+      if (pending) {
+        if (renderer && registered) unregisterEffectRenderer(renderer);
+        layers = successor.layers; effect = successor.effect; renderer = successor.renderer;
+        registerEffectRenderer(renderer); registered = true;
+        active = successor; pending = undefined;
+        admittedCustom = layers.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
+      }
+      dirty.clear();
+      draw();
+      if (resized) requestPaint();
+      if (previous && previous !== successor) retire(previous);
+    } finally {
+      void device.popErrorScope().then(error => {
+        if (error) { console.error(error.message); void recover(`Native upload/composition validation failed: ${error.message}`).catch(reportFailure); }
+      }).catch(reportFailure);
     }
   }
     async function createComposition(name: string) {
@@ -454,12 +678,13 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       resources.probeElements += 2;
       const canvas = document.createElement("canvas");
       canvas.width = canvas.height = probe.extent;
-      const context = canvas.getContext("2d");
-      const owner = host.getContext("2d");
-      if (!context || !owner || !isDrawableContext(owner)) throw new Error("Functional capture contexts unavailable");
-      const texture = createDynamicTexture(engine, probe.extent, probe.extent, { minFilter: "nearest", magFilter: "nearest" });
-      layers.push({ id: "admission-probe", element: probe.element, matrix: () => probe!.matrix, opacity: () => 1, canvas, context, texture });
-      resources.stagingCanvases++;
+      const grid = { width: Math.ceil(probe.extent * options.size().dpr), height: Math.ceil(probe.extent * options.size().dpr) };
+      const texture = createDynamicTexture(engine, Math.ceil(grid.width), Math.ceil(grid.height), { minFilter: "nearest", magFilter: "nearest" });
+      const contentExtent = { width: probe.extent, height: probe.extent, pixelWidth: grid.width, pixelHeight: grid.height };
+      const probeLayer = { id: "admission-probe", element: probe.element, matrix: () => probe!.matrix, clip: () => probe!.clip, opacity: () => 1, canvas, texture,
+        contentExtent, coverage: { ...contentExtent, slot: 0, capturedSlot: 0 } };
+      layers.push(probeLayer);
+      textures.add(texture);
       resources.textures++;
       await createComposition("native-functional-admission");
       const abort = new AbortController();
@@ -467,27 +692,37 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       const deadline = setTimeout(() => abort.abort(new Error("Functional admission timed out after 1500 ms")), 1500);
       try {
         resources.paintWaits++;
-        try { await waitForPaint(nativeHost(), 1500, abort.signal); }
+        try {
+          await new Promise<void>((resolve, reject) => {
+            const capture = () => {
+              cleanup();
+              try {
+                const actual = nativeHost().getElementImageDefaultSize(probe!.element);
+                if (actual.width > texture.texture.width || actual.height > texture.texture.height) throw new Error("Functional probe native grid exceeds prepared texture");
+                probeLayer.contentExtent = { width: probe!.extent, height: probe!.extent, pixelWidth: actual.width, pixelHeight: actual.height };
+                queue!.drawElementImageToTexture({ source: probe!.element }, { texture: texture.texture });
+                metrics.admission.captures++; metrics.admission.uploads++;
+                setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr));
+                renderFrame(engine!, 16.67);
+                resolve();
+              } catch (error) { reject(error); }
+            };
+            const cancel = () => { cleanup(); reject(abort.signal.reason); };
+            const cleanup = () => {
+              host.removeEventListener("paint", capture);
+              abort.signal.removeEventListener("abort", cancel);
+            };
+            host.addEventListener("paint", capture, { once: true });
+            abort.signal.addEventListener("abort", cancel, { once: true });
+            nativeHost().requestPaint();
+          });
+        }
         finally { resources.paintWaits--; }
         abort.signal.throwIfAborted();
-        const snapshot = nativeHost().captureElementImage(probe.element);
-        metrics.admission.captures++;
-        resources.snapshots++;
-        try {
-          owner.clearRect(0, 0, host.width, host.height);
-          owner.drawElementImage(snapshot, 0, 0, { preserveElementGeometry: true });
-          context.drawImage(host, 0, 0, probe.extent, probe.extent, 0, 0, probe.extent, probe.extent);
-          metrics.admission.pixelCopies++;
-        } finally { snapshot.close(); resources.snapshots--; owner.clearRect(0, 0, host.width, host.height); }
         await Promise.resolve();
         abort.signal.throwIfAborted();
-        const nativePixels = probe.points.map(point => Array.from(context.getImageData(point.x, point.y, 1, 1).data));
-        metrics.admission.pixelReadbacks++;
-        verifyProbePixels(nativePixels, "native");
         const geometryResult = verifyProbeGeometry(nativeHost(), probe);
         metrics.admission.geometryChecks++;
-        updateDynamicTexture(engine, texture, canvas, { invertY: false, premultiplyAlpha: false });
-        metrics.admission.uploads++;
         setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr, 0, 0));
         const readback = captureScreenshot(engine.surfaces[0]);
         const pending = { active: true, completion: Promise.resolve() };
@@ -527,7 +762,13 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
           return Array.from(screenshot.data.subarray(offset, offset + 4));
         });
         verifyProbePixels(gpuPixels, "GPU");
-        metrics.admission.last = { nativePixels, gpuPixels, geometry: geometryResult };
+        const clipped = probe.matrix.transformPoint({ x: probe.extent * 0.9, y: probe.extent / 2 });
+        const clippedOffset = (Math.floor(clipped.y * dpr) * screenshot.width + Math.floor(clipped.x * dpr)) * 4;
+        const clippedPixel = Array.from(screenshot.data.subarray(clippedOffset, clippedOffset + 4));
+        if (clippedPixel.length !== 4 || clippedPixel.some(value => Math.abs(value - 255) > 2)) {
+          throw new Error("Functional GPU viewport clip probe failed");
+        }
+        metrics.admission.last = { nativePixels: [], gpuPixels, geometry: geometryResult };
         const { outcome } = await waitForTeardown(engine, observer?.lost, 1500, pending.completion);
         sample(metrics.fenceOutcomes, outcome);
         metrics.fenceCount++;
@@ -535,7 +776,11 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         nativeHost().clearElementGeometry(probe.element);
         validateAppliedGeometry(nativeHost(), probe.element, new DOMMatrix());
         releaseProbe();
-        releaseComposition();
+        if (renderer) { disposeEffectRenderer(renderer); resources.renderers--; renderer = undefined; }
+        if (effect) { disposeEffectWrapper(effect); resources.effects--; effect = undefined; }
+        registered = false;
+        releaseTexture(texture); textures.delete(texture); resources.textures--;
+        layers = [];
         probeReadback = undefined;
         metrics.admission.passes++;
       } finally {
@@ -563,9 +808,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       const budget = options.budgets ?? { layers: 8, pixels: 2_000_000 };
       const size = options.size();
       if (![size.width, size.height, size.dpr].every(value => Number.isFinite(value) && value > 0)) throw new Error("Invalid surface dimensions/DPR");
-      const capability = capabilities(host);
+      const capability = capabilities(output);
       if (!isDrawableCanvas(host)) throw new Error(capability.missing.join("; "));
       drawable = host;
+      enableDrawable(nativeHost());
       boundary.assertMovable();
       if (!navigator.gpu) throw new Error("WebGPU unavailable");
       resources.pendingEngines++;
@@ -578,6 +824,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       engine = await Promise.race([pending, new Promise<never>((_, reject) => { timer = setTimeout(() => { abandoned = true; reject(new Error("WebGPU initialization timed out after 5000 ms; late engine will be disposed")); }, 5000); })]);
       clearTimeout(timer);
       if (!engine) throw new Error("Engine admission was abandoned");
+      const deviceQueue = configuredDevice(output).queue;
+      if (!isDrawableQueue(deviceQueue)) throw new Error("Current public GPUQueue.drawElementImageToTexture unavailable; WebGL2 direct capture remains unqualified");
+      queue = deviceQueue;
       if (intent !== admissionIntent) throw new Error("Admission cancelled during engine initialization");
       if (admissionCancellation) throw new Error(admissionCancellation);
       lostInfo = undefined;
@@ -592,7 +841,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         reason = `GPU device lost (${info.reason}): ${info.message}`;
         status();
         void serialize(async () => {
-          if (engine === admittedEngine && !resources.pendingCleanups) await recoverToDOM(`GPU device lost (${info.reason}): ${info.message}; original root recovered to ordinary DOM.`);
+          if (engine === admittedEngine && !terminalCleanupPending) await recoverToDOM(`GPU device lost (${info.reason}): ${info.message}; original root recovered to ordinary DOM.`);
         }).catch(reportFailure);
       });
       resources.lossObservers++;
@@ -608,10 +857,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         throw new Error("GPU output exceeds the configured device limit or output-pixel safety budget");
       }
       setEngineSize(engine, Math.round(size.width * size.dpr), Math.round(size.height * size.dpr));
-      host.width = Math.ceil(size.width);
-      host.height = Math.ceil(size.height);
-      enableDrawable(nativeHost());
       host.hidden = false;
+      output.style.setProperty("pointer-events", "auto");
       if (boundary.moveToCapture()) metrics.moves++;
       options.presentation?.("gpu");
       ordinary.hidden = true;
@@ -622,39 +869,12 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       await functionalAdmission();
       const assertCurrentAdmission = () => {
         if (intent !== admissionIntent) throw new Error("Admission cancelled by explicit disable/disposal");
-        const current = options.layers();
-        if (current.length !== enrolled.length || current.some((layer, index) =>
-          layer.id !== enrolled[index]!.id || layer.element !== enrolled[index]!.element)) throw new Error("Enrollment changed during admission; fresh admission required");
-        const currentSize = options.size();
-        if (currentSize.width !== size.width || currentSize.height !== size.height || currentSize.dpr !== size.dpr) throw new Error("Surface dimensions/DPR changed during admission");
-        if (layers.some(layer => layer.canvas.width !== layer.element.offsetWidth || layer.canvas.height !== layer.element.offsetHeight)) {
-          throw new Error("Enrolled capture dimensions changed during admission");
-        }
         if (generation !== admissionGeneration || mode !== "admitting") throw new Error(`Admission generation retired; fresh admission required: ${reason}`);
         const currentPolicy = options.policy?.();
         if (currentPolicy) throw new Error(currentPolicy);
       };
       assertCurrentAdmission();
-      let pixels = 0;
-      for (const spec of enrolled) {
-        const { element, id } = spec;
-        const canvas = document.createElement("canvas");
-        canvas.width = element.offsetWidth;
-        canvas.height = element.offsetHeight;
-        if (!canvas.width || !canvas.height) throw new Error(`Zero-sized layer: ${id}`);
-        if (canvas.width > host.width || canvas.height > host.height) throw new Error(`Layer exceeds owning capture bitmap: ${id}`);
-        pixels += canvas.width * canvas.height;
-        if (pixels > budget.pixels) throw new Error("Captured-pixel admission budget exceeded");
-        const context = canvas.getContext("2d");
-        if (!context) throw new Error("Pixel staging context unavailable");
-        const texture = createDynamicTexture(engine, canvas.width, canvas.height, { minFilter: "nearest", magFilter: "nearest" });
-        layers.push({ ...spec, canvas, context, texture });
-        metrics.perLayer[id] ??= { captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0 };
-        dirty.add(id);
-        resources.stagingCanvases++;
-        resources.textures++;
-      }
-      await createComposition("native-react-layers");
+      reconcile();
       await captureLayers();
       assertCurrentAdmission();
       if (options.isPaused?.()) throw new Error("GPU admission requires a visible surface");
@@ -671,7 +891,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (lostInfo) throw new Error("GPU device lost before admission completed");
       mode = "gpu";
       output.hidden = false;
-      reason = "Native snapshots -> owning 2D canvas -> pixel-only staging canvases -> public Lite textures -> shared shader composition.";
+      reason = "Current content=drawable owning WebGPU canvas; synchronous native-paint direct public textures; complete same-root GPU successors.";
     } catch (error) {
       abandoned = true;
       await recoverToDOM(admissionCancellation ?? (lostInfo
@@ -683,7 +903,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   }
   async function disable() {
     if (mode === "disposed") return state();
-    if (resources.pendingCleanups) return state();
+    if (terminalCleanupPending) return state();
     await settle();
     await recoverToDOM("Explicit disable: original controls and React root retained in ordinary DOM.");
     return state();
@@ -722,8 +942,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     boundary.dispose();
     resources.roots--;
     for (const remove of removers.splice(0)) remove();
-    host.width = host.height = output.width = output.height = 0;
-    host.remove();
+    options.captureHost.width = options.captureHost.height = output.width = output.height = 0;
+    options.captureHost.remove();
     output.remove();
     resources.captureCanvases = resources.outputCanvases = 0;
     mode = "disposed";
@@ -736,17 +956,21 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     if (initializing) admissionCancellation = message;
     presentDOM(message);
     return serialize(async () => {
-      if (mode !== "disposed" && engine && !resources.pendingCleanups) await recoverToDOM(message);
+      if (mode !== "disposed" && engine && !terminalCleanupPending) await recoverToDOM(message);
     });
   }
   listen(host, "paint", event => {
+    if (!active && !pending) return;
     const policy = options.policy?.();
     if (policy) { void recover(policy).catch(reportFailure); return; }
     const changed: unknown = Reflect.get(event, "changedElements");
     metrics.paintNotifications++;
     if (Array.isArray(changed)) sample(metrics.paintElements, changed.map(element => element instanceof Element ? element.id || element.tagName : String(element)));
-    if (!Array.isArray(changed) || changed.some(element => !(element instanceof Element))) queueCapture();
-    else for (const element of changed) if (container.contains(element)) queueCapture(element);
+    try { publishPaint(); }
+    catch (error) {
+      console.error("CanvasSPA synchronous native publication failed", error);
+      void recover(`Native publication failed: ${String(error)}`).catch(reportFailure);
+    }
   });
   listen(container, "input", queueCapture);
   listen(container, "focusin", queueCapture);
@@ -768,11 +992,14 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       cancelAdmission("Runtime disposed: pending admission cancelled.");
       return serialize(dispose);
     }, invalidate: queueCapture, draw,
+    reconcile,
+    reconcileGeometry: () => { membershipPending = true; current = options.layers(); geometry(); },
     acceptsCustom: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)] === definition,
     phase: () => mode, version: () => generation, resume: scheduleCapture,
     pause: () => {
       if (scheduled) { cancelAnimationFrame(scheduled); scheduled = 0; resources.scheduledFrames--; }
       captureAbort?.abort(new DOMException("Native paint paused while hidden", "AbortError"));
+      clearTimeout(paintTimer); paintRequested = false; resources.paintWaits = 0;
     },
     recover,
   };

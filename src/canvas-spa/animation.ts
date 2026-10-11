@@ -29,7 +29,9 @@ export class DeclarationOwnership {
   write(name: typeof properties[number], value: string, priority = "") {
     this.inspect();
     if (this.relinquished.has(name)) return;
-    this.element.style.setProperty(name, value, priority);
+    if (this.element.style.getPropertyValue(name) !== value || this.element.style.getPropertyPriority(name) !== priority) {
+      this.element.style.setProperty(name, value, priority);
+    }
     this.written.set(name, { value: this.element.style.getPropertyValue(name), priority: this.element.style.getPropertyPriority(name) });
   }
   restore() {
