@@ -25,7 +25,7 @@ SVG or browser effect is incapable of a similar appearance.
 
 ## Integration and ownership
 
-`src/apps/todo/model.ts` contains the pure reducer; `TodoApp.tsx` authors numeric
+`examples/playground/src/apps/todo/model.ts` contains the pure reducer; `TodoApp.tsx` authors numeric
 `Surface`/`Box` layout and appearance through the public API; `transition.ts`
 owns one timeout and calls public `setRipple`. No application handwritten CSS
 or direct engine/native-capture calls are needed. The browser still performs
@@ -50,7 +50,7 @@ the previous adapter before creating a new root and intentionally resets tasks.
 Disposal releases the timer, shell listeners and runtime/core ledgers.
 
 Profiling, deterministic holds/clock advancement and fault injection are
-separate in `src/demo/todo-demo.tsx`, `todo-probe.ts` and browser tests.
+separate in `examples/playground/src/demo/todo-demo.tsx`, `todo-probe.ts` and browser tests.
 `window.todoProbe` is a diagnostic facade, not an application API.
 
 ## Findings and limits

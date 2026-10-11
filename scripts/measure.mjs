@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
-import { evidenceDirectory } from "../tests/evidence.mjs";
+import { evidenceDirectory } from "../tests/helpers/evidence.mjs";
 import { taskPixelLatency } from "./interaction-contract.mjs";
 
 const smoke = process.argv.includes("--smoke");

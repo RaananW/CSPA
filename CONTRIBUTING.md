@@ -1,5 +1,22 @@
 # Contributing to CanvasSPA
 
+## Workspace ownership
+
+`packages/canvas-spa/package.json` is the only release manifest; keep library
+source independent of playground/tests. The private root owns tools and stable
+scripts, while `examples/playground` owns app dependencies, HTML and Vite/TS
+configuration. Use root `npm run build:library`, `npm run build`,
+`npm run test:unit`, `npm run test:browser` and `npm run pack:library`.
+Browser selectors now live under `tests/browser`; units and shared helpers
+live under `tests/unit` and `tests/helpers`. All ten canonical page URLs remain
+unchanged under the playground-root dev server. The root Vite shim preserves
+existing checkout entrypoints; do not replace a retained server during validation.
+Package prepack copies canonical `docs/distribution.md` into generated ignored
+package docs; the package owns its standalone README. Playground and library
+build outputs are separate. Exact React18 provisioning uses
+`fixtures/react18/package-lock.json`, never the default React19 workspace peer.
+Historical seals and verdicts retain their old-layout meaning.
+
 ## GPU-first requirement
 
 Every human and agent working on CanvasSPA must follow the
@@ -208,7 +225,7 @@ The TODO pilot adds two reducer units and seven browser cases. Its 300-frame
 measurement deliberately holds a real action-triggered effect through a
 diagnostic facade; a separate subsequent action must finish naturally after
 900ms. Keep that distinction explicit. Application code belongs in
-`src/apps/todo/`; profiling, deterministic clocks and fault injection do not.
+`examples/playground/src/apps/todo/`; profiling, deterministic clocks and fault injection do not.
 Phase7 adds fifteen browser cases, including actual nonidentity native input
 hits, enter/exit pixels, interrupted exits, shared epochs/stagger, later authored
 declarations, parent unmount, real HMR and diagnostic public device loss. Its
@@ -277,8 +294,8 @@ closes its own randomly allocated strict-port previews and browser profiles.
 Its actual npm-installed tarball consumers have no workspace/source aliases,
 matching declared React/types, strict Bundler/NodeNext declarations and
 flagged/unflagged production native/GPU pixel checks. Prepack builds only
-`dist/library`; demo builds still use `dist/` and may replace that generated
-library directory. Packing rebuilds it. No generated output belongs in Git.
+`packages/canvas-spa/dist/library`; playground builds use
+`examples/playground/dist/` and cannot replace library output. No generated output belongs in Git.
 Curated versioned verdicts are read-only. Raw historical evidence is externally
 archived, not available in the current checkout; never reconstruct or regenerate
 it as though it were the original. The permanent

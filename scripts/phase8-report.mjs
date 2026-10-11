@@ -2,7 +2,7 @@ import { readFile, readdir, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
-import { validateEvidenceRoot } from "../tests/evidence.mjs";
+import { validateEvidenceRoot } from "../tests/helpers/evidence.mjs";
 
 const root = "evidence/phase8";
 validateEvidenceRoot(root);
@@ -17,7 +17,8 @@ async function hashSource(directory) {
     else source.update(path.slice(resolve(".").length)).update(await readFile(path));
   }
 }
-await hashSource(resolve("src"));
+await hashSource(resolve("examples/playground/src"));
+await hashSource(resolve("packages/canvas-spa/src"));
 const sourceSha256 = source.digest("hex");
 const lockSha256 = digest(await readFile("package-lock.json"));
 const paths = execFileSync("git", ["ls-tree", "-r", "--name-only", baseline, "evidence"], { encoding: "utf8" }).trim().split("\n");

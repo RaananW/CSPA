@@ -4,7 +4,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
-import { evidenceDirectory } from "../tests/evidence.mjs";
+import { evidenceDirectory } from "../tests/helpers/evidence.mjs";
 import { taskPixelLatency } from "./interaction-contract.mjs";
 
 const build = resolve(process.env.CANVAS_MEASURE_BUILD ?? ".");

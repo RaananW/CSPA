@@ -4,7 +4,7 @@
 external local archive, not files in this checkout. Only compact verdicts
 remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
 
-The intentional source entry point is `src/canvas-spa/index.ts`. This private
+The intentional source entry point is `packages/canvas-spa/src/index.ts`. This private
 experimental package has no published package name or stability promise.
 Do not import demo facades or internal renderer classes into application code.
 The private prepared tarball now exports the same API at
@@ -13,7 +13,7 @@ limits. See [distribution](distribution.md) for actual install commands,
 host CSS, public dependency/type boundaries and the bounded browser contract.
 
 For an actual bounded application using these exports, see the
-[TODO pilot](todo-pilot.md) and `src/apps/todo/`. Its numeric layout/appearance
+[TODO pilot](todo-pilot.md) and `examples/playground/src/apps/todo/`. Its numeric layout/appearance
 compile to browser CSS; real task events invoke public `setRipple` on a separate
 decorative surface. No additional TODO-specific renderer API is introduced.
 The [Phase13 task workspace](task-workspace.md) extends that original application

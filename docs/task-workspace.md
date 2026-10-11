@@ -9,7 +9,7 @@ core acceptance records remain historical, immutable evidence.
 
 ## One authored application
 
-`src/apps/todo/model.ts` owns one reducer and one original React control tree.
+`examples/playground/src/apps/todo/model.ts` owns one reducer and one original React control tree.
 The local workflow supports at most six tasks, 32-character titles/search and
 480-character notes. Search and completion filters combine; filtering a task
 does not silently discard its selected details. The list and detail editor

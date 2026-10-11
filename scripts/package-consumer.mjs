@@ -1,29 +1,33 @@
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { cp, mkdir, readFile, writeFile, lstat, readdir, symlink } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile, lstat, readdir } from "node:fs/promises";
 import { resolve, join, dirname } from "node:path";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { get } from "node:http";
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
-import { evidenceRoot, validateEvidenceRoot } from "../tests/evidence.mjs";
+import { evidenceRoot, validateEvidenceRoot } from "../tests/helpers/evidence.mjs";
 import { packageFiles, validatePackageContents } from "./package-policy.mjs";
 import { curatedEvidence } from "./check-evidence.mjs";
 import { interactionContract, dynamicContract } from "./interaction-contract.mjs";
 import { todoContract } from "./todo-contract.mjs";
+import { copyDependencies } from "./release-policy.mjs";
 
 const root = resolve(".");
 const reuseDependencies = process.argv.includes("--reuse-dependencies");
 const todoCase = process.argv.includes("--todo-case");
 const primary = JSON.parse(await readFile("package.json", "utf8"));
+const playground = JSON.parse(await readFile("examples/playground/package.json", "utf8"));
+const library = resolve("packages/canvas-spa");
+const releasePackage = JSON.parse(await readFile(join(library, "package.json"), "utf8"));
 const react18 = JSON.parse(await readFile("fixtures/react18/package.json", "utf8"));
 const env = { ...process.env, npm_config_userconfig: "/dev/null", npm_config_registry: "https://registry.npmjs.org" };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 async function fingerprints() {
-  const paths = ["package.json", "package-lock.json", "fixtures/react18/package.json", "fixtures/react18/package-lock.json",
-    "tsconfig.library.json", "vite.library.config.ts", ...curatedEvidence];
+  const paths = ["package.json", "packages/canvas-spa/package.json", "packages/canvas-spa/README.md", "package-lock.json", "fixtures/react18/package.json", "fixtures/react18/package-lock.json",
+    "packages/canvas-spa/tsconfig.json", "packages/canvas-spa/vite.config.ts", ...curatedEvidence];
   async function visit(directory) {
     for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       if (entry.name === "workspaces") continue;
@@ -32,7 +36,7 @@ async function fingerprints() {
       else paths.push(path);
     }
   }
-  await visit("src");
+  await visit("packages/canvas-spa/src"); await visit("examples/playground/src");
   await visit("fixtures/package-consumer");
   return Object.fromEntries(await Promise.all(paths.map(async path => [path, hash(await readFile(path))])));
 }
@@ -272,8 +276,8 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
 }
 
 try {
-  const dry = packResult(await run("npm", ["pack", "--dry-run", "--json"], root, "pack-dry"));
-  const packed = packResult(await run("npm", ["pack", "--json", "--pack-destination", workspace], root, "pack-actual"));
+  const dry = packResult(await run("npm", ["pack", "--dry-run", "--json"], library, "pack-dry"));
+  const packed = packResult(await run("npm", ["pack", "--json", "--pack-destination", workspace], library, "pack-actual"));
   validatePackageContents(dry.files);
   validatePackageContents(packed.files);
   assert.deepEqual(dry.files, packed.files);
@@ -289,50 +293,38 @@ try {
     for (const file of ["index.html", "main.tsx", "public-types.ts", "tsconfig.json"]) await cp(`fixtures/package-consumer/${file}`, join(cwd, file));
     if (todoCase) {
       await cp("fixtures/package-consumer/todo-main.tsx", join(cwd, "main.tsx"));
-      await writeFile(join(cwd, "index.html"), (await readFile("todo.html", "utf8")).replace("/src/demo/todo-demo.tsx", "/main.tsx"));
+      await writeFile(join(cwd, "index.html"), (await readFile("examples/playground/todo.html", "utf8")).replace("/src/demo/todo-demo.tsx", "/main.tsx"));
       await mkdir(join(cwd, "task"));
       for (const file of ["TodoApp.tsx", "model.ts", "transition.ts", "diagnostics.ts", "todo.css"]) {
-        const authored = await readFile(`src/apps/todo/${file}`, "utf8");
-        await writeFile(join(cwd, "task", file), authored.replaceAll('"../../canvas-spa"', '"canvas-spa-phase-one"')
+        const authored = await readFile(`examples/playground/src/apps/todo/${file}`, "utf8");
+        await writeFile(join(cwd, "task", file), authored
           .replaceAll('"./model"', '"./model.js"').replaceAll('"./TodoApp"', '"./TodoApp.js"'));
       }
     }
     const versions = major === 18 ? react18 : { dependencies: primary.devDependencies, devDependencies: primary.devDependencies };
     const manifest = { name: `canvas-spa-installed-react${major}-consumer`, version: "0.0.0", private: true, type: "module",
-      dependencies: { [primary.name]: `file:${tarball}`, react: versions.dependencies.react, "react-dom": versions.dependencies["react-dom"],
-        ...(todoCase ? { "@radix-ui/react-dialog": primary.devDependencies["@radix-ui/react-dialog"] } : {}) },
+      dependencies: { [releasePackage.name]: `file:${tarball}`, react: versions.dependencies.react, "react-dom": versions.dependencies["react-dom"],
+        ...(todoCase ? { "@radix-ui/react-dialog": playground.dependencies["@radix-ui/react-dialog"] } : {}) },
       devDependencies: { "@types/react": versions.devDependencies["@types/react"], "@types/react-dom": versions.devDependencies["@types/react-dom"],
         typescript: primary.devDependencies.typescript, vite: primary.devDependencies.vite } };
     await writeFile(join(cwd, "package.json"), JSON.stringify(manifest, null, 2));
     if (reuseDependencies) {
       const dependencyRoots = [resolve("node_modules"), ...(major === 18 ? [resolve("fixtures/react18/node_modules")] : [])];
-      const dependencies = new Map();
-      for (const directory of dependencyRoots) for (const entry of await readdir(directory)) {
-        if (entry === ".bin" || entry === ".package-lock.json") continue;
-        if (entry.startsWith("@")) {
-          for (const name of await readdir(join(directory, entry))) dependencies.set(`${entry}/${name}`, join(directory, entry, name));
-        } else dependencies.set(entry, join(directory, entry));
-      }
-      dependencies.delete(primary.name);
-      await mkdir(join(cwd, "node_modules"));
-      for (const [name, source] of dependencies) {
-        await mkdir(dirname(join(cwd, "node_modules", name)), { recursive: true });
-        await symlink(source, join(cwd, "node_modules", name));
-      }
-      const unpacked = join(cwd, "node_modules", primary.name);
+      for (const directory of dependencyRoots) await copyDependencies(directory, join(cwd, "node_modules"));
+      const unpacked = join(cwd, "node_modules", releasePackage.name);
       await mkdir(unpacked);
       execFileSync("tar", ["-xzf", tarball, "--strip-components=1", "-C", unpacked]);
       await writeFile(join(evidence, `react${major}-dependency-reuse.json`), JSON.stringify({
-        mode: "No installation; existing exact dependency resolutions, physically extracted current archive",
+        mode: "No installation; independent physical dependencies without optimizer caches, physically extracted current child-package archive",
         dependencies: dependencyRoots.map(directory => directory.slice(root.length + 1)),
       }, null, 2));
     } else await run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], cwd, `react${major}-install`);
     const require = createRequire(join(cwd, "package.json"));
-    const installed = join(cwd, "node_modules", primary.name);
+    const installed = join(cwd, "node_modules", releasePackage.name);
     assert.equal((await lstat(installed)).isSymbolicLink(), false, "Must install tarball bytes, not a workspace alias");
     for (const path of packageFiles) {
       const bytes = await readFile(join(installed, path));
-      assert.equal(hash(bytes), hash(await readFile(resolve(path))), `Installed bytes differ: ${path}`);
+      assert.equal(hash(bytes), hash(await readFile(join(library, path))), `Installed bytes differ: ${path}`);
       assert.ok(!/\/Users\/|\/private\/|session-state|react-dom\/profiling|integrationProbe|runtimeProbe/.test(bytes.toString()), `Private/demo boundary: ${path}`);
     }
     const actual = {};
@@ -340,15 +332,15 @@ try {
       ...(todoCase ? ["@radix-ui/react-dialog"] : [])]) {
       actual[name] = JSON.parse(await readFile(join(cwd, "node_modules", name, "package.json"), "utf8")).version;
     }
-    for (const [name, version] of Object.entries({ ...manifest.dependencies, ...manifest.devDependencies, ...primary.dependencies })) {
-      if (name !== primary.name) assert.equal(actual[name], version);
+    for (const [name, version] of Object.entries({ ...manifest.dependencies, ...manifest.devDependencies, ...releasePackage.dependencies })) {
+      if (name !== releasePackage.name) assert.equal(actual[name], version);
     }
     if (!reuseDependencies) await run("npm", ["ls", "--all", "--json"], cwd, `react${major}-dependency-tree`);
     const tsc = join(dirname(require.resolve("typescript/package.json")), "bin/tsc");
     await run(process.execPath, [tsc, "-p", "tsconfig.json"], cwd, `react${major}-types-bundler`);
     await run(process.execPath, [tsc, "-p", "tsconfig.json", "--module", "NodeNext", "--moduleResolution", "NodeNext"], cwd, `react${major}-types-nodenext`);
     await run(process.execPath, ["--input-type=module", "-e",
-      `const api = await import(${JSON.stringify(primary.name)}); if (typeof api.mountCanvasApp !== "function" || typeof api.defineEffect !== "function" || "CanvasRuntime" in api) throw Error("Invalid public entry"); console.log(Object.keys(api).sort());`],
+      `const api = await import(${JSON.stringify(releasePackage.name)}); if (typeof api.mountCanvasApp !== "function" || typeof api.defineEffect !== "function" || "CanvasRuntime" in api) throw Error("Invalid public entry"); console.log(Object.keys(api).sort());`],
     cwd, `react${major}-safe-import`);
     const vite = join(dirname(require.resolve("vite/package.json")), "bin/vite.js");
     await run(process.execPath, [vite, "build"], cwd, `react${major}-build`);

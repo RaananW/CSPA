@@ -80,7 +80,7 @@ Compilation uses bounded public configured-device shader diagnostics; actual sha
 pipeline validation occurs while output is hidden. Failure is diagnosed and
 recovers to DOM through the existing healthy-fence/loss lifecycle.
 
-See `src/apps/effects/color-cycle.ts` for an effect authored outside runtime
+See `examples/playground/src/apps/effects/color-cycle.ts` for an effect authored outside runtime
 modules through the public API. `/effects.html` is a native poster composer:
 form edits change original captured content, motion and effects compose on
 separate inert artwork, and native input/library overlays remain undistorted.

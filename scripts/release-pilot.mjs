@@ -49,6 +49,12 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
     }
 
     assertRequestedLane(lane, await state());
+    if (lane === "native") {
+      result.admission = (await state()).metrics.admission.last;
+      assert.deepEqual(result.admission.geometry.hits, [true, true, false]);
+      assert.equal(result.admission.gpuPixels.length, 2);
+      await record("functional-native-admission");
+    }
     await page.getByLabel("Open task 1", { exact: true }).click();
     await page.waitForFunction(() => document.activeElement?.id === "detail-title");
     await page.keyboard.press("Meta+a");
@@ -66,6 +72,55 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
       const offset = (Math.floor(440 * scale) * png.width + Math.floor(720 * scale)) * 4;
       result.owningPixel = [...png.data.subarray(offset, offset + 4)];
       assert.deepEqual(result.owningPixel, [224, 244, 232, 255]);
+      const glyphs = [];
+      for (const letter of ["W", "I"]) {
+        const title = letter.repeat(24);
+        const hit = await page.locator("#detail-title").evaluate(node => {
+          const box = node.getBoundingClientRect();
+          const x = box.x + box.width / 2, y = box.y + box.height / 2;
+          return { x, y, id: document.elementFromPoint(x, y)?.id };
+        });
+        assert.equal(hit.id, "detail-title", "Current native title geometry must hit the original control");
+        await page.mouse.click(hit.x, hit.y);
+        await page.keyboard.press("Meta+a");
+        await page.keyboard.type(title);
+        await page.getByRole("button", { name: "Save task", exact: true }).click();
+        await page.getByRole("button", { name: "Back to list", exact: true }).click();
+        await page.getByLabel("Open task 1", { exact: true }).click();
+        await page.waitForFunction(() => document.activeElement?.id === "detail-title");
+        assert.equal(await page.locator("#detail-title").inputValue(), title);
+        await page.getByLabel("Task notes", { exact: true }).click();
+        await page.waitForTimeout(250);
+        await page.evaluate(() => window.packageTask.controller.settle());
+        assertRequestedLane("native", await state());
+        const bounds = await page.locator("#detail-title").evaluate(node => {
+          const box = node.getBoundingClientRect(), output = document.getElementById("output").getBoundingClientRect();
+          return { x: box.x - output.x, y: box.y - output.y, width: box.width, height: box.height,
+            outputWidth: output.width, outputHeight: output.height };
+        });
+        const image = PNG.sync.read(await page.locator("#output").screenshot({ path: join(evidence, `title-${letter}.png`) }));
+        const sx = image.width / bounds.outputWidth, sy = image.height / bounds.outputHeight;
+        const pixels = [], crop = {
+          left: Math.ceil((bounds.x + 4) * sx), top: Math.ceil((bounds.y + 4) * sy),
+          right: Math.floor((bounds.x + bounds.width - 4) * sx), bottom: Math.floor((bounds.y + bounds.height - 4) * sy),
+        };
+        assert.ok(crop.left >= 0 && crop.top >= 0 && crop.right <= image.width && crop.bottom <= image.height
+          && crop.right > crop.left && crop.bottom > crop.top, "Current title crop must be contained in owning output");
+        let dark = 0;
+        for (let y = crop.top; y < crop.bottom; y++) for (let x = crop.left; x < crop.right; x++) {
+          const index = (y * image.width + x) * 4;
+          const rgba = [...image.data.subarray(index, index + 4)];
+          pixels.push(rgba);
+          if (rgba[3] === 255 && rgba.slice(0, 3).every(value => value < 100)) dark++;
+        }
+        glyphs.push({ letter, title, hit, bounds, crop, dark, pixels });
+      }
+      assert.deepEqual(glyphs[0].crop, glyphs[1].crop, "Matched title glyph crops must use identical current geometry");
+      const differing = glyphs[0].pixels.filter((pixel, index) => pixel.some((value, channel) => value !== glyphs[1].pixels[index][channel])).length;
+      result.titleGlyphs = { samples: glyphs.map(({ pixels, ...sample }) => sample), differing };
+      await record("current-title-glyphs");
+      assert.ok(differing > 100 && glyphs[1].dark > 0 && glyphs[0].dark > glyphs[1].dark * 1.5,
+        "Saved W/I title must show changed owning pixels and substantially wider native W ink, not a cached sentinel");
     }
     await page.locator("#detail-notes").focus();
     await page.keyboard.press("Meta+ArrowLeft");
@@ -102,6 +157,10 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
     result.events = await page.evaluate(() => window.releaseEvents);
     assert.ok(result.events.some(event => event.trusted && event.type === "input" && event.id === "detail-notes" && event.mode === (lane === "native" ? "gpu" : "dom")));
     assert.ok(result.events.some(event => event.trusted && event.type === "input" && event.id === "detail-notes" && event.mode === "dom"));
+    if (lane === "native") {
+      assert.ok(result.events.some(event => event.trusted && event.type === "click" && event.id === "detail-title" && event.mode === "gpu"));
+      assert.ok(result.events.some(event => event.trusted && event.type === "input" && event.id === "detail-title" && event.mode === "gpu"));
+    }
     await page.evaluate(() => window.packageTask.dispose());
     await snapshot("disposed");
     const final = await state();

@@ -54,6 +54,14 @@ transitions, same-root state through fallback and clean disposal.
 
 ## Proposed continuation milestones
 
+Repository organization is a separate user-directed engineering assignment,
+not a fifteenth phase: private root tooling, the canonical private release
+package in `packages/canvas-spa`, a private ten-page playground in
+`examples/playground`, and grouped unit/browser/shared-helper tests. Public
+runtime semantics and package identity are unchanged. New workspace outputs
+need their own exact acceptance; historical verdicts retain their original
+layout/source meaning and do not close production or publication gates.
+
 The remaining work needs separate acceptance/authorization and chosen application/device
 targets. It does not waive Phase11's outstanding human/physical release gates,
 expand current support or promise deadlines/metrics.

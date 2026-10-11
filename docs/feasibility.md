@@ -8,7 +8,7 @@ remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
 
 **Current review gate: bounded Phase 6 compatibility/comparison evidence,
 following the accepted typed runtime, animation/effect and TODO pilot.**
-The shared runtime lives in `src/canvas-spa/`; `/runtime.html` demonstrates the
+The shared runtime lives in `packages/canvas-spa/src/`; `/runtime.html` demonstrates the
 intentional API. See [API usage](api.md) and the [current verification matrix](verification.md).
 One persistent external root container and the public owning-canvas pixel-copy
 bridge remain the adopted path. Clipping/scrolling and unsupported boundaries

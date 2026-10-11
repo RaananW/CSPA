@@ -4,6 +4,14 @@ CanvasSPA is a **GPU-first framework**. Read [README.md](README.md),
 [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [GPU-first contract](docs/architecture.md#gpu-first-contract) before changing it.
 
+The root is private tooling, not the release package. Library source/manifest/
+build belong to `packages/canvas-spa`; all HTML/app/demo/probe sources belong
+to `examples/playground`. Tests are grouped under `tests/unit`, `tests/browser`
+and `tests/helpers`; exact React18 remains a separately locked fixture.
+Keep root scripts and canonical page URLs stable, and pack only the child
+library workspace. Historical accepted seals identify their original layouts,
+not newly built workspace artifacts.
+
 Before every capture, geometry or presentation change, ALWAYS check the latest
 [WICG HTML-in-Canvas proposal](https://github.com/WICG/html-in-canvas) and
 [Chromium feature/bug hotlist](https://issues.chromium.org/hotlists/6783002),

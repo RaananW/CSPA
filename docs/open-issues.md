@@ -1,5 +1,11 @@
 # Current open issues and qualification register
 
+**Repository restructuring:** current library/package ownership is
+`packages/canvas-spa`, demo/page ownership is `examples/playground`, and tests
+are grouped under `tests/unit`, `tests/browser` and `tests/helpers`.
+Historical paths in accepted records below identify their original layouts;
+they are not rewritten or requalified by this migration.
+
 **As of 2026-10-11; accepted source checkpoint:**
 [`12f13661`](https://github.com/RaananW/CSPA/commit/12f13661978a9329331bf881af6aca526402d4d0).
 This is a documentation register, not GitHub tickets, assigned work, release

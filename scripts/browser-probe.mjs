@@ -2,7 +2,7 @@ import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { PNG } from "pngjs";
-import { evidenceDirectory, validateEvidenceRoot } from "../tests/evidence.mjs";
+import { evidenceDirectory, validateEvidenceRoot } from "../tests/helpers/evidence.mjs";
 
 const url = process.env.PROBE_URL || "http://127.0.0.1:5174";
 const executablePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";

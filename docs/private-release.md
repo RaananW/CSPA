@@ -8,6 +8,14 @@ profile is part of this engineering subset. Package identity stays private
 
 ## Reproducible lanes
 
+The current checkout is an npm workspace: tooling at the private root, the
+canonical release manifest/source at `packages/canvas-spa`, and all ten page
+entries at `examples/playground`. The runner copies these owners, grouped tests
+and required tooling into each physical peer tree; it packs the child package,
+not the tooling root. Package README and copied standalone distribution docs
+are deliberate archive inputs. Existing Phase14 acceptance/seals remain exact
+old-layout authorities, not qualification of newly restructured outputs.
+
 Use existing provisioned dependencies with Node24.19.0/npm11.17.0. The runner
 records actual tool versions, HEAD, source/lock inputs, physical peer resolution,
 commands/exit codes and exact fresh archive member hashes. It never installs
@@ -25,13 +33,21 @@ CANVAS_BROWSER_EXECUTABLE="/Applications/Google Chrome Canary.app/Contents/MacOS
   node scripts/release-validation.mjs native
 ```
 
-Both browser lanes require actual CDP `Chrome/157.0.8098.0` and revision
-`@b4fa1b3baec04505d5a58e8cd1e7927b03cec74b`, recorded before fail-closed
+Both current browser lanes target actual CDP `Chrome/157.0.8099.0` and revision
+`@94bcda4759263b9a241f5008a68e753c2ebe3081`, recorded before fail-closed
 assertions. Native additionally requires current functional admission,
 owning-output pixels and original native task actions. A DOM recovery on a
 requested-native gate is failure, not a GPU pass. Build-only explicitly records
 GPU/browser lanes **not executed**. Ordinary DOM proves usability with GPU not
 enabled, not native-method absence on157 or a154 waiver.
+
+This separately bounded current-installed target does not reinterpret the
+accepted8098 archive/verdict or the retained failed8098-expected run.
+Fresh WICG review remains at `5fb3df86d84de598c7f0fcfc5ee53de1df067e7d`
+(2026-10-09); anonymous hotlist access returned only the Chromium shell, not
+verified issue rows or landed-build evidence. Current functional native
+admission, geometry/hits and changed W/I title owning pixels are required in
+addition to exact browser identity; neither labels nor useful DOM count as GPU.
 
 `.github/workflows/private-release.yml` defines a manual, read-only-permission
 hosted **build-only** lane with exact lock restore and no browser downloads.

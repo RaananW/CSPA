@@ -11,6 +11,20 @@ library or arbitrary React application compatibility. The package remains
 private. Historical alternatives and evidence are in [feasibility.md](feasibility.md);
 contributor commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
+## Repository boundaries
+
+The private root npm workspace is tooling, not a second library package.
+`packages/canvas-spa` owns library source/manifest/build and the sole public
+root export; it must not depend on playground or tests.
+`examples/playground` owns every HTML entry, app/demo/historical-probe source
+and its private manifest/configuration. Source development resolves the public
+package specifier to workspace source; installed consumer gates instead resolve
+the physically extracted current child-package archive without that alias.
+Unit/browser/shared-helper tests are grouped by runner responsibility, not
+removed. Independent React18 remains an exact separate manifest/lock fixture.
+Root commands preserve ergonomic entrypoints and canonical page URLs.
+Old accepted packages and path-based seals remain dated old-layout authorities.
+
 ## GPU-first contract
 
 CanvasSPA is a GPU-first framework. Supported React layer, ref and content
@@ -73,12 +87,17 @@ establishes the shipped API. Landed revisions/release availability were not
 verified in this assessment. Actual secure-localhost Chrome155 inspection
 found no reflected `content` property, legacy `layoutSubtree` present and both
 direct-GPU upload names present; property inspection is not functional
-qualification. Current source qualification targets actual Canary157.0.8098.0; its reflected
+qualification. Historical bounded source qualification targeted actual Canary157.0.8098.0; its reflected
 content and transform getter are functionally tested despite tracker divergence.
 Default native grids are read inside owning paint because new originals do not
 yet have a cached paint record. WebGL2 direct capture remains explicitly
 unqualified. Future changes must repeat current proposal/tracker review and
 distinguish it from actual browser functional qualification.
+
+The separate repository-restructuring validation target is pinned installed
+Canary157.0.8099.0 and its exact revision in the [private release runner contract](private-release.md).
+It receives fresh native/source/public-package and ordinary-DOM checks; it does
+not reinterpret8098 acceptance or establish physical/universal qualification.
 
 | Area | Current bounded evidence | Remaining boundary |
 | --- | --- | --- |
@@ -94,36 +113,36 @@ distinguish it from actual browser functional qualification.
 
 | Module | Responsibility |
 | --- | --- |
-| `src/canvas-spa/index.ts`, `react.tsx` | Intentional typed API, explicit root bootstrap, context, enrollment and fixed native overlay portal |
-| `src/canvas-spa/enrollment.ts` | Original-element ref enrollment options and typed pre-mutation refusal codes |
-| `src/canvas-spa/runtime.ts` | Stable registry, per-layer controller motion, layout/environment policies and observer ownership |
-| `src/canvas-spa/affine.ts`, `compiler.ts` | Canonical invertible transforms and narrow authoring-to-browser-style compilation |
-| `src/canvas-spa/composition.ts` | Layer-count-generated shader bindings, inverse sampling and DOM-order alpha composition |
-| `src/canvas-spa/mount-boundary.ts` | Destination validation, one mount callback, stable-container moves and final unmount |
-| `src/canvas-spa/device-lifecycle.ts` | Public configured-device loss observation and bounded idle synchronization |
-| `src/canvas-spa/renderer.ts` | Native capture, public texture/effect composition, independent dirty scheduling, serialized recovery and resource accounting |
-| `src/canvas-spa/admission.ts` | Independent known-color probe DOM, pixel checks, applied geometry and native interior/clipped-exterior hit validation |
-| `src/canvas-spa/motion.ts`, `timeline.ts`, `animation.ts`, `css-animation.ts` | Public numeric descriptor contracts, shared whole-effect compilation, per-property presentation ownership, separate CSS/WAAPI compatibility and bounded replacement tracking |
-| `src/canvas-spa/module.ts`, `ripple.ts` | Trusted local mounting contract and decorative-only effect validation |
-| `src/canvas-spa/effects.ts` | Whole-chain descriptor/schema validation, trusted application definitions and shared uniform packing |
-| `src/apps/effects/color-cycle.ts`, `src/demo/effects-demo.tsx`, `effects.html` | Public-API custom effect outside runtime, native poster composer and external measurement/HMR fixture |
-| `src/demo/paired-demo.tsx`, `paired.html` | Shared React behavior in existing-CSS and compiled typed examples; public source/pixel/profiling diagnostic fixture |
-| `src/apps/todo/` | Reusable bounded TODO reducer, typed native-control UI and one replaceable action-transition timer; public CanvasSPA imports only |
-| `src/demo/todo-demo.tsx`, `todo-probe.ts`, `todo.html` | External host/shell, profiling, deterministic/fault test facade and serialized HMR retirement |
-| `src/demo/integration-demo.tsx`, `integration.css`, `integration.html` | App-owned CSS, original-element enrollment, public Radix Dialog portal and single-subtree Presence; external shell/profiling/HMR fixture |
-| `src/demo/react-root.ts` | Matching public production profiling root/flush versus actual development client root/flush |
-| `src/demo/performance-demo.tsx`, `scripts/measure.mjs` | Public-API 2/4/8-layer fixture, finite full-window collector and serial production measurement; not application/runtime policy |
+| `packages/canvas-spa/src/index.ts`, `react.tsx` | Intentional typed API, explicit root bootstrap, context, enrollment and fixed native overlay portal |
+| `packages/canvas-spa/src/enrollment.ts` | Original-element ref enrollment options and typed pre-mutation refusal codes |
+| `packages/canvas-spa/src/runtime.ts` | Stable registry, per-layer controller motion, layout/environment policies and observer ownership |
+| `packages/canvas-spa/src/affine.ts`, `compiler.ts` | Canonical invertible transforms and narrow authoring-to-browser-style compilation |
+| `packages/canvas-spa/src/composition.ts` | Layer-count-generated shader bindings, inverse sampling and DOM-order alpha composition |
+| `packages/canvas-spa/src/mount-boundary.ts` | Destination validation, one mount callback, stable-container moves and final unmount |
+| `packages/canvas-spa/src/device-lifecycle.ts` | Public configured-device loss observation and bounded idle synchronization |
+| `packages/canvas-spa/src/renderer.ts` | Native capture, public texture/effect composition, independent dirty scheduling, serialized recovery and resource accounting |
+| `packages/canvas-spa/src/admission.ts` | Independent known-color probe DOM, pixel checks, applied geometry and native interior/clipped-exterior hit validation |
+| `packages/canvas-spa/src/motion.ts`, `timeline.ts`, `animation.ts`, `css-animation.ts` | Public numeric descriptor contracts, shared whole-effect compilation, per-property presentation ownership, separate CSS/WAAPI compatibility and bounded replacement tracking |
+| `packages/canvas-spa/src/module.ts`, `ripple.ts` | Trusted local mounting contract and decorative-only effect validation |
+| `packages/canvas-spa/src/effects.ts` | Whole-chain descriptor/schema validation, trusted application definitions and shared uniform packing |
+| `examples/playground/src/apps/effects/color-cycle.ts`, `examples/playground/src/demo/effects-demo.tsx`, `examples/playground/effects.html` | Public-API custom effect outside runtime, native poster composer and external measurement/HMR fixture |
+| `examples/playground/src/demo/paired-demo.tsx`, `examples/playground/paired.html` | Shared React behavior in existing-CSS and compiled typed examples; public source/pixel/profiling diagnostic fixture |
+| `examples/playground/src/apps/todo/` | Reusable bounded TODO reducer, typed native-control UI and one replaceable action-transition timer; public CanvasSPA imports only |
+| `examples/playground/src/demo/todo-demo.tsx`, `todo-probe.ts`, `examples/playground/todo.html` | External host/shell, profiling, deterministic/fault test facade and serialized HMR retirement |
+| `examples/playground/src/demo/integration-demo.tsx`, `integration.css`, `examples/playground/integration.html` | App-owned CSS, original-element enrollment, public Radix Dialog portal and single-subtree Presence; external shell/profiling/HMR fixture |
+| `examples/playground/src/demo/react-root.ts` | Matching public production profiling root/flush versus actual development client root/flush |
+| `examples/playground/src/demo/performance-demo.tsx`, `scripts/measure.mjs` | Public-API 2/4/8-layer fixture, finite full-window collector and serial production measurement; not application/runtime policy |
 | `fixtures/react18/`, `scripts/react-matrix.mjs` | Explicit independent dependency/type resolution, unchanged shared sources and actual React18/19 production/development behavior |
-| `src/canvas-spa/native.ts` | Structural native capability guards, finite/applied geometry validation and abortable paint wait |
-| `src/demo/runtime-demo.tsx` | Sample UI, production profiling, action/diagnostic fixture and HMR lifetime cleanup |
-| `src/main.tsx` | Independent ordinary-DOM landing-page baseline |
-| `src/probe.ts`, `src/backend-probe.ts`, `src/recovery-probe.tsx` | Historical native/backend/remount-versus-stable-container experiments; not production recovery code |
-| `tests/runtime.test.mjs`, `tests/surface.test.mjs` | Current runtime and preserved historical acceptance/fault fixtures |
+| `packages/canvas-spa/src/native.ts` | Structural native capability guards, finite/applied geometry validation and abortable paint wait |
+| `examples/playground/src/demo/runtime-demo.tsx` | Sample UI, production profiling, action/diagnostic fixture and HMR lifetime cleanup |
+| `examples/playground/src/main.tsx` | Independent ordinary-DOM landing-page baseline |
+| `examples/playground/src/probe.ts`, `backend-probe.ts`, `recovery-probe.tsx` | Historical native/backend/remount-versus-stable-container experiments; not production recovery code |
+| `tests/browser/runtime.test.mjs`, `tests/browser/surface.test.mjs` | Current runtime and preserved historical acceptance/fault fixtures |
 
 The renderer has no fixed specimen IDs, dimensions or shader slots. An
 admitted registry generates one shader for its current layer count. Membership
 changes prepare public bindings in the same engine and fence retired resources;
-they do not restore DOM or create another root. Root-level native/lifecycle/renderer files are compatibility
+they do not restore DOM or create another root. Playground-level native/lifecycle/renderer files are compatibility
 re-exports for historical probes. `window.runtimeProbe`/`surfaceProbe` are
 diagnostic facades, not published APIs. No reusable module destroys a device.
 

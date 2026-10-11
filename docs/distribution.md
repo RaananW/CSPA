@@ -29,8 +29,8 @@ tarball. Phase14 private engineering now uses the checkout's
 `scripts/release-validation.mjs` and `docs/private-release.md`: build-only,
 no-flags/default DOM and explicitly requested-native lanes in a fresh owned
 Phase14 root. No new execution may reuse sealed dependency directories,
-directory symlinks or optimizer caches; legacy `--reuse-dependencies` workspace
-behavior is not the isolated release lane.
+directory symlinks or optimizer caches; `--reuse-dependencies` now makes independent physical copies and
+excludes optimizer caches; it never executes through dependency symlinks.
 The new runner physically extracts the exact current archive for matching React18/19,
 copies the authored task application (not the core source), uses only the public
 entry and Radix's public portal container, and checks actual flagged GPU and
@@ -44,15 +44,15 @@ is added. Earlier installed-consumer records below remain historical.
 
 ```sh
 npm run build:library
-npm pack --dry-run --json
+npm pack --workspace canvas-spa-phase-one --dry-run --json
 # Choose an ignored directory for the actual archive:
-npm pack --pack-destination fixtures/package-consumer/workspaces
+npm run pack:library -- --pack-destination fixtures/package-consumer/workspaces
 # In a separate React application, install the actual generated .tgz:
 npm install /path/to/canvas-spa-phase-one-0.0.0.tgz
 ```
 
 Create the pack destination first. `prepack` rebuilds the intentional
-`src/canvas-spa/index.ts` entry with existing Vite and emits TypeScript
+`packages/canvas-spa/src/index.ts` entry with existing Vite and emits TypeScript
 declarations. The only public entry is ESM `canvas-spa-phase-one`; CommonJS
 and internal subpath imports are not supported. The tarball contains only
 `package.json`, README, this standalone distribution contract, one JS module

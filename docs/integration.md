@@ -52,7 +52,7 @@ missing capture coverage waits for native paint, not DOM recovery. The original 
 value/focus/selection and Dialog state are retained. No React descendants move
 outside their original subtree. [Adoption](adoption.md) describes migration.
 
-Application integration imports only `src/canvas-spa/index.ts`. See the
+Application integration imports only `packages/canvas-spa/src/index.ts`. See the
 [API examples](api.md#original-element-refs-and-library-overlays) for
 `useSurfaceRef`, `useNativeOverlayHost`, `Presence` and controller
 `transition`/`transitionGroup`. Ref IDs/options and Presence's ID/runtime stay

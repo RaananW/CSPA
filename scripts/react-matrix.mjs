@@ -3,13 +3,16 @@ import { resolve, dirname } from "node:path";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { evidenceRoot } from "../tests/evidence.mjs";
+import { randomUUID } from "node:crypto";
+import { evidenceRoot } from "../tests/helpers/evidence.mjs";
+import { copyDependencies } from "./release-policy.mjs";
 
 const root = resolve(".");
 const isPrimary = process.argv.includes("--primary");
-const destination = isPrimary ? root : resolve("fixtures/react18/workspace");
+const destination = isPrimary ? root : resolve(`fixtures/react18/workspace/run-${randomUUID()}`);
 const fixture = JSON.parse(await readFile("fixtures/react18/package.json", "utf8"));
 const primary = JSON.parse(await readFile("package.json", "utf8"));
+const playground = JSON.parse(await readFile("examples/playground/package.json", "utf8"));
 const version = isPrimary ? primary.devDependencies.react : fixture.dependencies.react;
 const lockBefore = createHash("sha256").update(await readFile("package-lock.json")).digest("hex");
 const sourceHash = createHash("sha256");
@@ -20,23 +23,25 @@ async function hashSource(directory) {
     else sourceHash.update(path.slice(root.length)).update(await readFile(path));
   }
 }
-await hashSource(resolve("src"));
+await hashSource(resolve("examples/playground/src"));
+await hashSource(resolve("packages/canvas-spa/src"));
 const sourceSha256 = sourceHash.digest("hex");
 if (!isPrimary) {
   await mkdir(destination, { recursive: true });
-  for (const path of ["src", "tests", "scripts", "tsconfig.json", "vite.config.ts", "playwright.config.mjs",
-    "index.html", "probe.html", "recovery.html", "surface.html", "runtime.html", "paired.html", "todo.html", "performance.html", "integration.html", "effects.html"]) {
-    await cp(resolve(path), resolve(destination, path), { recursive: true });
+  for (const path of ["packages", "examples", "tests", "scripts", "vite.config.ts", "package-lock.json", "docs/distribution.md"]) {
+    await cp(resolve(path), resolve(destination, path), {
+      recursive: true, filter: path => !["dist", "node_modules", "owned-vite-cache"].includes(path.split("/").at(-1)),
+    });
   }
-  await writeFile(resolve(destination, "package.json"), JSON.stringify({
-    ...primary, name: fixture.name,
-    dependencies: { ...primary.dependencies, ...fixture.dependencies },
-    devDependencies: { ...primary.devDependencies, ...fixture.devDependencies, react: fixture.dependencies.react, "react-dom": fixture.dependencies["react-dom"] },
-  }, null, 2));
+  await cp(resolve("package.json"), resolve(destination, "package.json"));
+  await mkdir(resolve(destination, "fixtures/react18"), { recursive: true });
+  for (const path of ["package.json", "package-lock.json"]) await cp(resolve("fixtures/react18", path), resolve(destination, "fixtures/react18", path));
+  await copyDependencies(resolve("node_modules"), resolve(destination, "node_modules"));
+  await copyDependencies(resolve("fixtures/react18/node_modules"), resolve(destination, "node_modules"));
 }
 const fixtureRequire = createRequire(resolve(destination, "package.json"));
 const dialogPackage = JSON.parse(await readFile(resolve(dirname(fixtureRequire.resolve("@radix-ui/react-dialog")), "../package.json"), "utf8"));
-if (dialogPackage.version !== primary.devDependencies["@radix-ui/react-dialog"]) throw new Error("Resolved Dialog integration dependency does not match its primary exact pin");
+if (dialogPackage.version !== playground.dependencies["@radix-ui/react-dialog"]) throw new Error("Resolved Dialog integration dependency does not match its playground exact pin");
 await mkdir(resolve(destination, "evidence"), { recursive: true });
 const evidence = resolve(`${evidenceRoot}/react${isPrimary ? "19" : "18"}`);
 await mkdir(evidence, { recursive: true });
@@ -55,9 +60,11 @@ async function run(command, args, name) {
 try {
   if (isPrimary) await run("npm", ["test"], "full");
   else {
-    await run("npm", ["run", "test:unit"], "units");
-    await run("npm", ["run", "build"], "build");
-    await run("npm", ["run", "test:browser", "--", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs", "effects.test.mjs", "hardening.test.mjs", "dynamic.test.mjs", "native-editing.test.mjs", "viewport.test.mjs",
+    const units = (await readdir(resolve(destination, "tests/unit"))).filter(path => path.endsWith(".unit.test.mjs")).map(path => `tests/unit/${path}`);
+    await run(process.execPath, ["--test", ...units], "units");
+    await run(process.execPath, ["node_modules/typescript/bin/tsc", "-p", "examples/playground/tsconfig.json"], "types");
+    await run(process.execPath, ["node_modules/vite/bin/vite.js", "build"], "build");
+    await run(process.execPath, ["scripts/test-browser.mjs", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "integration.test.mjs", "effects.test.mjs", "hardening.test.mjs", "dynamic.test.mjs", "native-editing.test.mjs", "viewport.test.mjs",
       ...process.argv.slice(2).filter(argument => argument !== "--primary"), "--max-failures=1"], "behavior");
     await cp(resolve(destination, evidenceRoot), resolve(evidence, "reports"), { recursive: true });
   }
@@ -77,7 +84,7 @@ try {
       development: JSON.parse(await readFile(resolve(destination, `${evidenceRoot}/runtime/independent-true.json`), "utf8")).initial.reactVersion,
     },
     resolvedIntegration: { name: dialogPackage.name, version: dialogPackage.version, license: dialogPackage.license, peerDependencies: dialogPackage.peerDependencies },
-    sourceRoot: "<workspace>/src", sourceSha256, primaryLockUnchanged: true, primaryLockSha256: lockAfter,
+    sourceRoot: "<workspace>/packages/canvas-spa/src + examples/playground/src", sourceSha256, primaryLockUnchanged: true, primaryLockSha256: lockAfter,
   }, null, 2));
 } finally {
   process.chdir(root);

@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
-import { evidenceRoot, validateEvidenceRoot } from "../tests/evidence.mjs";
+import { evidenceRoot, validateEvidenceRoot } from "../tests/helpers/evidence.mjs";
 
 validateEvidenceRoot(evidenceRoot);
 if (!["evidence/phase9", "evidence/phase9-independent"].some(root => resolve(evidenceRoot).startsWith(`${resolve(root)}/`))) {
@@ -27,7 +27,8 @@ async function sourceHash() {
       else digest.update(path.slice(resolve(".").length)).update(await readFile(path));
     }
   }
-  await walk(resolve("src"));
+  await walk(resolve("examples/playground/src"));
+  await walk(resolve("packages/canvas-spa/src"));
   return digest.digest("hex");
 }
 function distribution(values) {

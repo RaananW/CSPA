@@ -161,7 +161,7 @@ so it records an explicit unverified result and skips pause/catch-up assertions:
 
 ```sh
 CANVAS_HEADFUL_INTERACTION=1 CANVAS_EVIDENCE_ROOT=evidence/phase11/background-local \
-  npm run test:browser -- tests/interaction.test.mjs --grep headful
+  npm run test:browser -- tests/browser/interaction.test.mjs --grep headful
 ```
 
 No synthetic visibility event substitutes for this gate. Even a passing

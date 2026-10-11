@@ -32,6 +32,25 @@ persistent root lives in an adapter-owned container; only that container can
 move via same-document connected-sibling `moveBefore`. There are no cloned
 interactive controls, hidden duplicate trees or silent root replacement.
 
+## Repository layout
+
+The private npm workspace root owns tooling, documentation and stable command
+entrypoints, not the release identity. `packages/canvas-spa` owns the private
+`canvas-spa-phase-one` package, its source, public ESM entry, declarations,
+package README and prepack build. `examples/playground` owns the private demo
+application and all ten HTML entries. `tests/unit`, `tests/browser` and
+`tests/helpers` group the existing coverage; installed public consumers remain
+in `fixtures/package-consumer`, and the exact React18 fixture retains its own lock.
+
+Run `npm run dev`, `npm run build`, `npm run test:unit` or
+`npm run pack:library` from the checkout root. Dev URLs remain `/runtime.html`,
+`/todo.html` and the other existing page names; the playground is Vite's root.
+The root Vite config is a compatibility entrypoint, not another application.
+Library output is `packages/canvas-spa/dist/library`; playground output is
+`examples/playground/dist`. Root `npm pack` is deliberately refused.
+Historical acceptance records refer to their exact dated, pre-restructure
+layouts and packages, not qualification of newly built workspace artifacts.
+
 ## Usability today
 
 The prototype supports native pointer/keyboard/input/form/focus/selection,
@@ -116,7 +135,7 @@ Open <http://127.0.0.1:5173/> for the default DOM baseline.
 Start with the [API](docs/api.md), [architecture](docs/architecture.md),
 [adoption checklist](docs/adoption.md), [integration](docs/integration.md),
 [effects](docs/effects.md) and [TODO pilot](docs/todo-pilot.md).
-Public exports live in `src/canvas-spa/index.ts`. An explicit outside-root mount
+Public exports live in `packages/canvas-spa/src/index.ts`. An explicit outside-root mount
 adapter is required; a JSX wrapper never silently relocates React-created nodes.
 Layout/styles remain browser CSS, not a replacement layout engine.
 

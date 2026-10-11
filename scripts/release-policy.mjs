@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { cp, lstat, readdir, readFile, mkdir } from "node:fs/promises";
+import { cp, lstat, readdir, readFile, mkdir, realpath } from "node:fs/promises";
 import { join, basename, resolve, dirname } from "node:path";
 
 export const excludedDependencies = new Set([".vite", ".vite-temp", ".bin", ".package-lock.json"]);
 export const qualifiedBrowser = Object.freeze({
-  product: "Chrome/157.0.8098.0",
-  revision: "@b4fa1b3baec04505d5a58e8cd1e7927b03cec74b",
+  product: "Chrome/157.0.8099.0",
+  revision: "@94bcda4759263b9a241f5008a68e753c2ebe3081",
 });
 
 export function assertBrowserIdentity(actual) {
@@ -47,6 +47,13 @@ export async function copyDependencies(source, destination) {
     recursive: true, force: true,
     filter: async path => {
       if (excludedDependencies.has(basename(path))) return false;
+      const workspace = { "canvas-spa-phase-one": "packages/canvas-spa", "@canvas-spa/playground": "examples/playground" };
+      for (const [name, target] of Object.entries(workspace)) {
+        if (path === join(source, name) && (await lstat(path)).isSymbolicLink()) {
+          assert.equal(await realpath(path), join(dirname(source), target), `Unexpected workspace alias: ${path}`);
+          return false;
+        }
+      }
       assert.equal((await lstat(path)).isSymbolicLink(), false, `Dependency symlink refused: ${path}`);
       return true;
     },

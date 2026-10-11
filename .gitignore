@@ -26,3 +26,4 @@ fixtures/react18/workspace/
 !/evidence/phase12-independent/acceptance-summary.json
 /playwright-report/
 /blob-report/
+/packages/canvas-spa/docs/

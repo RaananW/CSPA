@@ -1,6 +1,6 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { evidenceRoot } from "../tests/evidence.mjs";
+import { evidenceRoot } from "../tests/helpers/evidence.mjs";
 import { curatedEvidence } from "./check-evidence.mjs";
 
 const workspace = resolve(".");
