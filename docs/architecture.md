@@ -11,6 +11,31 @@ library or arbitrary React application compatibility. The package remains
 private. Historical alternatives and evidence are in [feasibility.md](feasibility.md);
 contributor commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
+## GPU-first contract
+
+CanvasSPA is a GPU-first framework. Supported React layer, ref and content
+updates must remain GPU-presented with fresh pixels, current original native
+interaction geometry and no blank application frames. DOM fallback is reserved
+for genuine unsupported capabilities, unsafe conditions, failures or explicit
+disable, not a replacement for normal supported GPU updates.
+
+React owns the original descendants, controls and state; the adapter owns only
+the stable external root-container boundary. Preserve one shared renderer and
+public browser/engine APIs. The typed path requires no handwritten CSS; it
+compiles browser styles rather than implementing a custom CSS/layout engine.
+Cloned controls, stale screenshot covers, wrong native hits and cosmetic status
+debouncing cannot satisfy the presentation contract.
+
+**Current gap:** structural recovery/re-admission described below does not yet
+meet this contract. Runtime **Layer** and integration **Replace ref** exposed
+blank frames during automatic re-admission. Earlier bounded Phase12 engineering
+acceptance did not establish seamless presentation. A permanent-DOM restriction
+was proposed, rejected and never merged; the flicker remains unresolved.
+Acceptance must prove GPU remains active through supported updates together
+with fresh output and correct original native hits, not just fallback safety.
+Any revised capture/presentation boundary needs factual public-API feasibility
+evidence; no atomic browser transaction or required React patch is presumed.
+
 ## Module boundaries
 
 | Module | Responsibility |

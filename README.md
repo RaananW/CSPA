@@ -1,5 +1,13 @@
 # CanvasSPA - experimental typed native/GPU runtime
 
+**CanvasSPA is a GPU-first framework.** Supported React layer, ref and content
+updates must remain GPU-presented with fresh pixels, current original native
+interaction geometry and no blank application frames. DOM fallback is reserved
+for genuine unsupported capabilities, unsafe conditions, failures or explicit
+disable; it is not a substitute for implementing supported GPU updates.
+See the [GPU-first contract and current gap](docs/architecture.md#gpu-first-contract)
+and [contributor instructions](CONTRIBUTING.md).
+
 **Phases1-9 are independently accepted within bounded prototype scope, not
 production-ready or an unchanged-app loader.** Phase9 acceptance covers actual
 installed Chrome155.0.8059.40, React18.3.1/19.3.0 and the declared examples.
@@ -31,6 +39,10 @@ and deliberate disable cancels retries. [Policy and cancellation](docs/api.md#op
 Phase12 **engineering is independently accepted with limits**
 ([verdict](evidence/phase12-independent/acceptance-summary.json)); full Phase12
 production application/hardware and numeric budgets remain open.
+That historical acceptance did not establish seamless structural presentation.
+The current automatic readmission path visibly flickers on runtime **Layer**
+and integration **Replace ref**; the continuous-GPU gate remains unresolved.
+The proposed permanent-DOM restriction was rejected and never merged.
 Unsupported scrolling,
 clipping, nesting, capabilities and resource budgets produce diagnostics and
 DOM fallback. Healthy pending GPU fences/readbacks retain resources until safe

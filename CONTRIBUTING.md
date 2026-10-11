@@ -1,5 +1,17 @@
 # Contributing to CanvasSPA
 
+## GPU-first requirement
+
+Every human and agent working on CanvasSPA must follow the
+[GPU-first contract](docs/architecture.md#gpu-first-contract).
+Supported React layer/ref/content updates require continuous GPU presentation,
+fresh pixels, current original native hit geometry and no blank application
+frames. A test that only proves useful DOM fallback does not accept such a fix.
+Exercise GPU remaining active through repeated supported updates alongside
+rendered-pixel and original native-interaction checks; retain separate genuine
+unsupported/fault/explicit-disable recovery tests. The structural flicker is
+currently unresolved, and earlier engineering acceptance is not seamless proof.
+
 The intended direction is open-source software, but this folder is currently
 an experimental private package, not a published library. License selection,
 repository publication and release policy are unresolved. No maintainer or
@@ -11,7 +23,8 @@ Keep the existing package name/private/license decisions. No npm publication,
 release CI is authorized here. Phase12 is limited to opted-in settled
 structural readmission and a measured engineering envelope, independently
 accepted with limits ([verdict](evidence/phase12-independent/acceptance-summary.json));
-full Phase12 production budgets remain open, with no Phase13/14 implementation.
+full Phase12 production budgets and the continuous-GPU structural-update gate
+remain open, with no Phase13/14 implementation.
 
 Start with [README.md](README.md), the maintained
 [architecture/lifecycle/mount contract](docs/architecture.md), and the
