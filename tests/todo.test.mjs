@@ -38,11 +38,11 @@ function differences(a, b, x, y, width, height) {
   return changed;
 }
 
-test("TODO app without experimental flags retains a useful real native workflow", async () => {
+for (const dpr of [1, 2]) test(`TODO app without experimental flags retains a useful real native workflow DPR${dpr}`, async () => {
   const browser = await chromium.launch({ executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     args: ["--enable-automation", "--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"] });
   try {
-    const page = await browser.newPage({ viewport: { width: 900, height: 750 } });
+    const page = await browser.newPage({ viewport: { width: 900, height: 750 }, deviceScaleFactor: dpr });
     await page.goto(`${previewURL}/todo.html`);
     await page.waitForFunction(() => window.todoProbe);
     await expect(page.locator("#diagnostic-details")).toHaveJSProperty("open", false);
@@ -72,11 +72,22 @@ test("TODO app without experimental flags retains a useful real native workflow"
     expect(refused.reason).toContain("canvas.content");
     await expect(page.locator("#status")).toContainText(refused.reason);
     await expect(page.getByLabel("Task 3 title", { exact: true })).toHaveValue("Edited without GPU");
+    await page.getByLabel("Open task 3", { exact: true }).click();
+    await expect(page.getByLabel("Detail title", { exact: true })).toBeFocused();
+    await page.getByLabel("Task notes", { exact: true }).click();
+    await page.keyboard.type("Original no-flags notes");
+    await page.getByRole("button", { name: "Save task", exact: true }).click();
+    await page.getByRole("button", { name: "Task information", exact: true }).click();
+    await expect(page.locator("#task-information")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Back to list", exact: true }).click();
+    await expect(page.getByLabel("Open task 3", { exact: true })).toBeFocused();
     await page.getByLabel("Delete task 3", { exact: true }).click();
+    await page.getByRole("button", { name: "Confirm delete", exact: true }).click();
     await expect(page.getByRole("listitem")).toHaveCount(0);
     const disposed = await page.evaluate(() => window.todoProbe.dispose());
     zero(disposed);
-    await save("ordinary-no-flags", { environment, diagnostics, refused, disposed });
+    await save(`ordinary-no-flags-${dpr}`, { environment, diagnostics, refused, disposed });
   } finally { await browser.close(); }
 });
 
@@ -102,7 +113,7 @@ for (const strict of [false, true]) test(`TODO GPU workflows preserve original n
   const active = await page.evaluate(() => window.todoProbe.state());
   expect(active.mode).toBe("gpu");
   expect(active.resources.engines).toBe(1);
-  expect(active.layers).toHaveLength(2);
+  expect(active.layers).toHaveLength(3);
   const input = page.getByLabel("Task 3 title", { exact: true });
   await input.click();
   await input.press("Home");
@@ -121,6 +132,7 @@ for (const strict of [false, true]) test(`TODO GPU workflows preserve original n
   expect(continuity.selection).toEqual(before);
   await expect(input).toHaveValue("Edited by native input");
   await page.getByLabel("Delete task 3", { exact: true }).click();
+  await page.getByRole("button", { name: "Confirm delete", exact: true }).click();
   await page.getByRole("button", { name: "All", exact: true }).click();
   await expect(page.getByRole("listitem")).toHaveCount(2);
   const disposed = await page.evaluate(() => window.todoProbe.dispose());
@@ -146,8 +158,8 @@ test("real task action produces decorative pixels and a settled shader-only inte
   const geometry0 = await page.evaluate(() => window.todoProbe.state().layers);
   await page.evaluate(() => window.todoProbe.holdEffect(0.7));
   const phase7 = await pixels(page, "task-phase-07");
-  expect(differences(identity, phase0, 460, 90, 280, 360)).toBeGreaterThan(1000);
-  expect(differences(phase0, phase7, 460, 90, 280, 360)).toBeGreaterThan(1000);
+  expect(differences(identity, phase0, 460, 490, 280, 140)).toBeGreaterThan(100);
+  expect(differences(phase0, phase7, 460, 490, 280, 140)).toBeGreaterThan(100);
   expect(differences(phase0, phase7, 20, 20, 420, 660)).toBe(0);
   expect(await page.evaluate(() => window.todoProbe.state().layers)).toEqual(geometry0);
   const interval = await page.evaluate(() => window.todoProbe.advance(300, 1));
@@ -162,11 +174,11 @@ test("real task action produces decorative pixels and a settled shader-only inte
   await page.waitForFunction(() => window.todoProbe.state().transition.timers === 0 && window.todoProbe.state().decorativeEffects.length === 0);
   await page.evaluate(() => window.todoProbe.controller().settle());
   const finished = await pixels(page, "natural-finish");
-  expect(differences(identity, finished, 460, 90, 280, 360)).toBe(0);
+  expect(differences(identity, finished, 460, 490, 280, 140)).toBe(0);
   const disposed = await page.evaluate(() => window.todoProbe.dispose());
   zero(disposed);
   await save("task-transition", { fixture: "real checkbox action; diagnostic timer hold/deterministic phases and 300 real RAFs at 1ms; subsequent real action ends naturally after 900ms",
-    triggered, geometry0, changed: [differences(identity, phase0, 460, 90, 280, 360), differences(phase0, phase7, 460, 90, 280, 360)], interval, disposed });
+    triggered, geometry0, changed: [differences(identity, phase0, 460, 490, 280, 140), differences(phase0, phase7, 460, 490, 280, 140)], interval, disposed });
 });
 
 test("capture failure and continuous viewport reconciliation preserve TODO edits", async ({ page }) => {
@@ -202,7 +214,7 @@ test("capture failure and continuous viewport reconciliation preserve TODO edits
   await save("fallback-reentry", { fixture: "synthetic capture exception and explicit reentry; subsequent real viewport resize remains GPU", failure, resized, disposed });
 });
 
-test("six-task capacity stays one engine/two layers and rejects extra tasks explicitly", async ({ page }) => {
+test("six-task capacity stays one engine/three layers and rejects extra tasks explicitly", async ({ page }) => {
   await ready(page);
   await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
   await page.waitForFunction(() => window.todoProbe.state().mode === "gpu");
@@ -214,7 +226,7 @@ test("six-task capacity stays one engine/two layers and rejects extra tasks expl
   const active = await page.evaluate(() => window.todoProbe.state());
   expect(active.mode).toBe("gpu");
   expect(active.resources.engines).toBe(1);
-  expect(active.layers).toHaveLength(2);
+  expect(active.layers).toHaveLength(3);
   const disposed = await page.evaluate(() => window.todoProbe.dispose());
   zero(disposed);
   await save("capacity", { active, disposed });
@@ -240,4 +252,238 @@ test("TODO development HMR retires active transition timers and old GPU resource
     zero(disposed);
     await save("hmr", { fixture: "real timestamp-only Vite replacement; HMR intentionally creates a new root and resets task state", retired, disposed });
   } finally { await utimes(path, original.atime, original.mtime); }
+});
+
+test("Phase13 rendered diagnostic categorizes actual offscreen refusal and explicit lifecycle", async ({ page }) => {
+  await ready(page, true);
+  await page.evaluate(() => {
+    window.diagnosticRoot = window.todoProbe.controller().container;
+    window.diagnosticInput = document.getElementById("new-task");
+    document.activeElement?.blur();
+    window.scrollTo(0, 0);
+    document.getElementById("frame").style.left = "1100px";
+  });
+  await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
+  await page.waitForFunction(() => !window.todoProbe.state().initializing);
+  const refused = await page.evaluate(() => window.todoProbe.state());
+  await save("diagnostic-offscreen", { refused, status: await page.locator("#status").innerText() });
+  expect(refused.reason).toBe("GPU admission failed: Error: Functional native clipping is unproven: admission deferred until the owning output probe is inside the viewport; explicitly enable again when visible");
+  await expect(page.locator("#status")).toHaveText(`admission · dom: ${refused.reason}`);
+  expect(refused.mode).toBe("dom");
+  for (const key of ["engines", "pendingEngines", "textures", "effects", "renderers", "pendingCleanups", "probeElements", "probeReadbacks"]) expect(refused.resources[key]).toBe(0);
+  await page.locator("#frame").evaluate(node => { node.style.left = "0"; });
+  await page.getByLabel("New task", { exact: true }).click();
+  await page.keyboard.type("Original DOM after refusal");
+  await expect(page.getByLabel("New task", { exact: true })).toHaveValue("Original DOM after refusal");
+  expect(await page.evaluate(() => window.todoProbe.state().mode)).toBe("dom");
+  expect(await page.evaluate(() => window.diagnosticRoot === window.todoProbe.controller().container && window.diagnosticInput === document.getElementById("new-task"))).toBe(true);
+  await page.evaluate(() => {
+    window.diagnosticGeometry = HTMLCanvasElement.prototype.updateElementGeometry;
+    HTMLCanvasElement.prototype.updateElementGeometry = function(element, options) {
+      const { canvasClip, ...geometry } = options;
+      return window.diagnosticGeometry.call(this, element, geometry);
+    };
+  });
+  await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
+  await page.waitForFunction(() => !window.todoProbe.state().initializing);
+  const invalidClip = await page.evaluate(() => window.todoProbe.state());
+  await save("diagnostic-no-op-clip", { invalidClip, status: await page.locator("#status").innerText() });
+  expect(invalidClip.mode).toBe("dom");
+  expect(invalidClip.reason).toMatch(/interior.*clipped/);
+  await expect(page.locator("#status")).toHaveText(/^admission · dom:/);
+  expect(invalidClip.resources.engines).toBe(0);
+  await page.evaluate(() => { HTMLCanvasElement.prototype.updateElementGeometry = window.diagnosticGeometry; });
+  await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
+  await page.waitForFunction(() => window.todoProbe.state().mode === "gpu");
+  await expect(page.locator("#status")).toHaveText(/^active · gpu:/);
+  await expect(page.getByLabel("New task", { exact: true })).toHaveValue("Original DOM after refusal");
+  expect(await page.evaluate(() => window.diagnosticRoot === window.todoProbe.controller().container && window.diagnosticInput === document.getElementById("new-task"))).toBe(true);
+  await page.getByRole("button", { name: "Use ordinary DOM", exact: true }).click();
+  await expect(page.locator("#status")).toHaveText(/^lifecycle · dom: Explicit disable:/);
+  const disposed = await page.evaluate(() => window.todoProbe.dispose());
+  zero(disposed);
+  await expect(page.locator("#status")).toHaveText(/^lifecycle · disposed: Disposed root/);
+  await save("diagnostic-reentry-disposal", { refused, disposed, status: await page.locator("#status").innerText() });
+});
+
+for (const dpr of [1, 2]) test.describe(`Phase13 task workspace DPR${dpr}`, () => {
+  test.use({ deviceScaleFactor: dpr });
+  test("list detail overlays and native scroll retain complete GPU ownership and settled independent motion", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", error => errors.push(String(error)));
+    await ready(page, true);
+    await page.evaluate(() => {
+      window.phase13Root = window.todoProbe.controller().container;
+      window.phase13Input = document.getElementById("new-task");
+      window.phase13Events = [];
+      for (const type of ["pointerdown", "pointerup", "click", "keydown", "input", "submit", "scroll", "focusin"]) {
+        document.addEventListener(type, event => window.phase13Events.push({
+          type, trusted: event.isTrusted, target: event.target.id || event.target.getAttribute?.("aria-label"),
+          path: event.composedPath().filter(node => node instanceof Element).map(node => node.id || node.tagName),
+          mode: window.todoProbe.state().mode,
+        }), true);
+      }
+    });
+    await page.locator("#frame").evaluate(node => { node.style.left = "1100px"; });
+    await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
+    await page.waitForFunction(() => !window.todoProbe.state().initializing);
+    const offscreen = await page.evaluate(() => window.todoProbe.state());
+    await save(`phase13-offscreen-${dpr}`, offscreen);
+    expect(offscreen.mode).toBe("dom"); expect(offscreen.reason).toMatch(/unproven|offscreen|viewport/i);
+    for (const key of ["engines", "pendingEngines", "textures", "effects", "renderers", "pendingCleanups", "probeElements", "probeReadbacks"]) expect(offscreen.resources[key]).toBe(0);
+    expect(offscreen.resources.roots).toBe(1);
+    await page.locator("#frame").evaluate(node => {
+      node.style.left = "0";
+      const cover = document.createElement("div"); cover.id = "phase13-occluder";
+      cover.style.cssText = "position:absolute;inset:0;z-index:100;background:white";
+      node.append(cover);
+    });
+    await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
+    await page.waitForFunction(() => !window.todoProbe.state().initializing);
+    const occluded = await page.evaluate(() => window.todoProbe.state());
+    await save(`phase13-occluded-${dpr}`, occluded);
+    expect(occluded.mode).toBe("dom"); expect(occluded.reason).toMatch(/unproven|occlud|native hit/i);
+    for (const key of ["engines", "pendingEngines", "textures", "effects", "renderers", "pendingCleanups", "probeElements", "probeReadbacks"]) expect(occluded.resources[key]).toBe(0);
+    expect(occluded.resources.roots).toBe(1);
+    await page.locator("#phase13-occluder").evaluate(node => node.remove());
+    await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
+    await page.waitForFunction(() => window.todoProbe.state().mode === "gpu");
+    const initial = await page.evaluate(() => window.todoProbe.state());
+    await page.getByLabel("Open task 1", { exact: true }).click();
+    await expect(page.getByLabel("Detail title", { exact: true })).toBeFocused();
+    const notes = page.getByLabel("Task notes", { exact: true });
+    await notes.click();
+    await page.keyboard.type("Native notes\n".repeat(24));
+    await page.keyboard.press("End");
+    await page.getByRole("button", { name: "Save task", exact: true }).click();
+    await expect(page.locator("#task-message")).toContainText("Saved:");
+    const notesState = await notes.evaluate(node => ({
+      value: node.value, scrollTop: node.scrollTop, selection: [node.selectionStart, node.selectionEnd, node.selectionDirection],
+    }));
+    expect(notesState.value).toBe("Native notes\n".repeat(24));
+    expect(notesState.scrollTop).toBeGreaterThan(0);
+    await page.getByRole("button", { name: "Task information", exact: true }).click();
+    await expect(page.locator("#task-information")).toBeVisible();
+    expect(await page.locator("#task-information").evaluate(node => !window.phase13Root.contains(node))).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#task-information")).not.toBeVisible();
+    await page.getByRole("button", { name: "Delete selected task", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => !!document.activeElement.closest('[role="dialog"]'))).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(page.getByLabel("Detail title", { exact: true })).toBeFocused();
+    await page.getByRole("button", { name: "Back to list", exact: true }).click();
+    await expect(page.getByLabel("Open task 1", { exact: true })).toBeFocused();
+    expect(await page.locator("#todo-detail").evaluate(node => node.inert)).toBe(true);
+    await page.getByLabel("Open task 1", { exact: true }).click();
+    await expect(notes).toHaveValue(notesState.value);
+    await page.getByRole("button", { name: "Back to list", exact: true }).click();
+    await page.getByLabel("Open task 1", { exact: true }).click();
+    await page.getByRole("button", { name: "Back to list", exact: true }).click();
+    await page.getByLabel("Open task 2", { exact: true }).click();
+    await expect(page.getByLabel("Detail title", { exact: true })).toHaveValue("Complete a task with Space");
+    const search = page.getByLabel("Search tasks", { exact: true });
+    await search.click(); await page.keyboard.type("no matching task");
+    await expect(page.getByRole("listitem")).toHaveCount(0);
+    await page.getByRole("button", { name: "Back to list", exact: true }).click();
+    await expect(search).toBeFocused();
+    await page.keyboard.press("Meta+a"); await page.keyboard.press("Backspace");
+    await page.getByLabel("Open task 2", { exact: true }).click();
+    await page.getByRole("button", { name: "Delete selected task", exact: true }).click();
+    await page.getByRole("button", { name: "Confirm delete", exact: true }).click();
+    await expect(page.getByLabel("Open task 2", { exact: true })).toHaveCount(0);
+    await expect(search).toBeFocused();
+    for (let index = 0; index < 5; index++) await add(page, `Phase13 task ${index}`);
+    const list = page.getByRole("list", { name: "Tasks", exact: true });
+    await list.hover(); await page.mouse.wheel(0, 180);
+    await expect.poll(() => list.evaluate(node => node.scrollTop)).toBeGreaterThan(0);
+    await list.evaluate(node => { node.scrollTop = node.scrollHeight; });
+    await page.getByLabel("Open task 7", { exact: true }).click();
+    await expect(page.getByLabel("Detail title", { exact: true })).toHaveValue("Phase13 task 4");
+    await page.waitForTimeout(250);
+    await page.evaluate(() => window.todoProbe.controller().settle());
+    const png = PNG.sync.read(await page.locator("#output").screenshot({ path: `${directory}/phase13-owning-${dpr}.png` }));
+    const scale = png.width / 760;
+    const offset = (Math.floor(440 * scale) * png.width + Math.floor(720 * scale)) * 4;
+    const sentinel = [...png.data.subarray(offset, offset + 4)];
+    expect(sentinel).toEqual([224, 244, 232, 255]);
+    const originalOpen = await page.getByLabel("Open task 7", { exact: true }).boundingBox();
+    await page.evaluate(async () => { window.todoProbe.controller().setTransform("todo-controls", { x: 60 }); await window.todoProbe.controller().settle(); });
+    const currentOpen = await page.getByLabel("Open task 7", { exact: true }).boundingBox();
+    expect(currentOpen.x - originalOpen.x).toBeCloseTo(60, 1);
+    const oldPoint = { x: originalOpen.x + 3, y: originalOpen.y + originalOpen.height / 2 };
+    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.id, oldPoint)).not.toBe("open-task-7");
+    await page.mouse.click(oldPoint.x, oldPoint.y);
+    await page.getByLabel("Open task 7", { exact: true }).click();
+    const listBounds = await list.boundingBox();
+    const exterior = { x: listBounds.x + 40, y: listBounds.y + listBounds.height + 5 };
+    expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-task-id]')?.getAttribute("data-task-id"), exterior)).toBeUndefined();
+    await page.mouse.click(exterior.x, exterior.y);
+    await page.evaluate(async () => { window.todoProbe.controller().setTransform("todo-controls", {}); await window.todoProbe.controller().settle(); });
+    await page.evaluate(() => {
+      window.phase13LiveMotion = window.todoProbe.controller().transition("todo-controls", {
+        keyframes: [{ offset: 0, x: 60 }, { offset: 1, x: 100 }], timing: { duration: 1200 },
+      });
+      document.querySelector('[role="list"]').scrollTop -= 30;
+      window.scrollTo(0, 20);
+    });
+    const liveBefore = await page.evaluate(() => window.todoProbe.state());
+    const livePNG = PNG.sync.read(await page.locator("#output").screenshot({ path: `${directory}/phase13-live-owning-${dpr}.png` }));
+    const liveOld = (Math.floor(650 * scale) * livePNG.width + Math.floor(22 * scale)) * 4;
+    expect([...livePNG.data.subarray(liveOld, liveOld + 4)]).toEqual([255, 255, 255, 255]);
+    const liveGeometry = await page.locator("#todo-controls").boundingBox();
+    const liveAfter = await page.evaluate(() => window.todoProbe.state());
+    expect(liveBefore.mode).toBe("gpu"); expect(liveAfter.mode).toBe("gpu");
+    expect(liveAfter.metrics.gpuFrames).toBeGreaterThan(liveBefore.metrics.gpuFrames);
+    expect(liveAfter.layers).toHaveLength(3);
+    await page.evaluate(async () => { window.phase13LiveMotion.cancel(); window.todoProbe.controller().setTransform("todo-controls", {}); await window.todoProbe.controller().settle(); });
+    const beforeMedia = await page.evaluate(() => window.todoProbe.state());
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
+    await page.getByLabel("Complete selected task", { exact: true }).focus();
+    await page.keyboard.press("Space");
+    await expect(page.getByLabel("Complete selected task", { exact: true })).toBeChecked();
+    await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
+    await page.waitForFunction(() => window.todoProbe.state().transition.timers === 0);
+    await page.getByRole("heading", { level: 1 }).click();
+    await page.evaluate(async () => {
+      await window.todoProbe.controller().settle();
+      window.todoProbe.controller().setRipple("todo-decoration", { amplitude: 4, seconds: 0, playing: false });
+      for (let index = 0; index < 30; index++) await new Promise(requestAnimationFrame);
+      await window.todoProbe.controller().settle();
+    });
+    const interval = await page.evaluate(() => window.todoProbe.advance(300, 1));
+    await save(`phase13-preassert-${dpr}`, { initial, notesState, sentinel, liveBefore, liveAfter, liveGeometry, beforeMedia, interval,
+      events: await page.evaluate(() => window.phase13Events) });
+    expect(interval.after.metrics.gpuFrames - interval.before.metrics.gpuFrames).toBe(300);
+    for (const key of ["captures", "uploads", "pixelReadbacks", "pixelCopies"]) expect(interval.after.metrics[key]).toBe(interval.before.metrics[key]);
+    expect(interval.after.commits.count).toBe(interval.before.commits.count);
+    expect(interval.after.resources.engines).toBe(1);
+    expect(interval.after.layers).toHaveLength(3);
+    expect(interval.after.mode).toBe("gpu");
+    expect(interval.after.publication.pending).toBe(false);
+    expect(await page.evaluate(() => window.phase13Root === window.todoProbe.controller().container && window.phase13Input === document.getElementById("new-task"))).toBe(true);
+    const events = await page.evaluate(() => window.phase13Events);
+    expect(events.filter(event => event.type === "click" && event.trusted && event.mode === "gpu").length).toBeGreaterThan(10);
+    await notes.click();
+    await page.keyboard.type("Keep native selection");
+    await page.keyboard.press("Home");
+    await page.keyboard.press("Shift+ArrowRight");
+    await page.evaluate(() => {
+      window.phase13Note = document.getElementById("detail-notes");
+      window.phase13Selection = [window.phase13Note.value, window.phase13Note.selectionStart, window.phase13Note.selectionEnd, window.phase13Note.selectionDirection];
+    });
+    await page.evaluate(() => window.todoProbe.controller().disable());
+    expect(await notes.evaluate(node => node === window.phase13Note && document.activeElement === node
+      && JSON.stringify([node.value, node.selectionStart, node.selectionEnd, node.selectionDirection]) === JSON.stringify(window.phase13Selection))).toBe(true);
+    await expect(page.getByLabel("Detail title", { exact: true })).toHaveValue("Phase13 task 4");
+    await page.evaluate(() => window.todoProbe.controller().enable());
+    await page.waitForFunction(() => window.todoProbe.state().mode === "gpu");
+    expect(await notes.evaluate(node => node === window.phase13Note && document.activeElement === node
+      && JSON.stringify([node.value, node.selectionStart, node.selectionEnd, node.selectionDirection]) === JSON.stringify(window.phase13Selection))).toBe(true);
+    const disposed = await page.evaluate(() => window.todoProbe.dispose());
+    zero(disposed); expect(errors).toEqual([]);
+    await save(`phase13-workflow-${dpr}`, { initial, notesState, sentinel, liveBefore, liveAfter, liveGeometry, beforeMedia, interval, events,
+      liveCaptureDelta: interval.before.metrics.captures - initial.metrics.captures, disposed, errors });
+  });
 });

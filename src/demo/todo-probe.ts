@@ -17,9 +17,10 @@ export function todoProbe(controller: CanvasController, transitions: ReturnType<
     },
     async advance(frames: number, milliseconds: number) {
       await controller.settle();
-      const before = state();
-      await controller.advance(frames, milliseconds);
-      return { before, after: state() };
+      const preparation = state();
+      const interval = await controller.advance(frames, milliseconds);
+      return { preparation, before: { ...interval.before, commits: preparation.commits },
+        after: { ...interval.after, commits: { ...commits } } };
     },
   };
 }

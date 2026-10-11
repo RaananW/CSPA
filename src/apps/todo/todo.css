@@ -1,0 +1,9 @@
+#todo-controls input:not([type="checkbox"]), #todo-detail input:not([type="checkbox"]), #todo-detail textarea {
+  max-width: 100%; box-sizing: border-box;
+}
+#todo-detail form { display: flex; flex-direction: column; gap: 6px; }
+#todo-detail h2 { margin: 0 0 10px; }
+#todo-detail textarea { resize: none; }
+.todo-backdrop { position: fixed; inset: 0; background: rgb(0 0 0 / 35%); }
+.todo-dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(320px, 80vw); padding: 20px; background: white; border: 2px solid #182436; }
+#task-information { max-width: 320px; padding: 20px; }

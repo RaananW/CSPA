@@ -1,5 +1,11 @@
 # TODO application pilot
 
+**Historical pilot:** the acceptance and measurements below describe the
+earlier two-layer specimen. The current selected Phase13 implementation is the
+[three-layer list/detail task workspace](task-workspace.md), awaiting its own
+independent acceptance. Earlier captures/verdicts are not updated or reused as
+current qualification.
+
 **Evidence storage:** historical raw paths named below refer to the verified
 external local archive, not files in this checkout. Only compact verdicts
 remain tracked; [archive access, hashes and reproduction](archive-catalog.md).

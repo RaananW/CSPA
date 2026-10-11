@@ -1,11 +1,13 @@
 # CanvasSPA implementation roadmap
 
-**Current uncommitted correction:** same-owner public WebGPU native paint,
+**Persisted bounded correction:** same-owner public WebGPU native paint,
 logical-slot complete-frame publication and default native DPR capture replace
-healthy structural readmission. This is implementation for fresh independent
-acceptance, not a revised historical verdict or Phase12 completion. Physical
+healthy structural readmission. The current-spec and bounded external-scroll
+routes are persisted in `cfa9df73` and `ab598c00` after independent acceptance
+with limits, not a revised historical verdict or Phase12 completion. Physical
 display continuity, text/accessibility and application numeric budgets remain
-open; Phases13/14 and release work remain unauthorized.
+open. The selected [Phase13 task workspace](task-workspace.md) is authorized
+implementation awaiting independent acceptance; Phase14/release remain unstarted.
 
 **Evidence storage:** historical raw paths named below refer to the verified
 external local archive, not files in this checkout. Only compact verdicts
@@ -17,7 +19,8 @@ within their bounded engineering scope; Phase11 engineering is accepted but its
 full human/physical gate is incomplete. Phase12 bounded engineering is independently
 accepted with limits; full Phase12 production-budget decisions and the
 [GPU-first structural-update gate](architecture.md#gpu-first-contract) remain open.
-Phases13-14 are proposed, not started. Planning/inspection was a preface, not an additional
+Phase13 is limited to the selected task workspace; Phase14 is proposed, not started.
+Planning/inspection was a preface, not an additional
 numbered delivery phase. [Phase6](measurements.md) establishes no speedup:
 root-wide capture/readback on edits remains a measured cost.
 
@@ -35,7 +38,7 @@ root-wide capture/readback on edits remains a measured cost.
 | 10: Package/distribution preparation | **Independently accepted with limits** ([verdict](../evidence/phase10-independent/acceptance-summary.json)): private ESM library/declarations from the intentional entry; external matching React peers/public Lite; exact tarball contents gate; standalone [install/bootstrap/browser contract](distribution.md); actual tarball-installed React18/19 consumers | Independent23 units, pack8 and separate direct8 browser scenarios; strict Bundler/NodeNext types, original React controls, geometry/pixels/fault/loss recovery; owner38 source browsers not independently rerun, old full React18 matrix not run; not published, no license selected, not production-ready |
 | 11: Human/native interaction and accessibility checks | **Engineering independently accepted with limits; human/physical validation pending** ([verdict](../evidence/phase11-independent/acceptance-summary.json)): native editable-boundary repair and actual installed React18/19 interaction audit | Full Phase11 INCOMPLETE: actual human OS IME/screen reader/everyday profile/background/physical display/device gates remain OPEN; proxies cannot close unavailable gates |
 | 12: Dynamic lifecycle and performance envelope | **Historical engineering independently accepted with limits** ([verdict](../evidence/phase12-independent/acceptance-summary.json)). Explicit-default, opt-in settled structural readmission; cancellation/initialization/capture/readback/media/loss refusal, retained original state, maintained demo and installed React18/19 fixtures; matched baseline/DOM edit-heavy/TODO/structural measurements. This did not establish seamless presentation | Full Phase12 INCOMPLETE: demonstrated Layer/Replace ref flicker leaves the continuous-GPU/fresh-pixel/current-native-hit gate OPEN; permanent DOM fallback was rejected, never merged. Production application/hardware and numeric frame/input/capture/resource budgets also remain OPEN. Historical independent23 units/build,55 focused passes/1 human skip,eight installed package contracts, direct-root edges and48 workload entries passed. Observed GPU structural increases disclosed; conservative root-wide capture remains, no speedup. See [GPU-first contract](architecture.md#gpu-first-contract), [policy](api.md#opt-in-settled-readmission-phase12-engineering) and [envelope](measurements.md#phase12-bounded-engineering-envelope). |
-| 13: Independent application adoption | **Proposed; NOT STARTED.** Independent real apps, chosen component/library integrations, public portal/layer ownership, application CSS, actionable diagnostics, stable typed APIs and explicit supported subsets | Reproduce native interaction/fallback/lifecycle in chosen applications and versions; framework/SSR/hydration support only for explicitly selected, verified targets. No custom reconciler, general CSS engine or complete UI kit. |
+| 13: Independent application adoption | **Selected engineering implementation; awaiting independent acceptance.** [Bounded six-task list/detail workspace](task-workspace.md), one original reducer/tree, Radix/native portals, three layers, controlled editing/search, inert/focus/cancellation and actionable diagnostics; exact public-package React18/19 consumers | Fresh finite source/installed-browser DPR1/2 and disabled-feature DOM workflow, owning pixels/native actions/state/lifecycle and settled motion. Client-only; no router/backend, hydration, new dependencies, general CSS engine or UI kit. User-observed lack of flicker is not technical/manual acceptance. |
 | 14: Release engineering and production pilot | **Proposed; NOT STARTED.** Reproducible browser/React CI, external artifact retention, security/dependency review, version/change and migration policy, separately decided licensing/publication, bounded observable pilot with DOM rollback/kill switch | Agreed correctness/compatibility/performance exit gates and demonstrated rollback before release; GPU readiness conditional on actual public native API availability and browser contract. Private packaging alone authorizes neither publication nor a production claim. |
 
 The accepted [TODO application pilot](todo-pilot.md) sits between shader demos

@@ -16,6 +16,9 @@ For an actual bounded application using these exports, see the
 [TODO pilot](todo-pilot.md) and `src/apps/todo/`. Its numeric layout/appearance
 compile to browser CSS; real task events invoke public `setRipple` on a separate
 decorative surface. No additional TODO-specific renderer API is introduced.
+The [Phase13 task workspace](task-workspace.md) extends that original application
+to list/detail and native overlays without new core exports or a second tree;
+its source and exact-package engineering gate awaits independent acceptance.
 The [bounded effects contract](effects.md) documents `setEffects`, effect
 handles and trusted `defineEffect` authoring; `/effects.html` composes these
 with motion while keeping essential native controls separate.
@@ -27,9 +30,10 @@ with motion while keeping essential native controls separate.
 After enabling GPU, normal structure/layout/DPR changes, visibility pauses and
 reduced motion must not revoke GPU. Only GPU errors or factual missing required
 GPU/capture/geometry support justify diagnosed fallback; explicit disable and
-disposal are caller lifecycle. The uncommitted current-spec correction reconciles
-membership and geometry in the same renderer/output owner. It is not independently
-accepted yet; historical readmission acceptance does not certify this route.
+disposal are caller lifecycle. The persisted bounded current-spec correction
+reconciles membership and geometry in the same renderer/output owner
+(`cfa9df73`, `ab598c00`, independently accepted with limits); historical
+readmission acceptance does not certify the new Phase13 application.
 
 Create empty capture/output canvases and ordinary/overlay hosts as connected,
 same-document siblings **outside all React roots**. Put them inside a sized,

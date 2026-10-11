@@ -24,12 +24,18 @@ and undo/redo flow must remain GPU-presented after enable, with fresh output and
 current original native hits. Only GPU errors or factual missing required
 GPU/capture/geometry features justify diagnosed fallback; explicit disable and
 disposal remain caller lifecycle. Normal layout/DPR updates, visibility pauses
-and reduced motion are not failure classifications. The current uncommitted
-correction implements same-owner successors; fresh independent acceptance is
-still required. See the [capability matrix](architecture.md#capability-versus-implementation-matrix).
+and reduced motion are not failure classifications. The persisted bounded
+correction implements same-owner successors (`cfa9df73`, `ab598c00`,
+independently accepted with limits); the Phase13 application still requires
+fresh independent acceptance. See the [capability matrix](architecture.md#capability-versus-implementation-matrix).
 Component GPU support should layer over the standard native React implementation
 with a small typed declarative CSS/JS fallback and the same controls/state,
 not a second tree or an automatic arbitrary-library/CSS adapter.
+
+The selected Phase13 [task workspace](task-workspace.md) implements that model
+using existing APIs and original controlled forms, list/detail, Radix confirmation
+and native popover. Its independent acceptance is pending; it adds no generic
+router, reconciler, library compatibility or SSR/hydration promise.
 
 1. Keep original React state, native inputs/forms and authored CSS. Bootstrap
    one persistent root in the adapter-owned container, with connected sibling

@@ -11,12 +11,25 @@ package, change visibility or infer redistribution permission from this build.
 
 ## Build and install locally
 
-**Current source correction is unaccepted:** legacy installed-consumer verdicts
-below are immutable historical evidence, not current-spec qualification. The
+**Bounded current-spec correction is persisted after independent acceptance
+with limits** (`cfa9df73`, `ab598c00`). Legacy installed-consumer verdicts
+below are immutable historical evidence, not qualification of Phase13. The
 current WebGPU route requires reflected owner `content="drawable"`, descendant
 `drawable` and owning-native-paint public direct upload. WebGL2 direct capture
 is unqualified. No publication or dependency installation is authorized by the
 local correction; use existing dependency resolutions for exact archive checks.
+
+The selected client-only Phase13 task adopter is engineering implementation
+awaiting fresh independent acceptance. Run the scoped existing-dependency check
+with `node scripts/package-consumer.mjs --reuse-dependencies --todo-case`
+and a new approved `CANVAS_EVIDENCE_ROOT` under `evidence/phase13/`.
+It physically extracts the exact current archive for matching React18/19,
+copies the authored task application (not the core source), uses only the public
+entry and Radix's public portal container, and checks actual flagged/disabled-
+feature DPR1/2 browsers. The example app/CSS is not shipped as a library export.
+See `docs/task-workspace.md` in the checkout for its state/layer/focus limits;
+no framework, hydration, physical/accessibility, publication or release promise
+is added. Earlier installed-consumer records below remain historical.
 
 ```sh
 npm run build:library

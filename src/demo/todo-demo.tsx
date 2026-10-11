@@ -4,6 +4,8 @@ import { mountCanvasApp, type CanvasController } from "../canvas-spa";
 import { TodoApp } from "../apps/todo/TodoApp";
 import { taskTransitions } from "../apps/todo/transition";
 import { todoProbe } from "./todo-probe";
+import { rendererDiagnostic } from "../apps/todo/diagnostics";
+import "../apps/todo/todo.css";
 
 const priorDisposal: unknown = import.meta.hot?.data.disposal;
 if (priorDisposal instanceof Promise) {
@@ -25,10 +27,11 @@ controller = mountCanvasApp({
   captureHost: document.querySelector<HTMLCanvasElement>("#capture")!,
   outputCanvas: document.querySelector<HTMLCanvasElement>("#output")!,
   ordinaryHost: document.getElementById("ordinary")!,
+  overlayHost: document.getElementById("overlay")!,
   strict: new URLSearchParams(location.search).has("strict"), createRoot, flushSync,
   onStatus(message) {
     const diagnostic: { mode: string; reason: string } | undefined = message.startsWith("{") ? JSON.parse(message) : undefined;
-    status.textContent = diagnostic ? `${diagnostic.mode}: ${diagnostic.reason}` : message;
+    status.textContent = diagnostic ? rendererDiagnostic(diagnostic.mode, diagnostic.reason) : message;
     document.getElementById("ledger")!.textContent = message;
     if (controller && controller.state().mode !== "gpu") transitions?.stop(false);
   },

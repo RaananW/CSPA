@@ -12,9 +12,11 @@ import { evidenceRoot, validateEvidenceRoot } from "../tests/evidence.mjs";
 import { packageFiles, validatePackageContents } from "./package-policy.mjs";
 import { curatedEvidence } from "./check-evidence.mjs";
 import { interactionContract, dynamicContract } from "./interaction-contract.mjs";
+import { todoContract } from "./todo-contract.mjs";
 
 const root = resolve(".");
 const reuseDependencies = process.argv.includes("--reuse-dependencies");
+const todoCase = process.argv.includes("--todo-case");
 const primary = JSON.parse(await readFile("package.json", "utf8"));
 const react18 = JSON.parse(await readFile("fixtures/react18/package.json", "utf8"));
 const env = { ...process.env, npm_config_userconfig: "/dev/null", npm_config_registry: "https://registry.npmjs.org" };
@@ -285,9 +287,20 @@ try {
     const cwd = join(workspace, `react${major}`);
     await mkdir(cwd);
     for (const file of ["index.html", "main.tsx", "public-types.ts", "tsconfig.json"]) await cp(`fixtures/package-consumer/${file}`, join(cwd, file));
+    if (todoCase) {
+      await cp("fixtures/package-consumer/todo-main.tsx", join(cwd, "main.tsx"));
+      await writeFile(join(cwd, "index.html"), (await readFile("todo.html", "utf8")).replace("/src/demo/todo-demo.tsx", "/main.tsx"));
+      await mkdir(join(cwd, "task"));
+      for (const file of ["TodoApp.tsx", "model.ts", "transition.ts", "diagnostics.ts", "todo.css"]) {
+        const authored = await readFile(`src/apps/todo/${file}`, "utf8");
+        await writeFile(join(cwd, "task", file), authored.replaceAll('"../../canvas-spa"', '"canvas-spa-phase-one"')
+          .replaceAll('"./model"', '"./model.js"').replaceAll('"./TodoApp"', '"./TodoApp.js"'));
+      }
+    }
     const versions = major === 18 ? react18 : { dependencies: primary.devDependencies, devDependencies: primary.devDependencies };
     const manifest = { name: `canvas-spa-installed-react${major}-consumer`, version: "0.0.0", private: true, type: "module",
-      dependencies: { [primary.name]: `file:${tarball}`, react: versions.dependencies.react, "react-dom": versions.dependencies["react-dom"] },
+      dependencies: { [primary.name]: `file:${tarball}`, react: versions.dependencies.react, "react-dom": versions.dependencies["react-dom"],
+        ...(todoCase ? { "@radix-ui/react-dialog": primary.devDependencies["@radix-ui/react-dialog"] } : {}) },
       devDependencies: { "@types/react": versions.devDependencies["@types/react"], "@types/react-dom": versions.devDependencies["@types/react-dom"],
         typescript: primary.devDependencies.typescript, vite: primary.devDependencies.vite } };
     await writeFile(join(cwd, "package.json"), JSON.stringify(manifest, null, 2));
@@ -323,7 +336,8 @@ try {
       assert.ok(!/\/Users\/|\/private\/|session-state|react-dom\/profiling|integrationProbe|runtimeProbe/.test(bytes.toString()), `Private/demo boundary: ${path}`);
     }
     const actual = {};
-    for (const name of ["react", "react-dom", "@types/react", "@types/react-dom", "typescript", "vite", "@babylonjs/lite", "@types/webxr"]) {
+    for (const name of ["react", "react-dom", "@types/react", "@types/react-dom", "typescript", "vite", "@babylonjs/lite", "@types/webxr",
+      ...(todoCase ? ["@radix-ui/react-dialog"] : [])]) {
       actual[name] = JSON.parse(await readFile(join(cwd, "node_modules", name, "package.json"), "utf8")).version;
     }
     for (const [name, version] of Object.entries({ ...manifest.dependencies, ...manifest.devDependencies, ...primary.dependencies })) {
@@ -344,7 +358,8 @@ try {
     results.consumers.push(consumer);
     try {
       for (const flags of [false, true]) for (const dpr of [1, 2]) {
-        consumer.browsers.push(await browserContract(server.url, major, actual.react, flags, dpr));
+        consumer.browsers.push(await (todoCase ? todoContract(server.url, major, actual.react, flags, dpr, evidence)
+          : browserContract(server.url, major, actual.react, flags, dpr)));
         await writeFile(join(evidence, "report.json"), JSON.stringify(results, null, 2));
       }
     } finally { await server.stop(); }
