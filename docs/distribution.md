@@ -24,16 +24,20 @@ The selected client-only Phase13 task adopter is qualified-accepted at
 generated metadata integrity exception. Its unchanged workflow proof and fresh
 status proof are distinct; the old adoption-v1 seal is not wholly intact.
 See the checkout's `docs/open-issues.md` for current boundaries and exceptions.
-This documentation update does not rebuild or requalify an existing tarball.
-Run the scoped existing-dependency check
-with `node scripts/package-consumer.mjs --reuse-dependencies --todo-case`
-and a new approved `CANVAS_EVIDENCE_ROOT` under `evidence/phase13/`.
-It physically extracts the exact current archive for matching React18/19,
+That accepted documentation update did not rebuild or requalify an existing
+tarball. Phase14 private engineering now uses the checkout's
+`scripts/release-validation.mjs` and `docs/private-release.md`: build-only,
+no-flags/default DOM and explicitly requested-native lanes in a fresh owned
+Phase14 root. No new execution may reuse sealed dependency directories,
+directory symlinks or optimizer caches; legacy `--reuse-dependencies` workspace
+behavior is not the isolated release lane.
+The new runner physically extracts the exact current archive for matching React18/19,
 copies the authored task application (not the core source), uses only the public
 entry and Radix's public portal container, and checks actual flagged GPU and
 no-flags/default DOM DPR1/2 browsers. Default DOM leaves GPU disabled; it does
 not prove native methods absent on157. Intentional clip-dropping refusal is
-checked separately. The example app/CSS is not shipped as a library export.
+checked separately in the accepted Phase13 proof, not rerun by the narrow
+release pilot. The example app/CSS is not shipped as a library export.
 See `docs/task-workspace.md` in the checkout for its state/layer/focus limits;
 no framework, hydration, physical/accessibility, publication or release promise
 is added. Earlier installed-consumer records below remain historical.

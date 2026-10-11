@@ -41,14 +41,18 @@ security contact is designated here.
 Phase10 private distribution preparation is independently accepted with limits;
 [verdict](evidence/phase10-independent/acceptance-summary.json) and
 [local pack/consumer and browser policy](docs/distribution.md).
-Keep the existing package name/private/license decisions. No npm publication,
-release CI is authorized here. Historical Phase12 engineering covered opted-in settled
+Keep the existing package name/private/license decisions. No npm publication
+is authorized here. A bounded private build-only CI definition and
+local Phase14 pilot are authorized engineering, not hosted success or release
+qualification; see [private release lanes](docs/private-release.md).
+Historical Phase12 engineering covered opted-in settled
 structural readmission and a measured engineering envelope, independently
 accepted with limits ([verdict](evidence/phase12-independent/acceptance-summary.json));
 full Phase12 production budgets remain open. The later bounded continuous-GPU
 correction and selected [Phase13 task workspace](docs/task-workspace.md) are
 qualified-accepted; this does not close manual/historical gates. Phase14
-implementation, licensing and publication remain unstarted or undecided.
+private engineering is started; release qualification, licensing and publication
+remain open or undecided.
 
 Start with [README.md](README.md), the maintained
 [architecture/lifecycle/mount contract](docs/architecture.md), and the

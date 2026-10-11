@@ -11,6 +11,11 @@ Current Phase13 no-flags/default DOM cases leave GPU disabled; they do not prove
 native methods absent on157. Intentional clip-dropping admission refusal is a
 separate functional negative gate.
 
+[Phase14 private engineering](private-release.md) is started, not independently
+release-qualified. Its finite source/fresh-package production pilot and
+build-only CI definition do not revise accepted Phase13 results, execute a
+hosted browser gate or close the register's manual/performance/publication limits.
+
 Phase13 native workflow/300-frame proof and the fresh diagnostic delta review
 are distinct. The delta review independently checked actual React18.3.1/19.3.0
 runtime preassertions, rendered categories, original state/focus/selection,

@@ -86,7 +86,10 @@ See [permanent integrity exceptions](docs/open-issues.md#permanent-evidence-inte
 [`12f13661`](https://github.com/RaananW/CSPA/commit/12f13661978a9329331bf881af6aca526402d4d0):
 the bounded six-task list/detail workspace, original controlled edits/search,
 Radix/native portals and actionable diagnostics. This is client-only adoption,
-not arbitrary application or Phase14/release acceptance.
+not arbitrary application or Phase14/release acceptance. Bounded
+[Phase14 private release engineering](docs/private-release.md) is now started:
+local task-pilot validation and a build-only CI definition, not publication or
+production qualification.
 
 ## Run and examples
 

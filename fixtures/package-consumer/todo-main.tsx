@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import { Profiler, version } from "react";
+import { version as reactDOMVersion } from "react-dom";
 import { mountCanvasApp, type CanvasController } from "canvas-spa-phase-one";
 import { TodoApp } from "./task/TodoApp.js";
 import { taskTransitions } from "./task/transition.js";
@@ -30,7 +31,7 @@ async function dispose() {
   await controller.dispose();
   for (const remove of removers.splice(0)) remove();
 }
-const state = () => ({ ...controller.state(), version, commits, sameRoot: controller.container === root,
+const state = () => ({ ...controller.state(), version, reactDOMVersion, commits, sameRoot: controller.container === root,
   sameInput: document.getElementById("new-task") === input, timers: transitions!.state().timers, listeners: removers.length });
 window.packageTask = { controller, state, dispose };
 for (const [id, action] of [["gpu", () => controller.enable()], ["dom", () => controller.disable()], ["dispose", dispose]] as const) {
