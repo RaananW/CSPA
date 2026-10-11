@@ -4,6 +4,15 @@ CanvasSPA is a **GPU-first framework**. Read [README.md](README.md),
 [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [GPU-first contract](docs/architecture.md#gpu-first-contract) before changing it.
 
+Before every capture, geometry or presentation change, ALWAYS check the latest
+[WICG HTML-in-Canvas proposal](https://github.com/WICG/html-in-canvas) and
+[Chromium feature/bug hotlist](https://issues.chromium.org/hotlists/6783002),
+including relevant ElementCanvasTransform issues. Record the proposal SHA/date,
+tracker access limits, landed fixes and actual queried browser build separately.
+Historical evidence and a fixed issue status do not qualify the installed
+browser. Verify current APIs with functional pixel/native-hit probes; do not
+silently substitute deprecated syntax or infer support from property presence.
+
 Supported React layer, ref and content updates must remain GPU-presented with
 fresh pixels, current original native interaction geometry and no blank
 application frames. Permanent DOM fallback for normal supported updates is not

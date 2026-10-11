@@ -20,6 +20,16 @@ and undo/redo flow. Distinguish missing framework implementation from browser
 feature limits. Component GPU support and typed declarative CSS/JS fallback
 must share the standard implementation's original controls/state.
 
+Before every capture, geometry or presentation change, ALWAYS review the latest
+[WICG HTML-in-Canvas proposal](https://github.com/WICG/html-in-canvas) and
+[Chromium hotlist 6783002](https://issues.chromium.org/hotlists/6783002),
+including ElementCanvasTransform, paint, geometry and direct-GPU issues.
+Record proposal SHA/date, accessible issue status/landed revision and actual
+queried browser build; disclose inaccessible tracker content. Fixed tracker
+status and historical tests are not installed-browser qualification. Current
+syntax/API support requires functional pixel and original native-hit evidence,
+not silent legacy compatibility or property detection alone.
+
 The intended direction is open-source software, but this folder is currently
 an experimental private package, not a published library. License selection,
 repository publication and release policy are unresolved. No maintainer or

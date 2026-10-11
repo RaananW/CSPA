@@ -45,6 +45,33 @@ evidence; no atomic browser transaction or required React patch is presumed.
 
 ### Capability versus implementation matrix
 
+**Upstream review (2026-10-11):** the current
+[WICG explainer](https://github.com/WICG/html-in-canvas/blob/5fb3df86d84de598c7f0fcfc5ee53de1df067e7d/README.md)
+was checked at main commit `5fb3df86d84de598c7f0fcfc5ee53de1df067e7d`
+(2026-10-09). It requires canvas `content="drawable"` AND descendant
+`drawable`; these are distinct opt-ins. It also specifies direct WebGPU
+`GPUQueue.drawElementImageToTexture`, not only 2D capture/staging. Drawing in
+`paint` belongs to the current rendering update; DOM changes belong to the next.
+Offscreen geometry batching prevents task interleaving, not a proven shared
+GPU/native presentation transaction. Current code still accepts legacy
+`layoutSubtree`, and the installed Lite HTML-texture helper uses the older
+`copyElementImageToTexture` contract and makes hosted content inert; neither
+is a qualified current-spec integration for original interactive React controls.
+Migration and continuous publication remain implementation gates, not solved
+by renaming an attribute. Anonymous browser review of the
+[Chromium hotlist](https://issues.chromium.org/hotlists/6783002) reports
+[content drawable](https://issues.chromium.org/issues/561849343),
+[legacy layoutsubtree removal](https://issues.chromium.org/issues/568010578),
+[ElementCanvasTransform default enablement](https://issues.chromium.org/issues/565840013)
+and [legacy transform getter removal](https://issues.chromium.org/issues/571496925)
+as Fixed. The explainer still lists that getter, so neither source alone
+establishes the shipped API. Landed revisions/release availability were not
+verified in this assessment. Actual secure-localhost Chrome155 inspection
+found no reflected `content` property, legacy `layoutSubtree` present and both
+direct-GPU upload names present; property inspection is not functional
+qualification. Future changes must repeat current proposal/tracker review and
+distinguish it from actual browser functional qualification.
+
 | Area | Current bounded evidence | Remaining boundary |
 | --- | --- | --- |
 | Initial native capture, public texture upload, shared GPU composition and affine native hits | Working on the recorded experimental Chrome155 path and bounded React18/19 specimens | Required experimental capture/geometry APIs are not general browser support |
