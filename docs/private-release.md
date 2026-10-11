@@ -64,8 +64,10 @@ existing-runtime assessment found no high-confidence exploitable findings in
 31 reviewed baseline files. A GitHub reviewed-advisory metadata lookup of99
 locked npm package/version pairs returned HTTP200 and zero matches with no
 next page. This is not `npm audit`, dependency-source inspection, artifact
-integrity or security certification; new release-script/CI delta and final
-independent acceptance remain pending. INT-001 and INT-002 remain unchanged:
+integrity or security certification. The release-script/CI delta was independently
+reviewed, and the exact thirteen-path private engineering freeze was independently
+qualified-accepted and persisted at [4a973abb](https://github.com/RaananW/CSPA/commit/4a973abb8218c71365571c03c15ca9fa566d4d5b);
+this is not whole-release qualification. INT-001 and INT-002 remain unchanged:
 five lost originals and one damaged generated metadata file are not restored.
 
 ## Pilot and rollback
