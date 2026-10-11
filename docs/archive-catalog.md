@@ -26,6 +26,18 @@ and the scope of each historical acceptance.
 
 ## Integrity
 
+### Later integrity exceptions
+
+The archive totals and digests below describe the historical pre-rewrite
+snapshot, not all later engineering artifacts. The dated
+[current register](open-issues.md#permanent-evidence-integrity-exceptions)
+separately records five lost Phase6 originals and exactly one Phase13 generated
+optimizer metadata corruption. Original expected Phase13 bytes are unavailable;
+the damaged file/ledger archive remain as-is and the old adoption-v1 seal is
+**not wholly intact**. Fresh isolated diagnostic acceptance retained that
+exception explicitly and verified other protected bytes separately. No later
+pass, Git checkpoint or this catalog restores either provenance gap.
+
 - Exact per-file path/size/SHA256 manifest:
   `c5917a61d15495e86c0427b2a23f5e1603eecb8c8d64e6edfcea6ac86b10d383`.
 - Full pre-rewrite Git tar SHA256:

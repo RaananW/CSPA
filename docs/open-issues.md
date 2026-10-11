@@ -1,0 +1,116 @@
+# Current open issues and qualification register
+
+**As of 2026-10-11; accepted source checkpoint:**
+[`12f13661`](https://github.com/RaananW/CSPA/commit/12f13661978a9329331bf881af6aca526402d4d0).
+This is a documentation register, not GitHub tickets, assigned work, release
+approval or a new test verdict. IDs remain stable when status changes. No owners,
+deadlines or severity rankings have been assigned.
+
+No unresolved current-code defect was reproduced in the latest independently
+accepted **bounded** core/external-scroll/task-workspace checks. That does not
+establish unrestricted framework correctness. Unsupported scope, tests not
+performed, historical anomalies and permanent integrity exceptions below are
+different from currently failing supported code.
+
+## Closed defects, with limits
+
+| ID | Current disposition and evidence | Closure boundary |
+| --- | --- | --- |
+| FIX-001 | Structural Layer/Replace-ref blank-frame readmission, native editor caret/composition recovery, root/enrolled clipping and unavailable initial admission proof were corrected in [cfa9df73](https://github.com/RaananW/CSPA/commit/cfa9df73f98e075de0559a18fe42e9fb75c13a79), independently accepted with limits. Same-root complete publication and fresh owning paint replace healthy structural readmission. | Closed for the measured current-API subset, not physical-display continuity, every CSS layout or universal text fidelity. Historical Phase12 verdicts and four v7 frames remain unchanged. See [architecture](architecture.md#gpu-first-contract) and HIST-001. |
+| FIX-002 | Ordinary document/external axis-aligned scroll projection and native border/padding origin were independently accepted and persisted in [ab598c00](https://github.com/RaananW/CSPA/commit/ab598c00c320dec383377b78b29a328a82e26d84). Original focus/locator/editing workflow and pixel/native-hit checks passed. | Not arbitrary transformed ancestors, RTL/zoom/writing modes or future browser qualification. Actual157 replaced owning canvas observed scroll0; nonzero owner-canvas scrolling is inapplicable to that qualified case, not a missing capture feature or simulated success. |
+| FIX-003 | Phase13 selected task workspace and actionable diagnostics are qualified-accepted at `12f13661`. Three-file diagnostic repair: `src/apps/todo/diagnostics.ts`, `tests/todo.test.mjs`, `tests/todo.unit.test.mjs`. Actual offscreen reason containing "explicitly enable again" now reports admission, not lifecycle; explicit disable still reports lifecycle. | Native workflow proof is inherited from the unchanged bounded application checks; fresh repair proof covers classification, actual peer-qualified status/native state/refusal/reentry/disposal, not a rerun of every workflow or 300-frame interval. INT-002 remains a permanent exception. See [task workspace](task-workspace.md). |
+
+## Unperformed validation
+
+| ID | Status, impact and reference | Concrete closure criterion |
+| --- | --- | --- |
+| VAL-001 | **Open: OS IME/candidate UI.** Automated composition events and original input/textarea checks do not qualify a real operating-system input method. [Operator checklist](adoption.md). | Record actual browser/build, OS/input method, trusted composition/candidate selection, final values/caret/focus and useful recovery on the original controls; independent acceptance for the selected configuration. |
+| VAL-002 | **Open: spoken accessibility.** Accessible-tree/labels/keyboard/forced-colors checks are bounded automation, not a screen-reader audit. [Adoption](adoption.md), [verification](verification.md). | Perform and record a named real screen reader's spoken navigation, editing, announcements, dialogs/portals and focus return in DOM and GPU modes; independently assess the selected app. |
+| VAL-003 | **Open: physical display and frame join.** Decoded screenshots, GPU queue completion and asynchronously joined counters do not prove a physical refresh/native-input transaction or flicker-free display migration. User observations are separate evidence. | An authorized actual display/DPR migration and causal output/native-hit/frame observation with attributable source/browser/device/timing and retained original state; no substitution of emulated DPR or screenshot arrival for physical acknowledgment. |
+| VAL-004 | **Open: everyday profiles and genuine background throttling.** Clean headless/headful profiles and synthetic visibility are not certification of the user's everyday profile or an actually backgrounded document. [2026-10-10 observations](adoption.md) lack exact browser/mode/timing detail. | Record a selected real profile and genuine background/return workflow, permissions/extensions/configuration relevant to results, state retention, scheduling and diagnostics; distinguish native absence from framework failure. |
+| VAL-005 | **Open: hardware/device-loss breadth.** Public configured-device destruction proves that induced loss path, not physical driver reset or multiple GPUs/platforms. [Recovery bounds](architecture.md). | Authorized real hardware/loss scenarios with actual device/browser identity, original state, safe retirement/reentry and independent results; declare the tested breadth rather than generalizing. |
+| VAL-006 | **Open: universal text/DPR2 fidelity.** Historical DPR2 mismatch was baseline-identical (23249 pixels/68851 bytes), not pixel equivalence. Current finite DPR1/2 passes do not qualify all fonts, text, selection or display densities. [Measurements](measurements.md). | Matched original-native/owning-output raster and interaction checks across explicitly selected fonts, text/editing/selection, DPI and hardware, with source/capture provenance and declared fidelity criteria. |
+| VAL-007 | **Open: historical exact browser gate.** Some Phase6/7/8 evidence used Chrome154.0.8037.98; the later exact154 gate remains unverified. Historical155 continuation was not an explicit154 waiver. Current bounded corrections use measured Canary157.0.8098.0/revision `b4fa1b3baec04505d5a58e8cd1e7927b03cec74b`. | Separate authorization and actual functional qualification of the exact requested build, or an explicit superseding browser decision. A configured label, upstream Fixed status or current157 pass cannot retroactively qualify154. |
+| VAL-008 | **Open: numeric app/hardware budgets.** No agreed production frame/input/capture/resource thresholds or speedup have been established. CPU submission is not GPU execution or physical input latency. [Phase12 envelope](measurements.md#phase12-bounded-engineering-envelope). | Choose app/hardware/workloads and numerical exit budgets, then measure matched DOM/baseline/final paths and independently evaluate correctness and costs. Settled 300-frame zero-churn applies only after preparation/native settling; live editing/caret/scroll paints remain real costs. |
+
+## Unsupported or untargeted scope
+
+| ID | Current boundary and impact | Concrete closure criterion |
+| --- | --- | --- |
+| SCOPE-001 | **Not qualified: arbitrary CSS/transformed or mixed-axis ancestor chains, RTL, writing-mode and zoom combinations.** Supported axis-aligned scrolling is not a general CSS engine. Framework boundaries must not be labelled missing browser features. [Viewport contract](api.md), [architecture](architecture.md). | Select a finite coordinate/layout subset; implement only demonstrated gaps and independently verify live owning pixels/current and old/clipped native hit paths, state and motion across that subset. |
+| SCOPE-002 | **Not qualified: general WAAPI/CSS conversion, arbitrary libraries, routes/shared elements, springs and virtualization.** Only finite explicit animation ownership, enrolled direct-root boundaries and the pinned Radix public portal integration are supported. | Select components/timing/layout contracts, preserve one original control tree and independently prove animation ownership, interaction, cancellation, layers and disposal. No unchanged-app promise follows from the current pilot. |
+| SCOPE-003 | **Untargeted: SSR/hydration.** Safe public ESM import is not server rendering; current mounting creates a client root. [Distribution](distribution.md), [task workspace](task-workspace.md). | Explicitly select a hydration/server target, define root ownership and verify real server/client reconciliation and lifecycle without replacing original controls. |
+| SCOPE-004 | **Unqualified: WebGL2 runtime direct native capture.** Backend feasibility probes or method presence do not establish this runtime route. Current accepted direct owning-paint capture is public WebGPU. | Demonstrate actual current public backend capture/upload/composition/native hit behavior and supported lifecycle with independent source and installed-consumer proof; do not substitute an inert helper or deprecated syntax. |
+| SCOPE-005 | **Not started: Phase14, licensing and publication.** Package remains private `canvas-spa-phase-one@0.0.0`; no project license or publication permission has been selected. Local exact-package checks are not release readiness. [Roadmap](roadmap.md), [distribution](distribution.md). | Separate explicit decisions for license/publication and a bounded pilot, reproducible CI/artifact retention, version/migration policy, security review, observability and demonstrated rollback with agreed correctness/compatibility/performance gates. |
+
+## Unresolved historical anomalies
+
+### HIST-001 - Four private v7 DPR2 frames
+
+**Unattributable and nonexonerated.** One original CDP screencast PNG and three
+trace-derived images lacked the private experiment's sentinels and showed
+enlarged/truncated output. Image arrival counters were not an atomic join to the
+GPU/native source frame. Current complete-frame/publication passes do not prove
+these old images harmless or prove a current-code failure.
+
+Reference: retained private v7 raw/provenance assessment (maintainer access via
+[archive catalog](archive-catalog.md)); later core differs in native density,
+coverage, geometry and capture transport. No new anomaly probe was authorized
+as part of the current fixes. Closure requires attributable retained historical
+source/image/transport evidence or a separately authorized causal investigation.
+A new passing run cannot restore a missing historical join.
+
+## Permanent evidence-integrity exceptions
+
+### INT-001 - Five lost Phase6 original reports
+
+Exactly five originals remain lost: **248/253 genuine original fixture reports**.
+Regenerated samples, preserved Git bytes and later passes are not restorations;
+no explicit original supersession approval exists. See
+[archive integrity](archive-catalog.md#integrity) and [measurements](measurements.md).
+The historical provenance gap remains permanent unless authentic original bytes
+are recovered and verified; later qualification must remain separately dated.
+
+### INT-002 - One Phase13 generated metadata corruption
+
+Exactly one sealed generated file was mutated:
+`evidence/phase13/adoption-v1/react18-workspace/node_modules/.vite/deps/_metadata.json`.
+The diagnostic retry reused sealed dependencies through a directory symlink;
+Vite wrote optimizer metadata. Original expected bytes are unavailable and were
+not reconstructed or restored. **The old adoption-v1 seal is not wholly intact.**
+
+- Expected: 72176 bytes, SHA256
+  `8caaae776bc36a5fa84eeec1e45ada2170ae441d6142bcca7285b32b95c54b65`.
+- Retained damaged bytes: 72176 bytes, SHA256
+  `2e7631f3e9a76c7a05683f55350d03de3a1badcbf245af79fc8d6dc38f17f1ba`.
+- Append-only disposition: retained `diagnostic-repair-v2/integrity-ledger.json`
+  and damaged-current archive. Other protected source/product/test/raw records
+  were verified separately, not covered by an "all old bytes intact" claim.
+
+The subsequent repair used physically isolated dependency/cache trees, actual
+React18.3.1/19.3.0 runtime preassertions and independent fresh status proof.
+Earlier unidentified React18-labelled runs are not certified React18 evidence.
+The fresh acceptance retained this exception explicitly; it did not repair the
+historical archive. Closure means preserving/disclosing the exception and
+keeping future artifacts isolated, not erasing the damaged file or old seal.
+Never execute a new validation through sealed `node_modules`, directory
+symlinks to sealed dependency trees, or sealed optimizer caches. Reuse requires
+physically independent writable dependencies and explicit owned cache locations,
+excluding `.vite`/`.vite-temp` optimizer outputs, with actual resolved/runtime
+peer versions asserted before gates.
+
+## Acceptance references and access
+
+Current commit links above identify product bytes. Private independent reports
+are retained separately and are available only through maintainer privacy review,
+not shipped package assets or public downloads:
+
+| Record | Retained report SHA256 |
+| --- | --- |
+| External-scroll acceptance underlying `ab598c00` | `cde5dfe7b1900217f9805b519fce42c1ea8af09dda1482834546e7385ba61aec` |
+| Initial Phase13 review: diagnostic defect found, native workflow bounded checks passed | `8c0dd5f6c93d7f0b28002706d5248d6d15b93d1d94f43f19c3afaca6bd2ec00f` |
+| Fresh three-file diagnostic repair acceptance with INT-002 | `82dd0d7a650e85815e5afff52576d8a6c5617d59a52cd4432e2c780c6eb15c18` |
+
+Keep immutable historical verdicts unchanged. Update this register when a
+separately accepted outcome changes an ID's status; link the exact evidence,
+scope and source rather than marking unrelated manual/historical gates closed.

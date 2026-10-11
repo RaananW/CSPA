@@ -33,14 +33,17 @@ compiles browser styles rather than implementing a custom CSS/layout engine.
 Cloned controls, stale screenshot covers, wrong native hits and cosmetic status
 debouncing cannot satisfy the presentation contract.
 
-**Current correction, not acceptance:** Runtime **Layer** and integration
-**Replace ref** previously exposed readmission blank frames. The uncommitted
-core now replaces that mechanism with same-owner membership/geometry and
+**Current bounded correction, independently accepted:** Runtime **Layer** and integration
+**Replace ref** previously exposed readmission blank frames. The persisted
+`cfa9df73` core replaces that mechanism with same-owner membership/geometry and
 complete-frame successors. Missing/new/extent-grown slots retain the last
 complete output until prepared fresh native-paint uploads. Fresh independent
-acceptance must verify this exact source. Neither decoded automated frames nor
+acceptance qualified that exact source; `ab598c00` added bounded external scroll
+and native content-origin correction. The selected task workspace and diagnostic
+repair were accepted at `12f13661`. Neither decoded automated frames nor
 queue completion prove physical-display continuity, text fidelity, accessibility
-or performance budgets. Historical verdicts remain immutable and non-current.
+or performance budgets. Historical verdicts remain immutable and scoped to
+their original sources. See the [current register](open-issues.md).
 
 ### Capability versus implementation matrix
 
@@ -55,13 +58,17 @@ Offscreen geometry batching prevents task interleaving, not a proven shared
 GPU/native presentation transaction. Current core rejects silent legacy
 `layoutSubtree` qualification and uses public `DynamicTexture2D.texture` with
 direct owning-paint upload, not Lite's older inert HTML-texture helper.
-Anonymous browser review of the
+Earlier anonymous browser review of the
 [Chromium hotlist](https://issues.chromium.org/hotlists/6783002) reports
 [content drawable](https://issues.chromium.org/issues/561849343),
 [legacy layoutsubtree removal](https://issues.chromium.org/issues/568010578),
 [ElementCanvasTransform default enablement](https://issues.chromium.org/issues/565840013)
 and [legacy transform getter removal](https://issues.chromium.org/issues/571496925)
-as Fixed. The explainer still lists that getter, so neither source alone
+as Fixed. Writer-only later fetches exposed application shells and could not
+verify individual current issue status. The independent accepted external-scroll
+closeout separately rechecked the same WICG commit and an accessible anonymous
+hotlist slice (first50 entries/36 links), not the total or full tracker.
+The explainer still lists that getter, so neither source alone
 establishes the shipped API. Landed revisions/release availability were not
 verified in this assessment. Actual secure-localhost Chrome155 inspection
 found no reflected `content` property, legacy `layoutSubtree` present and both
@@ -75,13 +82,13 @@ distinguish it from actual browser functional qualification.
 
 | Area | Current bounded evidence | Remaining boundary |
 | --- | --- | --- |
-| Initial native capture, public texture upload, shared GPU composition and affine native hits | Working on the recorded experimental Chrome155 path and bounded React18/19 specimens | Required experimental capture/geometry APIs are not general browser support |
-| Content invalidation and numeric GPU motion | Existing capture/uniform/native-geometry paths and bounded tests | Continuous fresh-pixel/current-hit publication through all present updates still needs compositor-level proof |
-| Layer/ref/membership/layout/DPR updates | Same renderer/root, synchronous current geometry, prepared textures and complete-frame publication | Uncommitted correction requires fresh independent acceptance; decoded source frames are not physical refresh proof |
+| Initial native capture, public texture upload, shared GPU composition and affine native hits | Independently qualified actual Canary157 current-API route and bounded React18/19 specimens | Required experimental capture/geometry APIs are not general browser support |
+| Content invalidation and numeric GPU motion | Bounded complete publication/current native-hit and settled motion proof accepted | Not every content/layout or a physical-display transaction; genuine live native paints still occur |
+| Layer/ref/membership/layout/DPR updates | Same renderer/root, synchronous current geometry, prepared textures and complete-frame publication accepted at `cfa9df73` | Decoded source frames are not physical refresh proof; arbitrary layouts remain unqualified |
 | Visibility/reduced motion | Current scheduling/cancellation policies | Pause/resume and reduced motion must preserve GPU ownership rather than treat the preference as missing capability |
-| Editing, scroll/clipping, overlays and effects | Specific conservative guards and native overlays exist | Establish actual capture/geometry limits separately from unimplemented GPU support; ordinary mutation is not a capability failure |
-| Component CSS/JS fallback | Original DOM, typed browser styles, numeric native motion and explicit disable exist | No unified per-component declarative GPU/fallback contract yet; implement without duplicate controls/state |
-| Complex apps and undo/redo | Framework target | Not currently certified; future application flows depend on the same continuous-GPU core |
+| Editing, scroll/clipping, overlays and effects | Original editor/root/enrolled viewport and external axis-aligned scroll proof accepted; native portals and inert effects | Other CSS/coordinate subsets remain framework qualification boundaries, not invented missing browser features |
+| Component CSS/JS fallback | Same original DOM/state, typed browser styles and public GPU augmentation used by accepted Phase13 task workspace | No general component toolkit, automatic app adapter or essential shader parity promise |
+| Complex apps and undo/redo | Selected finite task workspace accepted at `12f13661`; broader framework target | Arbitrary apps/undo-redo flows are not certified; future flows need independent proof |
 
 ## Module boundaries
 

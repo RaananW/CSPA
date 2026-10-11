@@ -9,8 +9,12 @@ fresh pixels, current original native hit geometry and no blank application
 frames. A test that only proves useful DOM fallback does not accept such a fix.
 Exercise GPU remaining active through repeated supported updates alongside
 rendered-pixel and original native-interaction checks; retain separate genuine
-unsupported/fault/explicit-disable recovery tests. The structural flicker is
-currently unresolved, and earlier engineering acceptance is not seamless proof.
+unsupported/fault/explicit-disable recovery tests. The bounded structural/native
+viewport correction is independently accepted at `cfa9df73`, external
+axis-aligned scroll at `ab598c00`, and selected Phase13 task adoption/diagnostics
+at `12f13661`. Earlier Phase12 engineering alone was not seamless proof;
+broader framework and physical/manual gates remain open in the
+[current register](docs/open-issues.md).
 Once GPU is enabled, only GPU errors or factual missing required
 GPU/capture/geometry feature support justify diagnosed fallback. Normal
 structure/layout/DPR updates, visibility pauses and reduced motion must retain
@@ -38,11 +42,13 @@ Phase10 private distribution preparation is independently accepted with limits;
 [verdict](evidence/phase10-independent/acceptance-summary.json) and
 [local pack/consumer and browser policy](docs/distribution.md).
 Keep the existing package name/private/license decisions. No npm publication,
-release CI is authorized here. Phase12 is limited to opted-in settled
+release CI is authorized here. Historical Phase12 engineering covered opted-in settled
 structural readmission and a measured engineering envelope, independently
 accepted with limits ([verdict](evidence/phase12-independent/acceptance-summary.json));
-full Phase12 production budgets and the continuous-GPU structural-update gate
-remain open, with no Phase13/14 implementation.
+full Phase12 production budgets remain open. The later bounded continuous-GPU
+correction and selected [Phase13 task workspace](docs/task-workspace.md) are
+qualified-accepted; this does not close manual/historical gates. Phase14
+implementation, licensing and publication remain unstarted or undecided.
 
 Start with [README.md](README.md), the maintained
 [architecture/lifecycle/mount contract](docs/architecture.md), and the

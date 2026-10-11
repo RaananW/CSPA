@@ -65,7 +65,7 @@ router, reconciler, library compatibility or SSR/hydration promise.
 
 No startup auto-enable, route/shared-element transitions, springs, virtualization,
 remote shader loading, general plugin/resource allocator or upstream engine
-modification is introduced. Unsupported scrolling/clipping/nested/foreign
+modification is introduced. Out-of-contract scrolling/clipping/nested/foreign
 enrollment and budget excess remain diagnosed DOM cases.
 
 ## Known comparison limits
@@ -78,12 +78,14 @@ At DPR2 the native capture's text rasterization differs from ordinary DOM on
 both genuine committed Phase8 and Phase9; paired decoded comparisons are
 preserved. Native control value, selection, geometry and hit proof are separate
 from a false pixel-equivalence claim.
-Current baseline/new comparisons and final majors ran on actual installed
+The historical Phase9 baseline/new comparisons and final majors ran on actual installed
 Chrome155.0.8059.40 at the unchanged executable path. Environment transition
 reason/date is unknown. Autonomous coordinator continuation permits bounded
 independent155 checks, not explicit user155 approval; the original exact154
 requirement remains unverified. No installation/download/switch/profile change
-is authorized by these results.
+is authorized by these results. Later bounded core/external-scroll and selected
+Phase13 task-workspace acceptance uses actual Canary157; it does not supersede
+the historical154 gate. See the [current register](open-issues.md).
 
 ## Human/device checklist
 

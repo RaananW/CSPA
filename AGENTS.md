@@ -29,9 +29,12 @@ boundary, one shared renderer, public APIs and the typed no-handwritten-CSS
 authoring goal. Do not clone controls, cover updates with stale pixels, debounce
 diagnostics to mask flicker or weaken hit-geometry safety.
 
-The current structural re-admission flicker is unresolved. Prove the needed
-public capture/presentation mechanism before claiming a fix; do not assume a
-browser API or React patch is available or required. Acceptance must verify GPU
+The bounded structural/native viewport correction is independently accepted at
+`cfa9df73`, external axis-aligned scroll at `ab598c00`, and the selected Phase13
+task workspace/diagnostic repair at `12f13661`. Preserve those qualified
+contracts; [open issues](docs/open-issues.md) records broader and historical gates.
+For new capture/presentation changes, prove the needed public mechanism;
+do not assume a browser API or React patch is available or required. Acceptance must verify GPU
 remains active through supported updates, fresh rendered pixels and correct
 original native hits. Fallback-only tests cannot satisfy that gate.
 Components should layer GPU support and a small typed declarative CSS/JS

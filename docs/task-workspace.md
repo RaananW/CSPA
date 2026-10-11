@@ -1,7 +1,8 @@
 # Phase13 bounded task workspace
 
-This is the selected **client-only engineering implementation, awaiting fresh
-independent acceptance**. It expands the existing `/todo.html` application;
+This is the selected **client-only engineering, qualified-accepted and persisted
+at [12f13661](https://github.com/RaananW/CSPA/commit/12f13661978a9329331bf881af6aca526402d4d0)**.
+It expands the existing `/todo.html` application;
 it does not certify an arbitrary unchanged app, SSR/hydration, a component kit,
 Phase14, publication or physical display continuity. Earlier TODO, package and
 core acceptance records remain historical, immutable evidence.
@@ -91,7 +92,7 @@ errors remain separate.
 | Presentation | Three complete shared-renderer layers, owning-output pixels, current versus old/clipped native targets; no normal DOM mode transition or admission retry |
 | Lifetime | Rapid Presence reversal, inert exit/deleted controls, explicit disable/reentry, capture failure/refusal, StrictMode and zero disposed resources/listeners/timers |
 | Media/motion | Reduced motion and forced colors retain useful original controls; static DOM decoration; GPU-only settled motion distinct from native editing paints |
-| Consumers | Source React18.3.1/19.3.0; exact physically extracted 25-member tarball; strict Bundler/NodeNext types; actual measured Canary157 DPR1/2 with enabled native feature and deliberately disabled-feature DOM |
+| Consumers | Source React18.3.1/19.3.0; exact physically extracted 25-member tarball; strict Bundler/NodeNext types; actual measured Canary157 DPR1/2 with flagged GPU admission and no-flags/default DOM (GPU not enabled). Native-method absence is not proved by default DOM; intentional clip-dropping refusal is a separate negative gate |
 | Scope boundary | Axis-aligned supported layout/scroll; nonreplaced list viewport and textarea; actual157 replaced canvas itself has no nonzero internal scroll in this qualified case |
 
 The focused source workflow measures an explicit 300-frame GPU-only interval
@@ -104,9 +105,16 @@ interval**. Live editing, focus/caret, native scroll and application actions
 produce real owning native paints/captures; those totals are retained, not masked.
 Screenshot/PNG reads are external test observation, not proof of zero-copy.
 
-The new freeze links actual commands, every failure attempt, fresh CDP launch
+The retained engineering freezes link actual commands, every failure attempt, fresh CDP launch
 identity, owning pixels, trusted events, source/package hashes and preservation
-checks. Final acceptance belongs to the independent reviewer. Automated browser
+checks. Independent acceptance qualified the bounded workflow and subsequent
+three-file diagnostic repair. Fresh repair proof covers rendered categories,
+actual React peers and native refusal/reentry/disposal; it does not requalify
+every inherited workflow or 300-frame measurement. Exactly one old generated
+optimizer metadata file remains damaged, with original bytes unavailable and
+the old adoption seal not wholly intact; the exception was explicitly retained
+in acceptance. See the [current register](open-issues.md).
+Automated browser
 accessibility semantics are bounded checks, not an OS screen-reader/IME audit.
 Human physical continuity, universal text/DPR2 fidelity, transformed/mixed CSS,
 arbitrary libraries, background/device-loss breadth and numeric application or

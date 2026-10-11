@@ -6,8 +6,11 @@ healthy structural readmission. The current-spec and bounded external-scroll
 routes are persisted in `cfa9df73` and `ab598c00` after independent acceptance
 with limits, not a revised historical verdict or Phase12 completion. Physical
 display continuity, text/accessibility and application numeric budgets remain
-open. The selected [Phase13 task workspace](task-workspace.md) is authorized
-implementation awaiting independent acceptance; Phase14/release remain unstarted.
+open. The selected [Phase13 task workspace](task-workspace.md) is
+qualified-accepted and persisted at `12f13661`, including its three-file
+diagnostic repair and explicit generated-metadata integrity exception.
+Phase14/release remain unstarted. The [open-issues register](open-issues.md)
+separates current boundaries, unperformed validation and historical exceptions.
 
 **Evidence storage:** historical raw paths named below refer to the verified
 external local archive, not files in this checkout. Only compact verdicts
@@ -17,8 +20,9 @@ This is a private experimental package, not an unchanged-app loader or release
 commitment. The complete fourteen-phase plan is below. Phases1-10 are accepted
 within their bounded engineering scope; Phase11 engineering is accepted but its
 full human/physical gate is incomplete. Phase12 bounded engineering is independently
-accepted with limits; full Phase12 production-budget decisions and the
-[GPU-first structural-update gate](architecture.md#gpu-first-contract) remain open.
+accepted with limits; full Phase12 production-budget decisions remain open.
+The bounded [GPU-first structural-update correction](architecture.md#gpu-first-contract)
+is accepted; physical continuity and arbitrary framework scope are not.
 Phase13 is limited to the selected task workspace; Phase14 is proposed, not started.
 Planning/inspection was a preface, not an additional
 numbered delivery phase. [Phase6](measurements.md) establishes no speedup:
@@ -37,8 +41,8 @@ root-wide capture/readback on edits remains a measured cost.
 | 9: Scaling and production hardening | [Independently accepted-with-limits on actual installed155](../evidence/phase9-independent/acceptance-v1.json): synchronous DOM presentation barrier and generation-safe retirement/reentry for bounded membership/order/position/size/DPR changes; conservative root-wide capture retained, no speedup; [adoption/manual checklist](adoption.md) | Independent React18/19:21 units/types/build/94 and140 browsers; final-source baseline-identical DPR2 text mismatch, not pixel equivalence; exact154 and manual/device gates UNVERIFIED; autonomous coordinator155 continuation is not explicit user155 approval or154 waiver |
 | 10: Package/distribution preparation | **Independently accepted with limits** ([verdict](../evidence/phase10-independent/acceptance-summary.json)): private ESM library/declarations from the intentional entry; external matching React peers/public Lite; exact tarball contents gate; standalone [install/bootstrap/browser contract](distribution.md); actual tarball-installed React18/19 consumers | Independent23 units, pack8 and separate direct8 browser scenarios; strict Bundler/NodeNext types, original React controls, geometry/pixels/fault/loss recovery; owner38 source browsers not independently rerun, old full React18 matrix not run; not published, no license selected, not production-ready |
 | 11: Human/native interaction and accessibility checks | **Engineering independently accepted with limits; human/physical validation pending** ([verdict](../evidence/phase11-independent/acceptance-summary.json)): native editable-boundary repair and actual installed React18/19 interaction audit | Full Phase11 INCOMPLETE: actual human OS IME/screen reader/everyday profile/background/physical display/device gates remain OPEN; proxies cannot close unavailable gates |
-| 12: Dynamic lifecycle and performance envelope | **Historical engineering independently accepted with limits** ([verdict](../evidence/phase12-independent/acceptance-summary.json)). Explicit-default, opt-in settled structural readmission; cancellation/initialization/capture/readback/media/loss refusal, retained original state, maintained demo and installed React18/19 fixtures; matched baseline/DOM edit-heavy/TODO/structural measurements. This did not establish seamless presentation | Full Phase12 INCOMPLETE: demonstrated Layer/Replace ref flicker leaves the continuous-GPU/fresh-pixel/current-native-hit gate OPEN; permanent DOM fallback was rejected, never merged. Production application/hardware and numeric frame/input/capture/resource budgets also remain OPEN. Historical independent23 units/build,55 focused passes/1 human skip,eight installed package contracts, direct-root edges and48 workload entries passed. Observed GPU structural increases disclosed; conservative root-wide capture remains, no speedup. See [GPU-first contract](architecture.md#gpu-first-contract), [policy](api.md#opt-in-settled-readmission-phase12-engineering) and [envelope](measurements.md#phase12-bounded-engineering-envelope). |
-| 13: Independent application adoption | **Selected engineering implementation; awaiting independent acceptance.** [Bounded six-task list/detail workspace](task-workspace.md), one original reducer/tree, Radix/native portals, three layers, controlled editing/search, inert/focus/cancellation and actionable diagnostics; exact public-package React18/19 consumers | Fresh finite source/installed-browser DPR1/2 and disabled-feature DOM workflow, owning pixels/native actions/state/lifecycle and settled motion. Client-only; no router/backend, hydration, new dependencies, general CSS engine or UI kit. User-observed lack of flicker is not technical/manual acceptance. |
+| 12: Dynamic lifecycle and performance envelope | **Historical engineering independently accepted with limits** ([verdict](../evidence/phase12-independent/acceptance-summary.json)). Explicit-default, opt-in settled structural readmission; cancellation/initialization/capture/readback/media/loss refusal, retained original state, maintained demo and installed React18/19 fixtures; matched baseline/DOM edit-heavy/TODO/structural measurements. This historical route did not establish seamless presentation | Full Phase12 production application/hardware and numeric frame/input/capture/resource budgets remain OPEN. The historical Layer/Replace-ref defect was subsequently corrected and independently accepted for the bounded current-API route at `cfa9df73`, with external-scroll extension at `ab598c00`; physical/universal gates remain open. Permanent DOM restriction was rejected, never merged. Historical independent23 units/build,55 focused passes/1 human skip,eight installed package contracts, direct-root edges and48 workload entries are unchanged. Observed costs disclosed; no speedup. See [GPU-first contract](architecture.md#gpu-first-contract), [policy](api.md#opt-in-settled-readmission-phase12-engineering), [envelope](measurements.md#phase12-bounded-engineering-envelope) and [register](open-issues.md). |
+| 13: Independent application adoption | **Selected engineering qualified-accepted at `12f13661`.** [Bounded six-task list/detail workspace](task-workspace.md), one original reducer/tree, Radix/native portals, three layers, controlled editing/search, inert/focus/cancellation and actionable diagnostics; exact public-package React18/19 consumers | Bounded source/installed-browser DPR1/2 and no-flags/default DOM workflow (GPU not enabled), owning pixels/native actions/state/lifecycle and settled motion. No-flags DOM did not prove native methods absent on157; intentional clip-dropping refusal is separate. Fresh three-file diagnostic repair proof is separate from inherited unchanged workflow proof; one generated metadata integrity exception remains permanent. Client-only; no router/backend, hydration, new dependencies, general CSS engine or UI kit. User-observed lack of flicker is not technical/manual acceptance. |
 | 14: Release engineering and production pilot | **Proposed; NOT STARTED.** Reproducible browser/React CI, external artifact retention, security/dependency review, version/change and migration policy, separately decided licensing/publication, bounded observable pilot with DOM rollback/kill switch | Agreed correctness/compatibility/performance exit gates and demonstrated rollback before release; GPU readiness conditional on actual public native API availability and browser contract. Private packaging alone authorizes neither publication nor a production claim. |
 
 The accepted [TODO application pilot](todo-pilot.md) sits between shader demos
@@ -57,8 +61,8 @@ opt-in admission/retry/cancellation during structural/resize/DPR changes, pendin
 capture/initialization and motion. Its bounded edit-heavy/TODO/structural samples
 and diagnosed native scrolling establish an observed envelope, not deployment
 budgets. Historical engineering was independently accepted with limits, not
-seamless presentation. First resolve and independently verify the demonstrated
-structural flicker: supported updates must remain GPU-presented with fresh pixels,
+seamless presentation. The later bounded correction is independently accepted;
+retain that contract in future work: supported updates must remain GPU-presented with fresh pixels,
 current original native hits and no blank application frames. Permanent DOM
 fallback is not an accepted fix. Normal structure/layout/DPR updates, visibility
 pauses and reduced motion must retain GPU ownership. Every implemented
@@ -69,7 +73,7 @@ implementation is not an unsupported-capability classification.
 Loss/reduced-motion/forced-colors and healthy resource retirement remain gates;
 unsafe capture suppression or manufactured speedup is not an optimization.
 
-**Independent adoption:** select real applications and prioritized library
+**Independent adoption beyond the accepted Phase13 case:** select further real applications and prioritized library
 components; integrate through public refs/portals while preserving their CSS and
 native controls. Record exact supported layout/effect/animation subsets, useful
 diagnostics and API contracts, then independently verify recovery and interaction.
@@ -95,11 +99,11 @@ Phase9 is independently accepted-with-limits and recorded in private main.
 The [archive catalog](archive-catalog.md) records the user-authorized raw-evidence
 cleanup and rewritten phase history; old commit IDs in immutable verdicts are
 archived provenance, not current-main ancestors.
-The current uncommitted correction reconciles supported membership/size/DPR
+The accepted correction at `cfa9df73` reconciles supported membership/size/DPR
 updates in the same renderer/root, retaining complete output while fresh native
 capture coverage is pending. This bounded source behavior does not establish
 physical seamless presentation or universal framework qualification; whole
-correction acceptance and manual/display gates remain open. Diagnosed failures
+framework and manual/display gates remain open. Diagnosed failures
 still require explicit fresh admission, not structural DOM readmission.
 Route/shared-element transitions, springs, virtualization,
 hydration, automatic external-animation conversion, general shader graphs and

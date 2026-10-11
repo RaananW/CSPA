@@ -1,5 +1,25 @@
 # Current verification and compatibility matrix
 
+**Current accepted checkpoints (2026-10-11):** bounded structural/native editing/
+viewport/admission repair at `cfa9df73`, external axis-aligned scroll/native
+content-origin correction at `ab598c00`, and selected Phase13 task workspace/
+diagnostics at `12f13661`. These qualify the measured current Canary157 route,
+not historical154, physical display, arbitrary CSS or release readiness.
+The [open-issues register](open-issues.md) records remaining gates and exceptions.
+Historical phase results below retain their original source/browser scope.
+Current Phase13 no-flags/default DOM cases leave GPU disabled; they do not prove
+native methods absent on157. Intentional clip-dropping admission refusal is a
+separate functional negative gate.
+
+Phase13 native workflow/300-frame proof and the fresh diagnostic delta review
+are distinct. The delta review independently checked actual React18.3.1/19.3.0
+runtime preassertions, rendered categories, original state/focus/selection,
+zero-GPU refusal, explicit visible reentry and disposal; it did not rerun every
+unchanged workflow. Exactly one generated adoption-v1 optimizer metadata file
+was damaged during an earlier retry; original bytes are unavailable and the
+old seal is not wholly intact. Fresh isolated proof retained this exception.
+See [INT-002](open-issues.md#int-002---one-phase13-generated-metadata-corruption).
+
 **Evidence storage:** historical raw paths named below refer to the verified
 external local archive, not files in this checkout. Only compact verdicts
 remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
@@ -338,8 +358,9 @@ performance improvement.
   probe refuses admission as explicitly unproven until visible and explicitly
   enabled again; applied matrices cannot substitute for a skipped hit witness.
   Occluded interior witnesses also refuse admission. The accepted bounded
-  root/enrolled viewport checkpoint is distinct from the new external extension,
-  which awaits independent review. Its finite source tests cover the exact
+  root/enrolled viewport checkpoint is distinct from the external extension,
+  independently accepted at `ab598c00` within its bounded axis-aligned scope.
+  Its finite source tests cover the exact
   formerly failing offscreen-to-visible locator workflow, document axes/native
   keyboard/wheel/focus scrolling, one/two-level bordered axis-aligned external
   viewports, live GPU pixels/native clip hits, same-engine internal/ref/DPR/add

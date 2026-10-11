@@ -12,7 +12,8 @@ Components should layer GPU visuals and a small typed declarative CSS/JS
 fallback over the same standard native React controls/state. Complex GPU visual
 apps retaining HTML semantics/input are the target, not certified support for
 arbitrary libraries or an automatic CSS translator.
-See the [GPU-first contract and current gap](docs/architecture.md#gpu-first-contract)
+See the [GPU-first contract](docs/architecture.md#gpu-first-contract),
+[current open-issues register](docs/open-issues.md)
 and [contributor instructions](CONTRIBUTING.md).
 
 **Phases1-9 are independently accepted within bounded prototype scope, not
@@ -39,7 +40,7 @@ inert decorative effects and one real Radix Dialog integration using its public
 portal-container API. It is useful for evaluating these deliberately adopted
 small applications, not for loading arbitrary websites or libraries unchanged.
 
-The uncommitted current-spec correction keeps supported membership/ref/layout/
+The independently accepted current-spec correction at `cfa9df73` keeps supported membership/ref/layout/
 DPR changes in one GPU renderer and synchronously reconciles original native
 geometry. Complete cached frames may recompose; new or extent-grown capture
 slots retain last complete output until fresh owning native paint. Default
@@ -49,11 +50,13 @@ Phase12 **engineering is independently accepted with limits**
 production application/hardware and numeric budgets remain open.
 That historical acceptance did not establish seamless structural presentation.
 The historical automatic readmission path visibly flickered on runtime **Layer**
-and integration **Replace ref**. Its replacement requires fresh independent
-acceptance; physical display/text/accessibility and performance budgets remain open.
+and integration **Replace ref**. Its bounded replacement and native editing/
+viewport proof were independently accepted at `cfa9df73`; ordinary external
+axis-aligned scroll was accepted at `ab598c00`. Physical display/text/
+accessibility and performance budgets remain open.
 The proposed permanent-DOM restriction was rejected and never merged.
-Unsupported scrolling,
-clipping, nesting, capabilities and resource budgets produce diagnostics and
+Out-of-contract scrolling,
+clipping, nesting, missing capabilities and declared resource bounds produce diagnostics and
 DOM fallback. Healthy pending GPU fences/readbacks retain resources until safe
 completion; timeout is not permission to destroy a healthy device.
 
@@ -65,8 +68,8 @@ CPU submission measurements are not GPU execution or physical input latency.
 The historical final-source DPR2 native/GPU text mismatch was baseline-identical
 (23249pixels/68851bytes), **not text pixel equivalence**.
 
-Exact Chrome154.0.8037.98 remains **UNVERIFIED**. Autonomous coordinator
-continuation on currently installed155 after user unavailability was not
+The later exact Chrome154.0.8037.98 gate remains **UNVERIFIED**. Historical autonomous coordinator
+continuation on then-installed155 after user unavailability was not
 explicit user155 approval or a154 waiver; browser transition cause/date is
 unknown. OS IME, actual screen readers, everyday browser profiles, true
 background throttling and physical display/device-reset gates remain manual
@@ -74,6 +77,16 @@ and unverified. No arbitrary-library/SSR/hydration or release-ready claim follow
 Five Phase6 original fixture reports remain lost (248/253 genuine originals);
 regenerated samples and Git preservation do not repair that provenance gap,
 and no explicit user supersession approval exists.
+Exactly one Phase13 generated optimizer metadata file was subsequently damaged;
+its old seal is not wholly intact and the original bytes are unavailable.
+The fresh diagnostic repair was accepted with this explicit exception.
+See [permanent integrity exceptions](docs/open-issues.md#permanent-evidence-integrity-exceptions).
+
+**Phase13 selected adoption is qualified-accepted at**
+[`12f13661`](https://github.com/RaananW/CSPA/commit/12f13661978a9329331bf881af6aca526402d4d0):
+the bounded six-task list/detail workspace, original controlled edits/search,
+Radix/native portals and actionable diagnostics. This is client-only adoption,
+not arbitrary application or Phase14/release acceptance.
 
 ## Run and examples
 
@@ -91,7 +104,7 @@ Open <http://127.0.0.1:5173/> for the default DOM baseline.
 | --- | --- |
 | `/runtime.html` or `/runtime.html?dom` | Typed runtime, enrolled layers, explicit admission/recovery |
 | `/paired.html?example=css` or `?example=typed` | Existing CSS or numeric motion, ownership, inert refraction |
-| `/todo.html` | Original native task controls with bounded task-triggered artwork |
+| `/todo.html` | Bounded list/detail task workspace, original native forms, portals and decorative artwork |
 | `/integration.html` | Authored CSS, original-element refs, Radix Dialog, motion/presence |
 | `/integration.html?auto` or `/runtime.html?auto` | Compatibility option specimen; initial enable is explicit, normal updates reconcile without readmission |
 | `/effects.html` | Inert ripple/chromatic/dissolve/trusted color effects in one shared pass |

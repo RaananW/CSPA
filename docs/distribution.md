@@ -19,14 +19,21 @@ current WebGPU route requires reflected owner `content="drawable"`, descendant
 is unqualified. No publication or dependency installation is authorized by the
 local correction; use existing dependency resolutions for exact archive checks.
 
-The selected client-only Phase13 task adopter is engineering implementation
-awaiting fresh independent acceptance. Run the scoped existing-dependency check
+The selected client-only Phase13 task adopter is qualified-accepted at
+`12f13661`, including the fresh diagnostic repair and explicit one-file
+generated metadata integrity exception. Its unchanged workflow proof and fresh
+status proof are distinct; the old adoption-v1 seal is not wholly intact.
+See the checkout's `docs/open-issues.md` for current boundaries and exceptions.
+This documentation update does not rebuild or requalify an existing tarball.
+Run the scoped existing-dependency check
 with `node scripts/package-consumer.mjs --reuse-dependencies --todo-case`
 and a new approved `CANVAS_EVIDENCE_ROOT` under `evidence/phase13/`.
 It physically extracts the exact current archive for matching React18/19,
 copies the authored task application (not the core source), uses only the public
-entry and Radix's public portal container, and checks actual flagged/disabled-
-feature DPR1/2 browsers. The example app/CSS is not shipped as a library export.
+entry and Radix's public portal container, and checks actual flagged GPU and
+no-flags/default DOM DPR1/2 browsers. Default DOM leaves GPU disabled; it does
+not prove native methods absent on157. Intentional clip-dropping refusal is
+checked separately. The example app/CSS is not shipped as a library export.
 See `docs/task-workspace.md` in the checkout for its state/layer/focus limits;
 no framework, hydration, physical/accessibility, publication or release promise
 is added. Earlier installed-consumer records below remain historical.
