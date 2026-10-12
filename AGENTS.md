@@ -5,8 +5,9 @@ CanvasSPA is a **GPU-first framework**. Read [README.md](README.md),
 [GPU-first contract](docs/architecture.md#gpu-first-contract) before changing it.
 
 The root is private tooling, not the release package. Library source/manifest/
-build belong to `packages/canvas-spa`; all HTML/app/demo/probe sources belong
-to `examples/playground`. Tests are grouped under `tests/unit`, `tests/browser`
+build belong to `packages/canvas-spa`; engineering HTML/app/demo/probe sources
+belong to `examples/playground`, and the public-facing React gallery belongs to
+the private `examples/showcase` workspace. Tests are grouped under `tests/unit`, `tests/browser`
 and `tests/helpers`; exact React18 remains a separately locked fixture.
 Keep root scripts and canonical page URLs stable, and pack only the child
 library workspace. Historical accepted seals identify their original layouts,

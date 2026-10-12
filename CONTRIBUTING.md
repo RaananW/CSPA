@@ -17,6 +17,13 @@ build outputs are separate. Exact React18 provisioning uses
 `fixtures/react18/package-lock.json`, never the default React19 workspace peer.
 Historical seals and verdicts retain their old-layout meaning.
 
+The separate private `examples/showcase` workspace owns the React catalog,
+its Pages base and sanitized build output. It imports the built public library
+and reuses the maintained task component, never package internals. Root
+`dev:showcase`, `build:showcase` and `test:showcase` entrypoints are described in
+[the showcase guide](docs/showcase.md). Pages activation and manual workflow
+dispatch are separate owner decisions, not part of local preparation.
+
 ## GPU-first requirement
 
 Every human and agent working on CanvasSPA must follow the

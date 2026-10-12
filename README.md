@@ -1,5 +1,13 @@
 # CanvasSPA - experimental typed native/GPU runtime
 
+## Interactive example showcase
+
+The separate React example studio in `examples/showcase` presents native
+layers, motion, decorative effects and the existing task app in one catalog.
+Run `npm run dev:showcase` or `npm run build:showcase`; see the
+[showcase and Pages preparation guide](docs/showcase.md).
+GitHub Pages deployment is prepared, **not enabled or published**. - experimental typed native/GPU runtime
+
 **CanvasSPA is a GPU-first framework.** Supported React layer, ref and content
 updates must remain GPU-presented with fresh pixels, current original native
 interaction geometry and no blank application frames. DOM fallback is reserved

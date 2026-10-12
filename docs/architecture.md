@@ -16,7 +16,7 @@ contributor commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 The private root npm workspace is tooling, not a second library package.
 `packages/canvas-spa` owns library source/manifest/build and the sole public
 root export; it must not depend on playground or tests.
-`examples/playground` owns every HTML entry, app/demo/historical-probe source
+`examples/playground` owns the engineering HTML entries, app/demo/historical-probe source
 and its private manifest/configuration. Source development resolves the public
 package specifier to workspace source; installed consumer gates instead resolve
 the physically extracted current child-package archive without that alias.
@@ -24,6 +24,12 @@ Unit/browser/shared-helper tests are grouped by runner responsibility, not
 removed. Independent React18 remains an exact separate manifest/lock fixture.
 Root commands preserve ergonomic entrypoints and canonical page URLs.
 Old accepted packages and path-based seals remain dated old-layout authorities.
+
+`examples/showcase` is a separate private React SPA gallery consuming the built
+public package and the maintained task component. Its surrounding chrome uses
+CSS; enrolled live surfaces retain typed layout and original native controls.
+Its isolated Pages output is not a release package or raw evidence browser.
+See [showcase preparation](showcase.md); no hosting is implied.
 
 ## GPU-first contract
 

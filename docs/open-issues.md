@@ -6,6 +6,12 @@ are grouped under `tests/unit`, `tests/browser` and `tests/helpers`.
 Historical paths in accepted records below identify their original layouts;
 they are not rewritten or requalified by this migration.
 
+**Showcase preparation:** the separate private `examples/showcase` React gallery
+uses public CSPA examples, default DOM and explicit experimental GPU admission.
+[Pages preparation](showcase.md) is not hosted deployment, production,
+accessibility, licensing or publication qualification; all existing gates below
+retain their scope.
+
 **As of 2026-10-11; accepted source checkpoint:**
 [`12f13661`](https://github.com/RaananW/CSPA/commit/12f13661978a9329331bf881af6aca526402d4d0).
 This is a documentation register, not GitHub tickets, assigned work, release

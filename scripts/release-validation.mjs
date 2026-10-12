@@ -59,7 +59,12 @@ const inputs = [...sourceBefore, ...await Promise.all(["package.json", "package-
   "examples/playground/vite.config.ts", "vite.config.ts", "tests/browser/playwright.config.mjs",
   "fixtures/package-consumer/todo-main.tsx", "fixtures/package-consumer/tsconfig.json", "fixtures/package-consumer/public-types.ts",
   "scripts/release-validation.mjs", "scripts/release-policy.mjs", "scripts/release-pilot.mjs",
-  "packages/canvas-spa/scripts/prepare-package.mjs", "tests/unit/release.unit.test.mjs", ".github/workflows/private-release.yml"].map(async path => ({ path, sha256: sha(await readFile(path)) })))];
+  "packages/canvas-spa/scripts/prepare-package.mjs", "tests/unit/release.unit.test.mjs", ".github/workflows/private-release.yml",
+  ".github/workflows/showcase-pages.yml"].map(async path => ({ path, sha256: sha(await readFile(path)) })))];
+inputs.push(...await records(join(root, "examples/showcase/src")));
+for (const path of ["package.json", "tsconfig.json", "vite.config.ts", "site-policy.mjs", "index.html"]) {
+  inputs.push({ path: `examples/showcase/${path}`, sha256: sha(await readFile(join(root, "examples/showcase", path))) });
+}
 for (const directory of ["tests", "scripts"]) inputs.push(...await records(join(root, directory)));
 for (const path of (await readdir(join(root, "examples/playground"))).filter(path => path.endsWith(".html"))) {
   inputs.push({ path: `examples/playground/${path}`, sha256: sha(await readFile(join(root, "examples/playground", path))) });
@@ -120,7 +125,7 @@ try {
     const peer = join(directory, `react${major}`);
     await mkdir(peer);
     const copied = ["packages", "examples", "tests", "scripts", "vite.config.ts", "package-lock.json",
-      "README.md", "docs/distribution.md"];
+      "README.md", "docs/distribution.md", ".github/workflows/showcase-pages.yml"];
     for (const path of copied) await cp(join(root, path), join(peer, path), {
       recursive: true, filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(path.split("/").at(-1)),
     });

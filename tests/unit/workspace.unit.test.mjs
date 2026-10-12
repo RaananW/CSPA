@@ -12,7 +12,7 @@ test("the release identity belongs only to the library workspace, not the toolin
   assert.equal(root.devDependencies["@radix-ui/react-dialog"], undefined);
   assert.equal(root.devDependencies["@babylonjs/lite-gl"], undefined);
   assert.match(root.scripts.prepack, /Tooling root is not the release package/);
-  assert.deepEqual(root.workspaces, ["packages/canvas-spa", "examples/playground"]);
+  assert.deepEqual(root.workspaces, ["packages/canvas-spa", "examples/playground", "examples/showcase"]);
   assert.equal(library.name, "canvas-spa-phase-one");
   assert.equal(library.version, "0.0.0");
   assert.equal(library.private, true);
