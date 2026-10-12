@@ -4,8 +4,8 @@ import { join, basename, resolve, dirname } from "node:path";
 
 export const excludedDependencies = new Set([".vite", ".vite-temp", ".bin", ".package-lock.json"]);
 export const qualifiedBrowser = Object.freeze({
-  product: "Chrome/157.0.8099.0",
-  revision: "@94bcda4759263b9a241f5008a68e753c2ebe3081",
+  product: "Chrome/157.0.8100.0",
+  revision: "@799dbe91dfe8604f0327d070ecd6d2792a7d3d63",
 });
 
 export function assertBrowserIdentity(actual) {

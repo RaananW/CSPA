@@ -54,7 +54,7 @@ async function sourceRecords() {
 const sourceBefore = await sourceRecords();
 const inputs = [...sourceBefore, ...await Promise.all(["package.json", "package-lock.json", "fixtures/react18/package.json",
   "fixtures/react18/package-lock.json", "packages/canvas-spa/package.json", "packages/canvas-spa/README.md",
-  "examples/playground/package.json", "README.md", "docs/distribution.md", "examples/playground/todo.html",
+  "examples/playground/package.json", "README.md", "docs/distribution.md", "docs/showcase.md", "examples/playground/todo.html",
   "examples/playground/tsconfig.json", "packages/canvas-spa/tsconfig.json", "packages/canvas-spa/vite.config.ts",
   "examples/playground/vite.config.ts", "vite.config.ts", "tests/browser/playwright.config.mjs",
   "fixtures/package-consumer/todo-main.tsx", "fixtures/package-consumer/tsconfig.json", "fixtures/package-consumer/public-types.ts",
@@ -125,7 +125,7 @@ try {
     const peer = join(directory, `react${major}`);
     await mkdir(peer);
     const copied = ["packages", "examples", "tests", "scripts", "vite.config.ts", "package-lock.json",
-      "README.md", "docs/distribution.md", ".github/workflows/showcase-pages.yml"];
+      "README.md", "docs/distribution.md", "docs/showcase.md", ".github/workflows/showcase-pages.yml"];
     for (const path of copied) await cp(join(root, path), join(peer, path), {
       recursive: true, filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(path.split("/").at(-1)),
     });

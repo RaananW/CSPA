@@ -1,5 +1,14 @@
 # Current verification and compatibility matrix
 
+**New installed-browser qualification (2026-10-12):** exact CDP
+Chrome157.0.8100.0 / `@799dbe91dfe8604f0327d070ecd6d2792a7d3d63` passed fresh
+showcase and finite native/ordinary-DOM source-and-packed-package task pilots
+on React18/19 at DPR1/2. [Results and exact scope](private-release.md#newly-installed-canary-qualification-2026-10-12)
+include current owning pixels, original native interaction, rollback/reentry,
+disposal and a short GPU-motion capture-reuse window. This new automated result
+does not reinterpret prior8099 independent acceptance or qualify the full
+browser suite, manual accessibility/IME, physical displays or performance budgets.
+
 **Current accepted checkpoints (2026-10-11):** bounded structural/native editing/
 viewport/admission repair at `cfa9df73`, external axis-aligned scroll/native
 content-origin correction at `ab598c00`, and selected Phase13 task workspace/

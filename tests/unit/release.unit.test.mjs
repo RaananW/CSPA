@@ -27,7 +27,8 @@ test("rejected release roots create no external children or sentinel changes", a
 
 test("both browser lanes require recorded exact product and revision; mismatch exits failure", () => {
   assertBrowserIdentity(qualifiedBrowser);
-  for (const actual of [{ ...qualifiedBrowser, revision: "@different" }, { ...qualifiedBrowser, product: "Chrome/154.0.0.0" }]) {
+  for (const actual of [{ ...qualifiedBrowser, revision: "@different" }, { ...qualifiedBrowser, product: "Chrome/154.0.0.0" },
+    { product: "Chrome/157.0.8099.0", revision: "@94bcda4759263b9a241f5008a68e753c2ebe3081" }]) {
     assert.throws(() => assertBrowserIdentity(actual), /actual=.*expected=/);
     const child = spawnSync(process.execPath, ["--input-type=module", "-e",
       `import {assertBrowserIdentity} from ${JSON.stringify(new URL("../../scripts/release-policy.mjs", import.meta.url).href)}; assertBrowserIdentity(${JSON.stringify(actual)});`],

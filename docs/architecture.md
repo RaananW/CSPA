@@ -100,10 +100,10 @@ yet have a cached paint record. WebGL2 direct capture remains explicitly
 unqualified. Future changes must repeat current proposal/tracker review and
 distinguish it from actual browser functional qualification.
 
-The separate repository-restructuring validation target is pinned installed
-Canary157.0.8099.0 and its exact revision in the [private release runner contract](private-release.md).
+The current local validation target is pinned installed
+Canary157.0.8100.0 and its exact revision in the [private release runner contract](private-release.md).
 It receives fresh native/source/public-package and ordinary-DOM checks; it does
-not reinterpret8098 acceptance or establish physical/universal qualification.
+not reinterpret8098/8099 acceptance or establish physical/universal qualification.
 
 | Area | Current bounded evidence | Remaining boundary |
 | --- | --- | --- |

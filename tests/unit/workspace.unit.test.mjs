@@ -50,3 +50,11 @@ test("both committed lock lanes retain distinct actual React peer ownership", as
   assert.deepEqual(root["packages/canvas-spa"].dependencies, library.dependencies);
   assert.deepEqual(root["packages/canvas-spa"].peerDependencies, library.peerDependencies);
 });
+
+test("isolated qualification runners inventory and copy the showcase guide required by units", async () => {
+  for (const path of ["scripts/showcase-validation.mjs", "scripts/release-validation.mjs"]) {
+    const runner = await readFile(path, "utf8");
+    assert.equal((runner.match(/"docs\/showcase\.md"/g) ?? []).length, 2,
+      `${path} must include the guide in both input inventory and physical copy`);
+  }
+});

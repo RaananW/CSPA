@@ -33,7 +33,7 @@ async function inventory(path) {
   }
 }
 for (const path of ["packages", "examples", "scripts", "tests"]) await inventory(path);
-for (const path of ["package.json", "package-lock.json", "docs/distribution.md", ".github/workflows/showcase-pages.yml"]) {
+for (const path of ["package.json", "package-lock.json", "docs/distribution.md", "docs/showcase.md", ".github/workflows/showcase-pages.yml"]) {
   inputs.push({ path, sha256: sha(await readFile(join(root, path))) });
 }
 await writeFile(join(run, "inputs.json"), JSON.stringify(inputs, null, 2), { flag: "wx" });
@@ -51,7 +51,7 @@ let server;
 let serverClosed;
 let serverOutput = "";
 try {
-  for (const path of ["packages", "examples", "scripts", "tests", "package.json", "package-lock.json", "docs/distribution.md",
+  for (const path of ["packages", "examples", "scripts", "tests", "package.json", "package-lock.json", "docs/distribution.md", "docs/showcase.md",
     ".github/workflows/showcase-pages.yml"]) {
     await cp(join(root, path), join(tree, path), { recursive: true,
       filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(path.split("/").at(-1)) });
@@ -200,6 +200,20 @@ try {
         }
         assert.ok(changed > 100, `Owned motion changed output pixels: ${changed}`);
         record.changedMotionPixels = changed;
+        await page.evaluate(() => window.showcase.controller.settle());
+        record.motionWindow = await page.evaluate(async () => {
+          const before = window.showcase.state(), started = performance.now();
+          await new Promise(resolve => setTimeout(resolve, 250));
+          return { before, after: window.showcase.state(), elapsedMs: performance.now() - started };
+        });
+        const { before, after } = record.motionWindow;
+        assert.equal(after.mode, "gpu");
+        assert.ok(after.metrics.gpuFrames > before.metrics.gpuFrames, "GPU motion must advance real frames");
+        assert.notEqual(after.layers.find(layer => layer.id === "showcase-card").transform.x,
+          before.layers.find(layer => layer.id === "showcase-card").transform.x, "Owned motion must advance the layer");
+        for (const metric of ["captures", "uploads"]) {
+          assert.equal(after.metrics[metric], before.metrics[metric], `Settled GPU-only motion must reuse ${metric}`);
+        }
       }
       await page.waitForTimeout(1700);
       await page.locator('.example-card[href="#/effects"]').click();
