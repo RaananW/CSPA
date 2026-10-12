@@ -10,6 +10,7 @@ import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type Moti
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
 import { nativeEditingControl, nativeScrollKind } from "./native.js";
 import { scrollOrigin, intersectViewport, localViewport, canvasContentOrigin, viewportContains, type ViewportRect } from "./viewport.js";
+import { validateCompiledPrograms, verifyCompiledAnimation, type CompiledAnimation } from "./compiled.js";
 
 export type AdmissionPolicy = "explicit" | "automatic";
 
@@ -24,6 +25,7 @@ export interface LayerDefinition {
 export interface RuntimeOptions extends Omit<MountBoundaryOptions, "mount"> {
   overlayHost?: HTMLElement;
   budgets?: SurfaceRendererOptions["budgets"];
+  compiled?: SurfaceRendererOptions["compiled"];
   onStatus(message: string): void;
   onMeasure?: SurfaceRendererOptions["onMeasure"];
   admissionPolicy?: AdmissionPolicy;
@@ -56,7 +58,7 @@ export class CanvasRuntime {
   private releaseDPR: (() => void) | undefined;
   private readonly gpuDeclarations = new Map<string, DeclarationOwnership>();
   private readonly relinquishedDeclarations = new Map<string, ReturnType<DeclarationOwnership["restore"]>>();
-  private readonly ownership = new Map<string, { lease: ReturnType<typeof prepareAnimation>; base: Transform; check?(): void; restore?(): void; resources?(): number }>();
+  private readonly ownership = new Map<string, { lease: ReturnType<typeof prepareAnimation>; base: Transform; compiled?: CompiledAnimation; check?(): void; restore?(): void; resources?(): number }>();
   private readonly motions = new Map<string, { source: Animation; handle: MotionHandle }>();
   private readonly transitions = new Map<string, { finish(status: TransitionResult["status"], reason: string, transferred?: boolean): void; lease: DeclarationOwnership; start: number; end: number }>();
   private clockFrame = 0;
@@ -75,6 +77,10 @@ export class CanvasRuntime {
       || [options.captureHost, options.outputCanvas, options.ordinaryHost].includes(options.overlayHost)
       || options.overlayHost.childNodes.length)) throw new Error("Overlay must be an empty connected adapter-owned sibling outside the root");
     const budget = options.budgets;
+    if (options.compiled) {
+      validateCompiledPrograms(options.compiled);
+      if (budget && budget.layers > options.compiled.programs.length) throw new Error("Insufficient compiled layer capacity");
+    }
     if (budget && (!Number.isInteger(budget.layers) || budget.layers < 1 || budget.layers > 8
       || !Number.isInteger(budget.pixels) || budget.pixels < 1)) throw new Error("Invalid layer/pixel budgets; layer limit is 1..8");
     this.mutation = new MutationObserver(records => {
@@ -106,6 +112,11 @@ export class CanvasRuntime {
           opacity: () => layer.transform.opacity ?? 1,
           effects: () => this.effects.get(layer.id)?.values ?? [],
           effectsEnabled: () => !this.reduced.matches,
+          compiledMotion: () => {
+            const owner = this.ownership.get(layer.id);
+            return owner?.compiled ? { index: options.compiled!.animations.indexOf(owner.compiled),
+              phase: owner.compiled.normalizeTime(owner.lease.playback.state().milliseconds), origin: this.origin(layer) } : undefined;
+          },
         })),
         size: () => this.size(),
         nativeOrigin: () => this.ownerContentOrigin,
@@ -113,7 +124,7 @@ export class CanvasRuntime {
         presentation: mode => {
           if (mode === "dom") this.cancelTransitions("DOM recovery");
           this.cancelMotion();
-          this.presentation(mode);
+          this.presentation(mode, true);
           if (mode === "gpu") this.admittedSize = this.sizeSignature();
         },
         isPaused: () => !this.environment.visible,
@@ -335,7 +346,7 @@ export class CanvasRuntime {
     const local = localViewport(applied, clip);
     return geometry?.own ? intersectViewport(local, geometry.own) : local;
   }
-  private presentation(mode: "dom" | "gpu") {
+  private presentation(mode: "dom" | "gpu", releaseOwnership = false) {
     const restored = new Map<string, ReturnType<DeclarationOwnership["restore"]>>();
     const owned = new Set(this.ownership.keys());
     if (mode === "dom") {
@@ -345,7 +356,7 @@ export class CanvasRuntime {
         if (lost.size && this.registry.has(id)) this.relinquishedDeclarations.set(id, lost);
       }
       this.gpuDeclarations.clear();
-      this.restoreOwnership();
+      if (releaseOwnership) this.restoreOwnership();
     }
     for (const layer of this.registry.values()) {
       if (mode === "gpu") {
@@ -416,6 +427,7 @@ export class CanvasRuntime {
     return undefined;
   }
   private checkPolicy() {
+    if (this.core?.phase() === "dom" && !this.ownership.size) return;
     const policy = this.policy();
     if (policy) this.recover(policy);
   }
@@ -694,9 +706,10 @@ export class CanvasRuntime {
   invalidate(id?: string) { this.assertLive(); this.renderer().invalidate(id); }
   private restoreOwnership() {
     this.stopClock();
+    const errors: unknown[] = [];
     for (const [id, owner] of this.ownership) {
-      owner.restore?.();
-      owner.lease.restore();
+      try { owner.restore?.(); } catch (error) { errors.push(error); }
+      try { owner.lease.restore(); } catch (error) { errors.push(error); }
       const layer = this.registry.get(id);
       if (layer) {
         layer.transform = owner.base;
@@ -707,6 +720,7 @@ export class CanvasRuntime {
     this.ownership.clear();
     this.resources.animationOwners = 0;
     for (const id of this.motions.keys()) if (!this.registry.has(id)) this.cancelNativeMotion(id);
+    if (errors.length) throw new AggregateError(errors, "Animation ownership restoration failed");
   }
   private cancelNativeMotion(id: string) {
     const motion = this.motions.get(id);
@@ -912,7 +926,17 @@ export class CanvasRuntime {
     const css = validateCSSSource(layer.element, provenance);
     return this.acquireAnimation(id, css.source, css.check, css.restore, css.resources);
   }
-  private acquireAnimation(id: string, source: Animation, check?: () => void, restore?: () => void, resources?: () => number): AnimationPlayback {
+  ownCompiledAnimation(id: string, animationId: string): AnimationPlayback {
+    const layer = this.registry.get(id);
+    const compiled = this.options.compiled?.animations.find(animation => animation.id === animationId);
+    if (!layer || !compiled) throw new Error("Unknown compiled animation or enrolled layer");
+    const sources = layer.element.getAnimations().filter(animation => animation instanceof CSSAnimation && animation.animationName === compiled.name);
+    if (sources.length !== 1) throw new Error("Compiled ownership requires exactly one active matching CSS animation");
+    const source = sources[0]!;
+    verifyCompiledAnimation(layer.element, source, compiled);
+    return this.acquireAnimation(id, source, undefined, undefined, undefined, compiled);
+  }
+  private acquireAnimation(id: string, source: Animation, check?: () => void, restore?: () => void, resources?: () => number, compiled?: CompiledAnimation): AnimationPlayback {
     this.assertLive();
     const state = this.renderer().state();
     if (state.mode !== "dom" || state.initializing || state.transitioning || state.resources.pendingEngines
@@ -935,9 +959,9 @@ export class CanvasRuntime {
       },
       changed: () => { this.stopClock(); this.requestDraw(); this.startClock(); },
       release: () => this.disable(),
-    });
+    }, compiled);
     lease.acquire();
-    this.ownership.set(id, { lease, base, check, restore, resources });
+    this.ownership.set(id, { lease, base, check, restore, resources, compiled });
     this.resources.animationOwners++;
     return lease.playback;
   }

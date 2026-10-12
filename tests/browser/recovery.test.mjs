@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { PNG } from "pngjs";
 
 import { evidenceDirectory } from "../helpers/evidence.mjs";
+import { developmentURL } from "../helpers/urls.mjs";
 const evidence = evidenceDirectory("recovery");
 const hash = (bytes) => createHash("sha256").update(PNG.sync.read(bytes).data).digest("hex");
 
@@ -52,7 +53,7 @@ for (const strict of [false, true]) {
         const cdp = await browser.newBrowserCDPSession();
         report.browser = await cdp.send("Browser.getVersion");
         report.commandLine = (await cdp.send("Browser.getBrowserCommandLine")).arguments;
-        await page.goto(strict ? "http://127.0.0.1:5173/recovery.html" : "/recovery.html");
+        await page.goto(strict ? new URL("/recovery.html", developmentURL).href : "/recovery.html");
         await page.waitForFunction(() => window.recoveryProbe);
         report.initial = await page.evaluate(({ candidate, strict }) => window.recoveryProbe.start(candidate, strict), { candidate, strict });
         expect(report.initial.counts.effectMounts).toBe(strict ? 2 : 1);

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "target", "unsupported", "entries"],
+  "properties": {
+    "version": { "const": 1 },
+    "target": { "const": "webgpu" },
+    "unsupported": { "const": "error" },
+    "maxLayers": { "type": "integer", "minimum": 1, "maximum": 8 },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "stylesheet", "selector", "animations"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$" },
+          "stylesheet": { "type": "string", "minLength": 1 },
+          "selector": { "type": "string", "pattern": "^[.#][a-zA-Z_][a-zA-Z0-9_-]*$" },
+          "animations": {
+            "type": "array", "minItems": 1, "maxItems": 1,
+            "items": { "type": "string", "pattern": "^[a-zA-Z_][a-zA-Z0-9_-]*$" }
+          }
+        }
+      }
+    }
+  }
+}

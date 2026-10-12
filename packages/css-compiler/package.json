@@ -1,0 +1,30 @@
+{
+  "name": "@canvas-spa/css-compiler",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": { "types": "./src/index.d.ts", "import": "./src/index.mjs" },
+    "./vite": { "types": "./src/vite.d.ts", "import": "./src/vite.mjs" },
+    "./webpack": { "types": "./src/webpack.d.ts", "import": "./src/webpack.mjs" },
+    "./webpack-loader": "./src/webpack-loader.mjs",
+    "./client": { "types": "./src/client.d.ts" },
+    "./schema.json": "./schema.json"
+  },
+  "files": ["src", "schema.json", "README.md"],
+  "dependencies": {
+    "canvas-spa-phase-one": "0.0.0",
+    "magic-string": "1.4.3",
+    "postcss": "8.5.29",
+    "postcss-load-config": "6.0.1",
+    "postcss-value-parser": "4.2.0"
+  },
+  "peerDependencies": {
+    "vite": "^8.0.0",
+    "webpack": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": { "optional": true },
+    "webpack": { "optional": true }
+  }
+}

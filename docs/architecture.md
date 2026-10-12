@@ -14,8 +14,10 @@ contributor commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 ## Repository boundaries
 
 The private root npm workspace is tooling, not a second library package.
-`packages/canvas-spa` owns library source/manifest/build and the sole public
-root export; it must not depend on playground or tests.
+`packages/canvas-spa` owns library source/manifest/build, the public runtime
+root and separate build/experimental-worker exports; it must not depend on
+playground or tests. The private `packages/css-compiler` workspace owns the
+build-only JSON analyzer and Vite/webpack integration, not another UI runtime.
 `examples/playground` owns the engineering HTML entries, app/demo/historical-probe source
 and its private manifest/configuration. Source development resolves the public
 package specifier to workspace source; installed consumer gates instead resolve
@@ -115,7 +117,68 @@ not reinterpret8098/8099 acceptance or establish physical/universal qualificatio
 | Component CSS/JS fallback | Same original DOM/state, typed browser styles and public GPU augmentation used by accepted Phase13 task workspace | No general component toolkit, automatic app adapter or essential shader parity promise |
 | Complex apps and undo/redo | Selected finite task workspace accepted at `12f13661`; broader framework target | Arbitrary apps/undo-redo flows are not certified; future flows need independent proof |
 
+## Opt-in build-time CSS adapter
+
+**Implemented experimental subset:** `packages/css-compiler` consumes an
+explicit versioned JSON configuration and produces literal compositor WGSL,
+bindings and matching native-geometry samplers through production Vite and
+bounded webpack adapters. This is separate from the current
+runtime `compiler.ts` typed-style helper and explicit CSS animation adapter.
+It is not automatic conversion of arbitrary components or a replacement layout
+engine. See the [configuration, enrollment and exact integration limits](../packages/css-compiler/README.md).
+Installed npm-package SCSS/CSS Modules, Sass partials, configured PostCSS and
+local stylesheet selection have executable fixtures. The new compiler has not
+received independent acceptance; older acceptance records do not qualify it.
+
+Inputs may be local components or installed npm packages. Package components
+and their stylesheet entrypoints must resolve through the application's bundler,
+honoring package exports, resolution conditions and the installed dependency
+graph. No hardcoded `node_modules` paths, dependency-file mutation or assumption
+that packages publish their original React/SCSS sources is permitted. Public
+compiled CSS is a valid input; a component without statically available styles
+needs a supported extraction adapter or an explicit unsupported diagnostic.
+
+Styles may originate as CSS, SCSS/Sass, Less or other build-supported formats.
+The compiler consumes normalized CSS after the application's configured
+preprocessor and relevant PostCSS transforms, before information-losing
+minification. It reuses that pipeline rather than implementing another Sass
+compiler. CSS Modules mappings and the import graph must connect configured
+selectors to emitted selectors without guessing hashed class names. Source maps
+must be retained through preprocessing and generation; when original package
+sources or maps are unavailable, diagnostics identify the available published
+input rather than inventing original source locations. Supporting a format is
+conditional on a verified bundler integration, not a blanket preprocessor claim.
+
+All statically supported analysis, animation/easing lowering, shader-source
+generation and binding generation belong to the build. The compiled route must
+not require runtime CSS parsing or shader-source synthesis. Where interactive
+transforms require CPU-side native geometry, matching numeric helpers should be
+generated from the same animation representation. Runtime still supplies time,
+state, dimensions and uniforms, manages admission/lifecycle, and creates
+device-specific GPU pipelines; browser/driver shader compilation cannot be
+eliminated by a JavaScript bundler.
+
+Unsupported behavior in selected targets must produce source-linked build
+errors, not silent approximation or automatic DOM success. Unselected CSS stays
+unchanged. Static CSS and the original React controls remain authoritative;
+only GPU-owned translated animation is suppressed and restored on disable or
+disposal. Build-time generation must retain the shared compositor and native-hit
+geometry guarantees. No performance improvement is implied without matched
+ordinary-CSS and compiled-GPU measurements.
+
 ## Module boundaries
+
+The separate [experimental worker backend](worker.md) transfers owning native
+snapshots and the associated OffscreenCanvas to a public Lite compositor.
+React, DOM/layout and capture remain on the main thread. Essential/control
+geometry is fixed; asynchronous worker presentation is not an atomic native-hit
+transaction. Only inert decoration animates. Source-boundary diagnostics are
+not browser capability claims, and the default runtime remains unchanged.
+WGSL/bindings are build-generated; runtime pipelines still compile on the device.
+Publication stops and worker fences/disposal acknowledgement precede original
+DOM restoration. Stop timeout retains explicitly pending resources rather than
+destroying an unknown healthy queue. See the guide for exact API, limits,
+functional proof and benchmark interpretation.
 
 | Module | Responsibility |
 | --- | --- |

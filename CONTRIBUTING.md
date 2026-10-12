@@ -24,6 +24,25 @@ and reuses the maintained task component, never package internals. Root
 [the showcase guide](docs/showcase.md). Pages activation and manual workflow
 dispatch are separate owner decisions, not part of local preparation.
 
+The private `packages/css-compiler` workspace owns opt-in build-time CSS
+analysis and the Vite/webpack adapters. Its [guide](packages/css-compiler/README.md)
+documents the JSON configuration, supported pipeline/subset and isolated
+integration proof. `fixtures/css-compiler` exercises installed npm components
+and local Sass/PostCSS/CSS Modules; `tests/compiler` owns compiler units and
+GPU/native sampler comparisons. Preserve ordinary CSS for fallback, and keep
+authored-CSS parsing/shader generation out of the compiled runtime path.
+The named conformance corpus includes accepted and refused stylesheets;
+ordinary browser CSS is an independent reference, separate from GPU/native
+time-sample parity. Keep case counts, synthetic-vs-package coverage and native
+clock-resolution limits distinct in reports; see the compiler guide.
+
+The worker experiment belongs to the library's separate experimental exports,
+with an installed production fixture in `fixtures/worker/app` and isolated
+`scripts/worker-validation.mjs` proof. Read [the worker contract](docs/worker.md)
+before changing transfer, geometry or teardown. Run benchmark cells alone;
+main/worker rAF and CPU submission are not CSS presentation or GPU execution.
+Always await worker disposal acknowledgement before restoring original DOM.
+
 ## GPU-first requirement
 
 Every human and agent working on CanvasSPA must follow the
@@ -118,6 +137,11 @@ SHAs after push. Do not advance phases until this verification. This is private
 history tracking, not authorization to select a license, publish a package,
 make the repository public or modify upstream engines.
 
+On 2026-10-12, the owner separately requested documented compiler/worker
+persistence before independent acceptance. This scoped authorization does not
+waive phase-acceptance gates or qualify production/manual work; the experiments
+remain explicitly labelled as implementer-verified.
+
 Raw reports, screenshots, reruns and full performance dumps must stay outside
 tracked history. The [archive catalog](docs/archive-catalog.md) records preserved
 local bytes and access/reproduction limits. Stage source/docs/tests and curated
@@ -131,7 +155,8 @@ user or autonomous continuation. The one-time cleanup was explicitly approved.
 
 ## Setup
 
-Use Node 20.19+ or 22.12+; validation used Node 24.19.0/npm 11.17.0.
+Use Node24 for repository validation; worker source tests require its module
+hooks. Validation used Node24.19.0/npm11.17.0.
 Install the exact lockfile versions:
 
 ```sh

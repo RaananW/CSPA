@@ -26,6 +26,35 @@ The [bounded effects contract](effects.md) documents `setEffects`, effect
 handles and trusted `defineEffect` authoring; `/effects.html` composes these
 with motion while keeping essential native controls separate.
 
+## Build-time CSS and worker exports (experimental)
+
+These additions have implementer verification, not independent acceptance or
+the historical Phase10 verdict. They are separate opt-in routes; neither
+automatically adapts arbitrary components or integrates the compiler with the
+worker backend.
+
+| Public entry or API | Contract |
+| --- | --- |
+| `@canvas-spa/css-compiler/vite` and `/webpack` | Production-build adapters configured by `canvas-spa.config.json`; selected local/package styles use the application's verified preprocessing pipeline. |
+| `virtual:canvas-spa/compiled` | Generated `CompiledProgramSet`: literal WGSL/bindings and matching numeric native-geometry samplers. Pass it as `compiled` to `mountCanvasApp`. |
+| `controller.ownCompiledAnimation(id, animationId)` | Explicit ownership of an enrolled original element's matching CSS animation. Returns the existing playback interface; disable/release/disposal restores native behavior. |
+| `canvas-spa-phase-one/build` | Build-only compositor/animation generators, including `workerCompositorProgram(1..8)`. Do not import this entry into the compiled browser runtime. |
+| `canvas-spa-phase-one/experimental-worker` | `mountWorkerCanvasApp`, `WorkerSurface` and public worker types. Essential/native-control geometry is fixed; only inert decoration animates. |
+| `canvas-spa-phase-one/experimental-worker/thread` | `startWorkerCompositor(self)` for an application-owned module worker. React, DOM/layout and native capture remain main-thread. |
+
+Compiled and worker runtime routes consume prebuilt shaders; the default
+noncompiled route still generates WGSL internally. Device-specific pipeline
+compilation, live uniforms, native geometry and lifecycle remain runtime work.
+The worker controller exposes `enable`, `disable`, `dispose`, `invalidate`,
+`settle`, `state` and asynchronous `statistics`; teardown rejection requires
+handling, not forced DOM restoration before worker acknowledgement.
+
+See the [compiler configuration/enrollment/subset guide](../packages/css-compiler/README.md),
+[worker setup/lifecycle guide](worker.md) and
+[current evidence and measurement limits](verification.md#experimental-worker-compositor).
+Chrome Canary with HTML-in-Canvas enabled is required for GPU operation;
+ordinary DOM remains the initial/fallback presentation.
+
 ## Explicit bootstrap
 
 **Required target versus current API:** follow the

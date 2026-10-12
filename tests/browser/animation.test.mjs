@@ -333,8 +333,12 @@ for (const example of ["css", "typed"]) for (const strict of [false, true]) test
   await page.locator("h1").click();
   await page.waitForTimeout(300);
   await page.evaluate(() => window.pairedProbe.controller().settle());
-  const interval = await page.evaluate(() => window.pairedProbe.advance(300));
-  expect(interval.after.metrics.gpuFrames - interval.before.metrics.gpuFrames).toBe(300);
+  const interval = await page.evaluate(async () => {
+    const before = window.pairedProbe.state();
+    const frames = await window.pairedProbe.controller().advance(300);
+    return { before, after: window.pairedProbe.state(), frames };
+  });
+  expect(interval.frames.after.metrics.gpuFrames - interval.frames.before.metrics.gpuFrames).toBe(300);
   expect(interval.after.commits.count).toBe(interval.before.commits.count);
   for (const key of ["captures", "pixelCopies", "pixelReadbacks", "uploads"]) expect(interval.after.metrics[key]).toBe(interval.before.metrics[key]);
   expect(interval.after.metrics.admission).toEqual(interval.before.metrics.admission);

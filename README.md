@@ -63,6 +63,21 @@ layouts and packages, not qualification of newly built workspace artifacts.
 
 ## Usability today
 
+An opt-in [build-time CSS compiler](packages/css-compiler/README.md) now provides
+JSON selection and production Vite/webpack adapters for a bounded animation
+subset, including exported npm stylesheets and the application's Sass/PostCSS
+pipeline. Generated WGSL and native-geometry samplers replace runtime animation
+compilation on this route; original CSS and controls remain for fallback.
+This is experimental implementation, not independent acceptance or a speedup
+claim. The compiler is a separate private package in `packages/css-compiler`.
+
+An opt-in [experimental worker compositor](docs/worker.md) now moves uploads,
+shared WebGPU rendering and decorative animation scheduling off the main
+thread. React, DOM/layout, capture and original controls stay on it; essential
+geometry is fixed. The worker uses build-generated WGSL and an app-owned module
+worker, not automatic CSS translation. Benchmarks measure clock/submission work,
+not a demonstrated CSS speedup or production qualification.
+
 The prototype supports native pointer/keyboard/input/form/focus/selection,
 bounded affine motion, explicit CSS/WAAPI ownership, single-subtree `Presence`,
 inert decorative effects and one real Radix Dialog integration using its public
@@ -122,7 +137,8 @@ production qualification.
 
 ## Run and examples
 
-Requires Node20.19+ or22.12+; validation used Node24.19.0/npm11.17.0.
+Use Node24 for repository validation (worker source units use Node24 hooks);
+validation used Node24.19.0/npm11.17.0.
 Dependencies are exact-pinned; the package remains private.
 
 ```sh

@@ -15,7 +15,7 @@ export interface TimelineFrame {
   easing?: string;
 }
 
-const numeric = "(-?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?)";
+const numeric = "(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:e[+-]?\\d+)?)";
 const trs = new RegExp(`^translate\\(${numeric}px(?:,\\s*${numeric}px)?\\) rotate\\(${numeric}deg\\) scale\\(${numeric}(?:,\\s*${numeric})?\\)$`, "i");
 export function parseTransform(value: string): Transform {
   if (value === "none") return { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 };

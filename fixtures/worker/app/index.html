@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>CSPA worker experiment</title></head>
+<body><h1>Experimental shared worker compositor</h1>
+<p>Chrome Canary with HTML-in-Canvas enabled. Ordinary DOM is the initial mode.</p>
+<button id="enable">Enable</button><button id="disable">Disable</button><button id="dispose">Dispose</button>
+<button id="structure">Toggle decorative layer</button><button id="layout">Change layer layout</button>
+<div id="frame" style="position:relative;width:640px;height:320px">
+<canvas id="capture" hidden></canvas><canvas id="output" hidden></canvas>
+<div id="ordinary" style="position:absolute;inset:0"></div>
+<div id="worker-host" style="position:absolute;inset:0;display:none"></div>
+</div><pre id="status"></pre><script type="module" src="./main.tsx"></script></body></html>

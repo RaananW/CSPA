@@ -1,0 +1,12 @@
+{
+  "name": "@canvas-spa/fixture-card",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./card.mjs",
+    "./styles.scss": "./card.module.scss"
+  },
+  "files": ["card.mjs", "card.module.scss", "_tokens.scss"],
+  "peerDependencies": { "react": "^18.3.1 || ^19.0.0" }
+}

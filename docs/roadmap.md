@@ -54,6 +54,20 @@ transitions, same-root state through fallback and clean disposal.
 
 ## Proposed continuation milestones
 
+**Implemented experiments (2026-10-12):** the opt-in
+[build-time CSS compiler](../packages/css-compiler/README.md) provides JSON
+selection, bounded production Vite/webpack preprocessing and build-generated
+WGSL/native samplers. The separate [worker compositor](worker.md) moves uploads,
+composition and inert decorative scheduling off the main thread while React,
+capture and fixed original controls remain on it. Current-package, functional,
+CSS-conformance and isolated benchmark results are in the
+[verification matrix](verification.md#experimental-worker-compositor).
+These user-directed additions do not renumber phases or revise historical
+acceptance. Independent acceptance, broader animation/component coverage,
+webpack workers and compiler/worker interoperability remain future gates.
+Worker clock continuity under synthetic contention is not a CSS speedup or
+production-performance qualification.
+
 Repository organization is a separate user-directed engineering assignment,
 not a fifteenth phase: private root tooling, the canonical private release
 package in `packages/canvas-spa`, a private ten-page playground in

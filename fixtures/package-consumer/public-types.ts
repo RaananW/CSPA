@@ -8,9 +8,14 @@ import {
   type EffectTime, type EffectHandle, type EffectResult, type MotionKeyframe, type MotionTiming,
   type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult, type CoordinatedMotion,
 } from "canvas-spa-phase-one";
+import { workerCompositorProgram } from "canvas-spa-phase-one/build";
+import { mountWorkerCanvasApp, WorkerSurface,
+  type WorkerMountOptions, type WorkerSurfaceProps, type WorkerProgram, type WorkerAnimation, type WorkerStats,
+} from "canvas-spa-phase-one/experimental-worker";
+import { startWorkerCompositor } from "canvas-spa-phase-one/experimental-worker/thread";
 
 // Internal implementations are deliberately not package entry points.
-// @ts-expect-error Only the root export is public.
+// @ts-expect-error Internal implementation files are not public subpaths.
 import type { CanvasRuntime } from "canvas-spa-phase-one/dist/library/runtime.js";
 export type PublicTypes = [
   AdmissionPolicy, MountCanvasOptions, CanvasController, RuntimeOptions, LocalApplicationModule, LayerDefinition,
@@ -18,8 +23,10 @@ export type PublicTypes = [
   EnrollmentOptions, EnrollmentErrorCode, AnimationPlayback, CSSAnimationSource, Ripple,
   ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult,
   MotionKeyframe, MotionTiming, MotionDescriptor, MotionHandle, TransitionHandle, TransitionResult, CoordinatedMotion,
+  WorkerMountOptions, WorkerSurfaceProps, WorkerProgram, WorkerAnimation, WorkerStats,
 ];
-export const publicFunctions = [mountApplicationModule, defineEffect];
+export const publicFunctions = [mountApplicationModule, defineEffect, workerCompositorProgram,
+  mountWorkerCanvasApp, WorkerSurface, startWorkerCompositor];
 export const automatic: AdmissionPolicy = "automatic";
 // @ts-expect-error Automatic admission is a closed, explicit policy.
 export const invalidPolicy: AdmissionPolicy = "always";

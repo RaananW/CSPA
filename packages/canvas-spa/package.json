@@ -9,6 +9,18 @@
     ".": {
       "types": "./dist/library/index.d.ts",
       "import": "./dist/library/index.js"
+    },
+    "./build": {
+      "types": "./dist/library/build.d.ts",
+      "import": "./dist/library/build.js"
+    },
+    "./experimental-worker": {
+      "types": "./dist/library/experimental-worker.d.ts",
+      "import": "./dist/library/experimental-worker.js"
+    },
+    "./experimental-worker/thread": {
+      "types": "./dist/library/worker-thread.d.ts",
+      "import": "./dist/library/worker-thread.js"
     }
   },
   "files": ["dist/library/*.js", "dist/library/*.d.ts", "docs/distribution.md"],

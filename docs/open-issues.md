@@ -12,6 +12,16 @@ uses public CSPA examples, default DOM and explicit experimental GPU admission.
 accessibility, licensing or publication qualification; all existing gates below
 retain their scope.
 
+**Implemented experiments (2026-10-12):** the
+[build-time CSS compiler](../packages/css-compiler/README.md) and
+[worker compositor](worker.md) have bounded implementer proof, not independent
+acceptance. JSON-selected Vite/webpack CSS/Sass/PostCSS/Modules and inert
+worker decoration do not close SCOPE-002 or any production/manual gate.
+Worker interactive geometry stays fixed; real worker crashes/never-returning
+GPU fences, webpack workers and automatic compiler/worker integration remain
+unqualified. [Current results](verification.md#experimental-worker-compositor)
+establish scheduling continuity, not a measured CSS presentation speedup.
+
 **As of 2026-10-11; accepted source checkpoint:**
 [`12f13661`](https://github.com/RaananW/CSPA/commit/12f13661978a9329331bf881af6aca526402d4d0).
 This is a documentation register, not GitHub tickets, assigned work, release

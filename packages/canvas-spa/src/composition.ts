@@ -2,6 +2,7 @@ import type { EffectWrapperOptions } from "@babylonjs/lite";
 import { validateGeometry } from "./native.js";
 import type { Ripple } from "./ripple.js";
 import { effectUniforms, type EffectDescriptor, type ApplicationEffect } from "./effects.js";
+import type { CompiledMotion } from "./compiled.js";
 
 interface CompositeLayer {
   matrix(): DOMMatrix;
@@ -12,14 +13,17 @@ interface CompositeLayer {
   ripple?(): Ripple | undefined;
   effects?(): readonly EffectDescriptor[];
   effectsEnabled?(): boolean;
+  compiledMotion?(): CompiledMotion | undefined;
 }
 
 export function compositionUniforms(layers: CompositeLayer[], dpr: number, shift = 0, tint = 0, capacity = layers.length,
-  custom: readonly (ApplicationEffect | undefined)[] = []) {
-  const values = new Float32Array(4 + capacity * 44);
+  custom: readonly (ApplicationEffect | undefined)[] = [], compiled = false) {
+  const values = new Float32Array(4 + capacity * (compiled ? 48 : 44));
   values.set([dpr, tint, 0, 0]);
   layers.forEach((layer, index) => {
-    const matrix = new DOMMatrix().translate(shift, 0).multiply(layer.matrix());
+    const motion = compiled ? layer.compiledMotion?.() : undefined;
+    const base = motion ? new DOMMatrix().translate(motion.origin.x, motion.origin.y) : layer.matrix();
+    const matrix = new DOMMatrix().translate(shift, 0).multiply(base);
     validateGeometry(matrix);
     const inverse = matrix.inverse();
     const content = layer.contentExtent ?? { width: layer.canvas.width, height: layer.canvas.height,
@@ -27,19 +31,20 @@ export function compositionUniforms(layers: CompositeLayer[], dpr: number, shift
     values.set([
       inverse.a, inverse.c, inverse.e, content.pixelWidth / Math.max(1, content.width),
       inverse.b, inverse.d, inverse.f, content.pixelHeight / Math.max(1, content.height),
-      layer.canvas.width, layer.canvas.height, layer.opacity(), custom.indexOf(layer.effects?.().find(value => value.kind === "custom")?.definition),
+      layer.canvas.width, layer.canvas.height, motion ? 1 : layer.opacity(), custom.indexOf(layer.effects?.().find(value => value.kind === "custom")?.definition),
       layer.ripple?.()?.amplitude ?? 0, (layer.ripple?.()?.seconds ?? 0) % 1000, content.pixelWidth, content.pixelHeight,
     ], 4 + index * 44);
     values.set(effectUniforms(layer.effectsEnabled?.() === false ? [] : layer.effects?.()), 20 + index * 44);
-    const clip = layer.clip?.(matrix) ?? { x: 0, y: 0, width: content.width, height: content.height };
+    const clip = layer.clip?.(new DOMMatrix().translate(shift, 0).multiply(layer.matrix())) ?? { x: 0, y: 0, width: content.width, height: content.height };
     values.set([clip.x, clip.y, clip.width, clip.height], 44 + index * 44);
+    if (compiled) values.set([motion ? motion.index + 1 : 0, motion?.phase ?? 0, 0, 0], 4 + capacity * 44 + index * 4);
   });
   return values;
 }
 
-export function compositionShader(count: number, custom: readonly (ApplicationEffect | undefined)[] = []): Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL"> {
+export function compositionShader(count: number, custom: readonly (ApplicationEffect | undefined)[] = [], compiledWGSL?: string, decorativeAnimation = false): Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL"> {
   const bindings: NonNullable<EffectWrapperOptions["bindings"]> = [];
-  let declarations = custom.map((definition, index) => definition
+  let declarations = (compiledWGSL ?? "") + custom.map((definition, index) => definition
     ? `fn custom${index}(color: vec4f, local: vec2f, extent: vec2f, seconds: f32, parameters: vec4f) -> vec4f { ${definition.wgsl} }\n` : "").join("");
   let body = "";
   for (let index = 0; index < count; index++) {
@@ -48,8 +53,18 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
     declarations += `@group(0) @binding(${index * 2}) var layer${index}: texture_2d<f32>;
       @group(0) @binding(${index * 2 + 1}) var sampler${index}: sampler;\n`;
     body += `{
-      let local = vec2f(dot(state[${1 + index * 11}].xyz, vec3f(p, 1.0)),
+      var local = vec2f(dot(state[${1 + index * 11}].xyz, vec3f(p, 1.0)),
         dot(state[${2 + index * 11}].xyz, vec3f(p, 1.0)));
+      var compiledOpacity = 1.0;
+      ${compiledWGSL ? `let playback = state[${1 + count * 11 + index}];
+      if (playback.x > 0.0) {
+        let motion = compiled_sample(u32(playback.x), playback.y);
+        let delta = local - motion.position;
+        let angle = motion.rotation * 0.017453292519943295;
+        local = vec2f(cos(angle) * delta.x + sin(angle) * delta.y,
+          -sin(angle) * delta.x + cos(angle) * delta.y) / motion.scale;
+        compiledOpacity = motion.opacity;
+      }` : ""}
       let extent = state[${3 + index * 11}].xy;
       let clip = state[${11 + index * 11}];
       if (all(local >= vec2f(0.0)) && all(local < extent) && all(local >= clip.xy) && all(local < clip.xy + clip.zw)) {
@@ -90,11 +105,14 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
             ? `if (control.x == 4.0 && state[${3 + index * 11}].w == ${customIndex}.0) { sample = clamp(custom${customIndex}(sample, local, extent, control.y, parameters), vec4f(0.0), vec4f(1.0)); }`
             : "").join("\n")}
         }
-        color = mix(color, sample.rgb, sample.a * state[${3 + index * 11}].z);
+        ${decorativeAnimation ? `if (state[${3 + index * 11}].w == 1.0) {
+          sample.a *= 1.0 - 0.65 * (1.0 - abs(2.0 * fract(state[0].z / 2.0) - 1.0));
+        }` : ""}
+        color = mix(color, sample.rgb, sample.a * state[${3 + index * 11}].z * compiledOpacity);
       }
     }\n`;
   }
-  bindings.push({ binding: count * 2, kind: "uniform", uniformByteLength: (4 + count * 44) * 4 });
+  bindings.push({ binding: count * 2, kind: "uniform", uniformByteLength: (4 + count * (compiledWGSL ? 48 : 44)) * 4 });
   return {
     bindings,
     fragmentWGSL: `${declarations}
@@ -104,7 +122,7 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
         return local + delta / max(length(delta), 1.0) * sin(length(delta) * 0.18 - seconds * 4.0) * amplitude * edge(local, extent);
       }
       fn bounded(local: vec2f, extent: vec2f) -> vec2f { return clamp(local, vec2f(0.5), extent - vec2f(0.5)); }
-      @group(0) @binding(${count * 2}) var<uniform> state: array<vec4f, ${1 + count * 11}>;
+      @group(0) @binding(${count * 2}) var<uniform> state: array<vec4f, ${1 + count * (compiledWGSL ? 12 : 11)}>;
       @fragment fn effectFragment(input: EffectVertexOutput) -> @location(0) vec4f {
         let p = input.position.xy / state[0].x;
         var color = vec3f(1.0);

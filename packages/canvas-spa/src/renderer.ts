@@ -13,6 +13,7 @@ import { compositionShader, compositionUniforms } from "./composition.js";
 import { createAdmissionProbe, verifyProbeGeometry, verifyProbePixels } from "./admission.js";
 import type { Ripple } from "./ripple.js";
 import type { ApplicationEffect, EffectDescriptor } from "./effects.js";
+import type { CompiledMotion, CompiledProgramSet } from "./compiled.js";
 
 export interface EnrolledLayer {
   id: string;
@@ -23,6 +24,7 @@ export interface EnrolledLayer {
   ripple?(): Ripple | undefined;
   effects?(): readonly EffectDescriptor[];
   effectsEnabled?(): boolean;
+  compiledMotion?(): CompiledMotion | undefined;
 }
 
 export interface SurfaceRendererOptions extends MountBoundaryOptions {
@@ -38,6 +40,7 @@ export interface SurfaceRendererOptions extends MountBoundaryOptions {
   isPaused?(): boolean;
   comparePixels?: boolean;
   budgets?: { layers: number; pixels: number };
+  compiled?: CompiledProgramSet;
   onMeasure?(sample: RendererSample): void;
 }
 export interface RendererSample {
@@ -63,7 +66,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   const resources = { roots: 1, captureCanvases: 1, outputCanvases: 1, engines: 0, pendingEngines: 0, textures: 0, effects: 0, renderers: 0, stagingCanvases: 0, snapshots: 0, comparisonBuffers: 0, listeners: 0, scheduledFrames: 0, paintWaits: 0, lossObservers: 0, pendingCleanups: 0, probeElements: 0, probeReadbacks: 0 };
   const timing = () => ({ count: 0, totalMs: 0, minMs: null as number | null, maxMs: null as number | null });
   const layerMetrics: Record<string, { captures: number; pixelCopies: number; pixelReadbacks: number; uploads: number }> = Object.create(null);
-  const metrics = { captures: 0, pixelCopies: 0, pixelReadbacks: 0, reusedUploads: 0, uploads: 0, paintNotifications: 0, deviceLossCount: 0, fenceCount: 0, effectShaderCompilations: 0, incompleteFramesSkipped: 0,
+  const metrics = { captures: 0, pixelCopies: 0, pixelReadbacks: 0, reusedUploads: 0, uploads: 0, paintNotifications: 0, deviceLossCount: 0, fenceCount: 0, effectShaderCompilations: 0, incompleteFramesSkipped: 0, shaderSourceGenerations: 0, precompiledShaderSelections: 0,
     admission: { attempts: 0, passes: 0, captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0, gpuFrames: 0, gpuReadbacks: 0, geometryChecks: 0,
       last: undefined as { nativePixels: number[][]; gpuPixels: number[][]; geometry: ReturnType<typeof verifyProbeGeometry> } | undefined },
     timings: { captureMs: timing(), uploadMs: timing(), frameWorkMs: timing(), frameIntervalsMs: timing() },
@@ -100,6 +103,17 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let dx = 0;
   let previousFrame: number | undefined;
   let admittedCustom: (ApplicationEffect | undefined)[] = [];
+  function shaderFor(count: number, custom: readonly (ApplicationEffect | undefined)[]) {
+    if (options.compiled) {
+      if (custom.some(Boolean)) throw new Error("Compiled programs do not include runtime custom effect definitions");
+      const program = options.compiled.programs[count - 1];
+      if (!program) throw new Error(`Compiled layer capacity exceeded: ${count}`);
+      metrics.precompiledShaderSelections++;
+      return program;
+    }
+    metrics.shaderSourceGenerations++;
+    return compositionShader(count, custom);
+  }
   let clearedGeometry: { id: string; identity: boolean | null }[] = [];
   type Layer = EnrolledLayer & { canvas: HTMLCanvasElement; texture: DynamicTexture2D;
     coverage: CaptureCoverage; contentExtent: { width: number; height: number; pixelWidth: number; pixelHeight: number } };
@@ -238,7 +252,12 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     clearGeometry(false);
     ordinary.hidden = false;
     if (boundary.moveToDOM()) metrics.moves++;
-    options.presentation?.("dom");
+    try { options.presentation?.("dom"); }
+    catch (error) {
+      reason += ` DOM presentation restoration failed: ${String(error)}`;
+      console.error("CanvasSPA DOM presentation restoration failed", error);
+      status();
+    }
     options.onRecovery?.(message);
   }
   function retainGPUUntil(completion: Promise<IdleOutcome>) {
@@ -344,7 +363,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     try {
       geometry();
       if (membershipPending || pending || !complete()) { metrics.incompleteFramesSkipped++; requestPaint(); return; }
-      setEffectUniforms(effect, compositionUniforms(layers, options.size().dpr, dx, tint, active?.capacity, active?.custom));
+      setEffectUniforms(effect, compositionUniforms(layers, options.size().dpr, dx, tint, active?.capacity, active?.custom, !!options.compiled));
       renderFrame(engine, 16.67);
       submittedGeneration = publicationGeneration;
     } catch (error) {
@@ -493,14 +512,14 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     }
     const previous = pending;
     const custom = next.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
-    const shader = compositionShader(next.length, custom);
+    const shader = shaderFor(next.length, custom);
     const device = configuredDevice(output);
     const compileStarted = performance.now();
     let compilation: Promise<void> = Promise.resolve();
     device.pushErrorScope("validation");
     let nextEffect: EffectWrapper | undefined, nextRenderer: ReturnType<typeof createEffectRenderer> | undefined;
     try {
-      if (custom.some(Boolean)) {
+      if (custom.some(Boolean) || options.compiled) {
         metrics.effectShaderCompilations++;
         const module = device.createShaderModule({ code: `struct EffectVertexOutput { @builtin(position) position: vec4f, @location(0) uv: vec2f }; ${shader.fragmentWGSL}` });
         compilation = module.getCompilationInfo().then(info => {
@@ -630,8 +649,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     async function createComposition(name: string) {
       if (!engine) throw new Error("Composition requires an admitted engine");
       admittedCustom = layers.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
-      const shader = compositionShader(layers.length, admittedCustom);
-      if (admittedCustom.some(Boolean)) {
+      const shader = shaderFor(layers.length, admittedCustom);
+      if (admittedCustom.some(Boolean) || options.compiled) {
         const started = performance.now();
         const device = configuredDevice(output);
         device.pushErrorScope("validation");
@@ -706,7 +725,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
                 probeLayer.contentExtent = { width: probe!.extent, height: probe!.extent, pixelWidth: actual.width, pixelHeight: actual.height };
                 queue!.drawElementImageToTexture({ source: probe!.element }, { texture: texture.texture });
                 metrics.admission.captures++; metrics.admission.uploads++;
-                setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr));
+                setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr, 0, 0, layers.length, [], !!options.compiled));
                 renderFrame(engine!, 16.67);
                 resolve();
               } catch (error) { reject(error); }
@@ -727,7 +746,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         abort.signal.throwIfAborted();
         const geometryResult = verifyProbeGeometry(nativeHost(), probe, options.nativeOrigin?.());
         metrics.admission.geometryChecks++;
-        setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr, 0, 0));
+        setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr, 0, 0, layers.length, [], !!options.compiled));
         const readback = captureScreenshot(engine.surfaces[0]);
         const pending = { active: true, completion: Promise.resolve() };
         resources.probeReadbacks++;
@@ -956,6 +975,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     return state();
   }
   function recover(message: string) {
+    if (mode === "dom" && transitioning) return Promise.resolve();
     if (mode !== "gpu" && mode !== "admitting" && !initializing) return Promise.resolve();
     if (initializing) admissionCancellation = message;
     presentDOM(message);

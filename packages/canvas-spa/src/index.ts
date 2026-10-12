@@ -10,6 +10,7 @@ export type { LocalApplicationModule } from "./module.js";
 export type { AdmissionPolicy, LayerDefinition, RuntimeOptions } from "./runtime.js";
 export type { AnimationPlayback } from "./animation.js";
 export type { CSSAnimationSource } from "./css-animation.js";
+export type { CompiledAnimation, CompiledProgramSet } from "./compiled.js";
 export type { Ripple } from "./ripple.js";
 export { defineEffect } from "./effects.js";
 export type { ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult } from "./effects.js";

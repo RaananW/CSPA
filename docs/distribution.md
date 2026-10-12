@@ -52,14 +52,37 @@ npm install /path/to/canvas-spa-phase-one-0.0.0.tgz
 ```
 
 Create the pack destination first. `prepack` rebuilds the intentional
-`packages/canvas-spa/src/index.ts` entry with existing Vite and emits TypeScript
-declarations. The only public entry is ESM `canvas-spa-phase-one`; CommonJS
-and internal subpath imports are not supported. The tarball contains only
-`package.json`, README, this standalone distribution contract, one JS module
-and the required declaration graph. No source maps, tests, demos, evidence,
-profiles, absolute local paths, worker files or external asset paths ship.
-WGSL is constructed from embedded strings in the module; no shader fetch,
-worker URL or copied demo CSS is required.
+library entries with existing Vite and emits TypeScript declarations. The
+unchanged runtime root is ESM `canvas-spa-phase-one`; additional explicit
+exports are `/build`, `/experimental-worker` and `/experimental-worker/thread`.
+CommonJS and internal subpath imports are unsupported. The current allowlist
+contains33 members: manifest, README, this contract, four JS entries and their
+required declaration graph. No source maps, tests, demos, evidence, profiles,
+absolute local paths or app-owned worker/program assets ship.
+The default runtime still constructs WGSL internally without shader fetch.
+Compiled CSS and worker routes use literal build-generated shader artifacts;
+runtime browser/driver pipeline compilation remains. App-owned worker URL
+bundling and program generation are explicit integration work, not injected
+assets or automatic adoption. Historical archive identities below do not
+qualify this changed package.
+
+The separate private `@canvas-spa/css-compiler` workspace supplies JSON-configured
+Vite/webpack adapters for a bounded CSS/Sass/PostCSS/Modules subset; it is not
+shipped inside this library. Worker bundling is verified with Vite's ES module
+worker output, not webpack or automatic compiler/worker interoperability.
+Create the application worker entry with
+`startWorkerCompositor(self)` imported from `/experimental-worker/thread`,
+generate `workerCompositorProgram(1..8)` from `/build` before bundling, and use
+`mountWorkerCanvasApp`/`WorkerSurface` from `/experimental-worker` with empty
+connected ordinary/canvas hosts and an app-owned module-worker factory.
+Ordinary DOM starts first; GPU is explicitly enabled. React/DOM/layout/capture
+remain main-thread; essential/control geometry is fixed and only inert,
+aria-hidden noninteractive decoration animates. Unsupported sources are
+diagnosed explicitly. Disable/disposal awaits worker fence/acknowledgement
+before restoring the original root. A10second timeout reports cleanup pending
+with retained resources and requires handling/retry, not a successful teardown.
+The checkout's `docs/worker.md` contains the complete setup and measured limits;
+it is not another bundled package member. No CSS speedup is established.
 
 React/React DOM are external matching-major peers (`^18.3.1 || ^19.0.0`),
 not bundled duplicate roots. Actual tested pairs are18.3.1 and19.3.0;

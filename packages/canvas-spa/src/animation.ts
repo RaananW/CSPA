@@ -1,19 +1,22 @@
 import { compileTimeline, parseTransform, type TimelineFrame } from "./timeline.js";
 import { affine, type Transform } from "./affine.js";
+import { verifyCompiledAnimation, type CompiledAnimation } from "./compiled.js";
 
 const properties = ["transform", "opacity", "transform-origin"] as const;
-export function declarations(element: HTMLElement) {
-  return properties.map(name => ({ name, value: element.style.getPropertyValue(name), priority: element.style.getPropertyPriority(name) }));
+export function declarations(element: HTMLElement, includeAnimationName = false) {
+  const names: readonly (typeof properties[number] | "animation-name")[] = includeAnimationName ? [...properties, "animation-name"] : properties;
+  return names.map(name => ({ name, value: element.style.getPropertyValue(name), priority: element.style.getPropertyPriority(name) }));
 }
+type PresentationProperty = ReturnType<typeof declarations>[number]["name"];
 export class DeclarationOwnership {
   private readonly saved: ReturnType<typeof declarations>;
   private readonly initial;
   private readonly initialAttribute;
-  private readonly written = new Map<typeof properties[number], { value: string; priority: string }>();
-  private readonly relinquished = new Set<typeof properties[number]>();
-  constructor(private readonly element: HTMLElement, predecessor?: DeclarationOwnership) {
+  private readonly written = new Map<PresentationProperty, { value: string; priority: string }>();
+  private readonly relinquished = new Set<PresentationProperty>();
+  constructor(private readonly element: HTMLElement, predecessor?: DeclarationOwnership, includeAnimationName = false) {
     this.initialAttribute = element.getAttribute("style");
-    this.initial = declarations(element);
+    this.initial = declarations(element, includeAnimationName);
     this.saved = predecessor?.saved ?? this.initial;
   }
   private inspect() {
@@ -26,7 +29,7 @@ export class DeclarationOwnership {
     this.inspect();
     if (this.relinquished.size) throw new Error(`Presentation declaration ownership changed: ${[...this.relinquished].join(", ")}`);
   }
-  write(name: typeof properties[number], value: string, priority = "") {
+  write(name: PresentationProperty, value: string, priority = "") {
     this.inspect();
     if (this.relinquished.has(name)) return;
     if (this.element.style.getPropertyValue(name) !== value || this.element.style.getPropertyPriority(name) !== priority) {
@@ -96,7 +99,7 @@ export function rejectImportantPresentation(element: HTMLElement, includeOrigin 
   for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) inspect(sheet.cssRules, 0);
 }
 
-export function prepareAnimation(element: HTMLElement, source: Animation, host: OwnershipHost) {
+export function prepareAnimation(element: HTMLElement, source: Animation, host: OwnershipHost, compiled?: CompiledAnimation) {
   if (!(source.effect instanceof KeyframeEffect) || source.effect.target !== element || source.effect.pseudoElement
     || source.playbackRate !== 1 || source.effect.composite !== "replace" || source.effect.iterationComposite !== "replace"
     || source.timeline !== document.timeline || source.playState === "idle" || source.currentTime === null || typeof source.currentTime !== "number") {
@@ -114,7 +117,7 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
   rejectImportantPresentation(element);
   const effect = source.effect;
   const originalFrames = effect.getKeyframes();
-  const frames: TimelineFrame[] = originalFrames.map(frame => {
+  const frames: TimelineFrame[] = compiled ? [] : originalFrames.map(frame => {
     if (Object.keys(frame).some(key => !["offset", "computedOffset", "easing", "composite", "transform", "opacity"].includes(key))
       || frame.composite !== "auto" && frame.composite !== "replace" || typeof frame.transform !== "string"
       || frame.opacity === undefined || frame.opacity === null) throw new Error("All frames must contain only complete transform/opacity replace values");
@@ -123,7 +126,12 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
   const timing = effect.getTiming();
   if (typeof timing.duration !== "number" || timing.endDelay !== 0 || timing.iterationStart !== 0 || timing.fill !== "both"
     || timing.direction !== "normal" && timing.direction !== "alternate") throw new Error("Unsupported source animation timing/fill");
-  const timeline = compileTimeline(frames, { duration: timing.duration, delay: timing.delay, iterations: timing.iterations,
+  if (compiled) verifyCompiledAnimation(element, source, compiled);
+  const timeline = compiled ? {
+    duration: compiled.timing.duration, delay: compiled.timing.delay,
+    end: compiled.timing.delay + compiled.timing.duration * compiled.timing.iterations,
+    sample: (time: number) => compiled.sample(time),
+  } : compileTimeline(frames, { duration: timing.duration, delay: timing.delay, iterations: timing.iterations,
     direction: timing.direction, easing: timing.easing, fill: timing.fill });
   for (const frame of frames) host.validate(timeline.sample(frame.offset * timeline.duration + timeline.delay));
   let milliseconds = source.currentTime;
@@ -137,9 +145,13 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
   }
   let playing = source.playState === "running";
   let released = false;
-  const presentation = new DeclarationOwnership(element);
+  const presentation = new DeclarationOwnership(element, undefined, !!compiled);
   const signature = (frames: ComputedKeyframe[]) => JSON.stringify(frames.map(frame => ({
-    ...frame, transform: typeof frame.transform === "string" ? parseTransform(frame.transform) : frame.transform,
+    ...frame, transform: typeof frame.transform !== "string" ? frame.transform
+      : !compiled ? parseTransform(frame.transform) : (() => {
+        const value = new DOMMatrix(frame.transform === "none" ? undefined : frame.transform);
+        return [value.a, value.b, value.c, value.d, value.e, value.f];
+      })(),
   })));
   const frameSignature = signature(originalFrames), timingSignature = JSON.stringify(timing);
   let expectedSourceTime: CSSNumberish | null = source.currentTime;
@@ -153,7 +165,12 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
     if (source.effect !== effect || effect.target !== null || source.playbackRate !== 1 || source.currentTime !== expectedSourceTime
       || effect.composite !== "replace" || effect.iterationComposite !== "replace"
       || signature(effect.getKeyframes()) !== frameSignature || JSON.stringify(effect.getTiming()) !== timingSignature) {
-      throw new Error("Source effect/target/timing was modified while GPU-owned");
+      throw new Error(`Source effect/target/timing was modified while GPU-owned: ${JSON.stringify({
+        effectChanged: source.effect !== effect, targetDetached: effect.target === null,
+        playbackRate: source.playbackRate, currentTime: source.currentTime, expectedSourceTime,
+        framesChanged: signature(effect.getKeyframes()) !== frameSignature,
+        timingChanged: JSON.stringify(effect.getTiming()) !== timingSignature,
+      })}`);
     }
   };
   const apply = () => {
@@ -162,23 +179,54 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
     expectedSourceTime = source.currentTime;
     host.apply(timeline.sample(milliseconds));
   };
-  return {
-    source,
-    presentation,
-    check,
-    acquire() {
-      source.pause();
-      effect.target = null;
-      try { apply(); } catch (error) { presentation.restore(); effect.target = element; source.currentTime = milliseconds; if (playing) source.play(); throw error; }
-    },
-    restore() {
-      if (released) return;
-      released = true;
+  let suppressed = false;
+  const restoreSource = () => {
+    if (compiled && suppressed) {
+      source.cancel();
+      const lost = presentation.restore();
+      if (lost.has("animation-name") || !element.isConnected) return;
+      const restored = element.getAnimations().filter(animation => animation instanceof CSSAnimation && animation.animationName === compiled.name);
+      if (restored.length !== 1) throw new Error("Compiled CSS restoration requires one original stylesheet association");
+      const animation = restored[0]!;
+      verifyCompiledAnimation(element, animation, compiled);
+      animation.currentTime = milliseconds;
+      if (playing) animation.play(); else animation.pause();
+    } else {
       presentation.restore();
       source.effect = effect;
       effect.target = element;
       source.currentTime = milliseconds;
       if (playing) source.play(); else source.pause();
+    }
+  };
+  return {
+    source,
+    presentation,
+    check,
+    acquire() {
+      try {
+        if (compiled) {
+          presentation.write("animation-name", "none");
+          if (getComputedStyle(element).animationName !== "none") throw new Error("Compiled CSS animation suppression was overridden");
+          suppressed = true;
+        }
+        source.pause();
+        effect.target = null;
+        if (compiled) {
+          source.currentTime = milliseconds;
+          expectedSourceTime = source.currentTime;
+        }
+        apply();
+      } catch (error) {
+        try { restoreSource(); }
+        catch (cleanup) { throw new AggregateError([error, cleanup], "Animation acquisition and restoration failed"); }
+        throw error;
+      }
+    },
+    restore() {
+      if (released) return;
+      released = true;
+      restoreSource();
     },
     tick(delta: number, force = false) {
       assertLive();

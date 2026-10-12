@@ -9,6 +9,222 @@ disposal and a short GPU-motion capture-reuse window. This new automated result
 does not reinterpret prior8099 independent acceptance or qualify the full
 browser suite, manual accessibility/IME, physical displays or performance budgets.
 
+## Experimental build-time CSS compiler (2026-10-12)
+
+Initial implementer snapshot (superseded for current compiler numerics by the
+conformance proof below):
+`evidence/compiler/run-1d1014ff-d40f-4dab-b65a-024f5663f284`
+passes packed-component Vite and webpack production builds, including default
+minification, local/package Sass partials, configured PostCSS and CSS Modules.
+Both native fixtures use the exact 8100 browser/revision above on React19.3.0.
+They verify original input/Save interaction, current glyph/motion pixels,
+capture reuse, exclusive animation ownership, later-authored declarations,
+rollback/reentry, reduced motion and zero owned resources on disposal.
+Injected invalid WGSL and synthetic absent-WebGPU cases are labelled refusal
+tests, not physical device-loss evidence. Each bundler's generated GPU/native
+sampler comparison covers 24,068 cases with maximum absolute error
+0.0000171661376953125.
+
+The same fresh physical execution tree passes 49 existing units and 54 selected
+animation/recovery/runtime browser cases. The frame assertion uses the runtime's
+returned bounded interval, excluding its setup projection draw; recovery uses
+the isolated development URL rather than the retained server. Earlier failed
+runs remain failed evidence, not relabelled passes.
+
+Separate frozen-input release run
+`evidence/phase14/run-16cf8fd2-d760-4c3a-9bf2-5ba5b1d75452` passes all 30 commands
+across actual React18.3.1/19.3.0: units, types, public consumers, all ten built
+pages and source/packed native task lanes at DPR1/2. Both new library archives
+are 54,496 bytes/28 members, SHA256
+`8b84a05612bff3db51f1faf8f54b12d8c3d56b4f3a35d02d3a3357b43ff0309a`.
+The added build-only outputs intentionally differ from the historical
+25-member package; runtime root exports remain unchanged. This matrix does not
+qualify a React18 compiled-component fixture.
+
+WICG readback remains proposal revision
+`5fb3df86d84de598c7f0fcfc5ee53de1df067e7d`, committed 2026-10-09.
+The current explainer retains `content=drawable`, pre-transform snapshots and
+separate native geometry synchronization. The Chromium hotlist's HTTP readback
+exposes only its client shell; no new issue status or landed revision was
+verified in this readback.
+
+This is implemented experimental scope, **not independent technical acceptance**,
+a full browser-suite rerun, universal CSS/preprocessor equivalence, a speedup,
+manual accessibility/hardware qualification or publication.
+[Compiler contract and reproduction](../packages/css-compiler/README.md).
+
+### Expanded CSS conformance proof
+
+Final implementer run
+`evidence/compiler/run-3d847357-8d71-4f15-9e1c-9b0c66992978` passes 124 compiler
+tests: four original groups plus 48 accepted and 72 refused named stylesheet
+cases. Each accepted case is compared against an actual ordinary CSSAnimation,
+not just another generated sampler. Both minified production bundler fixtures
+pass 3,080 browser matrix/opacity comparisons and 297,974 actual GPU/native
+sampler samples each; maximum absolute GPU/native error is
+0.00003814697265625. These are time samples of 48 synthetic stylesheets, not
+297,974 distinct components or a broad third-party integration certification.
+
+The corpus includes shorthand/longhand ordering, selectors/Modules, complete
+multi-frame motion, timing/directions/iterations, segment easing and invalid or
+unsupported constructs. It exposed invalid CSS number acceptance, long-delay
+precision loss and sharp-endpoint GPU reciprocal/cubic precision differences.
+The parser rejects invalid syntax; generated normalization removes delays and
+whole cycles in double precision and uploads bounded phase; mirrored cubic
+evaluation avoids endpoint cancellation. Sampling still executes in generated
+WGSL, not authored-CSS parsing or runtime shader generation.
+
+Native CSS tolerances remain 0.02 CSS pixels for translation and 0.0005 for
+matrix coefficients/opacity. The tested browser snaps a 0.001ms start seek to
+zero progress in the sharp cubic case; final reports retain requested time,
+actual currentTime, computed progress, transform and opacity as clock
+diagnostics. Independent interpolation assertions use 0.01ms boundary
+neighborhoods, not a claim of one-microsecond CSS equivalence. GPU/native
+sampler comparisons retain +/-0.001ms samples. Earlier mismatches remain failed
+evidence; thresholds were not widened.
+
+Both real React19 package/local Sass/PostCSS/Modules fixtures retain original
+input/Save, exclusive ownership, 22,765 changed motion pixels and 2,492 changed
+glyph pixels, capture reuse, reduced motion, restoration/reentry and zero owned
+resources on disposal. The same final tree passes 49 runtime units and 54
+selected existing browser regressions, plus public types and production builds.
+
+Fresh frozen-input release run
+`evidence/phase14/run-d13063d9-a887-4920-b483-7dabd6ce246a` passes all 30 commands
+across physical React18.3.1/19.3.0 source/public-consumer/packed native task lanes
+at DPR1/2, with `inputsUnchanged` and `sourceUnchanged` true. Both current
+archives are 54,524 bytes/28 members, SHA256
+`97e1b159429d17cca9641f9d2b15c664a103112cb7c76c6db47485bfed2ac8cb`.
+The earlier 54,496-byte archive qualifies only its initial source snapshot.
+The compiled-component fixture itself remains React19. Actual browser and
+upstream access limits remain those stated above. Independent technical
+acceptance, persistence and broader/manual/performance gates remain separate.
+
+## Experimental worker compositor
+
+**Final implementer proof (2026-10-12):** fresh physical React19 run
+`evidence/worker/run-e6ad7500-4027-4336-9057-cc24eff7a715` passes functional,
+fault/lifecycle and all 18 isolated benchmark cells. React18 functional run
+`evidence/worker/run-0d130f15-70ee-450c-a20e-d35f5caa5969` passes the same
+bounded functional/fault gates, without benchmark cells. Actual runtime peers
+were read before application assertions: React/ReactDOM19.3.0 and React18.3.1 /
+ReactDOM18.3.1-next-f1338f8080-20240426. Both reports retain 38 unchanged scoped
+source/input hashes and closed owned browser/server helpers.
+
+CDP identifies Chrome157.0.8100.0 /
+`@799dbe91dfe8604f0327d070ecd6d2792a7d3d63`, launched with explicit
+`CanvasDrawElement,ElementCanvasTransform`, experimental-web-platform and
+automation flags. The host is macOS kernel25.6.0 / arm64 / Apple M2 Pro.
+The final benchmark ran after the other owned validation helpers closed;
+external machine activity was not controlled.
+
+Both worker runs and the two physical release lanes built the same
+66,830-byte / 33-member child archive, SHA256
+`65119c3b19f46ee87e1a50f93cc1c9939199346fe6598db99ed236ad46193205`.
+The literal capacity8 worker program is 22,572 bytes, SHA256
+`4d1e72b4331844aec1211cb2aa9cc58a78e8e74710360aad785d78065d3fc2ae`.
+It is generated before bundling, not synthesized by the worker runtime.
+These package identities supersede earlier implementer snapshots only for the
+current worker source; historical accepted package identities remain unchanged.
+
+### Functional and regression scope
+
+The worker retains GPU through supported React content/decorative updates,
+reduced motion, forced colors and live CDP-emulated DPR changes. It verifies
+owning input glyph changes of 961 / 3,141 pixels at DPR1/2, decorative motion
+changes of 84,700 / 338,800 pixels and a 42,038-pixel ripple delta. Original
+trusted input/Save, current native hits, value/focus/selection rollback and
+reentry remain intact. Live DPR1 -> 2 and 2 -> 1 at an unchanged viewport produce
+2,543 / 8,589 changed glyph pixels with current native interaction and GPU mode.
+This is emulation, not physical-display qualification.
+
+In the settled DPR1 animation window, worker draw submissions advance 7 -> 31
+while captures remain 103 -> 103 and actual App renders 11 -> 11. Production
+Profiler callbacks are not used as render evidence. Screenshots retain the
+original caret rather than causing native invalidation through caret hiding.
+All accounted main/worker resources reach zero after healthy disposal.
+Source-boundary refusals, admission cancellation, concurrent disposal, synthetic
+visibility/device loss and delayed stop/retry also pass. Genuine worker crashes,
+never-returning GPU fences and hardware hangs remain unqualified; stop timeout
+reports retained cleanup-pending resources, not successful restoration.
+
+Current release run
+`evidence/phase14/run-fa1bd7e6-df0b-43d0-b3f0-db56385ebe4c` passes all 22
+build-only commands on physical React18/19: source units/types, all ten
+production pages, library/declarations/actual pack, strict Bundler/NodeNext
+public consumers, safe root import and production consumers. Inputs and source
+remain unchanged; the runtime root still has 13 exports. This lane does not
+claim native browser coverage.
+
+Current compiler run
+`evidence/compiler/run-88193d70-3a68-4b59-93ef-b2f785857575` passes 124 compiler
+cases and actual minified Vite/webpack installed-package/local
+Sass/PostCSS/Modules fixtures. Each bundler passes 48 accepted stylesheet
+cases, 297,974 GPU/native samples (maximum error0.00003814697265625) and 3,080
+browser CSS comparisons, with 2,492 glyph and 22,765 motion pixels.
+The 54 selected existing animation/recovery/runtime browser regressions passed
+in `evidence/compiler/run-120444fd-1f06-4544-a21f-73a37b4b69e7`; their main
+runtime/compiler inputs remain unchanged by the final worker timing correction.
+This is not a full browser-suite, React18 compiled-component or webpack-worker
+qualification.
+
+### Matched benchmark
+
+The same eight-layer App with seven decorative opacity animations runs in
+CSS/WAAPI CSPA DOM fallback, existing main-thread CSPA and worker CSPA.
+The CSS baseline includes CSPA's DOM bookkeeping; it is not an independently
+unadopted application. Three rotated repetitions use 500ms warmup and a
+2-second measurement window. Contention adds a React update every80ms plus
+45ms synchronous main-thread work.
+
+Pooled median / p95 in milliseconds, rounded to one decimal:
+
+| Route | Main-thread load | Main rAF | Worker rAF | JS draw-submission work |
+| --- | --- | --- | --- | --- |
+| CSS DOM fallback | No | 16.7 / 16.7 | N/A | N/A |
+| Main CSPA | No | 16.7 / 16.7 | N/A | 0.2 / 0.3 |
+| Worker CSPA | No | 16.7 / 16.7 | 16.7 / 16.7 | 0.1 / 0.2 |
+| CSS DOM fallback | Yes | 16.7 / 33.4 | N/A | N/A |
+| Main CSPA | Yes | 16.7 / 33.4 | N/A | 0.2 / 0.3 |
+| Worker CSPA | Yes | 16.7 / 33.3 | 16.7 / 16.8 | 0.1 / 0.2 |
+
+Worker intervals now measure actual rAF callbacks and retain gaps across
+snapshot publication; they do not mix publication draws into rAF samples or
+reset timing on each capture. Each worker cell verifies that its summed interval
+span covers the measured duration within a 250ms boundary allowance; actual
+span differences are below14ms. Earlier worker measurements, including
+`run-0bde9bc6-7ecd-47db-a01e-5d25fa7e8af6`, omitted publication-crossing gaps
+and are superseded for cadence conclusions, not relabelled current proof.
+
+Idle captures/uploads are zero in every route. Contended main CSPA records
+192 captures/192 uploads in each repetition; worker CSPA records 200 captures
+and 192 uploads in each. CSS records neither. Before/after statistics are not
+an atomic capture/upload transaction, so this difference is not evidence of
+lost images or fewer captures. Dirty native paint currently captures all layers.
+App render deltas are CSS24/24/25, main25/25/25 and worker25/25/25; timed windows
+are not identical fixed-update-count experiments. Worker texture accounting is
+540,800 bytes at benchmark DPR1, not browser/driver/RSS memory.
+
+The supported conclusion is **worker scheduling continuity under this synthetic
+main-thread load**. rAF is not physical presentation; CSS compositor animation
+cadence was not measured. Draw counters include publication submissions, not
+unique displayed frames. Coarse JS submission timings are not GPU execution or
+strictly equivalent engine work. No input-to-photon latency, complex-CSS speedup,
+general performance superiority or production budget is established.
+
+The WICG proposal was rechecked at
+`5fb3df86d84de598c7f0fcfc5ee53de1df067e7d`, committed
+2026-10-09T22:49:17Z. The Chromium hotlist still exposes its client shell;
+no new landed fix or current issue status was verified. Browser functional
+proof, not proposal/issue labels, supports this bounded experiment.
+[Setup, source boundaries and lifecycle](worker.md).
+The owner authorized commit/push after documentation on 2026-10-12. Persistence
+does not confer independent acceptance. Manual accessibility/IME, physical
+displays/loss, WebGL2, production budgets, hosting/license/publication and
+historical integrity exceptions remain separate or open. Named raw runs above
+are ignored local evidence, not committed or published downloads; the scripts
+and this bounded summary provide the repository's reproduction contract.
+
 **Current accepted checkpoints (2026-10-11):** bounded structural/native editing/
 viewport/admission repair at `cfa9df73`, external axis-aligned scroll/native
 content-origin correction at `ab598c00`, and selected Phase13 task workspace/

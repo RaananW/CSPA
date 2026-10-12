@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "target": "webgpu",
+  "unsupported": "error",
+  "maxLayers": 2,
+  "entries": [
+    {
+      "id": "card",
+      "stylesheet": "@canvas-spa/fixture-card/styles.scss",
+      "selector": ".card",
+      "animations": ["float"]
+    },
+    {
+      "id": "local",
+      "stylesheet": "./local.scss",
+      "selector": ".local",
+      "animations": ["pulse"]
+    }
+  ]
+}

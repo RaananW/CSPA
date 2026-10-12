@@ -27,3 +27,4 @@ fixtures/react18/workspace/
 /playwright-report/
 /blob-report/
 /packages/canvas-spa/docs/
+fixtures/worker/app/program.json
