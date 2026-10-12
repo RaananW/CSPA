@@ -36,6 +36,22 @@ recovery preserves original values and focus; disposal ends the app until
 reload. Reduced motion is handled by the existing runtime. Accessibility,
 physical-device and broader browser/production qualification remain open.
 
+## Experimental GPU browser requirement
+
+**GPU demos require Chrome Canary with HTML-in-Canvas enabled.** Ordinary DOM
+mode works without experimental flags. The current native validation route
+launches Canary with these switches, including the required native geometry
+support:
+
+```text
+--enable-blink-features=CanvasDrawElement,ElementCanvasTransform
+--enable-experimental-web-platform-features
+```
+
+After opening the page in that configured Canary session, choose **Enable
+experimental GPU**. Flags alone do not guarantee support in every Canary build;
+CanvasSPA checks working capture and geometry and reports refusal reasons.
+
 ## Deployment is a separate decision
 
 `.github/workflows/showcase-pages.yml` prepares a manual build/deploy workflow:

@@ -96,7 +96,8 @@ function App() {
         <div className="section-heading"><div><p className="eyebrow">LIVE CANVASSPA STUDIO</p><h2 id="studio-title-heading">{current.title}</h2></div>
           <span className={`mode-pill ${mode === "gpu" ? "active" : ""}`}>{mode === "gpu" ? "GPU active" : disposed ? "Disposed" : "Ordinary DOM"}</span></div>
         <p>{current.detail}</p>
-        <div className="toolbar"><button disabled={busy || disposed} onClick={() => void action("enable")}>Enable experimental GPU</button>
+        <p className="stage-note" id="gpu-requirement"><strong>GPU demos require Chrome Canary with HTML-in-Canvas enabled.</strong> Ordinary DOM mode works without experimental flags.</p>
+        <div className="toolbar"><button aria-describedby="gpu-requirement" disabled={busy || disposed} onClick={() => void action("enable")}>Enable experimental GPU</button>
           <button disabled={busy || disposed} onClick={() => void action("disable")}>Use ordinary DOM</button>
           <button disabled={busy || disposed} onClick={() => void action("dispose")}>Dispose example</button></div>
         <p className="diagnostic" role="status" aria-live="polite">{diagnostic}</p>

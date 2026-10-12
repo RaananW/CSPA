@@ -6,6 +6,8 @@ The separate React example studio in `examples/showcase` presents native
 layers, motion, decorative effects and the existing task app in one catalog.
 Run `npm run dev:showcase` or `npm run build:showcase`; see the
 [showcase and Pages preparation guide](docs/showcase.md).
+**GPU demos require Chrome Canary with HTML-in-Canvas enabled**; ordinary DOM
+mode works without experimental flags. See the guide for the launch switches.
 GitHub Pages deployment is prepared, **not enabled or published**. - experimental typed native/GPU runtime
 
 **CanvasSPA is a GPU-first framework.** Supported React layer, ref and content

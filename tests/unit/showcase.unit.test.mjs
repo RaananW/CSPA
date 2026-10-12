@@ -42,6 +42,14 @@ test("manual Pages workflow uses immutable pins and confines deployment permissi
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /npm ci --ignore-scripts --no-audit --no-fund/);
 });
+test("showcase exposes the experimental Canary requirement beside GPU activation", async () => {
+  const page = await readFile("examples/showcase/src/main.tsx", "utf8");
+  assert.match(page, /id="gpu-requirement"><strong>GPU demos require Chrome Canary with HTML-in-Canvas enabled\.<\/strong> Ordinary DOM mode works without experimental flags\./);
+  assert.match(page, /<button aria-describedby="gpu-requirement" disabled=\{busy \|\| disposed\}/);
+  const guide = await readFile("docs/showcase.md", "utf8");
+  assert.match(guide, /--enable-blink-features=CanvasDrawElement,ElementCanvasTransform/);
+  assert.match(guide, /--enable-experimental-web-platform-features/);
+});
 test("public output guard fails before an unexpected artifact can be uploaded", async () => {
   const root = await mkdtemp(join(await realpath(tmpdir()), "canvas-showcase-assets-unit-"));
   try {
