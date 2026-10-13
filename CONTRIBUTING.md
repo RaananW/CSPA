@@ -169,16 +169,20 @@ typed specimen in ordinary DOM; `/runtime.html` requests GPU admission.
 Unsupported features must give an explicit diagnostic and usable DOM, not
 fake GPU success.
 
-Browser validation is intentionally restricted to the installed executable
-`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`. Accepted phases
-used154.0.8037.98; Phase9 raw CDP records155.0.8059.40 at that same path
-(transition reason/date unknown). Coordinator continuation permits independent
-bounded155 checks, not explicit user155 approval or certification of the
-remaining exact154 requirement; see [verification](docs/verification.md).
+Browser tests are cross-platform. They launch Chrome Canary through Playwright's
+`chrome-canary` channel, unless `CANVAS_BROWSER_EXECUTABLE` points to a specific
+executable (see `tests/helpers/browser.mjs`, the single launch source). The
+exact historical browser pin is enforced only when `CANVAS_REQUIRE_BROWSER_PIN=1`;
+otherwise the actual queried build is recorded. Keyboard shortcuts in tests use
+`ControlOrMeta`. Historical accepted phases used Chrome154.0.8037.98 and Phase9
+used155.0.8059.40 on macOS; see [history](docs/history.md) and
+[verification](docs/verification.md).
 **Do not install/download a Playwright browser or switch builds
 to make tests pass.** Tests launch clean temporary profiles with explicit
 `CanvasDrawElement,ElementCanvasTransform` and experimental-web-platform flags.
 They neither modify nor establish the flags of an everyday user profile.
+Run `npm run typecheck` for all three TypeScript projects. `npm run test:browser`
+builds first, then runs Playwright.
 The configuration uses one worker and DPR 1, except native-only and integrated-runtime geometry tests that also exercise
 DPR 2. CDP DPR/visibility/fence fixtures are labelled, not physical-device or
 actual background-tab evidence.
@@ -214,7 +218,7 @@ npm run test:browser -- surface.test.mjs --grep 'fence|old-generation'
 npm test
 ```
 
-Build before production browser tests. Playwright starts a preview on 5174 and
+`npm run test:browser` and `npm test` build first. Playwright starts a preview on 5174 and
 development server on 5173, or reuses existing responsive servers. It stops
 servers it started, not a user's existing development server. Do not run
 competing suites/server starts against these ports; evidence filenames are

@@ -22,6 +22,18 @@ GPU fences, webpack workers and automatic compiler/worker integration remain
 unqualified. [Current results](verification.md#experimental-worker-compositor)
 establish scheduling continuity, not a measured CSS presentation speedup.
 
+**Engineering changes 2026-10-13 (implementer-verified, not independently accepted):**
+GPU is revoked for CSS/WAAPI animation only on enrolled boundary elements that
+animate GPU-owned properties; descendant animations stay in GPU mode. Structural
+policy checks are cached, React commits coalesce into one reconcile, and paint
+uploads only changed/stale layers. Transitions pause while hidden; Surface
+updates during motion no longer throw; `animate` accepts `{ duration }`;
+admission probes the visible part of the canvas; `onStatusChange` was added;
+CSS-compiler and worker fixes landed. No existing ID changed status. Upstream
+check: WICG proposal `5fb3df86d84de598c7f0fcfc5ee53de1df067e7d` (2026-10-09),
+Chromium hotlist 6783002 not accessible (sign-in), Chrome Canary 157.0.8102.0 on
+Windows 11. Details: [api.md](api.md#changes-2026-10-13).
+
 **As of 2026-10-11; accepted source checkpoint:**
 [`12f13661`](https://github.com/RaananW/CSPA/commit/12f13661978a9329331bf881af6aca526402d4d0).
 This is a documentation register, not GitHub tickets, assigned work, release

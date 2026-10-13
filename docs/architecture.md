@@ -67,6 +67,29 @@ queue completion prove physical-display continuity, text fidelity, accessibility
 or performance budgets. Historical verdicts remain immutable and scoped to
 their original sources. See the [current register](open-issues.md).
 
+### Presentation policy updates (2026-10-13, implementer-verified)
+
+The policy revokes GPU for CSS/WAAPI animations only on an enrolled boundary
+element that animates GPU-owned presentation properties (transform, opacity,
+translate, rotate, scale, transform-origin, or `transition-property: all`).
+Descendant animations/transitions (hover, spinners, focus rings) repaint native
+content that the paint event captures, so GPU stays active (Canary 157.0.8102.0:
+a spinning descendant kept GPU active with about 62 fresh uploads/s).
+Structural style/DOM-derived checks are cached and re-evaluated after
+mutations, resize, scroll, animation/transition events, input/focus,
+membership, ownership, effects and phase changes; ownership checks and
+transform-dependent geometry still run every frame. React commits coalesce
+reconciliation into one microtask (`CanvasRuntime.requestReconcile()`), giving
+one GPU frame per commit. Paint events upload only layers in `changedElements`
+or stale ones (new slot, extent/grid change, invalidated, after a hidden-document
+pause). Declarative transitions pause while hidden and resume with the same
+progress; React transform/layout updates during a transition or ownership
+become the resting/base transform instead of throwing. Details and the
+upstream check (WICG proposal `5fb3df86d84de598c7f0fcfc5ee53de1df067e7d`,
+2026-10-09; Chromium hotlist 6783002 inaccessible without sign-in; Canary
+157.0.8102.0 on Windows 11) are in [api.md](api.md#changes-2026-10-13). These are
+implementer checks, not independent acceptance.
+
 ### Capability versus implementation matrix
 
 **Upstream review (2026-10-11):** the current

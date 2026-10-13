@@ -55,6 +55,55 @@ See the [compiler configuration/enrollment/subset guide](../packages/css-compile
 Chrome Canary with HTML-in-Canvas enabled is required for GPU operation;
 ordinary DOM remains the initial/fallback presentation.
 
+## GPU presentation policy
+
+The policy revokes GPU for CSS/WAAPI animations only when they run on an
+**enrolled boundary element** and animate GPU-owned presentation properties:
+`transform`, `opacity`, `translate`, `rotate`, `scale`, `transform-origin`, or
+`transition-property: all`. Descendant animations and transitions (hover
+effects, spinners, focus rings) stay in GPU mode: they repaint native content,
+which the paint event captures. Verified in Canary 157.0.8102.0, where a
+spinning descendant kept GPU active with about 62 fresh uploads per second.
+
+Structural policy checks (style/DOM-derived) are cached and re-evaluated after
+mutations, resize, scroll, animation/transition events, input/focus, membership,
+ownership, effects and phase changes. Ownership checks and transform-dependent
+geometry still run every frame. Paint events upload only layers listed in
+`changedElements`, plus stale ones (new slot, extent/grid change, invalidated,
+or after a hidden-document pause); unchanged layers are not re-uploaded.
+
+## Changes 2026-10-13
+
+Implementer-verified, not independently accepted.
+
+- **Policy:** boundary-only animation revocation and cached structural checks, as above.
+- **Reconciliation:** React commits coalesce into one microtask; new public
+  `CanvasRuntime.requestReconcile()`; one GPU frame per commit instead of N+1.
+- **Uploads:** paint events upload only changed or stale layers.
+- **Transforms:** Surface transform/layout updates during a declarative
+  transition or ownership no longer throw; they become the resting/base transform.
+- **Transitions:** pause while the document is hidden and resume with the same progress.
+- **Presence:** starts motion in a layout effect.
+- **`animate`:** accepts `{ duration }` (ms); a number is still a frame count.
+- **`createCanvasHosts(frame)`:** creates the output canvas, ordinary host and overlay host with the required styles. The output canvas is deliberately not `aria-hidden`, because GPU mode moves the original controls inside it.
+- **Stylesheet scan:** `!important` pre-scan skips uninspectable sheets/rules instead of throwing.
+- **Admission:** probe sits in the visible part of the output canvas; fully offscreen is still refused.
+- **Status:** new `onStatusChange(status: CanvasStatus)`; `onStatus` (JSON string) is optional and kept for compatibility.
+- **Options:** `captureHost` optional and deprecated; `admissionPolicy: "automatic"` is compatibility-only (same as `"explicit"`).
+- **Unchanged:** `playback.release()` returns the shared surface to DOM.
+- **CSS compiler:** numeric easing comparison, selector-boundary overlap check,
+  shorthand resets longhands, whole-token CSS-wide keyword guards, `-webkit-`
+  animation aliases rejected clearly, inline PostCSS plugins no longer duplicated in Vite.
+- **Worker:** load failures terminate cleanly and return a diagnosed DOM state;
+  backing DPR is clamped to its pixel budget instead of revoking GPU; the clock wraps.
+
+**Upstream check (AGENTS.md):** WICG html-in-canvas proposal checked at commit
+`5fb3df86d84de598c7f0fcfc5ee53de1df067e7d` (2026-10-09). Chromium hotlist 6783002
+requires sign-in and was not accessible, so no issue data was read. Tested
+browser: Chrome Canary 157.0.8102.0 on Windows 11 (the descendant-animation
+check above used build 157.0.8102.0). These are implementer checks, not
+independent acceptance.
+
 ## Explicit bootstrap
 
 **Required target versus current API:** follow the
@@ -67,16 +116,18 @@ reconciles membership and geometry in the same renderer/output owner
 (`cfa9df73`, `ab598c00`, independently accepted with limits); historical
 readmission acceptance is separate from the selected Phase13 qualification.
 
-Create empty capture/output canvases and ordinary/overlay hosts as connected,
+Create an empty output canvas and ordinary/overlay hosts as connected,
 same-document siblings **outside all React roots**. Put them inside a sized,
-positioned frame. The capture/output canvases must fill that frame at the same
-origin; the GPU output owns original native hit testing when enabled. Supply the ordinary host at the
+positioned frame. The output canvas must fill that frame at the same
+origin (`captureHost` is optional and deprecated: native capture happens on
+`outputCanvas`, and the legacy element was only removed on dispose); the GPU output owns original native hit testing when enabled. Supply the ordinary host at the
 same layout origin. See `runtime.html` for the minimal host scaffolding.
 Those styles are host integration, not layer authoring.
 
 ```tsx
 import { useState } from "react";
 import { mountCanvasApp, Surface, Box, NativeOverlay } from "canvas-spa-phase-one";
+import type { CanvasStatus } from "canvas-spa-phase-one";
 
 function App() {
   const [name, setName] = useState("");
@@ -99,12 +150,16 @@ function App() {
 }
 
 const controller = mountCanvasApp({
-  captureHost, outputCanvas, ordinaryHost, overlayHost,
-  onStatus: message => { statusElement.textContent = message; },
+  outputCanvas, ordinaryHost, overlayHost,
+  onStatusChange: (status: CanvasStatus) => { statusElement.textContent = status.mode; },
   strict: true,
 }, <App />);
 await controller.enable();
 ```
+
+`onStatusChange(status: CanvasStatus)` delivers the structured status object
+(`CanvasStatus` is exported). `onStatus(message: string)` receives the same
+status as a JSON string; it is now optional and kept for compatibility.
 
 The identifiers in the bootstrap are typed host references from your
 outside-root setup, not JSX refs whose descendants the runtime may move.
@@ -122,15 +177,16 @@ fences or confirmed loss. Initial `enable()` remains explicit by default.
 
 ## Opt-in settled readmission (Phase12 engineering)
 
-The option `admissionPolicy: "automatic"` remains source-compatible, but no
+The option `admissionPolicy: "automatic"` is documented as compatibility-only:
+it behaves like `"explicit"`. It remains source-compatible, but no
 structural DOM retirement/readmission loop runs in the corrected core. Both
 policies preserve GPU after supported updates; neither enables it at startup
 or retries factual errors. The heading preserves historical inbound links.
 
 ```tsx
 const controller = mountCanvasApp({
-  captureHost, outputCanvas, ordinaryHost, overlayHost, onStatus,
-  admissionPolicy: "automatic",
+  outputCanvas, ordinaryHost, overlayHost, onStatusChange,
+  admissionPolicy: "automatic", // compatibility-only; same as "explicit"
 }, <App />);
 await controller.enable();
 // Supported membership/order/origin/size/frame/DPR updates stay in this renderer.
@@ -190,7 +246,8 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | `enable()` | Serialized structural and functional admission; owning native canvas must be laid out/visible for paint and functional probes during `admitting`; only complete application capture establishes `gpu`. No automatic initial enable |
 | `disable()` | Cancels desired/retry/admission intent; same-root DOM recovery, geometry clearing and safe fenced GPU release; repeated calls are harmless |
 | `setTransform(id, transform)` | Replaces a layer's transform; GPU mode updates uniforms/native geometry without React reconciliation |
-| `animate(id, target, frames)` | Frame-counted interpolation of specified fields; unspecified fields stay at their starting values; 1..10000 frames |
+| `animate(id, target, length)` | Interpolation of specified fields; unspecified fields stay at their starting values. A number is a fixed count of displayed frames (1..10000, refresh-rate dependent); `{ duration }` is time-based in milliseconds. Default 300 |
+| `requestReconcile()` (`CanvasRuntime`) | Public request to reconcile membership/geometry. React commits call it through layout effects and it coalesces into one microtask |
 | `createMotion(id, descriptor)` | Numeric keyframes/timing for new applications; creates one managed native source in idle DOM and returns explicit ownership/playback/disposal controls |
 | `invalidate(id?)` | Explicit dirty enrollment(s), with normal native paint/input/mutation invalidation still enabled |
 | `settle()` | Bounded completion of already scheduled capture/draw work; not a promise that future browser paint cannot occur |
@@ -370,10 +427,18 @@ keeps its canonical endpoint; ref-enrolled DOM completion restores authored
 CSS, so author that CSS for the desired settled state. GPU-to-DOM recovery also
 restores ref-authored CSS, not an unrequested permanent transform rewrite.
 Reduced motion completes immediately at the endpoint, including active
-transitions; disable/recovery/loss/hidden document/unenrollment/disposal cancel.
+transitions; disable/recovery/loss/unenrollment/disposal cancel. A hidden
+document **pauses** a declarative transition, which resumes with the same
+progress when visible (it was previously cancelled with "Document hidden").
 There is no hidden-time catch-up. Reasons distinguish these outcomes.
 
-`Presence` is controlled by `present`; initially present content is already
+A Surface `transform`/`layout` update that arrives from React during a
+declarative transition or animation ownership no longer throws inside the
+commit: the React-supplied transform becomes the resting transform applied when
+the motion ends (or the ownership base on release).
+
+`Presence` starts its enter/exit motion in a layout effect, so there is no
+unanimated first frame. It is controlled by `present`; initially present content is already
 settled and does not enter-animate. False retains the **same** React subtree
 during exit; completion or cancellation removes it. True during exit reverses
 from the sampled state without remounting that subtree. True after removal
@@ -415,6 +480,9 @@ One engine serves the application surface; there is no per-component engine.
 Default limits are eight layers and 2,000,000 captured pixels. Layer budget is
 1..8; GPU output is additionally limited to four times the captured-pixel
 budget and the public configured device's dimension limit.
+Functional admission places its probe inside the visible part of the output
+canvas, so a partially scrolled page can enable GPU; a fully offscreen canvas is
+still refused with the same unproven/deferred diagnostic.
 Functional admission requires at least 16 CSS pixels on each surface axis for
 its independent known-color marker. It uses the same single engine and legal
 capture/upload path as content, plus one bounded public GPU readback.
@@ -474,6 +542,9 @@ transform/opacity overrides, individual translate/rotate/scale, overlapping
 subtree effects and a source whose computed presentation disagrees with the
 compiled effect. CSS requires explicit raw-rule provenance; resolved
 `getKeyframes()` alone cannot establish dependency freedom.
+The stylesheet `!important` pre-scan no longer throws for cross-origin sheets,
+CSS nesting, `@import`, `@container` and similar; it skips what it cannot
+inspect, and per-frame computed-style validation remains the guarantee.
 Matching stylesheet important transform/opacity overrides are also rejected,
 even when the current phase coincidentally matches the static override.
 Initial validation inspects readable document/adopted sheets with a 4096-rule,
@@ -541,7 +612,7 @@ await controller.enable();
 playback.play();
 playback.pause();
 playback.seek(600);
-await playback.release(); // Entire shared surface returns to DOM.
+await playback.release(); // Unchanged: the entire shared surface returns to DOM.
 ```
 
 `AnimationPlayback.state()` exposes logical milliseconds/playing/released and
