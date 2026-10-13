@@ -2,6 +2,7 @@ import { test, expect, chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 import { previewURL } from "../helpers/urls.mjs";
+import { browserLaunchOptions } from "../helpers/browser.mjs";
 
 const directory = evidenceDirectory("interaction");
 for (const boundary of ["root-plaintext", "child-plaintext"]) {
@@ -57,12 +58,10 @@ for (const boundary of ["root-plaintext", "child-plaintext"]) {
 
 test("headful clean-profile real background tab pauses effects without hidden-time catch-up", async () => {
   test.skip(process.env.CANVAS_HEADFUL_INTERACTION !== "1", "Opt-in synthetic clean-profile headful execution");
-  const browser = await chromium.launch({
-    executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  const browser = await chromium.launch(browserLaunchOptions({
     headless: false,
     ignoreDefaultArgs: ["--disable-background-timer-throttling", "--disable-renderer-backgrounding", "--disable-backgrounding-occluded-windows"],
-    args: ["--enable-automation", "--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"],
-  });
+  }));
   try {
     const context = await browser.newContext({ viewport: { width: 900, height: 750 } });
     const page = await context.newPage();

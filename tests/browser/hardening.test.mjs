@@ -137,7 +137,7 @@ for (const dpr of [1, 2]) {
       expect(geometry.height).toBe(420 * nextDPR);
       await page.locator("#name-label").click();
       await expect(page.locator("#name")).toBeFocused();
-      await page.keyboard.press("Meta+a");
+      await page.keyboard.press("ControlOrMeta+a");
       await page.keyboard.type("DPR replacement native hit");
       await page.locator("#save").click();
       await expect(page.locator("#saved")).toHaveText("DPR replacement native hit");
@@ -295,7 +295,7 @@ for (const dpr of [1, 2]) {
       const hovered = PNG.sync.read(await page.locator("#frame").screenshot());
       expect(hovered.data.equals(beforeHover.data)).toBe(false);
       await page.locator("#measurement-input").click();
-      await page.keyboard.press("Meta+a");
+      await page.keyboard.press("ControlOrMeta+a");
       await page.keyboard.type("native-edits");
       await page.keyboard.press("Home");
       await page.keyboard.press("Shift+ArrowRight");

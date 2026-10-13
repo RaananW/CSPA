@@ -130,7 +130,7 @@ for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered v
     await page.locator("#count").click();
     await expect(page.locator("#count")).toHaveText("Count 1");
     await page.locator("#name-label").click();
-    await page.keyboard.press("Meta+a"); await page.keyboard.type("fresh independent native");
+    await page.keyboard.press("ControlOrMeta+a"); await page.keyboard.type("fresh independent native");
     await page.keyboard.press("Enter");
     await expect(page.locator("#saved")).toHaveText("fresh independent native");
     await page.locator("#external-outer").evaluate(node => { node.style.height = "400px"; node.scrollTop = 0; });

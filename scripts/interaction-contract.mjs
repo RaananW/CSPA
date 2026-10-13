@@ -266,12 +266,12 @@ export async function interactionContract(context, url, { directory, name, flags
     await page.keyboard.press("Shift+Tab");
     await focus("dialog-open");
     await page.locator("#name").focus();
-    await page.keyboard.press("Meta+a");
+    await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("compat");
     await page.keyboard.press("Enter");
     assert.equal(await page.locator("#saved").textContent(), "compat");
     await page.locator("#native").focus();
-    await page.keyboard.press("Meta+a");
+    await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("native edit");
     await page.locator("#checked").focus();
     await page.keyboard.press("Space");
@@ -312,7 +312,7 @@ export async function interactionContract(context, url, { directory, name, flags
     await page.keyboard.press("Space");
     await page.locator("#dialog").waitFor({ state: "visible" });
     await focus("dialog-input");
-    await page.keyboard.press("Meta+a");
+    await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("overlay edit");
     await page.keyboard.press("Tab");
     await focus("dialog-close");
@@ -341,7 +341,7 @@ export async function interactionContract(context, url, { directory, name, flags
     await page.keyboard.press("Space");
     await page.locator("#popover").waitFor({ state: "visible" });
     await page.locator("#popover-input").click();
-    await page.keyboard.press("Meta+a");
+    await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("popover edit");
     await page.keyboard.press("Escape");
     await page.locator("#popover").waitFor({ state: "hidden" });
@@ -378,7 +378,7 @@ export async function interactionContract(context, url, { directory, name, flags
       await page.waitForFunction(() => window.nativeScrolls.some(event => event.trusted));
       await settled("dom");
       await focus("name");
-      await page.keyboard.press("Meta+a");
+      await page.keyboard.press("ControlOrMeta+a");
       await page.keyboard.type("scroll recovered");
       await page.keyboard.press("Enter");
       assert.equal(await page.locator("#saved").textContent(), "scroll recovered");
@@ -452,7 +452,7 @@ export async function interactionContract(context, url, { directory, name, flags
         assert.match(await editor.textContent(), /Original editable DOM/);
       }
       await page.locator("#name").focus();
-      await page.keyboard.press("Meta+a");
+      await page.keyboard.press("ControlOrMeta+a");
       await page.keyboard.type("Boundary native edit");
       await page.keyboard.press("Enter");
       assert.equal(await page.locator("#saved").textContent(), "Boundary native edit");

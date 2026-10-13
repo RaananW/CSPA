@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { PNG } from "pngjs";
 
 import { evidenceDirectory } from "../helpers/evidence.mjs";
+import { developmentURL } from "../helpers/urls.mjs";
 const evidence = evidenceDirectory("surface");
 const hash = bytes => createHash("sha256").update(PNG.sync.read(bytes).data).digest("hex");
 function pixel(bytes, x, y) {
@@ -11,14 +12,14 @@ function pixel(bytes, x, y) {
   return [...png.data.subarray((y * png.width + x) * 4, (y * png.width + x) * 4 + 4)];
 }
 async function ready(page, strict = false) {
-  await page.goto(strict ? "http://127.0.0.1:5173/surface.html?strict" : "/surface.html");
+  await page.goto(strict ? `${developmentURL}/surface.html?strict` : "/surface.html");
   await page.waitForFunction(() => window.surfaceProbe?.state().mode === "gpu" && !window.surfaceProbe.state().initializing);
   await page.waitForTimeout(200);
   await page.evaluate(() => window.surfaceProbe.settle());
 }
 async function edit(page, id, value) {
   await page.locator(`#${id}`).click();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type(value);
 }
 async function screenshot(page, name) {
@@ -29,7 +30,7 @@ for (const strict of [false, true]) {
   test(`integrated native GPU pixels, controls, caching and stable-root recovery StrictMode=${strict}`, async ({ page, browser }) => {
     await mkdir(evidence, { recursive: true });
     const name = strict ? "development-strict" : "production";
-    const report = { startedAt: new Date().toISOString(), strict, reactBuild: strict ? "development" : "production-profiling", executablePath: test.info().project.use.launchOptions.executablePath, errors: [], cycles: [] };
+    const report = { startedAt: new Date().toISOString(), strict, reactBuild: strict ? "development" : "production-profiling", executablePath: (test.info().project.use.launchOptions.executablePath ?? test.info().project.use.launchOptions.channel), errors: [], cycles: [] };
     page.on("pageerror", error => report.errors.push(error.message));
     page.on("console", message => { if (message.type() === "error") report.errors.push(message.text()); });
     page.on("response", response => { if (response.status() >= 400) report.errors.push(`${response.status()} ${response.url()}`); });
@@ -490,7 +491,7 @@ test("actual destruction during admission recovers and queued lifecycle requests
 });
 
 test("mount boundary guards reject invalid ownership/topology before mounting", async ({ page }) => {
-  await page.goto("http://127.0.0.1:5173/surface.html?dom");
+  await page.goto(`${developmentURL}/surface.html?dom`);
   await page.waitForFunction(() => window.surfaceProbe && document.querySelector("#count"));
   const result = await page.evaluate(async () => {
     const { createMountBoundary } = await import("/src/mount-boundary.ts");

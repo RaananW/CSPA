@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { cp, mkdir, readFile, writeFile, readdir } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
-import { resolve, join } from "node:path";
+import { resolve, join, basename, sep } from "node:path";
 import { cpus, release } from "node:os";
 import { createServer } from "node:http";
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
 import { copyDependencies, assertPhysicalTree, assertPhysicalPath, assertBrowserIdentity, assertRuntimePeer } from "./release-policy.mjs";
 import { validatePackageContents } from "./package-policy.mjs";
+import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
+import { withPlatform, devNull } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
 const peer = process.argv.includes("--react18") ? "18.3.1" : "19.3.0";
@@ -37,7 +39,7 @@ const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 async function inputs(directory) {
   const records = [];
   async function visit(path) {
-    if (["node_modules", "dist", "program.json"].includes(path.split("/").at(-1))) return;
+    if (["node_modules", "dist", "program.json"].includes(basename(path))) return;
     const entries = await readdir(join(directory, path), { withFileTypes: true });
     for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
       if (["node_modules", "dist", "program.json"].includes(entry.name)) continue;
@@ -55,8 +57,8 @@ async function inputs(directory) {
 async function command(executable, args, cwd, label) {
   let output = "";
   try {
-    output = execFileSync(executable, args, { cwd, encoding: "utf8",
-      env: { ...process.env, npm_config_userconfig: "/dev/null" }, stdio: ["ignore", "pipe", "pipe"] });
+    output = execFileSync(...withPlatform(executable, args, { cwd, encoding: "utf8",
+      env: { ...process.env, npm_config_userconfig: devNull }, stdio: ["ignore", "pipe", "pipe"] }));
     report.commands.push({ label, status: "passed" });
     return output;
   } catch (error) {
@@ -111,7 +113,7 @@ try {
   for (const path of ["packages", "tests", "fixtures/worker/app", "fixtures/react18/package-lock.json", "examples",
     "package.json", "package-lock.json", "scripts", "docs", "CONTRIBUTING.md"]) {
     await cp(join(root, path), join(tree, path), { recursive: true,
-      filter: path => !["node_modules", "dist"].includes(path.split("/").at(-1)) });
+      filter: path => !["node_modules", "dist"].includes(basename(path)) });
   }
   await copyDependencies(join(root, "node_modules"), join(tree, "node_modules"));
   if (peer === "18.3.1") await copyDependencies(join(root, "fixtures/react18/node_modules"), join(tree, "node_modules"));
@@ -142,15 +144,14 @@ try {
     try {
       const pathname = new URL(request.url, "http://localhost").pathname;
       const path = resolve(assets, `.${pathname === "/" ? "/index.html" : pathname}`);
-      if (!path.startsWith(`${assets}/`)) { response.writeHead(403).end(); return; }
+      if (!path.startsWith(assets + sep)) { response.writeHead(403).end(); return; }
       response.setHeader("Content-Type", path.endsWith(".js") ? "text/javascript" : path.endsWith(".css") ? "text/css" : "text/html");
       response.end(await readFile(path));
     } catch (error) { response.writeHead(error.code === "ENOENT" ? 404 : 500).end(String(error)); }
   });
   await new Promise(done => server.listen(0, "127.0.0.1", done));
   assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/`)).status, 200);
-  browser = await chromium.launch({ executablePath: "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-    headless: true, args: ["--enable-automation", "--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"] });
+  browser = await chromium.launch(browserLaunchOptions({ headless: true }));
   report.actual = await (await browser.newBrowserCDPSession()).send("Browser.getVersion");
   report.browserCommandLine = await (await browser.newBrowserCDPSession()).send("Browser.getBrowserCommandLine");
   assertBrowserIdentity(report.actual);

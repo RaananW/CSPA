@@ -190,7 +190,7 @@ test("native keyboard, labels, selection, form, overlap order and explicit modal
   await ready(page);
   await page.locator("#name-label").click();
   await expect(page.locator("#controlled")).toBeFocused();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("typed-native");
   expect((await page.evaluate(() => window.runtimeProbe.state())).mode).toBe("gpu");
   await page.keyboard.press("Enter");
@@ -211,7 +211,7 @@ test("native keyboard, labels, selection, form, overlap order and explicit modal
   await page.evaluate(() => window.runtimeProbe.disable());
   expect(await page.evaluate(() => window.savedInput === document.querySelector("#controlled"))).toBe(true);
   await page.locator("#uncontrolled").click();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("native-retained");
   await page.evaluate(() => window.runtimeProbe.enable());
   await page.locator("#count").focus();
@@ -621,7 +621,7 @@ test("typed disposal retains a healthy pending queue and releases only on actual
     }, action)).toMatch(/cleanup pending/i);
   }
   await page.locator("#uncontrolled").click();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("pending-native");
   const loss = await page.evaluate(async () => {
     window.testDevice.destroy();

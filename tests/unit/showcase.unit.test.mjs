@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, mkdtemp, mkdir, writeFile, rm, realpath, symlink } from "node:fs/promises";
+import { readFile, mkdtemp, mkdir, writeFile, rm, realpath } from "node:fs/promises";
+import { symlinkOrSkip } from "../helpers/symlink.mjs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -31,7 +32,7 @@ test("showcase consumes the public library and excludes debug evidence from its 
   assert.ok(!/iframe|packages\/canvas-spa\/src/.test(demo));
 });
 test("manual Pages workflow uses immutable pins and confines deployment permissions", async () => {
-  const workflow = await readFile(".github/workflows/showcase-pages.yml", "utf8");
+  const workflow = (await readFile(".github/workflows/showcase-pages.yml", "utf8")).replaceAll(String.fromCharCode(13, 10), String.fromCharCode(10));
   assert.match(workflow, /on:\n  workflow_dispatch:/);
   assert.ok(!/\n  (push|pull_request|schedule):/.test(workflow));
   for (const action of workflow.matchAll(/uses: (\S+)/g)) assert.match(action[1], /^[\w/-]+@[a-f0-9]{40}$/);
@@ -50,7 +51,7 @@ test("showcase exposes the experimental Canary requirement beside GPU activation
   assert.match(guide, /--enable-blink-features=CanvasDrawElement,ElementCanvasTransform/);
   assert.match(guide, /--enable-experimental-web-platform-features/);
 });
-test("public output guard fails before an unexpected artifact can be uploaded", async () => {
+test("public output guard fails before an unexpected artifact can be uploaded", async t => {
   const root = await mkdtemp(join(await realpath(tmpdir()), "canvas-showcase-assets-unit-"));
   try {
     await mkdir(join(root, "assets"));
@@ -59,9 +60,10 @@ test("public output guard fails before an unexpected artifact can be uploaded", 
     await writeFile(join(root, "assets/index-abc.css"), "body{}");
     const check = () => spawnSync(process.execPath, ["scripts/check-showcase-assets.mjs", root], { encoding: "utf8" });
     assert.equal(check().status, 0);
-    await symlink("index-abc.js", join(root, "assets/alias.js"));
-    assert.match(check().stderr, /Public asset symlink refused/);
-    await rm(join(root, "assets/alias.js"));
+    if (await symlinkOrSkip(t, "index-abc.js", join(root, "assets/alias.js"))) {
+      assert.match(check().stderr, /Public asset symlink refused/);
+      await rm(join(root, "assets/alias.js"));
+    }
     await writeFile(join(root, "assets/index-abc.js"), "PRIVATE KEY");
     assert.match(check().stderr, /Private or mapped public asset refused/);
     await writeFile(join(root, "assets/index-abc.js"), "export {}");

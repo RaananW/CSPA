@@ -3,15 +3,12 @@ import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
 
 export async function todoContract(url, major, expectedVersion, flags, dpr, directory) {
   const name = `todo-react${major}-${flags}-${dpr}`;
   const result = { major, flags, dpr, steps: [], errors: [] };
-  const browser = await chromium.launch({
-    executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
-    args: ["--enable-automation", ...(flags ? ["--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"]
-      : ["--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"])],
-  });
+  const browser = await chromium.launch(browserLaunchOptions({ native: !!flags }));
   const record = () => writeFile(join(directory, `${name}.json`), JSON.stringify(result, null, 2));
   try {
     const context = await browser.newContext({ viewport: { width: 900, height: 950 }, deviceScaleFactor: dpr });
@@ -43,7 +40,7 @@ export async function todoContract(url, major, expectedVersion, flags, dpr, dire
     if (!flags) assert.match(admitted.reason, /requestPaint|canvas.content|capture|WebGPU/);
     await page.getByLabel("Open task 1", { exact: true }).click();
     await page.waitForFunction(() => document.activeElement?.id === "detail-title");
-    await page.keyboard.press("Meta+a");
+    await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type("Installed native task");
     await page.getByLabel("Task notes", { exact: true }).click();
     await page.keyboard.type("Installed notes\n".repeat(24));

@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 import { developmentURL, previewURL } from "../helpers/urls.mjs";
 import { evidenceRoot } from "../helpers/evidence.mjs";
+import { browserLaunchOptions } from "../helpers/browser.mjs";
 import { resolve } from "node:path";
 
 const isolated = !!process.env.CANVAS_TEST_DEV_URL;
@@ -16,8 +17,7 @@ export default defineConfig({
     baseURL: previewURL,
     viewport: { width: 900, height: 750 },
     launchOptions: {
-      executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-      args: ["--enable-automation", "--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"],
+      ...browserLaunchOptions(),
     },
   },
   webServer: [

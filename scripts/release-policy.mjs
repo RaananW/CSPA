@@ -8,9 +8,15 @@ export const qualifiedBrowser = Object.freeze({
   revision: "@799dbe91dfe8604f0327d070ecd6d2792a7d3d63",
 });
 
+// The exact historical pin is enforced only when CANVAS_REQUIRE_BROWSER_PIN=1; otherwise the actual
+// identity is returned so callers record it in their evidence (daily Canary updates must not fail the harness).
 export function assertBrowserIdentity(actual) {
+  if (process.env.CANVAS_REQUIRE_BROWSER_PIN !== "1") {
+    return { pinEnforced: false, actual: { product: actual.product, revision: actual.revision }, qualifiedBrowser };
+  }
   assert.deepEqual({ product: actual.product, revision: actual.revision }, qualifiedBrowser,
     `Browser identity mismatch: actual=${JSON.stringify(actual)} expected=${JSON.stringify(qualifiedBrowser)}`);
+  return { pinEnforced: true, actual: { product: actual.product, revision: actual.revision }, qualifiedBrowser };
 }
 
 export async function prepareReleaseRoot(workspace, requestedRoot = join(workspace, "evidence/phase14")) {

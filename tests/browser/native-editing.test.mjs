@@ -83,7 +83,7 @@ for (const dpr of [1, 2]) {
       : ["FIRST long line ".repeat(4), "middle second line", "middle third line", "LAST visible tail ".repeat(5)].join("\n");
     const type = async target => {
       await target.locator(selector).click();
-      await target.keyboard.press("Meta+a");
+      await target.keyboard.press("ControlOrMeta+a");
       for (const [index, line] of value.split("\n").entries()) {
         if (index) await target.keyboard.press("Enter");
         await target.keyboard.type(line);
@@ -94,7 +94,7 @@ for (const dpr of [1, 2]) {
       const environment = await metadata(page);
       await page.locator(selector).evaluate(node => { window.originalEditor = node; });
       if (kind === "input") {
-        await page.locator(selector).click(); await page.keyboard.press("Meta+a"); await page.keyboard.type("independent");
+        await page.locator(selector).click(); await page.keyboard.press("ControlOrMeta+a"); await page.keyboard.type("independent");
         expect((await state(page)).mode).toBe("gpu");
       }
       const before = await state(page);
@@ -116,7 +116,7 @@ for (const dpr of [1, 2]) {
       expect(reference.meanChannelError).toBeLessThan(8);
       // Only trusted caret navigation changes this image: no React value/geometry update.
       const beforeHome = await state(page);
-      await page.keyboard.press(kind === "input" ? "Home" : "Meta+ArrowUp");
+      await page.keyboard.press(kind === "input" ? "Home" : "ControlOrMeta+Home");
       await page.evaluate(() => window.runtimeProbe.settle());
       const start = await observe(page, selector);
       expect(start.state.mode).toBe("gpu"); expect(start.original && start.focused && start.hit).toBe(true);

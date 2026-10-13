@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { cp, mkdir, readFile, writeFile, lstat, readdir } from "node:fs/promises";
-import { resolve, join, dirname } from "node:path";
+import { resolve, join, dirname, basename } from "node:path";
 import { createRequire } from "node:module";
 import { createServer } from "node:net";
 import { get } from "node:http";
@@ -14,6 +14,8 @@ import { curatedEvidence } from "./check-evidence.mjs";
 import { interactionContract, dynamicContract } from "./interaction-contract.mjs";
 import { todoContract } from "./todo-contract.mjs";
 import { copyDependencies } from "./release-policy.mjs";
+import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
+import { withPlatform, devNull } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
 const reuseDependencies = process.argv.includes("--reuse-dependencies");
@@ -23,7 +25,7 @@ const playground = JSON.parse(await readFile("examples/playground/package.json",
 const library = resolve("packages/canvas-spa");
 const releasePackage = JSON.parse(await readFile(join(library, "package.json"), "utf8"));
 const react18 = JSON.parse(await readFile("fixtures/react18/package.json", "utf8"));
-const env = { ...process.env, npm_config_userconfig: "/dev/null", npm_config_registry: "https://registry.npmjs.org" };
+const env = { ...process.env, npm_config_userconfig: devNull, npm_config_registry: "https://registry.npmjs.org" };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 async function fingerprints() {
   const paths = ["package.json", "packages/canvas-spa/package.json", "packages/canvas-spa/README.md", "package-lock.json", "fixtures/react18/package.json", "fixtures/react18/package-lock.json",
@@ -52,7 +54,7 @@ await mkdir(workspace);
 const results = { status: "running", head: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
   package: {}, consumers: [], protectedBefore: before };
 async function run(command, args, cwd, label) {
-  const child = spawn(command, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(...withPlatform(command, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }));
   let output = "";
   for (const stream of [child.stdout, child.stderr]) stream.on("data", bytes => { output += bytes; });
   const code = await new Promise((done, reject) => { child.once("error", reject); child.once("exit", done); });
@@ -91,7 +93,7 @@ async function startPreview(cwd, vite) {
   const stop = async () => {
     if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
     await closed;
-    await writeFile(join(evidence, `preview-${cwd.split("/").at(-1)}.log`), output);
+    await writeFile(join(evidence, `preview-${basename(cwd)}.log`), output);
   };
   try {
     for (let attempt = 0; attempt < 100; attempt++) {
@@ -125,7 +127,7 @@ async function nativeControls(page, value) {
   const count = Number((await page.locator("#count").textContent()).replace("Count ", ""));
   await page.locator("#label").click();
   assert.equal(await page.locator("#name").evaluate(node => document.activeElement === node), true);
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type(value);
   assert.equal(await page.locator("#name").inputValue(), value);
   await page.keyboard.press("Enter");
@@ -135,7 +137,7 @@ async function nativeControls(page, value) {
   assert.equal(await page.locator("#count").textContent(), `Count ${count + 2}`);
   await page.locator("#native").fill("retained native");
   await page.locator("#name").focus();
-  await page.keyboard.press("Meta+ArrowLeft");
+  await page.keyboard.press("Home");
   await page.keyboard.press("Shift+ArrowRight");
   const state = await page.evaluate(() => window.packageConsumer.state());
   assert.equal(state.value, value);
@@ -146,10 +148,7 @@ async function nativeControls(page, value) {
   return state;
 }
 async function browserContract(url, major, expectedVersion, flags, dpr) {
-  const args = ["--enable-automation", ...(flags ? ["--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"] : ["--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"])];
-  const browser = await chromium.launch({
-    executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args,
-  });
+  const browser = await chromium.launch(browserLaunchOptions({ native: !!flags }));
   const errors = [];
   try {
     const context = await browser.newContext({ viewport: { width: 900, height: 750 }, deviceScaleFactor: dpr });
@@ -215,7 +214,7 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
       assert.equal(externalState.metrics.admission.attempts, externalBefore.metrics.admission.attempts);
       assert.deepEqual(await pixel(page, `${major}-${flags}-${dpr}-external`, 490, 110), [20, 200, 90, 255]);
       await page.locator("#label").click();
-      await page.keyboard.press("Meta+ArrowRight"); await page.keyboard.type("-external"); await page.keyboard.press("Enter");
+      await page.keyboard.press("End"); await page.keyboard.type("-external"); await page.keyboard.press("Enter");
       assert.equal(await page.locator("#saved").textContent(), "fresh independent native-external");
       await page.locator("h1").click();
       assert.equal((await page.evaluate(() => window.packageConsumer.state())).mode, "gpu");
@@ -283,7 +282,7 @@ try {
   assert.deepEqual(dry.files, packed.files);
   assert.equal(dry.integrity, packed.integrity, "Repeated clean prepack builds must produce the same archive");
   const tarball = join(workspace, packed.filename);
-  const tarPaths = execFileSync("tar", ["-tzf", tarball], { encoding: "utf8" }).trim().split("\n").map(path => path.replace(/^package\//, ""));
+  const tarPaths = execFileSync("tar", ["-tzf", tarball], { encoding: "utf8" }).trim().split(/\r?\n/).map(path => path.replace(/^package\//, ""));
   assert.deepEqual(tarPaths.sort(), packageFiles);
   results.package = { name: packed.name, version: packed.version, bytes: packed.size, unpackedBytes: packed.unpackedSize,
     sha256: hash(await readFile(tarball)), integrity: packed.integrity, files: packed.files, tarball: tarball.slice(root.length + 1) };

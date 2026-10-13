@@ -6,6 +6,7 @@ import { PNG } from "pngjs";
 
 test.use({ viewport: { width: 900, height: 950 } });
 import { evidenceDirectory } from "../helpers/evidence.mjs";
+import { browserLaunchOptions } from "../helpers/browser.mjs";
 const directory = evidenceDirectory("todo");
 async function save(name, data) {
   await mkdir(directory, { recursive: true });
@@ -39,8 +40,7 @@ function differences(a, b, x, y, width, height) {
 }
 
 for (const dpr of [1, 2]) test(`TODO app without experimental flags retains a useful real native workflow DPR${dpr}`, async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    args: ["--enable-automation", "--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"] });
+  const browser = await chromium.launch(browserLaunchOptions({ native: false }));
   try {
     const page = await browser.newPage({ viewport: { width: 900, height: 750 }, deviceScaleFactor: dpr });
     await page.goto(`${previewURL}/todo.html`);
@@ -388,7 +388,7 @@ for (const dpr of [1, 2]) test.describe(`Phase13 task workspace DPR${dpr}`, () =
     await expect(page.getByRole("listitem")).toHaveCount(0);
     await page.getByRole("button", { name: "Back to list", exact: true }).click();
     await expect(search).toBeFocused();
-    await page.keyboard.press("Meta+a"); await page.keyboard.press("Backspace");
+    await page.keyboard.press("ControlOrMeta+a"); await page.keyboard.press("Backspace");
     await page.getByLabel("Open task 2", { exact: true }).click();
     await page.getByRole("button", { name: "Delete selected task", exact: true }).click();
     await page.getByRole("button", { name: "Confirm delete", exact: true }).click();

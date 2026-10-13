@@ -29,7 +29,7 @@ async function capture(page) {
 
 async function edit(page, id, text) {
   await page.locator(`#${id}`).click();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type(text);
 }
 
@@ -41,7 +41,7 @@ for (const strict of [false, true]) {
       const report = {
         candidate, restoreFocus, strict, reactBuild: strict ? "development" : "production",
         startedAt: new Date().toISOString(),
-        executablePath: test.info().project.use.launchOptions.executablePath,
+        executablePath: (test.info().project.use.launchOptions.executablePath ?? test.info().project.use.launchOptions.channel),
         transitions: [], errors: [],
       };
       page.on("pageerror", (error) => report.errors.push(error.message));

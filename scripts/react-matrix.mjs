@@ -1,11 +1,12 @@
 import { cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, basename } from "node:path";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { randomUUID } from "node:crypto";
 import { evidenceRoot } from "../tests/helpers/evidence.mjs";
 import { copyDependencies } from "./release-policy.mjs";
+import { withPlatform } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
 const isPrimary = process.argv.includes("--primary");
@@ -30,7 +31,7 @@ if (!isPrimary) {
   await mkdir(destination, { recursive: true });
   for (const path of ["packages", "examples", "tests", "scripts", "vite.config.ts", "package-lock.json", "docs/distribution.md"]) {
     await cp(resolve(path), resolve(destination, path), {
-      recursive: true, filter: path => !["dist", "node_modules", "owned-vite-cache"].includes(path.split("/").at(-1)),
+      recursive: true, filter: path => !["dist", "node_modules", "owned-vite-cache"].includes(basename(path)),
     });
   }
   await cp(resolve("package.json"), resolve(destination, "package.json"));
@@ -46,11 +47,11 @@ await mkdir(resolve(destination, "evidence"), { recursive: true });
 const evidence = resolve(`${evidenceRoot}/react${isPrimary ? "19" : "18"}`);
 await mkdir(evidence, { recursive: true });
 async function run(command, args, name) {
-  const child = spawn(command, args, { cwd: destination, env: { ...process.env,
+  const child = spawn(...withPlatform(command, args, { cwd: destination, env: { ...process.env,
     CANVAS_EXPECT_REACT_VERSION: version, CANVAS_EVIDENCE_ROOT: evidenceRoot,
     ...(!isPrimary ? { CANVAS_TEST_DEV_URL: process.env.CANVAS_TEST_DEV_URL ?? "http://127.0.0.1:5185",
       CANVAS_TEST_PREVIEW_URL: process.env.CANVAS_TEST_PREVIEW_URL ?? "http://127.0.0.1:5186" } : {}) },
-    stdio: ["ignore", "pipe", "pipe"] });
+    stdio: ["ignore", "pipe", "pipe"] }));
   let output = "";
   for (const stream of [child.stdout, child.stderr]) stream.on("data", data => { output += data; process.stdout.write(data); });
   const code = await new Promise((done, reject) => { child.once("error", reject); child.once("exit", code => done(code)); });

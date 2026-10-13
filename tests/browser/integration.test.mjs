@@ -5,6 +5,7 @@ import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
 import { PNG } from "pngjs";
 
 import { evidenceDirectory } from "../helpers/evidence.mjs";
+import { browserLaunchOptions } from "../helpers/browser.mjs";
 const evidence = evidenceDirectory("integration");
 async function save(name, data) {
   await mkdir(evidence, { recursive: true });
@@ -47,7 +48,7 @@ for (const strict of [false, true]) test(`ref enrollment and original Radix nati
   expect(initial.metrics.admission.last.gpuPixels).toEqual([[207, 37, 83, 255], [31, 179, 113, 255]]);
   await page.locator("#name-label").click();
   await expect(page.locator("#name")).toBeFocused();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("library-native");
   await page.keyboard.press("Enter");
   await expect(page.locator("#saved")).toHaveText("library-native");
@@ -67,7 +68,7 @@ for (const strict of [false, true]) test(`ref enrollment and original Radix nati
   await expect(page.locator("#dialog")).toBeVisible();
   await expect(page.locator("#dialog-input")).toBeFocused();
   expect(await page.evaluate(() => document.querySelector("#overlay").contains(document.querySelector("#dialog")) && !document.querySelector(".app-container").contains(document.querySelector("#dialog")))).toBe(true);
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("retained overlay");
   await page.keyboard.press("Tab");
   await expect(page.locator("#dialog-close")).toBeFocused();
@@ -212,7 +213,7 @@ for (const strict of [false, true]) test(`single-subtree exit pixels, interrupti
   await page.waitForTimeout(1000);
   expect(await pixel(page, `presence-${strict}-reentered`)).toEqual([20, 200, 90, 255]);
   await page.locator("#card-input").click();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("affine native hit");
   await page.locator("h1").click();
   await page.waitForTimeout(300);
@@ -356,7 +357,7 @@ test("nonidentity declarative motion applies actual affine native input geometry
   geometry.matrix.forEach((value, index) => expect(Math.abs(value - geometry.native[index])).toBeLessThanOrEqual(1e-5));
   await page.mouse.click(geometry.hit.x, geometry.hit.y);
   await expect(page.locator("#card-input")).toBeFocused();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("original affine input");
   await expect(page.locator("#card-input")).toHaveValue("original affine input");
   const cancelled = await page.evaluate(async () => { window.affineTransition.cancel(); return window.affineTransition.finished; });
@@ -498,7 +499,7 @@ test("real development HMR retires the prior ref and presence lifetime", async (
 });
 
 test("installed Chrome without experimental flags keeps usable original library DOM", async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args: ["--enable-automation", "--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"] });
+  const browser = await chromium.launch(browserLaunchOptions({ native: false }));
   const page = await browser.newPage({ viewport: { width: 900, height: 750 } });
   try {
     const cdp = await browser.newBrowserCDPSession();

@@ -3,13 +3,16 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { PNG } from "pngjs";
 import { evidenceDirectory, validateEvidenceRoot } from "../tests/helpers/evidence.mjs";
+import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
+import { previewURL } from "../tests/helpers/urls.mjs";
 
-const url = process.env.PROBE_URL || "http://127.0.0.1:5174";
-const executablePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const args = ["--enable-automation", ...(process.env.NO_NATIVE_FLAGS ? [] : ["--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"])];
+const url = process.env.PROBE_URL || previewURL;
+const launchOptions = browserLaunchOptions({ native: !process.env.NO_NATIVE_FLAGS, headless: true });
+const executablePath = launchOptions.executablePath ?? launchOptions.channel;
+const args = launchOptions.args;
 const directory = validateEvidenceRoot(process.env.EVIDENCE_DIR || evidenceDirectory("chrome"));
 await mkdir(directory, { recursive: true });
-const browser = await chromium.launch({ executablePath, headless: true, args });
+const browser = await chromium.launch(launchOptions);
 const report = { executablePath, version: browser.version(), headless: true, requestedFlags: args, defaultArgs: chromium.defaultArgs?.(), url, startedAt: new Date().toISOString(), results: [] };
 function pixel(png, x, y) { return [...png.data.subarray((y * png.width + x) * 4, (y * png.width + x) * 4 + 4)]; }
 function digest(data) { return createHash("sha256").update(data).digest("hex"); }

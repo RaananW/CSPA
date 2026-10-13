@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { cp, mkdir, readFile, writeFile, readdir } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, basename, sep } from "node:path";
 import { createServer } from "node:http";
 import { createServer as createPortServer } from "node:net";
 import { chromium } from "@playwright/test";
@@ -11,6 +11,8 @@ import { copyDependencies, assertPhysicalPath, assertPhysicalTree, assertBrowser
 import { verifyGPUSamplers } from "../tests/compiler/gpu-parity.mjs";
 import { verifyNativeCSS } from "../tests/compiler/native-css-reference.mjs";
 import { acceptedCSS, refusedCSS, referenceTimes } from "../tests/compiler/css-corpus.mjs";
+import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
+import { withPlatform, devNull } from "../tests/helpers/process.mjs";
 
 const root = resolve("."), parent = join(root, "evidence/compiler");
 await assertPhysicalPath(root);
@@ -28,7 +30,7 @@ async function command(executable, args, cwd, label, expectedFailure = false, ex
   let output;
   let failed = false;
   try {
-    output = execFileSync(executable, args, { cwd, env: { ...process.env, ...extraEnv, npm_config_userconfig: "/dev/null", PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" }, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    output = execFileSync(...withPlatform(executable, args, { cwd, env: { ...process.env, ...extraEnv, npm_config_userconfig: devNull, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" }, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
     report.commands.push({ label, status: "passed" });
   } catch (error) {
     failed = true;
@@ -44,14 +46,14 @@ async function command(executable, args, cwd, label, expectedFailure = false, ex
 async function installArchive(directory, archive, name) {
   const target = join(directory, "node_modules", name);
   await mkdir(target, { recursive: true });
-  await command("tar", ["-xzf", archive, "-C", target, "--strip-components=1"], directory, `extract-${name.replaceAll("/", "-")}-${directory.split("/").at(-1)}`);
+  await command("tar", ["-xzf", archive, "-C", target, "--strip-components=1"], directory, `extract-${name.replaceAll("/", "-")}-${basename(directory)}`);
 }
 async function serve(directory) {
   const server = createServer(async (request, response) => {
     try {
       const name = decodeURIComponent(new URL(request.url, "http://localhost").pathname);
       const path = resolve(directory, `.${name === "/" ? "/index.html" : name}`);
-      if (!path.startsWith(`${directory}/`)) { response.writeHead(403).end(); return; }
+      if (!path.startsWith(directory + sep)) { response.writeHead(403).end(); return; }
       const bytes = await readFile(path);
       response.setHeader("Content-Type", path.endsWith(".js") ? "text/javascript" : path.endsWith(".css") ? "text/css" : "text/html");
       response.end(bytes);
@@ -66,7 +68,7 @@ async function serve(directory) {
 }
 try {
   for (const path of ["packages", "fixtures/css-compiler", "tests/compiler", "package.json", "package-lock.json"]) {
-    await cp(join(root, path), join(tree, path), { recursive: true, filter: path => !["node_modules", "dist"].includes(path.split("/").at(-1)) });
+    await cp(join(root, path), join(tree, path), { recursive: true, filter: path => !["node_modules", "dist"].includes(basename(path)) });
   }
   await copyDependencies(join(root, "node_modules"), join(tree, "node_modules"));
   await assertPhysicalTree(tree);
@@ -169,9 +171,7 @@ try {
     const compiler=webpack(config);compiler.run((error,stats)=>compiler.close(()=>{if(error)throw error;if(stats.hasErrors())throw new Error(stats.toString({all:false,errors:true}));}));`],
     negative, "unsupported-webpack-loader", true);
   assert.match(unsupportedLoader, /processed CSS through css-loader/);
-  const executablePath = process.env.CANVAS_BROWSER_EXECUTABLE;
-  assert.ok(executablePath, "Explicit installed Canary executable required; no downloaded browser fallback");
-  browser = await chromium.launch({ executablePath, args: ["--enable-automation", "--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"] });
+  browser = await chromium.launch(browserLaunchOptions());
   for (const application of applications) {
     const server = await serve(application.dist);
     const context = await browser.newContext({ viewport: { width: 900, height: 700 }, deviceScaleFactor: 1 });
@@ -248,7 +248,7 @@ try {
       assert.ok(glyphPixels > 100, "Actual owning texture glyph did not update");
       observations.glyphPixels = glyphPixels;
       await trustedClick("#input");
-      await page.keyboard.press("Meta+A");
+      await page.keyboard.press("ControlOrMeta+a");
       await page.keyboard.type("Package edited through native GPU");
       await trustedClick("#save");
       await page.waitForFunction(() => document.querySelector("#saved").textContent === "Package edited through native GPU");
@@ -271,7 +271,7 @@ try {
       assert.equal(observations.reducedMotion.mode, "gpu");
       await page.emulateMedia({ reducedMotion: "no-preference" });
       await trustedClick("#input");
-      await page.keyboard.press("Meta+ArrowLeft");
+      await page.keyboard.press("Home");
       await page.keyboard.press("Shift+ArrowRight");
       const focused = await state();
       await page.evaluate(() => window.compilerDemo.controller.disable());
@@ -361,7 +361,7 @@ try {
   if (process.argv.includes("--runtime-regression")) {
     for (const path of ["examples", "tests", "scripts", "fixtures/react18", "vite.config.ts", "README.md", "docs", ".github/workflows"]) {
       await cp(join(root, path), join(tree, path), { recursive: true,
-        filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(path.split("/").at(-1)) });
+        filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(basename(path)) });
     }
     const helper = join(tree, "tests/helpers/current-browser.mjs");
     const original = await readFile(helper, "utf8");

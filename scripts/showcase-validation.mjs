@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, resolve, basename } from "node:path";
 import { createServer } from "node:net";
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
+import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
 import { copyDependencies, assertBrowserIdentity, assertRuntimePeer, assertPhysicalPath, assertPhysicalTree, qualifiedBrowser } from "./release-policy.mjs";
+import { devNull } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
 const sha = data => createHash("sha256").update(data).digest("hex");
@@ -38,7 +40,7 @@ for (const path of ["package.json", "package-lock.json", "docs/distribution.md",
 }
 await writeFile(join(run, "inputs.json"), JSON.stringify(inputs, null, 2), { flag: "wx" });
 async function command(args, cwd, label) {
-  const child = spawn(process.execPath, args, { cwd, env: { ...process.env, npm_config_userconfig: "/dev/null",
+  const child = spawn(process.execPath, args, { cwd, env: { ...process.env, npm_config_userconfig: devNull,
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" }, stdio: ["ignore", "pipe", "pipe"] });
   let output = "";
   for (const stream of [child.stdout, child.stderr]) stream.on("data", data => { output += data; });
@@ -54,7 +56,7 @@ try {
   for (const path of ["packages", "examples", "scripts", "tests", "package.json", "package-lock.json", "docs/distribution.md", "docs/showcase.md",
     ".github/workflows/showcase-pages.yml"]) {
     await cp(join(root, path), join(tree, path), { recursive: true,
-      filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(path.split("/").at(-1)) });
+      filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(basename(path)) });
   }
   await mkdir(join(tree, "fixtures/react18"), { recursive: true });
   for (const path of ["package.json", "package-lock.json"]) await cp(join(root, "fixtures/react18", path), join(tree, "fixtures/react18", path));
@@ -110,10 +112,8 @@ try {
   }
   for (const lane of ["dom", "native"]) {
     const executablePath = process.env.CANVAS_BROWSER_EXECUTABLE;
-    assert.ok(executablePath, "Set explicit provisioned CANVAS_BROWSER_EXECUTABLE; no downloads/fallback");
-    result.executable = { path: executablePath, sha256: sha(await readFile(executablePath)) };
-    const browser = await chromium.launch({ executablePath, args: ["--enable-automation",
-      ...(lane === "native" ? ["--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"] : [])] });
+    result.executable = executablePath ? { path: executablePath, sha256: sha(await readFile(executablePath)) } : { channel: "chrome-canary" };
+    const browser = await chromium.launch(browserLaunchOptions({ native: lane === "native" ? true : "none" }));
     const record = { lane, status: "running" };
     result.browsers.push(record);
     try {
@@ -235,7 +235,7 @@ try {
       const rect = await title.boundingBox();
       assert.ok(rect);
       await page.mouse.click(rect.x + rect.width / 2, rect.y + rect.height / 2);
-      await page.keyboard.press("ControlOrMeta+A");
+      await page.keyboard.press("ControlOrControlOrMeta+a");
       await page.keyboard.type("Native edit!");
       assert.equal(await title.inputValue(), "Native edit!");
       assert.equal(await page.evaluate(() => window.showcaseTrustedClick), true);

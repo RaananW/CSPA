@@ -6,6 +6,7 @@ import { mkdir, writeFile, readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { evidenceDirectory } from "../tests/helpers/evidence.mjs";
 import { taskPixelLatency } from "./interaction-contract.mjs";
+import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
 
 const smoke = process.argv.includes("--smoke");
 const port = Number(process.env.CANVAS_MEASURE_PORT ?? 5287);
@@ -74,8 +75,7 @@ try {
     if (server.exitCode !== null || Date.now() > deadline) throw new Error(`Measurement preview failed: ${serverOutput}`);
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  browser = await chromium.launch({ executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    args: ["--enable-automation", "--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"] });
+  browser = await chromium.launch(browserLaunchOptions());
   const cdp = await browser.newBrowserCDPSession();
   const system = await cdp.send("SystemInfo.getInfo");
   const environment = { browser: await cdp.send("Browser.getVersion"), launch: await cdp.send("Browser.getBrowserCommandLine"),

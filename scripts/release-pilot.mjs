@@ -4,6 +4,7 @@ import { PNG } from "pngjs";
 import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
 import { assertRuntimePeer, assertRequestedLane, assertBrowserIdentity, qualifiedBrowser } from "./release-policy.mjs";
 
 export async function releasePilot({ url, version, lane, dpr, executable, evidence }) {
@@ -14,10 +15,7 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
   const record = async label => writeFile(join(evidence, `${sequence++}-${label}.json`), JSON.stringify(result, null, 2), { flag: "wx" });
   let browser;
   try {
-    browser = await chromium.launch({ executablePath: executable, args: [
-    "--enable-automation",
-    ...(lane === "native" ? ["--enable-blink-features=CanvasDrawElement,ElementCanvasTransform", "--enable-experimental-web-platform-features"] : []),
-    ] });
+    browser = await chromium.launch(browserLaunchOptions({ native: lane === "native" ? true : "none" }));
     const context = await browser.newContext({ viewport: { width: 900, height: 950 }, deviceScaleFactor: dpr });
     const page = await context.newPage();
     const cdp = await context.newCDPSession(page);
@@ -57,7 +55,7 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
     }
     await page.getByLabel("Open task 1", { exact: true }).click();
     await page.waitForFunction(() => document.activeElement?.id === "detail-title");
-    await page.keyboard.press("Meta+a");
+    await page.keyboard.press("ControlOrMeta+a");
     await page.keyboard.type(`Release React${version} DPR${dpr}`);
     await page.getByLabel("Task notes", { exact: true }).click();
     await page.keyboard.type("Original native release pilot notes");
@@ -82,7 +80,7 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
         });
         assert.equal(hit.id, "detail-title", "Current native title geometry must hit the original control");
         await page.mouse.click(hit.x, hit.y);
-        await page.keyboard.press("Meta+a");
+        await page.keyboard.press("ControlOrMeta+a");
         await page.keyboard.type(title);
         await page.getByRole("button", { name: "Save task", exact: true }).click();
         await page.getByRole("button", { name: "Back to list", exact: true }).click();
@@ -123,7 +121,7 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
         "Saved W/I title must show changed owning pixels and substantially wider native W ink, not a cached sentinel");
     }
     await page.locator("#detail-notes").focus();
-    await page.keyboard.press("Meta+ArrowLeft");
+    await page.keyboard.press("Home");
     await page.keyboard.press("Shift+ArrowRight");
     await page.evaluate(() => { window.releaseDetail = document.getElementById("detail-notes"); });
     const original = await page.locator("#detail-notes").evaluate(node => ({
@@ -185,8 +183,8 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [url, version, lane, dpr, executable, evidence] = process.argv.slice(2);
   try {
-    assert.ok(url && version && ["native", "dom"].includes(lane) && ["1", "2"].includes(dpr) && executable && evidence,
-      "Pilot requires url, actual peer, native|dom, DPR1|2, provisioned executable and fresh evidence directory");
+    assert.ok(url && version && ["native", "dom"].includes(lane) && ["1", "2"].includes(dpr) && evidence,
+      "Pilot requires url, actual peer, native|dom, DPR1|2, executable placeholder and fresh evidence directory");
     console.log(JSON.stringify(await releasePilot({ url, version, lane, dpr: Number(dpr), executable, evidence })));
   } catch (error) { console.error(error); process.exitCode = 1; }
 }

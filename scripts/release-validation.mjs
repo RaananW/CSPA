@@ -2,20 +2,18 @@ import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
 import { mkdir, cp, readFile, readdir, writeFile, access } from "node:fs/promises";
-import { resolve, join } from "node:path";
+import { resolve, join, basename } from "node:path";
 import { createServer } from "node:net";
 import { arch, platform, release, cpus, totalmem } from "node:os";
 import { copyDependencies, assertPhysicalTree, prepareReleaseRoot, dependencyVersion } from "./release-policy.mjs";
 import { validatePackageContents, packageFiles } from "./package-policy.mjs";
+import { withPlatform, devNull } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
 const lane = process.argv[2];
 assert.ok(["build-only", "dom", "native"].includes(lane), "Usage: node scripts/release-validation.mjs build-only|dom|native");
 const executable = process.env.CANVAS_BROWSER_EXECUTABLE;
-if (lane !== "build-only") {
-  assert.ok(executable, "Browser lanes require an explicitly provisioned CANVAS_BROWSER_EXECUTABLE; no download/fallback");
-  await access(executable);
-}
+if (lane !== "build-only" && executable) await access(executable);
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const manifest = JSON.parse(await readFile("packages/canvas-spa/package.json", "utf8"));
 assert.equal(manifest.private, true); assert.equal(manifest.version, "0.0.0");
@@ -26,16 +24,16 @@ await prepareReleaseRoot(root);
 const directory = join(parent, `run-${randomUUID()}`);
 await mkdir(directory);
 await assertPhysicalTree(directory);
-const env = { ...process.env, npm_config_userconfig: "/dev/null", PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" };
+const env = { ...process.env, npm_config_userconfig: devNull, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" };
 let commandSequence = 0;
 const result = { schema: 1, lane, status: "running", directory, head: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
   startedAt: new Date().toISOString(), host: { arch: arch(), platform: platform(), release: release(), cpu: cpus()[0]?.model, totalmem: totalmem() },
   nodeExecutable: process.execPath,
-  node: process.version, npm: execFileSync("npm", ["--version"], { encoding: "utf8" }).trim(),
+  node: process.version, npm: execFileSync(...withPlatform("npm", ["--version"], { encoding: "utf8" })).trim(),
   lockSha256: sha(await readFile("package-lock.json")), peers: [], commands: [],
   hosted: "NOT EXECUTED; workflow definition build-only, no hosted GPU qualification",
   gpu: lane === "native" ? "REQUESTED; admission failure is failure" : "NOT EXECUTED; not a passed GPU gate" };
-if (lane !== "build-only") result.browserExecutable = { path: executable, sha256: sha(await readFile(executable)) };
+if (lane !== "build-only") result.browserExecutable = executable ? { path: executable, sha256: sha(await readFile(executable)) } : { channel: "chrome-canary" };
 async function records(directory) {
   const entries = [];
   async function walk(path) {
@@ -78,7 +76,7 @@ async function command(args, cwd, label, executable = process.execPath) {
   const record = { executable, args, cwd, label };
   const name = `${commandSequence++}-${label}`;
   await writeFile(join(directory, `${name}-argv.json`), JSON.stringify(record, null, 2), { flag: "wx" });
-  const child = spawn(executable, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn(...withPlatform(executable, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }));
   let output = "";
   for (const stream of [child.stdout, child.stderr]) stream.on("data", bytes => { output += bytes; });
   const code = await new Promise(done => {
@@ -127,7 +125,7 @@ try {
     const copied = ["packages", "examples", "tests", "scripts", "vite.config.ts", "package-lock.json",
       "README.md", "docs/distribution.md", "docs/showcase.md", ".github/workflows/showcase-pages.yml"];
     for (const path of copied) await cp(join(root, path), join(peer, path), {
-      recursive: true, filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(path.split("/").at(-1)),
+      recursive: true, filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(basename(path)),
     });
     await mkdir(join(peer, "fixtures/react18"), { recursive: true });
     for (const path of ["package.json", "package-lock.json"]) {
@@ -167,7 +165,7 @@ try {
     const packed = JSON.parse(output)[0];
     validatePackageContents(packed.files);
     const archive = join(peer, packed.filename);
-    const members = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split("\n");
+    const members = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split(/\r?\n/);
     assert.deepEqual(members.map(path => path.replace(/^package\//, "")).sort(), packageFiles);
     const consumer = join(peer, "consumer");
     await mkdir(consumer);
@@ -215,7 +213,7 @@ try {
             const evidence = join(directory, `react${major}-${mode}-${lane}-dpr${dpr}`);
             await mkdir(evidence);
             const output = await command([join(peer, "scripts/release-pilot.mjs"), `${server.url}${path}`, version, lane,
-              String(dpr), executable, evidence], peer, `react${major}-${mode}-${lane}-dpr${dpr}`);
+              String(dpr), executable ?? "-", evidence], peer, `react${major}-${mode}-${lane}-dpr${dpr}`);
             peerResult.browsers.push({ mode, ...JSON.parse(output) });
           }
         } finally { await server.stop(); serverRecord.closed = true; }

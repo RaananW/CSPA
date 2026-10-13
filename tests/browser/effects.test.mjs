@@ -79,7 +79,7 @@ for (const strict of [false, true]) test(`decoded effect identity, time, alpha, 
   }
   expect(changed(colorOrders[0], colorOrders[1])).toBeGreaterThan(100);
   await page.locator("#title").click();
-  await page.keyboard.press("Meta+a"); await page.keyboard.type("Native changed poster"); await page.keyboard.press("Enter");
+  await page.keyboard.press("ControlOrMeta+a"); await page.keyboard.type("Native changed poster"); await page.keyboard.press("Enter");
   await expect(page.locator("#saved")).toHaveText("Native changed poster");
   await page.locator("#dialog-open").click(); await expect(page.locator("#dialog-input")).toBeFocused();
   await page.keyboard.type(" original"); await page.keyboard.press("Escape"); await expect(page.locator("#dialog-open")).toBeFocused();

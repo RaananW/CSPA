@@ -4,6 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { PNG } from "pngjs";
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 import { previewURL } from "../helpers/urls.mjs";
+import { browserLaunchOptions } from "../helpers/browser.mjs";
 
 const directory = evidenceDirectory("dynamic");
 async function save(name, data) {
@@ -46,7 +47,7 @@ async function color(page, x = 55, y = 345) {
 async function native(page) {
   await page.locator("#name-label").click();
   await expect(page.locator("#name")).toBeFocused();
-  await page.keyboard.press("Meta+a"); await page.keyboard.type("retained");
+  await page.keyboard.press("ControlOrMeta+a"); await page.keyboard.type("retained");
   await page.keyboard.press("Home"); await page.keyboard.press("Shift+ArrowRight");
   await page.locator("#card-input").fill("native");
   await page.locator("#name").focus();
@@ -355,7 +356,7 @@ test("healthy GPU publication pauses while hidden and unmount cancels pending wo
 });
 
 test("opt-in without native flags refuses useful DOM once and retains real controls", async () => {
-  const browser = await chromium.launch({ executablePath: process.env.CANVAS_BROWSER_EXECUTABLE ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", args: ["--enable-automation", "--disable-blink-features=CanvasDrawElement,ElementCanvasTransform"] });
+  const browser = await chromium.launch(browserLaunchOptions({ native: false }));
   try {
     const page = await browser.newPage();
     const cdp = await page.context().newCDPSession(page);

@@ -1,11 +1,11 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { resolve } from "node:path";
+import { resolve, sep } from "node:path";
 import { evidenceRoot, validateEvidenceRoot } from "../tests/helpers/evidence.mjs";
 
 validateEvidenceRoot(evidenceRoot);
-if (!["evidence/phase9", "evidence/phase9-independent"].some(root => resolve(evidenceRoot).startsWith(`${resolve(root)}/`))) {
+if (!["evidence/phase9", "evidence/phase9-independent"].some(root => resolve(evidenceRoot).startsWith(resolve(root) + sep))) {
   throw new Error("Select a fresh evidence/phase9/<report-run> or evidence/phase9-independent/<report-run> destination");
 }
 const baselineCommit = "84ac72ca6a5f86d34104f899d1662914aae7903e";

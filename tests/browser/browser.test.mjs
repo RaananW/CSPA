@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { PNG } from "pngjs";
+import { previewURL } from "../helpers/urls.mjs";
 
 async function openProbe(page) {
   await page.goto("/probe.html");
@@ -12,7 +13,7 @@ test("original React DOM controls, keyboard, submit and diagnostics retain ident
   await page.getByRole("button", { name: "Increment", exact: true }).click();
   await expect(page.getByTestId("greeting")).toContainText("Counter: 1");
   await page.getByLabel("Name", { exact: true }).click();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("Real keyboard");
   await page.keyboard.press("Enter");
   await expect(page.locator("output")).toHaveText("Real keyboard");
@@ -32,7 +33,7 @@ test("unavailable capture and no-GPU configurations keep initial original DOM us
       Object.defineProperty(navigator, "gpu", { value: undefined, configurable: true });
       Object.defineProperty(HTMLCanvasElement.prototype, "captureElementImage", { value: undefined, configurable: true });
     });
-    await page.goto("http://127.0.0.1:5174/");
+    await page.goto(`${previewURL}/`);
     await expect(page.getByRole("status", { name: "Renderer diagnostics" })).toContainText("captureElementImage");
     await page.getByRole("button", { name: "Increment", exact: true }).click();
     await expect(page.getByTestId("greeting")).toContainText("Counter: 1");
@@ -47,7 +48,7 @@ test("real WebGPU initialization failure disposes partial generated-pixel resour
   const page = await browser.newPage();
   try {
     await page.addInitScript(() => Object.defineProperty(navigator, "gpu", { value: undefined, configurable: true }));
-    await page.goto("http://127.0.0.1:5174/probe.html");
+    await page.goto(`${previewURL}/probe.html`);
     await page.waitForFunction(() => window.nativeProbe);
     await expect(page.evaluate(() => window.nativeProbe.backend.start("webgpu", "generated"))).rejects.toThrow();
     expect(Object.values(await page.evaluate(() => window.nativeProbe.backend.dispose()))).toEqual([0, 0, 0, 0, 0, 0]);
@@ -58,7 +59,7 @@ for (const dpr of [1, 2]) {
   test(`actual native capture, ElementCanvasTransform, pointer and editing at DPR ${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {
-      await page.goto("http://127.0.0.1:5174/probe.html");
+      await page.goto(`${previewURL}/probe.html`);
       await page.waitForFunction(() => window.nativeProbe);
       const captured = await page.evaluate(() => window.nativeProbe.capture());
       expect(captured.layer.sample).toEqual([240, 30, 60, 255]);
