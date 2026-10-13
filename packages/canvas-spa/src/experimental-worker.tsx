@@ -68,6 +68,8 @@ export class WorkerCanvasController {
   private lifecycle = Promise.resolve();
   private epoch = 0;
   private disposed = false;
+  /** True once the worker acknowledged init; before that its queue was never used and it can be terminated at once. */
+  private workerReady = false;
   private paintRequested = false;
   private captures = 0;
   private droppedSnapshots = 0;
@@ -159,6 +161,7 @@ export class WorkerCanvasController {
       if (this.canvas && element.isConnected && element.closest("canvas") === this.canvas) this.canvas.clearElementGeometry(element);
       layer.fallback?.cancel();
       this.layers.delete(id);
+      this.fixedLayouts.delete(id);
       this.resize.unobserve(element);
       this.invalidate();
     };
@@ -213,12 +216,21 @@ export class WorkerCanvasController {
       this.fail(error);
     });
   }
+  /** Backing-store scale: the device ratio, reduced only as far as needed to fit the pixel budget (DPR 1 always fits). */
+  private backing() {
+    const { width: w, height: h } = this.options;
+    let dpr = devicePixelRatio;
+    if (!(dpr > 0) || !Number.isFinite(dpr)) dpr = 1;
+    if (Math.round(w * dpr) * Math.round(h * dpr) > 2_000_000) dpr = Math.min(dpr, Math.sqrt(2_000_000 / (w * h)));
+    let width = Math.max(1, Math.round(w * dpr)), height = Math.max(1, Math.round(h * dpr));
+    while (width * height > 2_000_000) { dpr *= 0.999; width = Math.max(1, Math.floor(w * dpr)); height = Math.max(1, Math.floor(h * dpr)); }
+    return { dpr, width, height };
+  }
   private publish() {
     const canvas = this.canvas;
     if (!canvas || this.mode !== "gpu" && this.mode !== "admitting") return;
-    const dpr = devicePixelRatio;
-    const width = Math.round(this.options.width * dpr), height = Math.round(this.options.height * dpr);
-    if (width * height > 2_000_000) throw new Error("Worker DPR pixel budget exceeded");
+    const actualDPR = devicePixelRatio;
+    const { dpr, width, height } = this.backing();
     const uniforms = new Float32Array(4 + this.options.program.capacity * 44);
     uniforms[0] = dpr;
     const images: WorkerFrame["images"] = [];
@@ -255,7 +267,7 @@ export class WorkerCanvasController {
         }
         const extent = canvas.getElementImageDefaultSize(layer.element);
         const matrix = new DOMMatrix().translate(layer.layout.x, layer.layout.y);
-        const geometryKey = JSON.stringify([layer.layout, extent, dpr]);
+        const geometryKey = JSON.stringify([layer.layout, extent, actualDPR]);
         if (geometryKey !== layer.geometryKey) {
           canvas.updateElementGeometry(layer.element, { canvasTransform: matrix, canvasClip: { x: 0, y: 0, width: layer.layout.width, height: layer.layout.height } });
           layer.geometryKey = geometryKey;
@@ -331,7 +343,7 @@ export class WorkerCanvasController {
   }
   private async stop() {
     if (this.inflight) await this.inflight.catch(() => undefined);
-    if (this.worker) {
+    if (this.worker && this.workerReady) {
       // A healthy queue must acknowledge its fence and disposal; timeout is not permission to destroy it.
       try { await this.request({ type: "stop", id: ++this.nextID }); }
       catch (error) {
@@ -345,8 +357,13 @@ export class WorkerCanvasController {
       await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     }
     if (this.worker) {
-      this.worker.terminate(); this.worker = undefined; this.resources.workers = 0;
+      // A worker that never acknowledged init (load failure, CSP, syntax error) never used its queue: terminate immediately.
+      this.worker.terminate(); this.worker = undefined; this.resources.workers = 0; this.workerReady = false;
       this.resources.listeners -= 3;
+      for (const [id, pending] of this.pending) {
+        clearTimeout(pending.timer); this.pending.delete(id); this.resources.requests--;
+        pending.reject(new Error("Worker terminated"));
+      }
     }
     if (this.canvas && this.paintListener) {
       this.canvas.removeEventListener("paint", this.paintListener);
@@ -370,12 +387,13 @@ export class WorkerCanvasController {
           throw new Error(`Worker native capture unavailable: ${detected.missing.join(", ")}`);
         }
         enableDrawable(canvas);
-        canvas.width = Math.round(this.options.width * devicePixelRatio); canvas.height = Math.round(this.options.height * devicePixelRatio);
+        const backing = this.backing();
+        canvas.width = backing.width; canvas.height = backing.height;
         canvas.style.cssText = `display:block;width:${this.options.width}px;height:${this.options.height}px`;
         this.options.canvasHost.append(canvas); this.canvas = canvas; this.resources.canvases = 1;
         this.options.canvasHost.style.display = "block";
         const worker = this.options.createWorker();
-        this.worker = worker; this.resources.workers = 1;
+        this.worker = worker; this.resources.workers = 1; this.workerReady = false;
         this.resources.listeners += 3;
         worker.onmessage = ({ data }: MessageEvent<WorkerResponse>) => {
           if (worker !== this.worker) return;
@@ -396,10 +414,11 @@ export class WorkerCanvasController {
           }
           this.fail(message);
         };
-        worker.onerror = event => { event.preventDefault(); rejectRequests(event.message); };
+        worker.onerror = event => { event.preventDefault(); rejectRequests(event.message || "Worker script failed to load or threw"); };
         worker.onmessageerror = () => rejectRequests("Worker message deserialization failed");
         const offscreen = canvas.transferControlToOffscreen();
         await this.request({ type: "init", id: ++this.nextID, canvas: offscreen, program: this.options.program }, [offscreen]);
+        this.workerReady = true;
         const probe = document.createElement("div");
         probe.setAttribute("drawable", ""); probe.style.cssText = "position:absolute;width:8px;height:8px;background:rgb(240,30,60)";
         canvas.append(probe);
@@ -408,7 +427,7 @@ export class WorkerCanvasController {
           const image = canvas.captureElementImage(probe) as WorkerSnapshot;
           const extent = canvas.getElementImageDefaultSize(probe);
           const uniforms = new Float32Array(4 + this.options.program.capacity * 44);
-          uniforms[0] = devicePixelRatio;
+          uniforms[0] = backing.dpr;
           uniforms.set([1, 0, 0, extent.width / 8, 0, 1, 0, extent.height / 8, 8, 8, 1, -1, 0, 0, extent.width, extent.height], 4);
           uniforms.set([0, 0, 8, 8], 44);
           let transferred = false;

@@ -45,7 +45,8 @@ export function startWorkerCompositor(scope: WorkerScope) {
   function draw(time = performance.now()) {
     if (!engine || !effect || !uniforms || stopping || lost) return;
     const start = performance.now();
-    const seconds = (time - origin) / 1000;
+    // Wrapped like the main renderer so f32 uniforms keep sub-frame resolution in long sessions.
+    const seconds = ((time - origin) / 1000) % 1000;
     uniforms[2] = reduced ? 0 : seconds;
     for (let slot = 0; slot < capacity; slot++) {
       uniforms[17 + slot * 44] = reduced ? 0 : seconds;
@@ -73,10 +74,11 @@ export function startWorkerCompositor(scope: WorkerScope) {
   scope.onmessage = ({ data }) => {
     serial = serial.then(async () => {
       let frameReply: WorkerResponse | undefined;
-      if (data.type === "frame") {
-        for (const { image } of data.images) snapshots.add(image);
-        stats.resources.snapshots = snapshots.size;
-      }
+      // Own every transferred snapshot before any validation so each is closed exactly once.
+      const owned: WorkerSnapshot[] = data.type === "frame" && Array.isArray(data.images)
+        ? data.images.flatMap(entry => typeof entry?.image?.close === "function" ? [entry.image] : []) : [];
+      for (const image of owned) snapshots.add(image);
+      stats.resources.snapshots = snapshots.size;
       try {
         switch (data.type) {
           case "init": {
@@ -127,10 +129,12 @@ export function startWorkerCompositor(scope: WorkerScope) {
               let texture = textures[image.slot]!;
               if (texture.texture.width !== image.width || texture.texture.height !== image.height) {
                 await waitForGpuIdle(engine);
+                // Create the replacement first: a failure must not leave a released texture in the slot table.
+                const replacement = createDynamicTexture(engine, image.width, image.height, { minFilter: "nearest", magFilter: "nearest" });
+                textures[image.slot] = replacement;
+                setEffectTexture(effect, `layer${image.slot}`, replacement);
                 releaseTexture(texture);
-                texture = createDynamicTexture(engine, image.width, image.height, { minFilter: "nearest", magFilter: "nearest" });
-                textures[image.slot] = texture;
-                setEffectTexture(effect, `layer${image.slot}`, texture);
+                texture = replacement;
               }
               queue.drawElementImageToTexture({ source: image.image }, { texture: texture.texture });
               stats.uploads++;
@@ -176,6 +180,8 @@ export function startWorkerCompositor(scope: WorkerScope) {
             device.destroy();
             reply(data.id, "stats", { stats: structuredClone(stats) });
             break;
+          default:
+            throw new Error(`Unknown worker message type: ${String((data as { type?: unknown } | undefined)?.type)}`);
           case "stop":
             stopping = true;
             cancel();
@@ -200,7 +206,7 @@ export function startWorkerCompositor(scope: WorkerScope) {
         if (data.type === "frame") {
           // Release transferred native captures only after their submitted GPU work.
           if (engine && !lost) await waitForGpuIdle(engine);
-          closeSnapshots(data.images.map(({ image }) => image));
+          closeSnapshots(owned);
         }
       }
       if (frameReply?.stats) frameReply.stats = structuredClone(stats);

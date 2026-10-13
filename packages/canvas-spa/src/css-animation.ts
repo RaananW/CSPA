@@ -14,7 +14,7 @@ export function validateCSSSource(element: HTMLElement, provenance: CSSAnimation
     throw new Error("CSS adapter requires explicit same-sheet top-level rules and one exact ID selector/name");
   }
   const signature = rule.cssText + keyframes.cssText;
-  if (/var\(|calc\(|env\(|inherit|revert|unset/i.test(signature)) throw new Error("CSS animation rule dependencies are unsupported");
+  if (/(?<![\w-])(?:var|calc|env)\(|(?<![\w-])(?:inherit|revert|revert-layer|unset|initial)(?![\w-])/i.test(signature)) throw new Error("CSS animation rule dependencies are unsupported");
   const computed = getComputedStyle(element);
   const time = (value: string) => /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:ms|s)$/.test(value)
     ? Number(value.slice(0, value.endsWith("ms") ? -2 : -1)) * (value.endsWith("ms") ? 1 : 1000) : NaN;
@@ -38,7 +38,7 @@ export function validateCSSSource(element: HTMLElement, provenance: CSSAnimation
   if (!(source.effect instanceof KeyframeEffect)) throw new Error("CSS source effect unavailable");
   const resolved = source.effect.getKeyframes();
   if (resolved.length !== rawFrames.length || resolved.some((frame, index) =>
-    frame.computedOffset !== rawFrames[index]!.offset || Number(frame.opacity) !== Number(rawFrames[index]!.opacity)
+    !(Math.abs(frame.computedOffset - rawFrames[index]!.offset) <= 1e-9) || Number(frame.opacity) !== Number(rawFrames[index]!.opacity)
     || frame.easing !== rawFrames[index]!.easing
     || typeof frame.transform !== "string" || JSON.stringify(parseTransform(frame.transform)) !== JSON.stringify(parseTransform(rawFrames[index]!.transform)))) throw new Error("CSS keyframes are overridden/resolved differently from enrolled provenance");
   const sourceTiming = JSON.stringify(source.effect.getTiming());

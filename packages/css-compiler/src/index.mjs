@@ -19,7 +19,12 @@ function easing(node, text) {
   if (!match || match.slice(1).some(value => !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value) || Number(value) > 1)) {
     fail(node, `Unsupported easing (non-overshooting cubic-bezier or named easing required): ${text}`);
   }
-  return normalized;
+  return `cubic-bezier(${match.slice(1).map(Number).join(",")})`;
+}
+const dependent = /(?<![\w-])(?:inherit|revert|revert-layer|unset|initial)(?![\w-])|(?<![\w-])(?:var|calc|env)\(/i;
+function overlaps(part, selector) {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\#]/g, "\\$&");
+  return new RegExp(`${escaped}(?![\\w-])`).test(part);
 }
 function declarations(rule) {
   const result = {};
@@ -27,12 +32,13 @@ function declarations(rule) {
     if (node.type === "comment") continue;
     if (node.type !== "decl") fail(node, "Nested rules are unsupported in a selected target");
     if (/^transition(?:-|$)/.test(node.prop)) fail(node, "Selected CSS transitions require an explicit adapter");
+    if (/^-[a-z]+-(?:animation|transition)/i.test(node.prop)) fail(node, `Vendor-prefixed ${node.prop} is unsupported in a selected target; use the unprefixed property`);
     if (!node.prop.startsWith("animation")) continue;
-    if (node.important || /var\(|calc\(|env\(|\b(?:inherit|revert|unset|initial)\b/i.test(node.value)) fail(node, "Dependent/important selected animation");
+    if (node.important || dependent.test(node.value)) fail(node, "Dependent/important selected animation");
     if (node.prop === "animation") {
       const tokens = valueParser(node.value).nodes.filter(token => token.type !== "space" && token.type !== "comment")
         .map(token => valueParser.stringify(token));
-      const data = { "animation-delay": "0s", "animation-iteration-count": "1", "animation-direction": "normal",
+      const data = { "animation-duration": "0s", "animation-delay": "0s", "animation-iteration-count": "1", "animation-direction": "normal",
         "animation-fill-mode": "none", "animation-timing-function": "ease", "animation-play-state": "running" };
       const seen = new Set();
       const set = (property, token) => {
@@ -53,6 +59,8 @@ function declarations(rule) {
         else if (/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(token) && !data["animation-name"]) set("animation-name", token);
         else fail(node, `Unsupported animation shorthand token: ${token}`);
       }
+      // The shorthand resets every longhand it covers, including earlier declarations.
+      delete result["animation-name"];
       Object.assign(result, data);
     } else {
       if (!animationProperties.includes(node.prop)) fail(node, `Unsupported animation property: ${node.prop}`);
@@ -76,7 +84,7 @@ export function compileStylesheet(css, entries, { filename = "input.css", module
     if (props["animation-name"] !== name) fail(rule, `Selected animation ${name} does not match the target's single animation`);
     root.walkRules(other => {
       if (other !== rule && !/keyframes$/i.test(other.parent.name ?? "") && other.nodes?.some(node => node.type === "decl" && /^(animation|transform|opacity|translate|rotate|scale)/.test(node.prop))) {
-        if (other.selector.split(",").some(part => part.trim().includes(selector))) fail(other, "Overlapping selector animation rules are unsupported");
+        if (other.selector.split(",").some(part => overlaps(part, selector))) fail(other, "Overlapping selector animation rules are unsupported");
       }
     });
     if (!["running", "paused"].includes(props["animation-play-state"] ?? "running")) fail(rule, "Unsupported animation-play-state");

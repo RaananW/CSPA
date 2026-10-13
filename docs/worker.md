@@ -162,6 +162,20 @@ unknown healthy queue or claim successful DOM rollback. A later disable/dispose
 retry can complete when the worker acknowledges. The synthetic11second delayed
 reply is tested; genuine worker crashes, never-returning queues and hardware
 hangs remain unqualified failure boundaries. Do not ignore lifecycle rejection.
+A worker that never acknowledged `init` (script 404, CSP, syntax error, or one that
+never calls `startWorkerCompositor`) has not used its queue: admission
+terminates it immediately, removes the canvas, keeps the original DOM and returns
+a diagnosed DOM-mode state instead of waiting for a stop acknowledgement. Worker
+`error`/`messageerror` events reject pending requests. Unknown request types
+are answered with an error reply.
+
+The backing store follows the device pixel ratio but is clamped (effective ratio
+reduced) to the 2,000,000 pixel budget, so DPR/zoom changes never revoke GPU;
+only a CSS extent that exceeds the budget at DPR 1 is refused at construction.
+The worker clock is wrapped at 1000 seconds like the main renderer. Texture
+size comes from the declared ElementImage default size; the transferred image's
+own reported size is not cross-checked because its unit is unqualified.
+
 Each successful reentry uses a fresh canvas/worker because transfer is irreversible.
 
 ## Reproduction and measured conclusion

@@ -16,21 +16,19 @@ export function canvasSPA({ configFile = "canvas-spa.config.json" } = {}) {
       root = resolve(config.root ?? ".");
       loaded = await readConfig(root, configFile);
       compiler = createCompiler(loaded.config);
+      const plugin = compiler.postcss(filename => selected.get(normalize(filename)));
       let postcss = config.css?.postcss;
-      if (typeof postcss !== "object") {
-        try {
-          const original = await loadPostCSS({ env: "production" }, typeof postcss === "string" ? resolve(root, postcss) : root);
-          postcss = { ...original.options, plugins: original.plugins };
-        } catch (error) {
-          if (!String(error.message).startsWith("No PostCSS Config found in:")) throw error;
-          if (typeof config.css?.postcss === "string") throw error;
-          postcss = { plugins: [] };
-        }
+      // Vite's mergeConfig concatenates arrays, so an inline object must contribute only the added plugin.
+      if (postcss && typeof postcss === "object") return { css: { devSourcemap: true, postcss: { plugins: [plugin] } } };
+      try {
+        const original = await loadPostCSS({ env: "production" }, typeof postcss === "string" ? resolve(root, postcss) : root);
+        postcss = { ...original.options, plugins: original.plugins };
+      } catch (error) {
+        if (!String(error.message).startsWith("No PostCSS Config found in:")) throw error;
+        if (typeof config.css?.postcss === "string") throw error;
+        postcss = { plugins: [] };
       }
-      return { css: { devSourcemap: true, postcss: { ...postcss, plugins: [
-        ...(postcss.plugins ?? []),
-        compiler.postcss(filename => selected.get(normalize(filename))),
-      ] } } };
+      return { css: { devSourcemap: true, postcss: { ...postcss, plugins: [...(postcss.plugins ?? []), plugin] } } };
     },
     async buildStart() {
       if (!compiler) return;

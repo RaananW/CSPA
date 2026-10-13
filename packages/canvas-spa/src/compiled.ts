@@ -86,12 +86,28 @@ export function validateCompiledPrograms(compiled: CompiledProgramSet) {
   }
 }
 
+const namedEasings: Record<string, number[]> = { linear: [0, 0, 1, 1], ease: [0.25, 0.1, 0.25, 1], "ease-in": [0.42, 0, 1, 1],
+  "ease-out": [0, 0, 0.58, 1], "ease-in-out": [0.42, 0, 0.58, 1] };
+/** Numeric cubic-bezier control points for a named or cubic-bezier easing, or undefined when unsupported. */
+function easingPoints(value: string): number[] | undefined {
+  const compact = value.replace(/\s+/g, "");
+  const named = namedEasings[compact];
+  if (named) return named;
+  const match = compact.match(/^cubic-bezier\(([^,()]+),([^,()]+),([^,()]+),([^,()]+)\)$/);
+  if (!match) return undefined;
+  const points = match.slice(1).map(Number);
+  return points.every(Number.isFinite) ? points : undefined;
+}
+export function sameEasing(actual: string, expected: string) {
+  const a = easingPoints(actual), b = easingPoints(expected);
+  return !!a && !!b && a.every((value, index) => Math.abs(value - b[index]!) <= 1e-6);
+}
+
 export function verifyCompiledAnimation(element: HTMLElement, source: Animation, compiled: CompiledAnimation) {
   if (!(source instanceof CSSAnimation) || source.animationName !== compiled.name || !element.matches(compiled.selector)
     || !(source.effect instanceof KeyframeEffect)) throw new Error("Compiled CSS animation target/name mismatch");
   const frames = source.effect.getKeyframes();
   if (frames.length !== compiled.frames.length) throw new Error("Compiled CSS keyframe count mismatch");
-  const compact = (value: string) => value.replace(/\s+/g, "");
   frames.forEach((frame, index) => {
     const expected = compiled.frames[index]!;
     if (Object.keys(frame).some(key => !["offset", "computedOffset", "easing", "composite", "transform", "opacity"].includes(key))
@@ -99,8 +115,9 @@ export function verifyCompiledAnimation(element: HTMLElement, source: Animation,
     const matrix = new DOMMatrix(frame.transform === "none" ? undefined : frame.transform);
     if (!matrix.is2D || [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f].some((value, i) =>
       Math.abs(value - expected.matrix[i]!) > 1e-4 * Math.max(1, Math.abs(value)))
-      || Number(frame.opacity) !== expected.opacity || frame.computedOffset !== expected.offset
-      || compact(frame.easing) !== compact(expected.easing)
+      || Math.abs(Number(frame.opacity) - expected.opacity) > 1e-6
+      || !Number.isFinite(frame.computedOffset) || Math.abs(frame.computedOffset! - expected.offset) > 1e-6
+      || !sameEasing(frame.easing, expected.easing)
       || frame.composite !== "auto" && frame.composite !== "replace") throw new Error("Compiled CSS keyframe/provenance mismatch");
   });
   const timing = source.effect.getTiming();
