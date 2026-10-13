@@ -27,5 +27,9 @@ contract; useful default DOM is not proof of GPU support.
 See the bundled [distribution contract](docs/distribution.md) for bootstrap,
 peer requirements, browser limits and explicit disable/disposal.
 Repository examples, tooling and historical evidence are not package contents.
-Whole-release, manual, performance-budget, licensing and publication decisions
+Whole-release, manual, performance-budget and publication decisions
 remain open.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

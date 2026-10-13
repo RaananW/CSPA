@@ -221,3 +221,7 @@ The two real stylesheet pipelines remain an installed npm component and a
 local stylesheet using Sass, PostCSS and CSS Modules in Vite/webpack. The
 synthetic corpus does not qualify arbitrary npm components, cascade rules,
 Less, injection/extraction loaders, dev/HMR or performance improvements.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

@@ -2,12 +2,12 @@ import assert from "node:assert/strict";
 
 const declarations = [
   "admission", "affine", "animation", "build", "compiled", "compiler", "composition", "css-animation",
-  "device-lifecycle", "effects", "enrollment", "index", "module", "motion",
+  "device-lifecycle", "effects", "enrollment", "hosts", "index", "module", "motion",
   "mount-boundary", "native", "publication", "react", "renderer", "ripple", "runtime", "timeline", "viewport",
   "experimental-worker", "worker-thread", "worker-protocol",
 ];
 export const packageFiles = [
-  "package.json", "README.md", "docs/distribution.md", "dist/library/index.js", "dist/library/build.js",
+  "package.json", "README.md", "LICENSE", "docs/distribution.md", "dist/library/index.js", "dist/library/build.js",
   "dist/library/experimental-worker.js", "dist/library/worker-thread.js",
   ...declarations.map(name => `dist/library/${name}.d.ts`),
 ].sort();

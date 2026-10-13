@@ -77,14 +77,15 @@ status and historical tests are not installed-browser qualification. Current
 syntax/API support requires functional pixel and original native-hit evidence,
 not silent legacy compatibility or property detection alone.
 
-The intended direction is open-source software, but this folder is currently
-an experimental private package, not a published library. License selection,
-repository publication and release policy are unresolved. No maintainer or
+CanvasSPA is open-source software under the [Apache License 2.0](LICENSE)
+(selected 2026-10-14). Contributions are accepted under the same license.
+The package is still an experimental private package, not a published
+library; registry publication and release policy are unresolved. No maintainer or
 security contact is designated here.
 Phase10 private distribution preparation is independently accepted with limits;
 [verdict](evidence/phase10-independent/acceptance-summary.json) and
 [local pack/consumer and browser policy](docs/distribution.md).
-Keep the existing package name/private/license decisions. No npm publication
+Keep the existing package name/private decisions and the Apache-2.0 license. No npm publication
 is authorized here. A bounded private build-only CI definition and
 local Phase14 pilot are authorized engineering, not hosted success or release
 qualification; see [private release lanes](docs/private-release.md).
@@ -134,7 +135,7 @@ generated artifacts; retain only compact curated verdicts, keep dependencies,
 caches and browser profiles ignored, include the standard Copilot coauthor
 trailer, verify the remote stays private and verify matching local/remote main
 SHAs after push. Do not advance phases until this verification. This is private
-history tracking, not authorization to select a license, publish a package,
+history tracking, not authorization to change the license, publish a package,
 make the repository public or modify upstream engines.
 
 On 2026-10-12, the owner separately requested documented compiler/worker

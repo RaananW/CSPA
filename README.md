@@ -23,9 +23,9 @@ Principles (the [GPU-first contract](docs/architecture.md#gpu-first-contract)):
 
 ## Status
 
-Experimental and private (`canvas-spa-phase-one@0.0.0`); not published, not
-licensed for release, and not production-ready. Open-source intent is
-confirmed, but license/publication decisions remain separate. It is for
+Experimental (`canvas-spa-phase-one@0.0.0`, still `private` in npm terms);
+not published to a registry and not production-ready. Licensed under the
+[Apache License 2.0](LICENSE); package publication remains a separate decision. It is for
 deliberately adopted small applications, not for loading arbitrary websites or
 libraries unchanged. GPU mode needs Chrome Canary with experimental flags; plain
 DOM mode works in any browser. History and acceptance records are in
@@ -168,7 +168,7 @@ Not qualified (see [open issues](docs/open-issues.md), SCOPE entries):
   shared elements, springs, virtualization.
 - SSR and hydration (mounting creates a client root).
 - A WebGL2 direct-capture runtime route (the supported route is public WebGPU).
-- Release, license and publication decisions.
+- Release and registry publication decisions.
 - Manual and physical gates: OS IME, screen readers, physical display/DPR moves,
   everyday browser profiles, hardware device loss, numeric performance budgets.
   No speedup or production qualification is claimed.
@@ -181,3 +181,7 @@ Not qualified (see [open issues](docs/open-issues.md), SCOPE entries):
 - [Open issues](docs/open-issues.md) and [verification](docs/verification.md)
 - [History and provenance](docs/history.md), [archive catalog](docs/archive-catalog.md)
 - [Contributing](CONTRIBUTING.md)
+
+## License
+
+CanvasSPA is licensed under the [Apache License, Version 2.0](LICENSE).

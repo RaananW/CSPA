@@ -67,7 +67,7 @@ visibility. Private-source repositories can produce publicly reachable Pages
 sites depending on account configuration; repository privacy is not a promise
 of site privacy. Configure Pages to use GitHub Actions and review the
 `github-pages` environment approval/access rules separately. Custom domains,
-license choice, repository visibility and public release remain separate.
+repository visibility and public release remain separate (license: Apache-2.0).
 No hosted URL or successful deployment is claimed here.
 
 The build emits only `index.html` and hashed CSS/JavaScript assets, with source

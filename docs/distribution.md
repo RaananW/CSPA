@@ -6,8 +6,8 @@ validation pending**. Full Phase11 remains incomplete; the repository's compact
 Phase11 verdict and adoption checklist preserve the open gates.
 The package is **not published, not production-ready**. The existing
 `canvas-spa-phase-one@0.0.0` identity and `private: true` are retained;
-no project license has been selected. Do not publish, create a registry
-package, change visibility or infer redistribution permission from this build.
+the project is licensed under Apache-2.0 (the tarball includes `LICENSE`).
+Do not publish, create a registry package or change visibility from this build.
 
 ## Build and install locally
 
@@ -250,7 +250,7 @@ rerun full benchmarks or certify all UI semantics.
 | --- | --- |
 | Independent Phase10 and Phase11 engineering acceptance | Accepted with limits; full Phase11 human/physical validation remains pending |
 | Local pack/install/type/browser checks | Implemented reproducible runner; inspect its fresh results |
-| License, final package name, public visibility, npm publication | Separate user decisions; no publish authorization |
+| Final package name, public visibility, npm publication | Separate user decisions; no publish authorization (license: Apache-2.0, selected 2026-10-14) |
 | Human/device/accessibility and exact154/provenance gates | Open; see limits above and repository adoption checklist |
 | Phase12 opt-in settled structural readmission | Engineering independently accepted with limits; full Phase12 production application/hardware and numeric budgets remain open |
 | Release CI, broad framework/browser support | Outside current scope |
