@@ -992,9 +992,14 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (mode !== "disposed" && engine && !terminalCleanupPending) await recoverToDOM(message);
     });
   }
-  /** Accumulates layers touched by a paint's changedElements; unknown shapes mark every layer. */
+  /**
+   * Accumulates layers touched by a paint's changedElements. A missing or empty
+   * list is unknown attribution (e.g. an external requestPaint), so every layer
+   * is refreshed rather than risking stale pixels.
+   */
   function markChanged(changed: unknown) {
-    const elements = Array.isArray(changed) ? changed.filter((element): element is Element => element instanceof Element) : undefined;
+    const listed = Array.isArray(changed) ? changed.filter((element): element is Element => element instanceof Element) : [];
+    const elements = listed.length ? listed : undefined;
     for (const layer of current) {
       if (!elements || elements.some(element => element === layer.element || layer.element.contains(element) || element.contains(layer.element))) dirty.add(layer.id);
     }

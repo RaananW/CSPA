@@ -362,7 +362,9 @@ for (const dpr of [1, 2]) {
       await expect(title).toHaveValue("Native task DPR");
       expect((await page.evaluate(() => window.todoProbe.controller().enable())).mode).toBe("gpu");
       await page.getByLabel("Delete task 3", { exact: true }).click();
-      await expect(title).toHaveCount(0);
+      // The modal confirmation hides the task list from assistive technology (getByRole excludes aria-hidden).
+      await expect(page.getByRole("dialog", { name: "Delete task?" })).toBeVisible();
+      await expect(page.getByRole("textbox", { name: "Task 3 title", exact: true })).toHaveCount(0);
       const disposed = await page.evaluate(() => window.todoProbe.dispose());
       zero(disposed);
       await save(`todo-native-${dpr}`, { gpu, before, disposed });

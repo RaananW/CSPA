@@ -235,7 +235,7 @@ try {
       const rect = await title.boundingBox();
       assert.ok(rect);
       await page.mouse.click(rect.x + rect.width / 2, rect.y + rect.height / 2);
-      await page.keyboard.press("ControlOrControlOrMeta+a");
+      await page.keyboard.press("ControlOrMeta+a");
       await page.keyboard.type("Native edit!");
       assert.equal(await title.inputValue(), "Native edit!");
       assert.equal(await page.evaluate(() => window.showcaseTrustedClick), true);

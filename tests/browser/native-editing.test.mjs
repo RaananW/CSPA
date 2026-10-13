@@ -79,7 +79,8 @@ for (const dpr of [1, 2]) {
     const dom = await browser.newPage({ deviceScaleFactor: dpr });
     const selector = kind === "input" ? "#controlled" : "#editor";
     const query = kind === "input" ? "" : "&editing";
-    const value = kind === "input" ? "fresh independent native"
+    // Long enough to overflow the input on every platform font (Windows system-ui is narrower than macOS).
+    const value = kind === "input" ? "fresh independent native content tail"
       : ["FIRST long line ".repeat(4), "middle second line", "middle third line", "LAST visible tail ".repeat(5)].join("\n");
     const type = async target => {
       await target.locator(selector).click();
@@ -121,7 +122,8 @@ for (const dpr of [1, 2]) {
       const start = await observe(page, selector);
       expect(start.state.mode).toBe("gpu"); expect(start.original && start.focused && start.hit).toBe(true);
       expect(start.value).toBe(value); expect(start.selection).toEqual([0, 0]);
-      expect(start.left).toBe(0);
+      // Document start; Windows textareas can keep a 1-2px caret scroll margin.
+      expect(start.left).toBeLessThanOrEqual(2);
       if (kind === "input") expect(start.top).toBe(0);
       else { expect(start.top).toBeLessThan(end.top); expect(start.top).toBeLessThanOrEqual(2); }
       expect(start.state.commits.count).toBe(beforeHome.commits.count);
