@@ -31,10 +31,11 @@ test("unavailable capture and no-GPU configurations keep initial original DOM us
   try {
     await page.addInitScript(() => {
       Object.defineProperty(navigator, "gpu", { value: undefined, configurable: true });
-      Object.defineProperty(HTMLCanvasElement.prototype, "captureElementImage", { value: undefined, configurable: true });
+      // getElementImageDefaultSize is required by the current capture path (captureElementImage is worker-only).
+      Object.defineProperty(HTMLCanvasElement.prototype, "getElementImageDefaultSize", { value: undefined, configurable: true });
     });
     await page.goto(`${previewURL}/`);
-    await expect(page.getByRole("status", { name: "Renderer diagnostics" })).toContainText("captureElementImage");
+    await expect(page.getByRole("status", { name: "Renderer diagnostics" })).toContainText("getElementImageDefaultSize");
     await page.getByRole("button", { name: "Increment", exact: true }).click();
     await expect(page.getByTestId("greeting")).toContainText("Counter: 1");
     await page.getByLabel("Name", { exact: true }).click();

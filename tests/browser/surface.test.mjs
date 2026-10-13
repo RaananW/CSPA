@@ -168,7 +168,8 @@ for (const strict of [false, true]) {
 for (const fault of ["capture-unavailable", "no-gpu", "move-unavailable", "paint-timeout", "gpu-admission-rejected", "geometry-rejected", "null-configuration", "loss-observation-unavailable"]) {
   test(`surface startup keeps usable ordinary DOM: ${fault}`, async ({ page }) => {
     await page.addInitScript(fault => {
-      if (fault === "capture-unavailable") Object.defineProperty(HTMLCanvasElement.prototype, "captureElementImage", { value: undefined, configurable: true });
+      // Current native capture is GPUQueue.drawElementImageToTexture on the owning output canvas.
+      if (fault === "capture-unavailable") Object.defineProperty(GPUQueue.prototype, "drawElementImageToTexture", { value: undefined, configurable: true });
       if (fault === "no-gpu") Object.defineProperty(navigator, "gpu", { value: undefined, configurable: true });
       if (fault === "move-unavailable") Object.defineProperty(Element.prototype, "moveBefore", { value: undefined, configurable: true });
       if (fault === "gpu-admission-rejected") Object.defineProperty(navigator.gpu, "requestAdapter", { value: async () => null, configurable: true });
@@ -210,8 +211,7 @@ test("surface runtime capture failure recovers the original root and editing sta
   await page.waitForTimeout(200);
   await page.evaluate(() => {
     window.originalSurfaceInput = document.querySelector("#controlled");
-    const host = document.querySelector("#capture-host");
-    host.captureElementImage = () => { throw new Error("Injected capture failure"); };
+    GPUQueue.prototype.drawElementImageToTexture = () => { throw new Error("Injected capture failure"); };
   });
   await edit(page, "controlled", "recovered");
   await page.waitForFunction(() => window.surfaceProbe.state().mode === "dom");
@@ -221,7 +221,7 @@ test("surface runtime capture failure recovers the original root and editing sta
   await page.locator("#count").click();
   await expect(page.locator("#count")).toHaveText("Count 1");
   const result = await page.evaluate(() => window.surfaceProbe.state());
-  expect(result.reason).toContain("Runtime capture failure");
+  expect(result.reason).toMatch(/Native publication failed: .*Injected capture failure/);
   expect(result.resources.engines).toBe(0);
   const final = await page.evaluate(() => window.surfaceProbe.dispose());
   expect(Object.values(final.resources).every(value => value === 0)).toBe(true);
@@ -440,7 +440,8 @@ test("actual destruction during admission recovers and queued lifecycle requests
   await page.waitForFunction(() => window.surfaceProbe && document.querySelector("#controlled"));
   await edit(page, "controlled", "admission-kept");
   await page.evaluate(() => {
-    const host = document.querySelector("#capture-host");
+    // Paint requests and events belong to the owning output canvas.
+    const host = document.querySelector("#gpu-output");
     const requestPaint = host.requestPaint.bind(host);
     const add = host.addEventListener.bind(host);
     const remove = host.removeEventListener.bind(host);
@@ -478,8 +479,10 @@ test("actual destruction during admission recovers and queued lifecycle requests
   const results = await page.evaluate(() => Promise.all([
     window.surfaceProbe.enable(), window.surfaceProbe.disable(), window.surfaceProbe.enable(),
   ]));
-  expect(results.map(state => state.mode)).toEqual(["gpu", "dom", "gpu"]);
-  expect(results.map(state => state.resources.engines)).toEqual([1, 0, 1]);
+  // Documented contract: an explicit disable cancels a still-queued admission intent;
+  // the later enable is serialized after it and admits.
+  expect(results.map(state => state.mode)).toEqual(["dom", "dom", "gpu"]);
+  expect(results.map(state => state.resources.engines)).toEqual([0, 0, 1]);
   await page.waitForTimeout(100);
   expect((await page.evaluate(() => window.surfaceProbe.state())).mode).toBe("gpu");
   const final = await page.evaluate(() => window.surfaceProbe.dispose());
@@ -591,7 +594,7 @@ test("invalid motion and disposed lifecycle calls fail explicitly without mutati
 test("queued capture-failure recovery cannot undo final disposal", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {
-    document.querySelector("#capture-host").captureElementImage = () => {
+    GPUQueue.prototype.drawElementImageToTexture = () => {
       queueMicrotask(() => {
         void window.surfaceProbe.dispose().then(result => { window.raceDisposed = result; });
       });

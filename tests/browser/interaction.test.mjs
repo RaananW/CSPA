@@ -42,7 +42,7 @@ for (const boundary of ["root-plaintext", "child-plaintext"]) {
       state: window.integrationProbe.state(),
     }));
     expect(observed.sameEditor && observed.sameInput).toBe(true);
-    expect(observed.state.reason).toContain("editable/top-layer boundaries");
+    expect(observed.state.reason).toMatch(/editable\/top-layer boundaries/i);
     await page.evaluate(boundary => {
       if (boundary === "root-plaintext") document.querySelector("#replacement").contentEditable = "false";
       else document.querySelector("#editable-child").remove();

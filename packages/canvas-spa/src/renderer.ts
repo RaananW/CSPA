@@ -245,7 +245,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     if (engine) { disposeEngine(engine); engine = undefined; resources.engines--; }
   }
   function clearGeometry(removeProbe = true) {
-    clearedGeometry = nativeOrder.map(layer => {
+    // A repeated DOM transition with nothing applied keeps the last cleared record.
+    if (nativeOrder.length) clearedGeometry = nativeOrder.map(layer => {
       nativeHost().clearElementGeometry(layer.element);
       return { id: layer.element.id, identity: layer.element.isConnected && layer.element.hasAttribute("drawable") && layer.element.closest("canvas") === host
         ? nativeHost().getElementTransform(layer.element).isIdentity : null };
