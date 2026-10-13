@@ -13,7 +13,15 @@ export function createAdmissionProbe(host: DrawableCanvas) {
   half.style.cssText = `all:initial;display:block;position:absolute;left:50%;top:0;width:50%;height:100%;background:rgb(31,179,113);`;
   element.append(half);
   host.append(element);
-  const matrix = new DOMMatrix().translate(extent * 1.5, extent * 1.5).rotate(11).scale(0.75);
+  // Hit verification needs the probe inside the viewport: place it in the visible
+  // part of the canvas (a scrolled page still admits); fully offscreen stays refused.
+  const rect = host.getBoundingClientRect(), view = host.ownerDocument.defaultView!;
+  const place = (start: number, size: number, viewport: number) => {
+    const visible = Math.max(0, -start), limit = Math.min(size, viewport - start);
+    return visible > 0 && visible + extent * 3 <= limit ? visible + extent * 1.5 : extent * 1.5;
+  };
+  const matrix = new DOMMatrix().translate(place(rect.x, rect.width, view.innerWidth), place(rect.y, rect.height, view.innerHeight))
+    .rotate(11).scale(0.75);
   const points = [{ x: extent / 4, y: extent / 2 }, { x: extent * 3 / 4, y: extent / 2 }];
   return { element, extent, matrix, points,
     clip: { x: 0, y: 0, width: extent * 0.8, height: extent } };

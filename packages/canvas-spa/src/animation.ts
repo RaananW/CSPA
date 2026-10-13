@@ -74,29 +74,42 @@ export interface AnimationPlayback {
   state(): { milliseconds: number; playing: boolean; released: boolean; sourceTime: CSSNumberish | null; sourceState: AnimationPlayState; detached: boolean };
 }
 
+/**
+ * Early diagnostic for stylesheet `!important` presentation overrides on the
+ * element. This is a best-effort fast failure, not the guarantee: every sampled
+ * DOM frame is verified against computed style, which catches any override this
+ * scan cannot see (cross-origin sheets, nested or conditional rules, rules
+ * beyond the scan budget).
+ */
 export function rejectImportantPresentation(element: HTMLElement, includeOrigin = false) {
   let visited = 0;
-  const inspect = (rules: CSSRuleList, depth: number) => {
-    if (depth > 8) throw new Error("Stylesheet nesting exceeds ownership validation budget");
+  const names = includeOrigin ? properties : ["transform", "opacity"] as const;
+  const matches = (selector: string) => { try { return element.matches(selector); } catch { return false; } };
+  const inspect = (rules: CSSRuleList, depth: number, nested: boolean) => {
+    if (depth > 8) return;
     for (const rule of rules) {
-      if (++visited > 4096) throw new Error("Stylesheet rules exceed ownership validation budget");
-      if (rule instanceof CSSImportRule) throw new Error("Imported stylesheet dependencies are unsupported by ownership validation");
-      if (rule instanceof CSSStyleRule && rule.cssRules.length) {
-        throw new Error("Nested selector rules are unsupported by ownership validation");
+      if (++visited > 8192) return;
+      if (rule instanceof CSSImportRule) {
+        const imported = readable(rule.styleSheet);
+        if (imported) inspect(imported, depth + 1, nested);
+        continue;
       }
-      if (rule instanceof CSSStyleRule && element.matches(rule.selectorText)
-        && (includeOrigin ? properties : ["transform", "opacity"]).some(name => rule.style.getPropertyPriority(name) === "important")) {
+      // Nested style rules use relative selectors that cannot be matched directly.
+      if (rule instanceof CSSStyleRule && !nested && matches(rule.selectorText)
+        && names.some(name => rule.style.getPropertyPriority(name) === "important")) {
         throw new Error("Matching stylesheet important presentation overrides are unsupported");
       }
-      if (rule instanceof CSSGroupingRule) {
-        if (!(rule instanceof CSSMediaRule || rule instanceof CSSSupportsRule || rule instanceof CSSLayerBlockRule)) {
-          throw new Error("Scoped or dependent stylesheet groups are unsupported by ownership validation");
-        }
-        inspect(rule.cssRules, depth + 1);
-      }
+      if (rule instanceof CSSStyleRule && rule.cssRules.length) inspect(rule.cssRules, depth + 1, true);
+      else if (rule instanceof CSSGroupingRule) inspect(rule.cssRules, depth + 1, nested);
     }
   };
-  for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) inspect(sheet.cssRules, 0);
+  for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) {
+    const rules = readable(sheet);
+    if (rules) inspect(rules, 0, false);
+  }
+}
+function readable(sheet: CSSStyleSheet | null) {
+  try { return sheet?.cssRules ?? undefined; } catch { return undefined; } // Cross-origin sheets are not inspectable.
 }
 
 export function prepareAnimation(element: HTMLElement, source: Animation, host: OwnershipHost, compiled?: CompiledAnimation) {

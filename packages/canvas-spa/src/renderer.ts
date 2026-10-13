@@ -27,8 +27,20 @@ export interface EnrolledLayer {
   compiledMotion?(): CompiledMotion | undefined;
 }
 
+export interface RendererStatus {
+  mode: "dom" | "admitting" | "gpu" | "disposed";
+  reason: string;
+  resources: Record<string, number>;
+  counts: { captures: number; pixelCopies: number; uploads: number; gpuFrames: number };
+  recovery: string;
+  deviceLoss: string;
+  deviceLosses: { reason: GPUDeviceLostReason; message: string; duringMotion: boolean; duringAdmission: boolean }[];
+  fenceOutcomes: IdleOutcome[];
+}
 export interface SurfaceRendererOptions extends MountBoundaryOptions {
-  onStatus(message: string): void;
+  /** Serialized `RendererStatus` JSON, kept for compatibility. */
+  onStatus?(message: string): void;
+  onStatusChange?(status: RendererStatus): void;
   layers(): EnrolledLayer[];
   size(): { width: number; height: number; dpr: number };
   nativeOrigin?(): { x: number; y: number };
@@ -38,7 +50,6 @@ export interface SurfaceRendererOptions extends MountBoundaryOptions {
   onRecovery?(reason: string): void;
   isMoving?(): boolean;
   isPaused?(): boolean;
-  comparePixels?: boolean;
   budgets?: { layers: number; pixels: number };
   compiled?: CompiledProgramSet;
   onMeasure?(sample: RendererSample): void;
@@ -115,7 +126,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     return compositionShader(count, custom);
   }
   let clearedGeometry: { id: string; identity: boolean | null }[] = [];
-  type Layer = EnrolledLayer & { canvas: HTMLCanvasElement; texture: DynamicTexture2D;
+  type Layer = EnrolledLayer & { extent: { width: number; height: number }; texture: DynamicTexture2D;
     coverage: CaptureCoverage; contentExtent: { width: number; height: number; pixelWidth: number; pixelHeight: number } };
   type Composition = { layers: Layer[]; effect: EffectWrapper; renderer: ReturnType<typeof createEffectRenderer>;
     textures: DynamicTexture2D[]; custom: (ApplicationEffect | undefined)[]; capacity: number;
@@ -163,7 +174,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   }
 
   function status() {
-    options.onStatus(JSON.stringify({ mode, reason, resources, counts: { captures: metrics.captures, pixelCopies: metrics.pixelCopies, uploads: metrics.uploads, gpuFrames: metrics.gpuFrames }, recovery: "Host-owned moveBefore; one persistent React root", deviceLoss: "Public configured-device lost promise -> ordinary DOM; explicit fresh-engine reentry", deviceLosses: metrics.deviceLosses, fenceOutcomes: metrics.fenceOutcomes }, null, 2));
+    if (!options.onStatus && !options.onStatusChange) return;
+    const value: RendererStatus = { mode, reason, resources: { ...resources }, counts: { captures: metrics.captures, pixelCopies: metrics.pixelCopies, uploads: metrics.uploads, gpuFrames: metrics.gpuFrames }, recovery: "Host-owned moveBefore; one persistent React root", deviceLoss: "Public configured-device lost promise -> ordinary DOM; explicit fresh-engine reentry", deviceLosses: [...metrics.deviceLosses], fenceOutcomes: [...metrics.fenceOutcomes] };
+    options.onStatus?.(JSON.stringify(value, null, 2));
+    options.onStatusChange?.(value);
   }
   function state() {
     return {
@@ -473,29 +487,19 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     if (![size.width, size.height, size.dpr].every(value => Number.isFinite(value) && value > 0)
       || Math.max(outputWidth, outputHeight) > observer!.maxTextureDimension2D
       || outputWidth * outputHeight > budget.pixels * 4) throw new Error("GPU output size/device budget exceeded");
-    let pixels = 0;
     const next = current.map((spec, index) => {
       const extent = extents[index]!;
-      if (!extent.width || !extent.height || ![extent.pixelWidth, extent.pixelHeight].every(value => Number.isFinite(value) && value > 0 && value <= observer!.maxTextureDimension2D)) {
-        throw new Error(`Invalid native capture grid: ${spec.id}`);
-      }
-      pixels += extent.pixelWidth * extent.pixelHeight;
       const retained = (pending?.layers ?? layers).find(layer => layer.id === spec.id
         && layer.coverage.slot === logicalSlots.get(spec.id)
         && layer.texture.texture.width >= extent.pixelWidth && layer.texture.texture.height >= extent.pixelHeight);
-      const canvas = document.createElement("canvas");
-      canvas.width = extent.width; canvas.height = extent.height;
-      if (retained) return { ...retained, ...spec, canvas };
+      const layout = { width: extent.width, height: extent.height };
+      if (retained) return { ...retained, ...spec, extent: layout };
       const texture = createDynamicTexture(engine!, extent.pixelWidth, extent.pixelHeight, { minFilter: "nearest", magFilter: "nearest" });
       textures.add(texture); resources.textures++;
-      return { ...spec, canvas, texture,
+      return { ...spec, extent: layout, texture,
         coverage: { slot: logicalSlots.get(spec.id)!, capturedSlot: -1, width: 0, height: 0, pixelWidth: 0, pixelHeight: 0 },
         contentExtent: { width: 0, height: 0, pixelWidth: 0, pixelHeight: 0 } };
     });
-    if (pixels > budget.pixels * size.dpr * size.dpr) throw new Error("Captured-pixel safety budget exceeded");
-    if (![size.width, size.height, size.dpr].every(value => Number.isFinite(value) && value > 0)
-      || Math.max(outputWidth, outputHeight) > observer!.maxTextureDimension2D
-      || outputWidth * outputHeight > budget.pixels * 4) throw new Error("GPU output size/device budget exceeded");
     for (const spec of current) metrics.perLayer[spec.id] ??= { captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0 };
     const compatibleBindings = active && next.length <= active.capacity && next.every(layer => {
       const definition = layer.effects?.().find(value => value.kind === "custom")?.definition;
@@ -605,6 +609,12 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       const width = Math.round(successor.size.width * successor.size.dpr), height = Math.round(successor.size.height * successor.size.dpr);
       for (const [index, layer] of successor.layers.entries()) {
         const native = grids[index]!;
+        // Only layers whose native paint changed (or whose texture slot/extent is
+        // stale) are re-uploaded; unchanged textures already hold current pixels.
+        const stale = dirty.has(layer.id) || layer.coverage.capturedSlot !== layer.coverage.slot
+          || layer.contentExtent.pixelWidth !== native.width || layer.contentExtent.pixelHeight !== native.height
+          || layer.contentExtent.width !== layer.element.offsetWidth || layer.contentExtent.height !== layer.element.offsetHeight;
+        if (!stale) { metrics.reusedUploads++; continue; }
         const started = performance.now();
         queue.drawElementImageToTexture({ source: layer.element }, { texture: layer.texture.texture });
         const contentExtent = { width: layer.element.offsetWidth, height: layer.element.offsetHeight,
@@ -699,12 +709,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       metrics.admission.attempts++;
       probe = createAdmissionProbe(nativeHost());
       resources.probeElements += 2;
-      const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = probe.extent;
       const grid = { width: Math.ceil(probe.extent * options.size().dpr), height: Math.ceil(probe.extent * options.size().dpr) };
       const texture = createDynamicTexture(engine, Math.ceil(grid.width), Math.ceil(grid.height), { minFilter: "nearest", magFilter: "nearest" });
       const contentExtent = { width: probe.extent, height: probe.extent, pixelWidth: grid.width, pixelHeight: grid.height };
-      const probeLayer = { id: "admission-probe", element: probe.element, matrix: () => probe!.matrix, clip: () => probe!.clip, opacity: () => 1, canvas, texture,
+      const probeLayer = { id: "admission-probe", element: probe.element, matrix: () => probe!.matrix, clip: () => probe!.clip, opacity: () => 1, extent: { width: probe.extent, height: probe.extent }, texture,
         contentExtent, coverage: { ...contentExtent, slot: 0, capturedSlot: 0 } };
       layers.push(probeLayer);
       textures.add(texture);
@@ -965,8 +973,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     boundary.dispose();
     resources.roots--;
     for (const remove of removers.splice(0)) remove();
-    options.captureHost.width = options.captureHost.height = output.width = output.height = 0;
-    options.captureHost.remove();
+    if (options.captureHost) options.captureHost.width = options.captureHost.height = 0;
+    output.width = output.height = 0;
+    options.captureHost?.remove();
     output.remove();
     resources.captureCanvases = resources.outputCanvases = 0;
     mode = "disposed";
@@ -983,11 +992,19 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (mode !== "disposed" && engine && !terminalCleanupPending) await recoverToDOM(message);
     });
   }
+  /** Accumulates layers touched by a paint's changedElements; unknown shapes mark every layer. */
+  function markChanged(changed: unknown) {
+    const elements = Array.isArray(changed) ? changed.filter((element): element is Element => element instanceof Element) : undefined;
+    for (const layer of current) {
+      if (!elements || elements.some(element => element === layer.element || layer.element.contains(element) || element.contains(layer.element))) dirty.add(layer.id);
+    }
+  }
   listen(host, "paint", event => {
     if (!active && !pending) return;
+    const changed: unknown = Reflect.get(event, "changedElements");
+    markChanged(changed);
     const policy = options.policy?.();
     if (policy) { void recover(policy).catch(reportFailure); return; }
-    const changed: unknown = Reflect.get(event, "changedElements");
     metrics.paintNotifications++;
     if (Array.isArray(changed)) sample(metrics.paintElements, changed.map(element => element instanceof Element ? element.id || element.tagName : String(element)));
     try { publishPaint(); }
@@ -1021,6 +1038,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     acceptsCustom: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)] === definition,
     phase: () => mode, version: () => generation, resume: scheduleCapture,
     pause: () => {
+      // Paints skipped while hidden are not replayed; refresh every layer on resume.
+      for (const layer of current) dirty.add(layer.id);
       if (scheduled) { cancelAnimationFrame(scheduled); scheduled = 0; resources.scheduledFrames--; }
       captureAbort?.abort(new DOMException("Native paint paused while hidden", "AbortError"));
       clearTimeout(paintTimer); paintRequested = false; resources.paintWaits = 0;

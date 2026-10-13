@@ -12,7 +12,17 @@ import { nativeEditingControl, nativeScrollKind } from "./native.js";
 import { scrollOrigin, intersectViewport, localViewport, canvasContentOrigin, viewportContains, type ViewportRect } from "./viewport.js";
 import { validateCompiledPrograms, verifyCompiledAnimation, type CompiledAnimation } from "./compiled.js";
 
+/** `"automatic"` is accepted for compatibility and behaves like `"explicit"`: initial and diagnosed reentry both require `enable()`. */
 export type AdmissionPolicy = "explicit" | "automatic";
+
+const presentationProperties = new Set(["transform", "opacity", "translate", "rotate", "scale", "transform-origin", "transformOrigin", "all"]);
+/** Whether an animation drives a property that GPU presentation owns exclusively on the enrolled boundary. */
+function animatesPresentation(animation: Animation) {
+  if (typeof CSSTransition !== "undefined" && animation instanceof CSSTransition) return presentationProperties.has(animation.transitionProperty);
+  const effect = animation.effect;
+  if (!(effect instanceof KeyframeEffect)) return true;
+  return effect.getKeyframes().some(frame => Object.keys(frame).some(key => presentationProperties.has(key)));
+}
 
 export interface LayerDefinition {
   id: string;
@@ -26,7 +36,9 @@ export interface RuntimeOptions extends Omit<MountBoundaryOptions, "mount"> {
   overlayHost?: HTMLElement;
   budgets?: SurfaceRendererOptions["budgets"];
   compiled?: SurfaceRendererOptions["compiled"];
-  onStatus(message: string): void;
+  /** Serialized JSON status; prefer `onStatusChange` for a structured value. */
+  onStatus?(message: string): void;
+  onStatusChange?: SurfaceRendererOptions["onStatusChange"];
   onMeasure?: SurfaceRendererOptions["onMeasure"];
   admissionPolicy?: AdmissionPolicy;
   mount(container: HTMLDivElement, runtime: CanvasRuntime): () => void;
@@ -60,10 +72,14 @@ export class CanvasRuntime {
   private readonly relinquishedDeclarations = new Map<string, ReturnType<DeclarationOwnership["restore"]>>();
   private readonly ownership = new Map<string, { lease: ReturnType<typeof prepareAnimation>; base: Transform; compiled?: CompiledAnimation; check?(): void; restore?(): void; resources?(): number }>();
   private readonly motions = new Map<string, { source: Animation; handle: MotionHandle }>();
-  private readonly transitions = new Map<string, { finish(status: TransitionResult["status"], reason: string, transferred?: boolean): void; lease: DeclarationOwnership; start: number; end: number }>();
+  private readonly transitions = new Map<string, { finish(status: TransitionResult["status"], reason: string, transferred?: boolean): void; pause(): void; resume(): void; lease: DeclarationOwnership; start: number; end: number }>();
   private clockFrame = 0;
   private clockTime: number | undefined;
   private readonly effects = new Map<string, { values: EffectDescriptor[]; finish(result: EffectResult): void }>();
+  /** Last React-supplied transform per Surface, and one supplied while motion owned the layer. */
+  private readonly reactTransforms = new Map<string, Transform>();
+  private readonly deferredTransforms = new Map<string, Transform>();
+  private reconcileQueued = false;
   private readonly environment = { visible: !document.hidden, reducedMotion: this.reduced.matches, forcedColors: this.forced.matches };
   private readonly resources = { mutationObservers: 1, resizeObservers: 1, environmentListeners: 0, controllerFrames: 0, visibilityWaiters: 0, enrolledLayers: 0, animationOwners: 0, decorativeEffects: 0, nativeMotions: 0, declarativeMotions: 0, readmissionFrames: 0 };
 
@@ -85,15 +101,17 @@ export class CanvasRuntime {
       || !Number.isInteger(budget.pixels) || budget.pixels < 1)) throw new Error("Invalid layer/pixel budgets; layer limit is 1..8");
     this.mutation = new MutationObserver(records => {
       if (this.stopped) return;
+      this.invalidatePolicy();
       for (const record of records) {
         const target = record.target instanceof Element ? record.target : record.target.parentElement;
         if (target && this.rootContainer?.contains(target)) this.core?.invalidate(target);
       }
-      this.reconcile();
+      this.requestReconcile();
       this.checkPolicy();
     });
     this.resize = new ResizeObserver(() => {
       if (this.stopped || !this.core) return;
+      this.invalidatePolicy();
       this.reconcile();
       this.checkPolicy();
     });
@@ -131,7 +149,6 @@ export class CanvasRuntime {
         isMoving: () => this.moving,
         onInterrupt: () => this.cancelMotion(),
         onRecovery: reason => this.recovered(reason),
-        comparePixels: true,
       });
     } catch (error) {
       this.mutation.disconnect();
@@ -152,12 +169,15 @@ export class CanvasRuntime {
       }
       if (!this.environment.visible) this.core?.pause();
       if (!this.environment.visible) this.stopClock();
-      if (!this.environment.visible) this.cancelTransitions("Document hidden");
+      // Hidden documents pause declarative motion; returning resumes it from the same progress.
+      if (!this.environment.visible) for (const transition of this.transitions.values()) transition.pause();
       if (this.environment.visible) {
         for (const waiter of this.visibilityWaiters) waiter.resolve();
         this.visibilityWaiters.clear();
         this.resources.visibilityWaiters = 0;
+        this.invalidatePolicy();
         this.core?.resume();
+        for (const transition of [...this.transitions.values()]) transition.resume();
         this.requestDraw();
         this.startClock();
         this.scheduleReadmission();
@@ -184,10 +204,16 @@ export class CanvasRuntime {
       this.requestDraw();
     });
     this.listen(window, "resize", () => {
+      this.invalidatePolicy();
       this.reconcile();
     });
-    this.listen(this.core.container, "scroll", event => this.nativeScroll(event), true);
+    // Structural policy is cached; these events can change its inputs without a DOM mutation.
+    for (const type of ["animationstart", "animationcancel", "animationend", "transitionrun", "transitioncancel", "transitionend", "input", "focusin", "focusout"]) {
+      this.listen(this.core.container, type, () => this.invalidatePolicy(), true);
+    }
+    this.listen(this.core.container, "scroll", event => { this.invalidatePolicy(); this.nativeScroll(event); }, true);
     this.listen(document, "scroll", event => {
+      this.invalidatePolicy();
       const target = event.target;
       if (this.core?.phase() === "gpu" && (target === document
         || target === this.options.outputCanvas || target instanceof HTMLElement && this.externalAncestors.has(target))) {
@@ -347,6 +373,7 @@ export class CanvasRuntime {
     return geometry?.own ? intersectViewport(local, geometry.own) : local;
   }
   private presentation(mode: "dom" | "gpu", releaseOwnership = false) {
+    this.invalidatePolicy();
     const restored = new Map<string, ReturnType<DeclarationOwnership["restore"]>>();
     const owned = new Set(this.ownership.keys());
     if (mode === "dom") {
@@ -383,24 +410,22 @@ export class CanvasRuntime {
         : { status: "fallback", reason: "Ordinary DOM uses static original decoration" });
     }
   }
+  /**
+   * Presentation-contract check, called on every drawn frame. Ownership and
+   * transform-dependent geometry are checked on every call; DOM/style-derived
+   * structure is cached until a mutation, resize, scroll, animation, input or
+   * membership event invalidates it, so steady GPU frames do not force style reads.
+   */
   private policy(): string | undefined {
-    const { width, height } = this.size();
     for (const layer of this.registry.values()) {
-      const nativeBoundary = '[contenteditable]:not([contenteditable="false" i]), dialog, [popover]';
-      if (layer.element.isContentEditable || layer.element.matches(nativeBoundary) || layer.element.querySelector(nativeBoundary)) {
-        return "Editable/top-layer boundaries require DOM or the explicit NativeOverlay boundary";
-      }
       try { const owner = this.ownership.get(layer.id); owner?.check?.(); owner?.lease.check(); this.transitions.get(layer.id)?.lease.check(); this.gpuDeclarations.get(layer.id)?.check(); }
       catch (error) { return `CSS ownership validation failed: ${String(error)}`; }
-      if (this.effects.has(layer.id) && !decorative(layer.element)) return `Effects are decorative/inert only: ${layer.id}; ordinary DOM required`;
-      if (layer.element.getAnimations({ subtree: true }).length) return `Unowned/overlapping CSS/WAAPI animation requires explicit adapter: ${layer.id}`;
-      if (!layer.element.isConnected) return `Detached enrolled layer: ${layer.id}`;
-      if (layer.layout.width === 0 || layer.layout.height === 0 || !layer.element.offsetWidth || !layer.element.offsetHeight) return `Zero-sized layer: ${layer.id}`;
-      const layerStyle = getComputedStyle(layer.element);
-      if ((layer.element.scrollWidth > layer.element.clientWidth || layer.element.scrollHeight > layer.element.clientHeight)
-        && layerStyle.overflowX === "visible" && layerStyle.overflowY === "visible") {
-        return `Content extends beyond enrolled capture bounds: ${layer.id}; ordinary DOM required`;
-      }
+    }
+    const phase = this.core?.phase();
+    if (!this.structuralPolicy || this.structuralPolicy.phase !== phase) this.structuralPolicy = { phase, reason: this.structuralViolation() };
+    if (this.structuralPolicy.reason) return this.structuralPolicy.reason;
+    const { width, height } = this.size();
+    for (const layer of this.registry.values()) {
       const matrix = affine(layer.transform, this.origin(layer));
       let viewport: ViewportRect | undefined;
       try { viewport = this.viewportClip(layer); }
@@ -410,12 +435,37 @@ export class CanvasRuntime {
         const p = point(matrix, { x: x!, y: y! });
         return p.x < 0 || p.y < 0 || p.x > width || p.y > height;
       })) return `Transformed layer requires unsupported outer clipping: ${layer.id}`;
+    }
+    return undefined;
+  }
+  private structuralPolicy: { phase: string | undefined; reason: string | undefined } | undefined;
+  private invalidatePolicy() { this.structuralPolicy = undefined; }
+  private structuralViolation(): string | undefined {
+    const phase = this.core?.phase();
+    const nativeBoundary = '[contenteditable]:not([contenteditable="false" i]), dialog, [popover]';
+    const sources = new Set<Animation>([...this.motions.values()].map(motion => motion.source));
+    for (const layer of this.registry.values()) {
+      if (layer.element.isContentEditable || layer.element.matches(nativeBoundary) || layer.element.querySelector(nativeBoundary)) {
+        return "Editable/top-layer boundaries require DOM or the explicit NativeOverlay boundary";
+      }
+      if (this.effects.has(layer.id) && !decorative(layer.element)) return `Effects are decorative/inert only: ${layer.id}; ordinary DOM required`;
+      // Descendant animations repaint native content and are captured by the paint
+      // event; only animations of the boundary's own GPU-owned presentation conflict.
+      if (layer.element.getAnimations().some(animation => !sources.has(animation) && animatesPresentation(animation))) {
+        return `Unowned/overlapping CSS/WAAPI animation requires explicit adapter: ${layer.id}`;
+      }
+      if (!layer.element.isConnected) return `Detached enrolled layer: ${layer.id}`;
+      if (layer.layout.width === 0 || layer.layout.height === 0 || !layer.element.offsetWidth || !layer.element.offsetHeight) return `Zero-sized layer: ${layer.id}`;
       const style = getComputedStyle(layer.element);
-      if (layer.preserveStyles && !this.ownership.has(layer.id) && !this.transitions.has(layer.id) && this.core?.phase() === "dom"
+      if ((layer.element.scrollWidth > layer.element.clientWidth || layer.element.scrollHeight > layer.element.clientHeight)
+        && style.overflowX === "visible" && style.overflowY === "visible") {
+        return `Content extends beyond enrolled capture bounds: ${layer.id}; ordinary DOM required`;
+      }
+      if (layer.preserveStyles && !this.ownership.has(layer.id) && !this.transitions.has(layer.id) && phase === "dom"
         && (style.transform !== "none" || style.opacity !== "1" || style.translate !== "none" || style.rotate !== "none" || style.scale !== "none")) {
         return `Existing presentation needs explicit animation ownership or neutral styles: ${layer.id}`;
       }
-      if ((this.core?.phase() === "gpu" || this.core?.phase() === "admitting")
+      if ((phase === "gpu" || phase === "admitting")
         && (style.transform !== "none" || style.opacity !== "1" || style.transformOrigin !== "0px 0px"
           || style.translate !== "none" || style.rotate !== "none" || style.scale !== "none")) {
         return `Exclusive GPU presentation declarations were changed: ${layer.id}; ordinary DOM required`;
@@ -450,7 +500,7 @@ export class CanvasRuntime {
     if (this.stopped || !this.core) return;
     void this.core.recover(reason).catch(error => {
       console.error("CanvasSPA recovery failed", error);
-      this.options.onStatus(`CanvasSPA recovery failed: ${String(error)}`);
+      this.options.onStatus?.(`CanvasSPA recovery failed: ${String(error)}`);
     });
   }
   private listen(target: EventTarget, name: string, callback: EventListener, capture = false) {
@@ -485,6 +535,8 @@ export class CanvasRuntime {
     if (!definition.id || this.registry.has(definition.id)) throw new Error(`Duplicate/empty Surface id: ${definition.id}`);
     if (definition.preserveStyles && definition.element.parentElement !== this.rootContainer) throw new Error("Trusted existing-CSS enrollment must be a direct persistent-root child");
     this.registry.set(definition.id, definition);
+    this.reactTransforms.set(definition.id, { ...definition.transform });
+    this.invalidatePolicy();
     this.resources.enrolledLayers++;
     this.revision++;
     this.resize.observe(definition.element);
@@ -507,6 +559,9 @@ export class CanvasRuntime {
       }
       this.resize.unobserve(definition.element);
       this.registry.delete(definition.id);
+      this.invalidatePolicy();
+      this.deferredTransforms.delete(definition.id);
+      this.reactTransforms.delete(definition.id);
       this.relinquishedDeclarations.delete(definition.id);
       this.cancelNativeMotion(definition.id);
       this.resources.enrolledLayers--;
@@ -544,16 +599,27 @@ export class CanvasRuntime {
       }
     };
   }
+  /**
+   * React-driven layout/transform update. While declarative motion or animation
+   * ownership drives the transform, the React value becomes the resting
+   * transform applied when that motion ends, instead of throwing inside a commit.
+   */
   update(id: string, layout: Layout, transform: Transform) {
     this.assertLive();
     const layer = this.registry.get(id);
     if (!layer) throw new Error(`Unknown Surface: ${id}`);
-    if (this.transitions.has(id)) throw new Error("React transform change conflicts with declarative motion; cancel first");
-    if (this.ownership.has(id) && JSON.stringify(transform) !== JSON.stringify(this.ownership.get(id)!.base)) throw new Error("React transform change conflicts with animation ownership; release first");
     affine(transform, this.origin(layer));
-    if (JSON.stringify(layer.transform) !== JSON.stringify(transform)) this.relinquishedDeclarations.delete(id);
+    const owner = this.ownership.get(id);
+    const supplied = JSON.stringify(transform) !== JSON.stringify(this.reactTransforms.get(id) ?? {});
+    this.reactTransforms.set(id, { ...transform });
+    if (this.transitions.has(id)) { if (supplied) this.deferredTransforms.set(id, { ...transform }); }
+    else if (owner) { if (supplied) owner.base = { ...transform }; }
+    else {
+      if (JSON.stringify(layer.transform) !== JSON.stringify(transform)) this.relinquishedDeclarations.delete(id);
+      layer.transform = { ...transform };
+    }
     layer.layout = layout;
-    if (!this.ownership.has(id)) layer.transform = { ...transform };
+    this.invalidatePolicy();
     this.reconcile();
     this.checkPolicy();
     if (this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") this.presentation("dom");
@@ -579,6 +645,19 @@ export class CanvasRuntime {
       this.drawFrame = 0;
       this.resources.controllerFrames--;
       try { this.core?.draw(); } catch (error) { this.recover(`Geometry/draw failure: ${String(error)}`); }
+    });
+  }
+  /**
+   * Coalesces reconciliation requests from one React commit (host, every Surface
+   * and every enrolled ref) into a single reconcile in a microtask, which still
+   * runs before the browser renders or dispatches the next input event.
+   */
+  requestReconcile() {
+    if (this.reconcileQueued || this.stopped) return;
+    this.reconcileQueued = true;
+    queueMicrotask(() => {
+      this.reconcileQueued = false;
+      this.reconcile();
     });
   }
   reconcile() {
@@ -623,9 +702,17 @@ export class CanvasRuntime {
     this.visibilityWaiters.clear();
     this.resources.visibilityWaiters = 0;
   }
-  async animate(id: string, target: Transform, frames = 300) {
+  /**
+   * GPU-only motion toward `target`. A number steps a fixed count of displayed
+   * frames (refresh-rate dependent; kept for deterministic measurement); prefer
+   * `{ duration }` in milliseconds, which interpolates by elapsed time.
+   */
+  async animate(id: string, target: Transform, length: number | { duration: number } = 300) {
     this.assertLive();
     affine(target);
+    const duration = typeof length === "object" ? length.duration : undefined;
+    if (duration !== undefined && (!Number.isFinite(duration) || duration <= 0 || duration > 60000)) throw new Error("Motion duration requires (0, 60000] ms");
+    const frames = typeof length === "number" ? length : 10000;
     if (!Number.isInteger(frames) || frames < 1 || frames > 10000) throw new Error("Motion requires 1..10000 frames");
     await this.settle();
     if (this.moving || this.renderer().phase() !== "gpu" || this.reduced.matches) throw new Error("Motion requires idle GPU mode and no reduced-motion preference");
@@ -636,28 +723,36 @@ export class CanvasRuntime {
     const version = this.renderer().version();
     const before = this.state();
     this.moving = true;
+    let elapsed = 0, previous: number | undefined;
     try {
       for (let index = 1; index <= frames; index++) {
-        if (!this.environment.visible) await new Promise<void>((resolve, reject) => {
-          this.visibilityWaiters.add({ resolve, reject });
-          this.resources.visibilityWaiters++;
-        });
-        await new Promise<void>((resolve, reject) => {
+        if (!this.environment.visible) {
+          await new Promise<void>((resolve, reject) => {
+            this.visibilityWaiters.add({ resolve, reject });
+            this.resources.visibilityWaiters++;
+          });
+          previous = undefined;
+        }
+        const now = await new Promise<number>((resolve, reject) => {
           this.resources.controllerFrames++;
-          const frame = requestAnimationFrame(() => {
+          const frame = requestAnimationFrame(time => {
             this.motionFrame = undefined;
             this.resources.controllerFrames--;
-            resolve();
+            resolve(time);
           });
           this.motionFrame = { id: frame, reject };
         });
         if (!this.environment.visible) { index--; continue; }
         if (this.renderer().phase() !== "gpu" || version !== this.renderer().version() || this.reduced.matches) throw new Error("Motion interrupted by renderer/media generation");
+        // Hidden time is excluded: elapsed only advances between consecutive visible frames.
+        if (previous !== undefined) elapsed += Math.min(100, now - previous);
+        previous = now;
+        const progress = duration === undefined ? index / frames : Math.min(1, elapsed / duration);
         const next = { ...start };
         for (const key of ["x", "y", "scaleX", "scaleY", "rotation", "opacity"] as const) {
           if (target[key] !== undefined) {
             const from = start[key] ?? (key === "scaleX" || key === "scaleY" || key === "opacity" ? 1 : 0);
-            next[key] = from + (target[key]! - from) * index / frames;
+            next[key] = from + (target[key]! - from) * progress;
           }
         }
         affine(next);
@@ -665,13 +760,15 @@ export class CanvasRuntime {
         const policy = this.policy();
         if (policy) { await this.renderer().recover(policy); throw new Error(policy); }
         this.renderer().draw();
+        if (progress >= 1) break;
       }
     } finally { this.moving = false; this.scheduleReadmission(); }
     return { before, after: this.state() };
   }
   async enable() {
-    this.refreshViewportGeometry();
     this.assertLive();
+    this.refreshViewportGeometry();
+    this.invalidatePolicy();
     const epoch = ++this.admissionEpoch;
     this.admissionIntent = "enabled";
     this.readmissionPending = false;
@@ -718,6 +815,7 @@ export class CanvasRuntime {
       }
     }
     this.ownership.clear();
+    this.invalidatePolicy();
     this.resources.animationOwners = 0;
     for (const id of this.motions.keys()) if (!this.registry.has(id)) this.cancelNativeMotion(id);
     if (errors.length) throw new AggregateError(errors, "Animation ownership restoration failed");
@@ -727,6 +825,7 @@ export class CanvasRuntime {
     if (!motion) return;
     motion.source.cancel();
     this.motions.delete(id);
+    this.invalidatePolicy();
     this.resources.nativeMotions--;
   }
   createMotion(id: string, descriptor: MotionDescriptor): MotionHandle {
@@ -777,6 +876,7 @@ export class CanvasRuntime {
       },
     };
     this.motions.set(id, { source, handle });
+    this.invalidatePolicy();
     this.resources.nativeMotions++;
     return handle;
   }
@@ -865,22 +965,46 @@ export class CanvasRuntime {
       return transform;
     };
     const apply = (time: number) => { layer.transform = sample(time); this.requestDraw(); };
+    const settleTransform = () => {
+      // A transform React supplied during the motion becomes the resting state.
+      const deferred = this.deferredTransforms.get(id);
+      if (!deferred) return;
+      this.deferredTransforms.delete(id);
+      layer.transform = deferred;
+      if (this.core?.phase() === "dom" && !layer.preserveStyles) this.presentation("dom");
+    };
     const finish = (status: TransitionResult["status"], reason: string, transferred = false) => {
       if (done) return;
       if (status === "completed") apply(compiled.timeline.end);
       done = true;
       if (frame) { cancelAnimationFrame(frame); frame = 0; this.resources.controllerFrames--; }
       this.transitions.delete(id);
+      this.invalidatePolicy();
       this.resources.declarativeMotions--;
       if (!transferred && (status === "cancelled" || layer.preserveStyles || this.core?.phase() !== "dom")) lease.restore();
       if (status === "cancelled" && !transferred) layer.transform = base;
+      if (!transferred) settleTransform();
       this.requestDraw();
       resolve({ status, reason });
+    };
+    let pausedAt: number | undefined;
+    const pause = () => {
+      if (done || pausedAt !== undefined) return;
+      pausedAt = performance.now();
+      if (frame) { cancelAnimationFrame(frame); frame = 0; this.resources.controllerFrames--; }
+    };
+    const resume = () => {
+      if (done || pausedAt === undefined) return;
+      start += performance.now() - pausedAt;
+      pausedAt = undefined;
+      const entry = this.transitions.get(id);
+      if (entry) entry.start = start;
+      if (!frame) schedule();
     };
     const tick = () => {
       frame = 0; this.resources.controllerFrames--;
       try {
-        if (!this.environment.visible) { finish("cancelled", "Document hidden"); return; }
+        if (!this.environment.visible) { pause(); return; }
         const elapsed = performance.now() - start;
         apply(Math.min(elapsed, compiled.timeline.end));
         const policy = this.policy();
@@ -902,15 +1026,18 @@ export class CanvasRuntime {
       commit: (): TransitionHandle => {
         prior?.finish("cancelled", "Replaced", true);
         layer.transform = initial;
-        this.transitions.set(id, { finish, lease, start, end: compiled.timeline.end });
+        this.transitions.set(id, { finish, pause, resume, lease, start, end: compiled.timeline.end });
+        this.invalidatePolicy();
         this.resources.declarativeMotions++;
         if (reduced) {
           done = true;
           this.transitions.delete(id);
           this.resources.declarativeMotions--;
           if (layer.preserveStyles || this.core?.phase() !== "dom") lease.restore();
+          settleTransform();
           resolve({ status: "completed", reason: "Reduced motion" });
-        } else schedule();
+        } else if (this.environment.visible) schedule();
+        else pausedAt = performance.now();
         this.requestDraw();
         return { finished, cancel: () => finish("cancelled", "Cancelled") };
       },
@@ -962,6 +1089,7 @@ export class CanvasRuntime {
     }, compiled);
     lease.acquire();
     this.ownership.set(id, { lease, base, check, restore, resources, compiled });
+    this.invalidatePolicy();
     this.resources.animationOwners++;
     return lease.playback;
   }
@@ -1018,12 +1146,13 @@ export class CanvasRuntime {
     const entry = { values, finish: (result: EffectResult) => {
       if (!active) return;
       active = false;
-      if (this.effects.get(id) === entry) { this.effects.delete(id); this.resources.decorativeEffects--; }
+      if (this.effects.get(id) === entry) { this.effects.delete(id); this.resources.decorativeEffects--; this.invalidatePolicy(); }
       resolve(result);
       this.stopClock(); this.requestDraw(); this.startClock();
     } };
     this.effects.get(id)?.finish({ status: "replaced", reason: "Validated successor acquired ownership" });
     this.effects.set(id, entry);
+    this.invalidatePolicy();
     this.resources.decorativeEffects++;
     this.stopClock();
     this.requestDraw();

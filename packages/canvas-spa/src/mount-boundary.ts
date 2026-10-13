@@ -1,5 +1,6 @@
 export interface MountBoundaryOptions {
-  captureHost: HTMLCanvasElement;
+  /** @deprecated Unused: native capture happens on `outputCanvas`. Accepted for compatibility and removed on dispose. */
+  captureHost?: HTMLCanvasElement;
   outputCanvas: HTMLCanvasElement;
   ordinaryHost: HTMLElement;
   mount(container: HTMLDivElement): () => void;
@@ -10,14 +11,14 @@ export function createMountBoundary(options: MountBoundaryOptions) {
   const document = ordinaryHost.ownerDocument;
   function validateDestinations() {
     if (captureHost === outputCanvas || ordinaryHost === captureHost || ordinaryHost === outputCanvas
-      || [captureHost, outputCanvas, ordinaryHost].some(node => node.ownerDocument !== document || !node.isConnected)
-      || !ordinaryHost.parentElement || captureHost.parentElement !== ordinaryHost.parentElement
+      || [captureHost ?? outputCanvas, outputCanvas, ordinaryHost].some(node => node.ownerDocument !== document || !node.isConnected)
+      || !ordinaryHost.parentElement || captureHost && captureHost.parentElement !== ordinaryHost.parentElement
       || outputCanvas.parentElement !== ordinaryHost.parentElement) {
       throw new Error("Mount boundary requires distinct connected same-document sibling hosts");
     }
   }
   validateDestinations();
-  if (ordinaryHost.childNodes.length || captureHost.childNodes.length || outputCanvas.childNodes.length) {
+  if (ordinaryHost.childNodes.length || captureHost?.childNodes.length || outputCanvas.childNodes.length) {
     throw new Error("Mount boundary requires empty adapter-owned hosts");
   }
   const container = document.createElement("div");

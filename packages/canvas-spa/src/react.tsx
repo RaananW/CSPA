@@ -10,7 +10,7 @@ import type { MotionDescriptor, TransitionResult } from "./motion.js";
 const Context = createContext<CanvasRuntime | null>(null);
 
 export function GPUHost({ runtime, children }: { runtime: CanvasRuntime; children: ReactNode }) {
-  useLayoutEffect(() => runtime.reconcile());
+  useLayoutEffect(() => runtime.requestReconcile());
   return <Context.Provider value={runtime}>{children}</Context.Provider>;
 }
 function useRuntime() {
@@ -44,7 +44,7 @@ export function useSurfaceRef<T extends HTMLElement = HTMLElement>({ id, decorat
     if (attached.current && !release.current) release.current = runtime.enroll(attached.current, { id, decorative });
     return () => { release.current?.(); release.current = undefined; };
   }, [runtime, id, decorative]);
-  useLayoutEffect(() => runtime.reconcile());
+  useLayoutEffect(() => runtime.requestReconcile());
   return ref;
 }
 export interface PresenceProps {
@@ -65,7 +65,8 @@ export function Presence({ id, present, enter, exit, children, onComplete }: Pre
   const completion = useRef(onComplete);
   completion.current = onComplete;
   const enterKey = JSON.stringify(enter), exitKey = JSON.stringify(exit);
-  useEffect(() => {
+  // Layout effect: the enter sample is applied before the newly retained children first paint.
+  useLayoutEffect(() => {
     if (previous.current !== present) pending.current = true;
     if (!pending.current) return;
     previous.current = present;
@@ -101,7 +102,7 @@ export function Surface({ id, layout = {}, appearance = {}, transform = {}, deco
   useLayoutEffect(() => { element.current!.inert = decorative || inert; }, [decorative, inert]);
   useLayoutEffect(() => runtime.register({ id, element: element.current!, layout, transform: { ...transform }, decorative }), [runtime, id, decorative]);
   useLayoutEffect(() => runtime.update(id, layout, transform), [runtime, id, layoutKey, transformKey]);
-  useLayoutEffect(() => runtime.reconcile());
+  useLayoutEffect(() => runtime.requestReconcile());
   return <section {...attributes} aria-hidden={decorative ? true : attributes["aria-hidden"]}
     ref={element} id={id} {...{ drawable: "" }} style={{
     ...compileStyle(layout, appearance, true), transformOrigin: "0 0",

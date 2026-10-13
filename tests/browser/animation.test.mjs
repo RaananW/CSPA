@@ -205,7 +205,7 @@ for (const example of ["css", "typed"]) test(`transactional ${example} source, d
   await page.locator("#counter").click();
   await expect(page.locator("#counter")).toHaveText("Count 1");
   await page.locator("label").click();
-  await page.keyboard.press("Meta+a");
+  await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type("same-native");
   await page.keyboard.press("Enter");
   await expect(page.locator("#saved")).toHaveText("same-native");
@@ -250,7 +250,8 @@ test("unsupported and precedence/conflicting source rejection is atomic", async 
       if (fault === "stylesheet-import" || fault === "stylesheet-scope") {
         const style = document.createElement("style");
         style.textContent = fault === "stylesheet-import"
-          ? '@import url("data:text/css,body%20%7B%20color%3A%20black%3B%20%7D");'
+          // An imported sheet is inspected (or, if unreadable, caught by computed-style verification).
+          ? `@import url("data:text/css,${encodeURIComponent(`#${element.id} { opacity: 1 !important; }`)}");`
           : `@scope (body) { #${element.id} { opacity: 1 !important; } }`;
         document.head.append(style);
       }

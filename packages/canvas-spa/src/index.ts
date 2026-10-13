@@ -1,6 +1,8 @@
 /// <reference types="@types/webxr" preserve="true" />
 export { GPUHost, Surface, Box, NativeScroll, NativeOverlay, Presence, useSurfaceRef, useNativeOverlayHost, useGPUHost, mountCanvasApp } from "./react.js";
 export type { SurfaceProps, BoxProps, PresenceProps, MountCanvasOptions, CanvasController } from "./react.js";
+export { createCanvasHosts } from "./hosts.js";
+export type { CanvasHosts } from "./hosts.js";
 export { EnrollmentError } from "./enrollment.js";
 export type { EnrollmentOptions, EnrollmentErrorCode } from "./enrollment.js";
 export type { Transform, Affine, Point } from "./affine.js";
@@ -8,6 +10,7 @@ export type { Layout, Appearance } from "./compiler.js";
 export { mountApplicationModule } from "./module.js";
 export type { LocalApplicationModule } from "./module.js";
 export type { AdmissionPolicy, LayerDefinition, RuntimeOptions } from "./runtime.js";
+export type { RendererStatus as CanvasStatus } from "./renderer.js";
 export type { AnimationPlayback } from "./animation.js";
 export type { CSSAnimationSource } from "./css-animation.js";
 export type { CompiledAnimation, CompiledProgramSet } from "./compiled.js";

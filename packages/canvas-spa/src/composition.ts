@@ -8,7 +8,7 @@ interface CompositeLayer {
   matrix(): DOMMatrix;
   clip?(matrix?: DOMMatrixReadOnly): { x: number; y: number; width: number; height: number } | undefined;
   opacity(): number;
-  canvas: HTMLCanvasElement;
+  extent: { width: number; height: number };
   contentExtent?: { width: number; height: number; pixelWidth: number; pixelHeight: number };
   ripple?(): Ripple | undefined;
   effects?(): readonly EffectDescriptor[];
@@ -26,12 +26,12 @@ export function compositionUniforms(layers: CompositeLayer[], dpr: number, shift
     const matrix = new DOMMatrix().translate(shift, 0).multiply(base);
     validateGeometry(matrix);
     const inverse = matrix.inverse();
-    const content = layer.contentExtent ?? { width: layer.canvas.width, height: layer.canvas.height,
-      pixelWidth: layer.canvas.width, pixelHeight: layer.canvas.height };
+    const content = layer.contentExtent ?? { width: layer.extent.width, height: layer.extent.height,
+      pixelWidth: layer.extent.width, pixelHeight: layer.extent.height };
     values.set([
       inverse.a, inverse.c, inverse.e, content.pixelWidth / Math.max(1, content.width),
       inverse.b, inverse.d, inverse.f, content.pixelHeight / Math.max(1, content.height),
-      layer.canvas.width, layer.canvas.height, motion ? 1 : layer.opacity(), custom.indexOf(layer.effects?.().find(value => value.kind === "custom")?.definition),
+      layer.extent.width, layer.extent.height, motion ? 1 : layer.opacity(), custom.indexOf(layer.effects?.().find(value => value.kind === "custom")?.definition),
       layer.ripple?.()?.amplitude ?? 0, (layer.ripple?.()?.seconds ?? 0) % 1000, content.pixelWidth, content.pixelHeight,
     ], 4 + index * 44);
     values.set(effectUniforms(layer.effectsEnabled?.() === false ? [] : layer.effects?.()), 20 + index * 44);

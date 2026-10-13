@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, version } from "react";
 import { createRoot } from "react-dom/client";
 import { version as reactDOMVersion } from "react-dom";
-import { mountCanvasApp, type CanvasController } from "canvas-spa-phase-one";
+import { createCanvasHosts, mountCanvasApp, type CanvasController } from "canvas-spa-phase-one";
 import { Demo } from "./demos";
 import { examples, route, searchExamples, type ExampleId } from "./catalog";
 import "./style.css";
@@ -22,18 +22,11 @@ function App() {
   const current = examples.find(example => example.id === selected)!;
   useEffect(() => {
     const host = frame.current!;
-    const captureHost = document.createElement("canvas"), outputCanvas = document.createElement("canvas");
-    const ordinaryHost = document.createElement("div"), overlayHost = document.createElement("div");
-    captureHost.className = "capture"; outputCanvas.className = "output"; ordinaryHost.className = "ordinary";
-    overlayHost.className = "overlay"; captureHost.hidden = outputCanvas.hidden = true;
-    outputCanvas.setAttribute("aria-hidden", "true");
-    host.append(captureHost, outputCanvas, ordinaryHost, overlayHost);
-    const app = mountCanvasApp({ captureHost, outputCanvas, ordinaryHost, overlayHost, admissionPolicy: "automatic",
-      onStatus(message) {
-        const status = message.startsWith("{") ? JSON.parse(message) : undefined;
-        setDiagnostic(status?.reason ?? message);
-        if (status?.mode) setMode(status.mode);
-      } }, <Demo id={route(location.hash)} onReady={ready} />);
+    // The output canvas must not be aria-hidden: GPU mode moves the original controls inside it.
+    const { outputCanvas, ordinaryHost, overlayHost } = createCanvasHosts(host);
+    outputCanvas.className = "output"; ordinaryHost.className = "ordinary"; overlayHost.className = "overlay";
+    const app = mountCanvasApp({ outputCanvas, ordinaryHost, overlayHost,
+      onStatusChange(status) { setDiagnostic(status.reason); setMode(status.mode); } }, <Demo id={route(location.hash)} onReady={ready} />);
     controller.current = app;
     const navigate = () => {
       if (retired.current) return;
