@@ -495,6 +495,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         && layer.texture.texture.width >= extent.pixelWidth && layer.texture.texture.height >= extent.pixelHeight);
       const layout = { width: extent.width, height: extent.height };
       if (retained) return { ...retained, ...spec, extent: layout };
+      // Nearest taps: the composition shader filters bilinearly in premultiplied space.
       const texture = createDynamicTexture(engine!, extent.pixelWidth, extent.pixelHeight, { minFilter: "nearest", magFilter: "nearest" });
       textures.add(texture); resources.textures++;
       return { ...spec, extent: layout, texture,

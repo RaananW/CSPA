@@ -67,7 +67,16 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
       }` : ""}
       let extent = state[${3 + index * 11}].xy;
       let clip = state[${11 + index * 11}];
-      if (all(local >= vec2f(0.0)) && all(local < extent) && all(local >= clip.xy) && all(local < clip.xy + clip.zw)) {
+      // Analytic edge coverage: distance (in output pixels) from the pixel centre to the
+      // nearest layer/clip edge. Axis-aligned layers on the pixel grid get exactly 0 or 1,
+      // so untransformed output is unchanged; rotated/scaled edges are antialiased.
+      let low = max(vec2f(0.0), clip.xy);
+      let high = min(extent, clip.xy + clip.zw);
+      // Layer units per output pixel along each local axis (exact for affine maps).
+      let footprint = max(vec2f(length(vec2f(dpdx(local.x), dpdy(local.x))), length(vec2f(dpdx(local.y), dpdy(local.y)))), vec2f(1e-6));
+      let inside = min(local - low, high - local) / footprint;
+      let coverage = clamp(min(inside.x, inside.y) + 0.5, 0.0, 1.0);
+      if (coverage > 0.0) {
         let wave = state[${4 + index * 11}];
         var redAt = warp(local, extent, wave.x, wave.y);
         var greenAt = redAt;
@@ -88,10 +97,9 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
         }
         let grid = vec2f(state[${1 + index * 11}].w, state[${2 + index * 11}].w);
         let captured = wave.zw;
-        let dimensions = vec2f(textureDimensions(layer${index}));
-        let red = textureSampleLevel(layer${index}, sampler${index}, bounded(redAt * grid, captured) / dimensions, 0.0);
-        let green = textureSampleLevel(layer${index}, sampler${index}, bounded(greenAt * grid, captured) / dimensions, 0.0);
-        let blue = textureSampleLevel(layer${index}, sampler${index}, bounded(blueAt * grid, captured) / dimensions, 0.0);
+        let red = filtered(layer${index}, sampler${index}, redAt * grid, captured);
+        let green = filtered(layer${index}, sampler${index}, greenAt * grid, captured);
+        let blue = filtered(layer${index}, sampler${index}, blueAt * grid, captured);
         var sample = vec4f(red.r, green.g, blue.b, green.a);
         for (var operation = 0u; operation < 3u; operation++) {
           let control = state[${5 + index * 11}u + operation * 2u];
@@ -108,7 +116,7 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
         ${decorativeAnimation ? `if (state[${3 + index * 11}].w == 1.0) {
           sample.a *= 1.0 - 0.65 * (1.0 - abs(2.0 * fract(state[0].z / 2.0) - 1.0));
         }` : ""}
-        color = mix(color, sample.rgb, sample.a * state[${3 + index * 11}].z * compiledOpacity);
+        color = mix(color, sample.rgb, sample.a * state[${3 + index * 11}].z * compiledOpacity * coverage);
       }
     }\n`;
   }
@@ -121,7 +129,24 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
         let delta = local - extent * 0.5;
         return local + delta / max(length(delta), 1.0) * sin(length(delta) * 0.18 - seconds * 4.0) * amplitude * edge(local, extent);
       }
-      fn bounded(local: vec2f, extent: vec2f) -> vec2f { return clamp(local, vec2f(0.5), extent - vec2f(0.5)); }
+      fn premultipliedTexel(layer: texture_2d<f32>, tap: sampler, texel: vec2f) -> vec4f {
+        let value = textureSampleLevel(layer, tap, texel / vec2f(textureDimensions(layer)), 0.0);
+        return vec4f(value.rgb * value.a, value.a);
+      }
+      // Bilinear filtering in premultiplied space over the straight-alpha native capture,
+      // so transparent neighbours do not darken antialiased edges. Pixel-aligned samples
+      // have zero fractional weight and return the exact texel.
+      fn filtered(layer: texture_2d<f32>, tap: sampler, texel: vec2f, captured: vec2f) -> vec4f {
+        let position = clamp(texel, vec2f(0.5), captured - vec2f(0.5)) - vec2f(0.5);
+        let base = floor(position);
+        let weight = position - base;
+        let low = base + vec2f(0.5);
+        let high = min(base + vec2f(1.5), max(captured - vec2f(0.5), vec2f(0.5)));
+        let value = mix(
+          mix(premultipliedTexel(layer, tap, low), premultipliedTexel(layer, tap, vec2f(high.x, low.y)), weight.x),
+          mix(premultipliedTexel(layer, tap, vec2f(low.x, high.y)), premultipliedTexel(layer, tap, high), weight.x), weight.y);
+        return select(vec4f(0.0), vec4f(value.rgb / value.a, value.a), value.a > 1e-5);
+      }
       @group(0) @binding(${count * 2}) var<uniform> state: array<vec4f, ${1 + count * (compiledWGSL ? 12 : 11)}>;
       @fragment fn effectFragment(input: EffectVertexOutput) -> @location(0) vec4f {
         let p = input.position.xy / state[0].x;

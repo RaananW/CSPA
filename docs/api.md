@@ -85,6 +85,12 @@ Implementer-verified, not independently accepted.
 - **Transitions:** pause while the document is hidden and resume with the same progress.
 - **Presence:** starts motion in a layout effect.
 - **`animate`:** accepts `{ duration }` (ms); a number is still a frame count.
+- **Rendering quality:** the compositor filters captures bilinearly in premultiplied
+  space and antialiases layer/clip edges analytically. Pixel-aligned, untransformed
+  layers still sample exact texels (verified identical to ordinary DOM at a 50%
+  alpha probe); rotated or scaled layers no longer alias or show dark edge fringes.
+- **DOM-mode rotation:** declarative transitions with rotation no longer cancel in
+  ordinary DOM. GPU viewport-clip geometry is only checked while GPU presents.
 - **`createCanvasHosts(frame)`:** creates the output canvas, ordinary host and overlay host with the required styles. The output canvas is deliberately not `aria-hidden`, because GPU mode moves the original controls inside it.
 - **Stylesheet scan:** `!important` pre-scan skips uninspectable sheets/rules instead of throwing.
 - **Admission:** probe sits in the visible part of the output canvas; fully offscreen is still refused.

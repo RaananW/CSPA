@@ -416,7 +416,7 @@ export class CanvasRuntime {
    * structure is cached until a mutation, resize, scroll, animation, input or
    * membership event invalidates it, so steady GPU frames do not force style reads.
    */
-  private policy(): string | undefined {
+  private policy(gpuGeometry = true): string | undefined {
     for (const layer of this.registry.values()) {
       try { const owner = this.ownership.get(layer.id); owner?.check?.(); owner?.lease.check(); this.transitions.get(layer.id)?.lease.check(); this.gpuDeclarations.get(layer.id)?.check(); }
       catch (error) { return `CSS ownership validation failed: ${String(error)}`; }
@@ -424,6 +424,8 @@ export class CanvasRuntime {
     const phase = this.core?.phase();
     if (!this.structuralPolicy || this.structuralPolicy.phase !== phase) this.structuralPolicy = { phase, reason: this.structuralViolation() };
     if (this.structuralPolicy.reason) return this.structuralPolicy.reason;
+    // GPU clip/extent geometry only constrains GPU presentation; ordinary DOM clips natively.
+    if (!gpuGeometry) return undefined;
     const { width, height } = this.size();
     for (const layer of this.registry.values()) {
       const matrix = affine(layer.transform, this.origin(layer));
@@ -888,7 +890,8 @@ export class CanvasRuntime {
     const state = this.renderer().state();
     const layer = this.registry.get(id);
     if (!layer || state.initializing || state.transitioning || (state.resources.pendingCleanups && state.mode !== "gpu") || state.resources.probeReadbacks
-      || this.moving || this.ownership.has(id) || this.motions.has(id) || layer.element.getAnimations({ subtree: true }).length) {
+      || this.moving || this.ownership.has(id) || this.motions.has(id) || layer.element.getAnimations().some(animatesPresentation)) {
+      // Descendant animations only repaint native content; only boundary presentation animations compete.
       throw new Error("Declarative motion requires an idle enrolled boundary without competing animation owners");
     }
     const prior = this.transitions.get(id);
@@ -1007,7 +1010,7 @@ export class CanvasRuntime {
         if (!this.environment.visible) { pause(); return; }
         const elapsed = performance.now() - start;
         apply(Math.min(elapsed, compiled.timeline.end));
-        const policy = this.policy();
+        const policy = this.policy(this.core?.phase() !== "dom");
         if (policy) { finish("cancelled", policy); this.recover(policy); return; }
         if (elapsed >= compiled.timeline.end) finish("completed", "Finished");
         else schedule();
