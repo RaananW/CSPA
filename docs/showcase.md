@@ -1,10 +1,32 @@
 # Example showcase and GitHub Pages preparation
 
 The private `examples/showcase` npm workspace is a React SPA using the public
-CanvasSPA package. Its catalog opens four live examples in the same app:
-native layers, typed layer motion, a decorative shader and the maintained task
-component reused from `examples/playground`. The engineering playground remains
-separate; raw reports, probes, test evidence and private fixtures are not served.
+CanvasSPA package. Its catalog opens five live examples in the same app. The
+engineering playground remains separate; raw reports, probes, test evidence and
+private fixtures are not served.
+
+| Example | What it shows |
+| --- | --- |
+| `#/layers` Postcard studio | Native text input, textarea and radio swatches/stamps edit a postcard surface live; an outbox surface lists saved cards with native **Reuse** buttons. |
+| `#/motion` Card deck | Deal, Stack, Fan, Shuffle and Spin run one `transitionGroup` with a stagger slider; **Play layer journey** runs one `transition` on `showcase-card`. Poses pivot around card centres (`src/pose.ts`). Like buttons remain native during motion. |
+| `#/effects` Shader lab | Presets, toggles and range sliders build a 1..3 operation `setEffects` chain (ripple, chromatic, dissolve and the custom `defineEffect` WGSL "aurora") on the decorative `showcase-art` layer. |
+| `#/presence` Notification stack | Four stable toast surfaces use `Presence` enter/exit; Dismiss buttons are ordinary React buttons and `onComplete` results are logged. |
+| `#/tasks` Small tasks | The maintained task component reused unchanged from `examples/playground`. |
+
+All examples share a 1040x700 stage. A decorative backdrop and the decorative
+`showcase-art` layer persist across examples (only their layout/content change).
+The art layer always carries the aurora definition, at identity strength unless
+the shader lab asks for more, because custom WGSL is compiled per layer during
+fresh GPU admission; this lets the lab use it even when GPU was enabled on
+another example. After any return to ordinary DOM the chain is re-attached so
+the next explicit admission compiles it again. Browsers without WebGPU skip the
+custom operation silently.
+
+Deck motion, including rotation, runs the same typed transitions in ordinary DOM
+and on the GPU. Rotating surfaces avoid `overflow: hidden` on the enrolled
+element (a clipped GPU layer must stay axis-aligned); clipping happens on
+descendants. Descendant CSS transitions/animations are allowed: they repaint
+native content and do not block declarative motion or revoke GPU.
 
 ```sh
 npm run dev:showcase       # builds the library first; localhost:5190/CSPA/
@@ -19,7 +41,8 @@ directory path ending in `/` for a different project/domain. Hash URLs such as
 `/CSPA/#/motion` load and reload without server rewrite rules. Catalog navigation,
 search and categories stay in the SPA; no iframe capture is used.
 
-The surrounding responsive chrome uses ordinary CSS. Enrolled example surfaces
+The surrounding responsive chrome uses ordinary CSS; its hero motion stops
+under `prefers-reduced-motion`. Enrolled example surfaces
 use typed layout and appearance that compile to browser CSS, not a replacement
 layout engine. The shared compositor retains the original React controls/state.
 The task example reuses its existing authored CSS, original component and
