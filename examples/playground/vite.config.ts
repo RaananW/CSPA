@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = import.meta.dirname;
@@ -12,8 +13,8 @@ export default defineConfig({
   build: {
     outDir: "dist",
     rollupOptions: {
-      input: ["index.html", "probe.html", "recovery.html", "surface.html", "runtime.html", "paired.html", "todo.html", "performance.html", "integration.html", "effects.html"]
-        .map(path => resolve(root, path)),
+      // Every page in the playground root; adding a page needs no edit to a shared list.
+      input: readdirSync(root).filter(name => name.endsWith(".html")).sort().map(name => resolve(root, name)),
     },
   },
 });
