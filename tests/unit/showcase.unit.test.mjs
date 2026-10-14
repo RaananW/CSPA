@@ -50,6 +50,11 @@ test("public output guard fails before an unexpected artifact can be uploaded", 
     await writeFile(join(root, "assets/index-abc.js"), "PRIVATE KEY");
     assert.match(check().stderr, /Private or mapped public asset refused/);
     await writeFile(join(root, "assets/index-abc.js"), "export {}");
+    await writeFile(join(root, "assets/preview-abc.jpg"), Buffer.from([0xff, 0xd8, 0xff, 0xe0]));
+    assert.equal(check().status, 0);
+    await writeFile(join(root, "assets/preview-abc.jpg"), "not an image");
+    assert.match(check().stderr, /Public image is not a JPEG/);
+    await rm(join(root, "assets/preview-abc.jpg"));
     await writeFile(join(root, "assets/private.map"), "{}");
     const rejected = check();
     assert.equal(rejected.status, 1);

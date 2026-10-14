@@ -14,9 +14,15 @@ async function check(path, prefix = "") {
       assert.equal(name, "assets", `Unexpected public directory: ${name}`);
       await check(file, "assets/");
     } else {
-      assert.ok(name === "index.html" || /^assets\/[\w-]+\.(js|css)$/.test(name), `Unexpected public asset: ${name}`);
-      assert.ok(!/\/Users\/|session-state|evidence\/phase|PRIVATE KEY|sourceMappingURL/.test(await readFile(file, "utf8")),
-        `Private or mapped public asset refused: ${name}`);
+      // Hashed JS/CSS plus the JPEG previews of GPU mode shown to browsers that cannot run it.
+      assert.ok(name === "index.html" || /^assets\/[\w-]+\.(js|css|jpg)$/.test(name), `Unexpected public asset: ${name}`);
+      if (name.endsWith(".jpg")) {
+        const bytes = await readFile(file);
+        assert.ok(bytes[0] === 0xff && bytes[1] === 0xd8, `Public image is not a JPEG: ${name}`);
+      } else {
+        assert.ok(!/\/Users\/|session-state|evidence\/phase|PRIVATE KEY|sourceMappingURL/.test(await readFile(file, "utf8")),
+          `Private or mapped public asset refused: ${name}`);
+      }
       count++;
     }
   }
