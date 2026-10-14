@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Presence, Surface, type MotionDescriptor, type TransitionResult } from "@canvas-spa/react";
 import { Panel, useReducedMotion } from "./shared";
-import { useSceneArt } from "./scene";
+import { usePulse, useSceneArt } from "./scene";
 import { toTransform, type Rect } from "./pose";
 
 const SLOT = { width: 278, height: 100 };
@@ -35,6 +35,7 @@ export function NotificationStack() {
   const [log, setLog] = useState<Entry[]>([]);
   const [feedback, setFeedback] = useState("Send a notification. Each one enters and exits with Presence.");
   const serial = useRef(0);
+  const pulse = usePulse();
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   useEffect(() => () => { for (const timer of timers.current) clearTimeout(timer); }, []);
 
@@ -52,6 +53,7 @@ export function NotificationStack() {
       const index = current.findIndex(slot => !slot.notice);
       if (index < 0) return current;
       placed = true;
+      queueMicrotask(() => pulse(4, 900));
       return current.map((slot, position) => position === index ? { notice: { ...notice, serial: ++serial.current }, present: true } : slot);
     });
     return placed;

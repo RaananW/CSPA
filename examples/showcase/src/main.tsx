@@ -136,6 +136,18 @@ function App() {
           <div className="stage-scroll" role="region" aria-label="Live example canvas; scroll horizontally on small screens" tabIndex={0}>
             <div className="stage" ref={frame} /></div>
         </div>
+        <section className="why-gpu" aria-labelledby="why-gpu-heading">
+          <div className="why-col">
+            <p className="eyebrow">WHY THE GPU HERE</p>
+            <h3 id="why-gpu-heading">{current.gpu.headline}</h3>
+            <ul>{current.gpu.points.map(point => <li key={point}>{point}</li>)}</ul>
+            {!gpu && <p className="why-hint">Enable experimental GPU above to see these parts; ordinary DOM shows the same controls without them.</p>}
+          </div>
+          <div className="why-col why-css">
+            <p className="eyebrow">WITH CSS ALONE</p>
+            <p>{current.gpu.css}</p>
+          </div>
+        </section>
         <p className="stage-note">Same original controls in DOM and GPU. On smaller screens, scroll the studio horizontally. No data is sent or stored.</p>
       </section>
       <section className="about" id="about"><p className="eyebrow">AN HONEST EXPERIMENT</p><h2>Progressive presentation, not pretend compatibility.</h2>

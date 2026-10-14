@@ -7,11 +7,18 @@ private fixtures are not served.
 
 | Example | What it shows |
 | --- | --- |
-| `#/layers` Postcard studio | Native text input, textarea and radio swatches/stamps edit a postcard surface live; an outbox surface lists saved cards with native **Reuse** buttons. |
-| `#/motion` Card deck | Deal, Stack, Fan, Shuffle and Spin run one `transitionGroup` with a stagger slider; **Play layer journey** runs one `transition` on `showcase-card`. Poses pivot around card centres (`src/pose.ts`). Like buttons remain native during motion. |
+| `#/layers` Postcard studio | Native text input, textarea and radio swatches/stamps edit a postcard surface live; an outbox surface lists saved cards with native **Reuse** buttons. **Riso print** applies a chromatic channel shift to the landscape artwork. |
+| `#/motion` Card deck | Deal, Stack, Fan, Shuffle and Spin run one `transitionGroup` with a stagger slider; **Play layer journey** runs one `transition` on `showcase-card`. Cards use `origin="center"`. Like buttons remain native during motion. When an arrangement settles the table artwork ripples. |
 | `#/effects` Shader lab | Presets, toggles and range sliders build a 1..3 operation `setEffects` chain (ripple, chromatic, dissolve and the custom `defineEffect` WGSL "aurora") on the decorative `showcase-art` layer. |
-| `#/presence` Notification stack | Four stable toast surfaces use `Presence` enter/exit; Dismiss buttons are ordinary React buttons and `onComplete` results are logged. |
+| `#/presence` Notification stack | Four stable toast surfaces use `Presence` enter/exit; Dismiss buttons are ordinary React buttons and `onComplete` results are logged. Each arrival ripples the phone wallpaper. |
 | `#/tasks` Small tasks | The maintained task component reused unchanged from `examples/playground`. |
+
+Under the stage, a **Why the GPU here** panel (from `src/catalog.ts`) states what the
+GPU path does in that example and, next to it, what CSS alone would do, including where
+CSS would be just as good. Each example has at least one GPU-only part: a per-pixel
+effect on decorative artwork (channel shift, ripple displacement, dissolve or custom
+WGSL), which CSS filters cannot apply to rendered HTML. Ripple pulses (`usePulse` in
+`src/scene.tsx`) only run on the GPU and respect reduced motion.
 
 All examples share a 1040x700 stage. A decorative backdrop and the decorative
 `showcase-art` layer persist across examples (only their layout/content change).
