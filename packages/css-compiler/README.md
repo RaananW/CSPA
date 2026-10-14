@@ -15,7 +15,6 @@ Place `canvas-spa.config.json` in the application root:
   "version": 1,
   "target": "webgpu",
   "unsupported": "error",
-  "maxLayers": 2,
   "entries": [
     {
       "id": "card",
@@ -32,8 +31,9 @@ Use a real exported package stylesheet or an explicit local path such as
 files are never rewritten. A component must expose both usable styles and a
 public ref/enrollment boundary. Packages without those cannot be automatically
 adapted. `schema.json` provides an editor schema; unknown JSON fields (including
-`$schema`) are currently refused. Configuration accepts 1..32 targets and
-1..8 compositor layers.
+`$schema`) are currently refused. Configuration accepts 1..32 targets. The output holds one per-layer compositor
+program that the runtime draws once per layer, so it does not limit the layer
+count; `maxLayers` is still accepted for compatibility and has no effect.
 
 ## Vite
 

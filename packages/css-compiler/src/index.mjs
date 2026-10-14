@@ -138,7 +138,7 @@ export function createCompiler(config) {
       if (animations.length !== expected.length || expected.some(id => !animations.some(animation => animation.id === id))) {
         throw new Error("CanvasSPA: selected styles were not processed by the configured CSS pipeline");
       }
-      return generateModule(animations.sort((a, b) => expected.indexOf(a.id) - expected.indexOf(b.id)), validated.maxLayers);
+      return generateModule(animations.sort((a, b) => expected.indexOf(a.id) - expected.indexOf(b.id)));
     },
     postcss(select) {
       return { postcssPlugin: "canvas-spa-compiler", OnceExit(root, { result }) {

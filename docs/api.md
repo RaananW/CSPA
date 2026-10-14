@@ -74,6 +74,15 @@ or after a hidden-document pause); unchanged layers are not re-uploaded.
 
 ## Changes 2026-10-14
 
+- **Per-layer drawing:** each layer is now its own blended effect pass (one triangle
+  covering its canvas-space bounding box) drawn in DOM order after a background
+  clear, all on the same engine and in one frame submission. The 8-layer cap is
+  gone: the default layer budget is 32 and `budgets.layers` accepts 1..64 (the
+  pixel budget still applies). Adding, removing or reordering layers reuses the
+  passes of unchanged layers instead of regenerating a shader for the new count,
+  and small layers only shade their own pixels. `resources.effects`/`renderers`
+  count these passes (layers + 1). Compiled CSS program sets are now version 2 with
+  one per-layer program; version 1 modules are refused with a rebuild message.
 - **Transform origin:** new static per-layer pivot, `origin?: TransformOrigin` on
   `Surface`, `useSurfaceRef`/`enroll` options and `LayerDefinition`, plus
   `setOrigin(id, origin)`. `TransformOrigin` is `"top-left"` (default), `"center"` or
@@ -513,9 +522,10 @@ See [measurement definitions and raw evidence](measurements.md).
 ## Supported boundary, budgets and failure
 
 One engine serves the application surface; there is no per-component engine.
-Default limits are eight layers and 2,000,000 captured pixels. Layer budget is
-1..8; GPU output is additionally limited to four times the captured-pixel
-budget and the public configured device's dimension limit.
+Each layer is drawn as its own blended pass on that engine. Default limits are
+32 layers and 2,000,000 captured pixels. Layer budget is 1..64; GPU output is
+additionally limited to four times the captured-pixel budget and the public
+configured device's dimension limit.
 Functional admission places its probe inside the visible part of the output
 canvas, so a partially scrolled page can enable GPU; a fully offscreen canvas is
 still refused with the same unproven/deferred diagnostic.

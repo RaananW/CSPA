@@ -9,7 +9,7 @@ import { capabilities, enableDrawable, isDrawableCanvas, isDrawableQueue, valida
 import { completeCoverage, type CaptureCoverage } from "./publication.js";
 import { createMountBoundary, type MountBoundaryOptions } from "./mount-boundary.js";
 import { configuredDevice, observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "./device-lifecycle.js";
-import { compositionShader, compositionUniforms } from "./composition.js";
+import { layerBlend, layerShader, layerUniforms } from "./composition.js";
 import { createAdmissionProbe, verifyFrameBounds, verifyProbeGeometry, verifyProbePixels, type FrameBounds } from "./admission.js";
 import type { Ripple } from "./ripple.js";
 import type { ApplicationEffect, EffectDescriptor } from "./effects.js";
@@ -99,8 +99,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let mode: "dom" | "admitting" | "gpu" | "disposed" = "dom";
   let reason = "Ordinary DOM startup; admission pending.";
   let engine: EngineContext | undefined;
-  let effect: EffectWrapper | undefined;
-  let renderer: ReturnType<typeof createEffectRenderer> | undefined;
+  // One blended effect pass per layer, drawn in order after a background clear.
+  // `passes` is what is presented now; it is aligned with `layers`.
+  let passes: Pass[] = [];
+  let background: { effect: EffectWrapper; renderer: ReturnType<typeof createEffectRenderer> } | undefined;
   let registered = false;
   let initializing = false;
   let transitioning = false;
@@ -114,24 +116,91 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let dx = 0;
   let previousFrame: number | undefined;
   let admittedCustom: (ApplicationEffect | undefined)[] = [];
-  function shaderFor(count: number, custom: readonly (ApplicationEffect | undefined)[]) {
+  function shaderFor(custom: ApplicationEffect | undefined) {
     if (options.compiled) {
-      if (custom.some(Boolean)) throw new Error("Compiled programs do not include runtime custom effect definitions");
-      const program = options.compiled.programs[count - 1];
-      if (!program) throw new Error(`Compiled layer capacity exceeded: ${count}`);
+      if (custom) throw new Error("Compiled programs do not include runtime custom effect definitions");
+      const program = options.compiled.programs[0];
+      if (!program) throw new Error("Compiled layer program missing");
       metrics.precompiledShaderSelections++;
       return program;
     }
     metrics.shaderSourceGenerations++;
-    return compositionShader(count, custom);
+    return layerShader(custom);
+  }
+  function customOf(layer: EnrolledLayer) {
+    return layer.effects?.().find(value => value.kind === "custom")?.definition;
+  }
+  function createPass(layer: Layer, custom: ApplicationEffect | undefined, name: string): Pass {
+    const effect = createEffectWrapper(engine!, { name, ...shaderFor(custom), blend: layerBlend });
+    resources.effects++;
+    try {
+      setEffectTexture(effect, "layer0", layer.texture);
+      const renderer = createEffectRenderer(engine!.surfaces[0], effect, { name, clear: false });
+      resources.renderers++;
+      return { effect, renderer, texture: layer.texture, custom };
+    } catch (error) {
+      disposeEffectWrapper(effect); resources.effects--;
+      throw error;
+    }
+  }
+  function disposePass(pass: Pass) {
+    disposeEffectRenderer(pass.renderer); resources.renderers--;
+    disposeEffectWrapper(pass.effect); resources.effects--;
+  }
+  /** Validates trusted custom/compiled WGSL once per distinct source before it is drawn. */
+  function compileShaders(customs: readonly (ApplicationEffect | undefined)[]): Promise<void> {
+    if (!options.compiled && !customs.some(Boolean)) return Promise.resolve();
+    const device = configuredDevice(output);
+    const sources = new Set(customs.filter(custom => custom || options.compiled).map(custom => {
+      const shader = shaderFor(custom);
+      return `${shader.vertexWGSL ?? ""} ${shader.fragmentWGSL}`;
+    }));
+    return Promise.all([...sources].map(code => {
+      metrics.effectShaderCompilations++;
+      return device.createShaderModule({ code }).getCompilationInfo().then(info => {
+        const errors = info.messages.filter(message => message.type === "error");
+        if (errors.length) throw new Error(`Application effect compilation failed: ${errors.map(message => `${message.lineNum}:${message.linePos} ${message.message}`).join("; ")}`);
+      });
+    })).then(() => undefined);
+  }
+  /** Presents `next` in order after the background pass; one frame submission draws them all. */
+  function present(next: Pass[]) {
+    unpresent();
+    if (!background) {
+      const effect = createEffectWrapper(engine!, { name: "canvas-spa-background",
+        fragmentWGSL: "@fragment fn effectFragment(input: EffectVertexOutput) -> @location(0) vec4f { return vec4f(1.0); }" });
+      resources.effects++;
+      const renderer = createEffectRenderer(engine!.surfaces[0], effect, { name: "canvas-spa-background", clear: true, clearColor: { r: 1, g: 1, b: 1, a: 1 } });
+      resources.renderers++;
+      background = { effect, renderer };
+    }
+    registerEffectRenderer(background.renderer);
+    for (const pass of next) registerEffectRenderer(pass.renderer);
+    passes = next;
+    registered = true;
+  }
+  function unpresent() {
+    if (!registered) return;
+    if (background) unregisterEffectRenderer(background.renderer);
+    for (const pass of passes) unregisterEffectRenderer(pass.renderer);
+    registered = false;
+  }
+  function writeUniforms(shift: number, shade: number) {
+    const size = options.size();
+    layers.forEach((layer, index) => {
+      const pass = passes[index]!;
+      setEffectUniforms(pass.effect, layerUniforms(layer, size.dpr, size, shift, shade, pass.custom, !!options.compiled));
+    });
   }
   let clearedGeometry: { id: string; identity: boolean | null }[] = [];
   // Whether the last functional admission proved native hits stop at the canvas content box.
   let frameBounds: FrameBounds = "unverifiable";
   type Layer = EnrolledLayer & { extent: { width: number; height: number }; texture: DynamicTexture2D;
     coverage: CaptureCoverage; contentExtent: { width: number; height: number; pixelWidth: number; pixelHeight: number } };
-  type Composition = { layers: Layer[]; effect: EffectWrapper; renderer: ReturnType<typeof createEffectRenderer>;
-    textures: DynamicTexture2D[]; custom: (ApplicationEffect | undefined)[]; capacity: number;
+  type Pass = { effect: EffectWrapper; renderer: ReturnType<typeof createEffectRenderer>; texture: DynamicTexture2D; custom: ApplicationEffect | undefined };
+  // `passes` align with `layers`; `owned` also keeps passes of removed layers alive until the composition retires.
+  type Composition = { layers: Layer[]; passes: Pass[]; owned: Set<Pass>;
+    textures: DynamicTexture2D[]; custom: (ApplicationEffect | undefined)[];
     ready: boolean; size: ReturnType<SurfaceRendererOptions["size"]> };
   let layers: Layer[] = [];
   let current: EnrolledLayer[] = [];
@@ -210,17 +279,14 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     }
   }
   function releaseComposition() {
-    if (renderer && registered) unregisterEffectRenderer(renderer);
-    registered = false;
-    if (renderer && ![...compositions].some(composition => composition.renderer === renderer)) {
-      disposeEffectRenderer(renderer); resources.renderers--;
-    }
-    if (effect && ![...compositions].some(composition => composition.effect === effect)) {
-      disposeEffectWrapper(effect); resources.effects--;
-    }
-    for (const composition of compositions) {
-      disposeEffectRenderer(composition.renderer); resources.renderers--;
-      disposeEffectWrapper(composition.effect); resources.effects--;
+    unpresent();
+    const owned = new Set(passes);
+    for (const composition of compositions) for (const pass of composition.owned) owned.add(pass);
+    for (const pass of owned) disposePass(pass);
+    if (background) {
+      disposeEffectRenderer(background.renderer); resources.renderers--;
+      disposeEffectWrapper(background.effect); resources.effects--;
+      background = undefined;
     }
     compositions.clear();
     for (const texture of textures) { releaseTexture(texture); resources.textures--; }
@@ -228,7 +294,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     layers = [];
     current = [];
     pending = active = undefined;
-    effect = renderer = undefined;
+    passes = [];
     logicalSlots.clear();
     admittedCustom = [];
   }
@@ -368,7 +434,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     nativeOrder = [...ordered];
   }
   function draw() {
-    if (!engine || !effect || mode !== "gpu" && mode !== "admitting" || lostInfo || options.isPaused?.()) return;
+    if (!engine || !registered || mode !== "gpu" && mode !== "admitting" || lostInfo || options.isPaused?.()) return;
     const policy = options.policy?.();
     if (policy) {
       void recover(policy).catch(reportFailure);
@@ -380,7 +446,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     try {
       geometry();
       if (membershipPending || pending || !complete()) { metrics.incompleteFramesSkipped++; requestPaint(); return; }
-      setEffectUniforms(effect, compositionUniforms(layers, options.size().dpr, dx, tint, active?.capacity, active?.custom, !!options.compiled));
+      writeUniforms(dx, tint);
       renderFrame(engine, 16.67);
       submittedGeneration = publicationGeneration;
     } catch (error) {
@@ -445,14 +511,13 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   function retire(composition: Composition) {
     if (!queue || !compositions.has(composition) || retiring.has(composition)) return;
     retiring.add(composition);
-    unregisterEffectRenderer(composition.renderer);
     resources.pendingCleanups++;
     const finish = () => {
       retiring.delete(composition);
       resources.pendingCleanups--;
       if (!compositions.delete(composition)) return;
-      disposeEffectRenderer(composition.renderer); resources.renderers--;
-      disposeEffectWrapper(composition.effect); resources.effects--;
+      // Passes are shared with successors that kept the same texture and effect.
+      for (const pass of composition.owned) if (!passes.includes(pass) && ![...compositions].some(other => other.owned.has(pass))) disposePass(pass);
       for (const texture of composition.textures) if (![...compositions].some(other => other.textures.includes(texture))) {
         if (textures.delete(texture)) { releaseTexture(texture); resources.textures--; }
       }
@@ -476,7 +541,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     publicationGeneration++;
     geometry();
     const size = options.size();
-    const budget = options.budgets ?? { layers: 8, pixels: 2_000_000 };
+    const budget = options.budgets ?? { layers: 32, pixels: 2_000_000 };
     if (current.length > budget.layers || ids.size !== current.length) throw new Error("Layer-count/identity budget exceeded");
     const extents = current.map(spec => {
       const extent = required(spec, size);
@@ -505,63 +570,56 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         contentExtent: { width: 0, height: 0, pixelWidth: 0, pixelHeight: 0 } };
     });
     for (const spec of current) metrics.perLayer[spec.id] ??= { captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0 };
-    const compatibleBindings = active && next.length <= active.capacity && next.every(layer => {
-      const definition = layer.effects?.().find(value => value.kind === "custom")?.definition;
-      return active!.textures.includes(layer.texture) && (!definition || active!.custom.includes(definition));
-    });
-    if (compatibleBindings && !pending && output.width === outputWidth && output.height === outputHeight && complete(next)) {
-      // Keep the validated pipeline's capacity; unused lanes have zero extent.
-      // Retain all of its bound textures until its submitted work is fenced.
-      next.forEach((layer, index) => setEffectTexture(active!.effect, `layer${index}`, layer.texture));
-      registerEffectRenderer(active!.renderer);
-      layers = next; active!.layers = next;
-      admittedCustom = next.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
+    const custom = next.map(customOf);
+    // Each layer keeps its pass while its texture and custom effect are unchanged.
+    const reuse = (layer: Layer, definition: ApplicationEffect | undefined, from: (Composition | undefined)[]) =>
+      from.flatMap(composition => composition ? [...composition.owned] : [])
+        .find(pass => pass.texture === layer.texture && pass.custom === definition);
+    const retained = next.map((layer, index) => reuse(layer, custom[index], [active]));
+    if (active && retained.every(Boolean) && !pending && output.width === outputWidth && output.height === outputHeight && complete(next)) {
+      // Membership/order change only: present the existing passes in the new order.
+      // Passes of removed layers stay owned by the active composition until it is fenced.
+      present(retained as Pass[]);
+      layers = next; active.layers = next; active.passes = retained as Pass[];
+      admittedCustom = custom;
       draw(); queueCapture(); return;
     }
     const previous = pending;
-    const custom = next.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
-    const shader = shaderFor(next.length, custom);
     const device = configuredDevice(output);
     const compileStarted = performance.now();
     let compilation: Promise<void> = Promise.resolve();
     device.pushErrorScope("validation");
-    let nextEffect: EffectWrapper | undefined, nextRenderer: ReturnType<typeof createEffectRenderer> | undefined;
+    const created: Pass[] = [];
+    let successorPasses: Pass[];
     try {
-      if (custom.some(Boolean) || options.compiled) {
-        metrics.effectShaderCompilations++;
-        const module = device.createShaderModule({ code: `struct EffectVertexOutput { @builtin(position) position: vec4f, @location(0) uv: vec2f }; ${shader.fragmentWGSL}` });
-        compilation = module.getCompilationInfo().then(info => {
-          const errors = info.messages.filter(message => message.type === "error");
-          if (errors.length) throw new Error(`Application effect compilation failed: ${errors.map(message => `${message.lineNum}:${message.linePos} ${message.message}`).join("; ")}`);
-        }).finally(() => {
-          options.onMeasure?.({ kind: "effectCompileMs", at: performance.now(), durationMs: performance.now() - compileStarted, phase: "admission" });
-        });
-      }
-      nextEffect = createEffectWrapper(engine, { name: `native-successor-${publicationGeneration}`, ...shader });
-      resources.effects++;
-      next.forEach((layer, index) => setEffectTexture(nextEffect!, `layer${index}`, layer.texture));
-      nextRenderer = createEffectRenderer(engine.surfaces[0], nextEffect);
-      resources.renderers++;
+      successorPasses = next.map((layer, index) => {
+        const existing = reuse(layer, custom[index], [pending, active]);
+        if (existing) return existing;
+        const pass = createPass(layer, custom[index], `native-successor-${publicationGeneration}-${index}`);
+        created.push(pass);
+        return pass;
+      });
+      compilation = compileShaders(created.map(pass => pass.custom)).finally(() => {
+        options.onMeasure?.({ kind: "effectCompileMs", at: performance.now(), durationMs: performance.now() - compileStarted, phase: "admission" });
+      });
       // Public registration prepares pipelines/bindings, without a submitted frame.
-      registerEffectRenderer(nextRenderer); unregisterEffectRenderer(nextRenderer);
+      for (const pass of created) { registerEffectRenderer(pass.renderer); unregisterEffectRenderer(pass.renderer); }
     } catch (error) {
       // No commands were submitted by preparation, so these bindings are idle.
-      if (nextRenderer) { disposeEffectRenderer(nextRenderer); resources.renderers--; }
-      if (nextEffect) { disposeEffectWrapper(nextEffect); resources.effects--; }
+      for (const pass of created) disposePass(pass);
       void compilation.catch(reportFailure);
       void device.popErrorScope().catch(reportFailure);
       throw error;
     }
-    const successor = { layers: next, textures: next.map(layer => layer.texture), custom, capacity: next.length,
-      effect: nextEffect, renderer: nextRenderer, ready: false, size };
+    const successor: Composition = { layers: next, passes: successorPasses, owned: new Set(successorPasses),
+      textures: next.map(layer => layer.texture), custom, ready: false, size };
     pending = successor; compositions.add(successor);
     if (previous) retire(previous);
     const publishCached = () => {
       if (!complete(next) || output.width !== outputWidth || output.height !== outputHeight) return false;
       const previousActive = active;
-      if (renderer && registered) unregisterEffectRenderer(renderer);
-      layers = next; effect = nextEffect; renderer = nextRenderer;
-      registerEffectRenderer(renderer); registered = true;
+      present(successor.passes);
+      layers = next;
       successor.ready = true; active = successor; pending = undefined;
       admittedCustom = custom;
       draw();
@@ -644,11 +702,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (resized) setEngineSize(engine, width, height);
       const previous = active;
       if (pending) {
-        if (renderer && registered) unregisterEffectRenderer(renderer);
-        layers = successor.layers; effect = successor.effect; renderer = successor.renderer;
-        registerEffectRenderer(renderer); registered = true;
+        present(successor.passes);
+        layers = successor.layers;
         active = successor; pending = undefined;
-        admittedCustom = layers.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
+        admittedCustom = layers.map(customOf);
       }
       dirty.clear();
       draw();
@@ -662,21 +719,16 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   }
     async function createComposition(name: string) {
       if (!engine) throw new Error("Composition requires an admitted engine");
-      admittedCustom = layers.map(layer => layer.effects?.().find(value => value.kind === "custom")?.definition);
-      const shader = shaderFor(layers.length, admittedCustom);
+      admittedCustom = layers.map(customOf);
       if (admittedCustom.some(Boolean) || options.compiled) {
         const started = performance.now();
         const device = configuredDevice(output);
         device.pushErrorScope("validation");
         let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-          metrics.effectShaderCompilations++;
-          const module = device.createShaderModule({ code: `struct EffectVertexOutput { @builtin(position) position: vec4f, @location(0) uv: vec2f }; ${shader.fragmentWGSL}` });
-          const compilation = await Promise.race([module.getCompilationInfo(), new Promise<never>((_, reject) => {
+          await Promise.race([compileShaders(admittedCustom), new Promise<never>((_, reject) => {
             timer = setTimeout(() => reject(new Error("Application effect compilation timed out after 5000ms")), 5000);
           })]);
-          const errors = compilation.messages.filter(message => message.type === "error");
-          if (errors.length) throw new Error(`Application effect compilation failed: ${errors.map(message => `${message.lineNum}:${message.linePos} ${message.message}`).join("; ")}`);
         } finally {
           clearTimeout(timer);
           const error = await device.popErrorScope();
@@ -684,13 +736,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
           if (error) throw new Error(`Application effect compilation failed: ${error.message}`);
         }
       }
-      effect = createEffectWrapper(engine, { name, ...shader });
-      resources.effects++;
-      layers.forEach((layer, index) => setEffectTexture(effect!, `layer${index}`, layer.texture));
-      renderer = createEffectRenderer(engine.surfaces[0], effect);
-      resources.renderers++;
-      registerEffectRenderer(renderer);
-      registered = true;
+      const created: Pass[] = [];
+      try { for (const [index, layer] of layers.entries()) created.push(createPass(layer, admittedCustom[index], `${name}-${index}`)); }
+      catch (error) { for (const pass of created) disposePass(pass); throw error; }
+      present(created);
     }
     function admissionFrame(signal: AbortSignal): Promise<void> {
       return new Promise((resolve, reject) => {
@@ -737,7 +786,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
                 probeLayer.contentExtent = { width: probe!.extent, height: probe!.extent, pixelWidth: actual.width, pixelHeight: actual.height };
                 queue!.drawElementImageToTexture({ source: probe!.element }, { texture: texture.texture });
                 metrics.admission.captures++; metrics.admission.uploads++;
-                setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr, 0, 0, layers.length, [], !!options.compiled));
+                writeUniforms(0, 0);
                 renderFrame(engine!, 16.67);
                 resolve();
               } catch (error) { reject(error); }
@@ -760,7 +809,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         metrics.admission.geometryChecks++;
         const frameResult = verifyFrameBounds(nativeHost(), probe, options.nativeOrigin?.());
         frameBounds = frameResult.result;
-        setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr, 0, 0, layers.length, [], !!options.compiled));
+        writeUniforms(0, 0);
         const readback = captureScreenshot(engine.surfaces[0]);
         const pending = { active: true, completion: Promise.resolve() };
         resources.probeReadbacks++;
@@ -813,9 +862,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         nativeHost().clearElementGeometry(probe.element);
         validateAppliedGeometry(nativeHost(), probe.element, new DOMMatrix());
         releaseProbe();
-        if (renderer) { disposeEffectRenderer(renderer); resources.renderers--; renderer = undefined; }
-        if (effect) { disposeEffectWrapper(effect); resources.effects--; effect = undefined; }
-        registered = false;
+        unpresent();
+        for (const pass of passes) disposePass(pass);
+        passes = [];
         releaseTexture(texture); textures.delete(texture); resources.textures--;
         layers = [];
         probeReadback = undefined;
@@ -842,7 +891,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (mode === "gpu") return state();
       const policy = options.policy?.();
       if (policy) throw new Error(policy);
-      const budget = options.budgets ?? { layers: 8, pixels: 2_000_000 };
+      const budget = options.budgets ?? { layers: 32, pixels: 2_000_000 };
       const size = options.size();
       if (![size.width, size.height, size.dpr].every(value => Number.isFinite(value) && value > 0)) throw new Error("Invalid surface dimensions/DPR");
       const capability = capabilities(output);

@@ -12,6 +12,8 @@ import { nativeEditingControl, nativeScrollKind } from "./native.js";
 import { scrollOrigin, intersectViewport, localViewport, canvasContentOrigin, viewportContains, axisAligned, type ViewportRect } from "./viewport.js";
 import { validateCompiledPrograms, verifyCompiledAnimation, type CompiledAnimation } from "./compiled.js";
 
+/** Upper bound for `budgets.layers`; each layer is one blended pass, so this only bounds per-frame work. */
+const MAX_LAYERS = 64;
 /** `"automatic"` is accepted for compatibility and behaves like `"explicit"`: initial and diagnosed reentry both require `enable()`. */
 export type AdmissionPolicy = "explicit" | "automatic";
 
@@ -95,12 +97,9 @@ export class CanvasRuntime {
       || [options.captureHost, options.outputCanvas, options.ordinaryHost].includes(options.overlayHost)
       || options.overlayHost.childNodes.length)) throw new Error("Overlay must be an empty connected adapter-owned sibling outside the root");
     const budget = options.budgets;
-    if (options.compiled) {
-      validateCompiledPrograms(options.compiled);
-      if (budget && budget.layers > options.compiled.programs.length) throw new Error("Insufficient compiled layer capacity");
-    }
-    if (budget && (!Number.isInteger(budget.layers) || budget.layers < 1 || budget.layers > 8
-      || !Number.isInteger(budget.pixels) || budget.pixels < 1)) throw new Error("Invalid layer/pixel budgets; layer limit is 1..8");
+    if (options.compiled) validateCompiledPrograms(options.compiled);
+    if (budget && (!Number.isInteger(budget.layers) || budget.layers < 1 || budget.layers > MAX_LAYERS
+      || !Number.isInteger(budget.pixels) || budget.pixels < 1)) throw new Error(`Invalid layer/pixel budgets; layer limit is 1..${MAX_LAYERS}`);
     this.mutation = new MutationObserver(records => {
       if (this.stopped) return;
       this.invalidatePolicy();

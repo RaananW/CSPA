@@ -4,6 +4,8 @@ import { PNG } from "pngjs";
 import { createHash } from "node:crypto";
 import { developmentURL } from "../helpers/urls.mjs";
 import { evidenceDirectory } from "../helpers/evidence.mjs";
+// One blended effect pass per enrolled layer (panel, art) plus the background clear pass.
+const EFFECT_PASSES = 3;
 
 const directory = evidenceDirectory("effects");
 async function save(name, value) {
@@ -88,7 +90,7 @@ for (const strict of [false, true]) test(`decoded effect identity, time, alpha, 
   expect(changed(region(changedPixels, 330, 220, 240, 60), region(neutral, 330, 220, 240, 60))).toBeGreaterThan(50);
   const state = await page.evaluate(() => window.effectsProbe.state());
   expect(state.reactVersion).toBe(process.env.CANVAS_EXPECT_REACT_VERSION ?? "19.3.0");
-  expect(state.resources.engines).toBe(1); expect(state.resources.effects).toBe(1);
+  expect(state.resources.engines).toBe(1); expect(state.resources.effects).toBe(EFFECT_PASSES);
   expect(state.metrics.admission.last.nativePixels).toEqual([]);
   expect(state.metrics.admission.last.gpuPixels).toHaveLength(2);
   const compileSamples = await page.evaluate(() => window.effectsProbe.samples().filter(sample => sample.kind === "effectCompileMs"));
@@ -120,7 +122,7 @@ for (const strict of [false, true]) test(`300 real GPU frames, incremental non-e
     expect(interval.after.metrics.gpuFrames - interval.before.metrics.gpuFrames).toBe(300);
     expect(interval.after.metrics.admission).toEqual(interval.before.metrics.admission);
     expect(interval.after.metrics.effectShaderCompilations).toBe(interval.before.metrics.effectShaderCompilations);
-    expect(interval.after.resources.effects).toBe(1);
+    expect(interval.after.resources.effects).toBe(EFFECT_PASSES);
     intervals.push({ kind, ...interval });
   }
   const motion = await page.evaluate(async () => {
@@ -319,7 +321,7 @@ test("effects retire through public device loss, twenty StrictMode lifetimes and
   const cycles = [];
   for (let i = 0; i < 20; i++) {
     const cycle = await page.evaluate(() => window.effectsProbe.cycle()); zero(cycle.retired);
-    expect(cycle.active.resources.effects).toBe(1); expect(cycle.active.runtimeResources.decorativeEffects).toBe(1); cycles.push(cycle);
+    expect(cycle.active.resources.effects).toBe(EFFECT_PASSES); expect(cycle.active.runtimeResources.decorativeEffects).toBe(1); cycles.push(cycle);
   }
   const old = await page.evaluate(() => { window.oldEffectsProbe = window.effectsProbe; return window.effectsProbe.state(); });
   const path = "examples/playground/src/demo/effects-demo.tsx";

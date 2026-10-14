@@ -1,4 +1,4 @@
-export { compositionShader } from "./composition.js";
+export { compositionShader, layerShader } from "./composition.js";
 export { compileTimeline, parseTransform } from "./timeline.js";
 export { affine } from "./affine.js";
 export type { CompiledAnimation, CompiledProgramSet } from "./compiled.js";

@@ -190,7 +190,7 @@ same-renderer successors for normal membership/ref/layout/DPR changes.
 neither option starts GPU automatically or runs structural DOM readmission.
 Visibility/media preserve healthy ownership; factual unsupported boundaries and
 GPU errors diagnose DOM until explicit retry. See [current source API](api.md).
-The hard layer limit is eight, subject to the pixel budget.
+The layer budget defaults to 32 (configurable up to 64), subject to the pixel budget.
 Nested/foreign enrollment, unsupported native scrolling or clipping, forced
 colors, missing APIs and budget/compile failures diagnose usable DOM.
 Editable/top-layer refusal includes the enrolled root itself and

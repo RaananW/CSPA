@@ -789,3 +789,33 @@ test("rotated layer crossing the frame edge stays GPU with canvas-bounded pixels
   zero(await page.evaluate(() => window.runtimeProbe.dispose()));
   expect(errors).toEqual([]);
 });
+
+test("more than eight layers draw as ordered per-layer passes that match ordinary DOM", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, "many=12");
+  const gpuState = await page.evaluate(() => window.runtimeProbe.state());
+  expect(gpuState.mode).toBe("gpu");
+  expect(gpuState.layers).toHaveLength(14);
+  // One blended pass per layer plus the background clear pass, all on one engine.
+  expect(gpuState.resources.engines).toBe(1);
+  expect(gpuState.resources.effects).toBe(15);
+  expect(gpuState.resources.renderers).toBe(15);
+  const gpu = await snap(page, "many-gpu");
+  await page.evaluate(() => window.runtimeProbe.disable());
+  await page.waitForFunction(() => window.runtimeProbe.state().mode === "dom");
+  const dom = await snap(page, "many-dom");
+  for (let index = 0; index < 11; index++) {
+    const at = [20 + index * 50 + 20, 392];
+    expect(gpu(...at)).toEqual(dom(...at));
+    expect(gpu(...at)).not.toEqual([255, 255, 255, 255]);
+  }
+  // Tile 11 is 50% opaque and overlaps tile 10: straight-alpha blending per pass matches DOM compositing.
+  for (const at of [[555, 392], [585, 392], [610, 392]]) {
+    gpu(...at).forEach((channel, index) => expect(Math.abs(channel - dom(...at)[index])).toBeLessThanOrEqual(1));
+  }
+  expect((await page.evaluate(() => window.runtimeProbe.enable())).mode).toBe("gpu");
+  const disposed = await page.evaluate(() => window.runtimeProbe.dispose());
+  zero(disposed);
+  expect(errors).toEqual([]);
+});

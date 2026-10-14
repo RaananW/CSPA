@@ -23,12 +23,15 @@ test("JSON enrollment is strict, bounded and explicit", () => {
 });
 test("build emits literal WGSL programs and generated native geometry samplers", async () => {
   const animations = compileStylesheet(css, [entry]);
-  const source = generateModule(animations, 2);
+  const source = generateModule(animations);
   const compiled = (await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`)).default;
   assert.equal(compiled.animations[0].timing.iterations, Infinity);
-  assert.equal(compiled.programs.length, 2);
+  // One per-layer program serves any layer count; the runtime draws it once per layer.
+  assert.equal(compiled.version, 2);
+  assert.equal(compiled.programs.length, 1);
   assert.match(compiled.programs[0].fragmentWGSL, /compiled_sample/);
-  assert.equal(compiled.programs[1].bindings.at(-1).uniformByteLength, (4 + 2 * 48) * 4);
+  assert.match(compiled.programs[0].vertexWGSL, /effectFullscreenVertex/);
+  assert.equal(compiled.programs[0].bindings.at(-1).uniformByteLength, (12 + 44 + 4) * 4);
   const timeline = compileTimeline(animations[0].values, animations[0].timing);
   for (const time of [0, 17.3, 250, 500, 740, 1000, 1500, 2000, 5734]) {
     const actual = compiled.animations[0].sample(time), expected = timeline.sample(Math.fround(time));
@@ -40,6 +43,7 @@ test("build emits literal WGSL programs and generated native geometry samplers",
   assert.throws(() => validateCompiledPrograms({ ...compiled, animations: [compiled.animations[0], compiled.animations[0]] }), /descriptor/);
   assert.throws(() => validateCompiledPrograms({ ...compiled, animations: [{ ...compiled.animations[0], normalizeTime: undefined }] }), /descriptor/);
   assert.throws(() => validateCompiledPrograms({ ...compiled, programs: [{ ...compiled.programs[0], bindings: [] }] }), /program/);
+  assert.throws(() => validateCompiledPrograms({ ...compiled, version: 1 }), /rebuild/);
 });
 test("selected unsupported CSS fails with an available input location", () => {
   for (const bad of [
