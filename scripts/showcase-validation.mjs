@@ -190,7 +190,9 @@ try {
       record.motionFeedback = await page.locator("#studio-feedback").innerText();
       assert.ok(record.motion.runtimeResources.declarativeMotions > 0, `Motion must have a real runtime owner: ${record.motionFeedback}`);
       assert.equal(record.motion.mode, lane === "native" ? "gpu" : "dom");
-      assert.ok(Math.abs(record.motion.layers.find(layer => layer.id === "showcase-card").transform.x) > 1);
+      const moving = record.motion.layers.find(layer => layer.id === "showcase-card").transform;
+      assert.ok(Math.abs(moving.x ?? 0) > 1 || Math.abs(moving.y ?? 0) > 1 || Math.abs(moving.rotation ?? 0) > 1
+        || Math.abs((moving.scaleX ?? 1) - 1) > .01, `Journey must move the card: ${JSON.stringify(moving)}`);
       if (lane === "native") {
         const animated = PNG.sync.read(await output.screenshot({ path: join(run, "native-motion-active.png") }));
         let changed = 0;

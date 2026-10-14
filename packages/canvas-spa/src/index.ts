@@ -5,7 +5,7 @@ export { createCanvasHosts } from "./hosts.js";
 export type { CanvasHosts } from "./hosts.js";
 export { EnrollmentError } from "./enrollment.js";
 export type { EnrollmentOptions, EnrollmentErrorCode } from "./enrollment.js";
-export type { Transform, Affine, Point } from "./affine.js";
+export type { Transform, TransformOrigin, Affine, Point } from "./affine.js";
 export type { Layout, Appearance } from "./compiler.js";
 export { mountApplicationModule } from "./module.js";
 export type { LocalApplicationModule } from "./module.js";

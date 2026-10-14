@@ -692,3 +692,61 @@ test("real development HMR disposes the old adapter before creating its replacem
     if (!restored) await utimes(source, original.atime, original.mtime);
   }
 });
+
+test("layer origin pivots GPU pixels, native hits and DOM presentation identically", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  // Stationary: 140x100 at (380,60); rotate 30deg about its centre (450,110).
+  const placed = await page.evaluate(() => {
+    window.runtimeProbe.origin("stationary", "center");
+    window.runtimeProbe.transform("stationary", { rotation: 30 });
+    return window.runtimeProbe.state();
+  });
+  expect(placed.mode).toBe("gpu");
+  const layer = placed.layers.find(entry => entry.id === "stationary");
+  expect(layer.origin).toBe("center");
+  const [a, b, c, d, e, f] = layer.matrix;
+  // The pivot stays fixed: matrix * (70,50) == (450,110).
+  expect(a * 70 + c * 50 + e).toBeCloseTo(450, 6);
+  expect(b * 70 + d * 50 + f).toBeCloseTo(110, 6);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => window.runtimeProbe.settle());
+  // Badge centre in layer-local pixels, mapped through the pivoted matrix.
+  const hit = await page.evaluate(([a, b, c, d, e, f]) => {
+    const badge = document.querySelector("#badge"), surface = document.querySelector("#stationary");
+    const frame = document.querySelector("#frame").getBoundingClientRect();
+    const local = { x: badge.offsetLeft - surface.clientLeft + badge.offsetWidth / 2, y: badge.offsetTop - surface.clientTop + badge.offsetHeight / 2 };
+    const at = { x: frame.x + a * local.x + c * local.y + e, y: frame.y + b * local.x + d * local.y + f };
+    return { ...at, target: document.elementFromPoint(at.x, at.y)?.id };
+  }, layer.matrix);
+  expect(hit.target).toBe("badge");
+  await page.mouse.click(hit.x, hit.y);
+  await expect(page.locator("#badge")).toHaveText("Badge 1");
+  const corner = { x: a * 130 + c * 90 + e, y: b * 130 + d * 90 + f };
+  const outside = { x: a * 70 + c * -6 + e, y: b * 70 + d * -6 + f };
+  const gpu = await snap(page, "origin-gpu");
+  expect(gpu(450, 110)).toEqual([20, 200, 90, 255]);
+  expect(gpu(corner.x, corner.y)).toEqual([20, 200, 90, 255]);
+  expect(gpu(outside.x, outside.y)).toEqual([255, 255, 255, 255]);
+  await page.evaluate(() => window.runtimeProbe.disable());
+  await page.waitForFunction(() => window.runtimeProbe.state().mode === "dom");
+  const dom = await snap(page, "origin-dom");
+  for (const at of [{ x: 450, y: 110 }, corner, outside]) expect(dom(at.x, at.y)).toEqual(gpu(at.x, at.y));
+  const domMatrix = await page.evaluate(() => Array.from(new DOMMatrix(getComputedStyle(document.querySelector("#stationary")).transform).toFloat64Array()));
+  [a, b, null, null, c, d, null, null, null, null, null, null, e - 380, f - 60].forEach((value, index) => {
+    if (value !== null) expect(domMatrix[index]).toBeCloseTo(value, 3);
+  });
+  // Ordinary DOM: the origin is a fraction of the layer size, so a resize keeps the centre pivot.
+  const resized = await page.evaluate(async () => {
+    document.querySelector("#stationary").style.width = "200px";
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const matrix = new DOMMatrix(getComputedStyle(document.querySelector("#stationary")).transform);
+    return matrix.transformPoint({ x: 100, y: 50 });
+  });
+  expect(resized.x).toBeCloseTo(100, 4);
+  expect(resized.y).toBeCloseTo(50, 4);
+  await expect(page.evaluate(() => window.runtimeProbe.origin("stationary", { x: NaN, y: 0 }))).rejects.toThrow(/Transform origin requires/);
+  zero(await page.evaluate(() => window.runtimeProbe.dispose()));
+  expect(errors).toEqual([]);
+});

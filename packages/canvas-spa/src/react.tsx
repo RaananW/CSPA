@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import { createPortal, flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { CanvasRuntime, type RuntimeOptions } from "./runtime.js";
-import { affine, type Transform } from "./affine.js";
+import { affine, pivot, type Transform, type TransformOrigin } from "./affine.js";
 import { compileStyle, type Layout, type Appearance } from "./compiler.js";
 import type { EnrollmentOptions } from "./enrollment.js";
 import type { MotionDescriptor, TransitionResult } from "./motion.js";
@@ -18,15 +18,18 @@ function useRuntime() {
   if (!runtime) throw new Error("CanvasSPA components require GPUHost and the explicit mount adapter");
   return runtime;
 }
-export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "ownCompiledAnimation" | "createMotion" | "advance" | "setRipple" | "setEffects">;
+export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "setOrigin" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "ownCompiledAnimation" | "createMotion" | "advance" | "setRipple" | "setEffects">;
 export function useGPUHost(): CanvasController { return useRuntime(); }
 export function useNativeOverlayHost(): HTMLElement {
   const host = useRuntime().overlayHost;
   if (!host) throw new Error("Native overlay requires the adapter-owned overlayHost");
   return host;
 }
-export function useSurfaceRef<T extends HTMLElement = HTMLElement>({ id, decorative }: EnrollmentOptions): RefCallback<T> {
+export function useSurfaceRef<T extends HTMLElement = HTMLElement>({ id, decorative, origin }: EnrollmentOptions): RefCallback<T> {
   const runtime = useRuntime();
+  const originKey = JSON.stringify(origin ?? "top-left");
+  const latestOrigin = useRef(origin);
+  latestOrigin.current = origin;
   const attached = useRef<T | null>(null);
   const release = useRef<(() => void) | undefined>(undefined);
   const ref = useCallback((element: T | null) => {
@@ -35,15 +38,16 @@ export function useSurfaceRef<T extends HTMLElement = HTMLElement>({ id, decorat
     release.current = undefined;
     attached.current = null;
     if (element) {
-      release.current = runtime.enroll(element, { id, decorative });
+      release.current = runtime.enroll(element, { id, decorative, origin: latestOrigin.current });
       attached.current = element;
     }
   }, [runtime, id, decorative]);
   // React18 StrictMode replays effects but not callback refs.
   useLayoutEffect(() => {
-    if (attached.current && !release.current) release.current = runtime.enroll(attached.current, { id, decorative });
+    if (attached.current && !release.current) release.current = runtime.enroll(attached.current, { id, decorative, origin: latestOrigin.current });
     return () => { release.current?.(); release.current = undefined; };
   }, [runtime, id, decorative]);
+  useLayoutEffect(() => { if (release.current) runtime.setOrigin(id, latestOrigin.current); }, [runtime, id, originKey]);
   useLayoutEffect(() => runtime.requestReconcile());
   return ref;
 }
@@ -90,17 +94,22 @@ export interface SurfaceProps extends Omit<HTMLAttributes<HTMLElement>, "style" 
   layout?: Layout;
   appearance?: Appearance;
   transform?: Transform;
+  /** Static pivot for `transform` rotation and scale, like CSS `transform-origin`. */
+  origin?: TransformOrigin;
   decorative?: boolean;
   inert?: boolean;
 }
-export function Surface({ id, layout = {}, appearance = {}, transform = {}, decorative = false, inert = false, children, ...attributes }: SurfaceProps) {
+export function Surface({ id, layout = {}, appearance = {}, transform = {}, origin, decorative = false, inert = false, children, ...attributes }: SurfaceProps) {
   const runtime = useRuntime();
   const element = useRef<HTMLElement>(null);
   const layoutKey = JSON.stringify(layout);
   const transformKey = JSON.stringify(transform);
+  const originKey = JSON.stringify(origin ?? "top-left");
   affine(transform);
+  pivot(origin, { width: 1, height: 1 });
   useLayoutEffect(() => { element.current!.inert = decorative || inert; }, [decorative, inert]);
-  useLayoutEffect(() => runtime.register({ id, element: element.current!, layout, transform: { ...transform }, decorative }), [runtime, id, decorative]);
+  useLayoutEffect(() => runtime.register({ id, element: element.current!, layout, transform: { ...transform }, origin, decorative }), [runtime, id, decorative]);
+  useLayoutEffect(() => runtime.setOrigin(id, origin), [runtime, id, originKey]);
   useLayoutEffect(() => runtime.update(id, layout, transform), [runtime, id, layoutKey, transformKey]);
   useLayoutEffect(() => runtime.requestReconcile());
   return <section {...attributes} aria-hidden={decorative ? true : attributes["aria-hidden"]}
