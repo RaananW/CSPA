@@ -75,6 +75,10 @@ off: box shadows, outlines, glows, or content overflowing with `overflow: visibl
 DOM. Render them through the adapter's overlay instead:
 
 - `<NativeOverlay>{children}</NativeOverlay>` portals into the overlay host.
+- Fluent UI v9: wrap the app in `<PortalMountNodeProvider value={useNativeOverlayHost()}>`
+  (no DOM of its own). Every Fluent portal then mounts in the overlay host with its
+  theme. `FluentProvider` renders a `<div>`, so put one inside each layer rather than
+  around the layers. The showcase's `fluent.tsx` does both.
 - For libraries with a portal `container` prop (Radix, Headless UI, MUI), pass
   `useNativeOverlayHost()`:
 

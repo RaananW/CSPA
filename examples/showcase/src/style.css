@@ -179,6 +179,16 @@ h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: .98; letter-spacing: -.04
 .art-tasks i::before { content: ""; position: absolute; left: 6px; top: 4px; width: 12px; height: 12px; border-radius: 3px; border: 2px solid #3f8f5f; }
 .art-tasks i:nth-child(1) { top: 24px; } .art-tasks i:nth-child(2) { top: 52px; } .art-tasks i:nth-child(3) { top: 80px; } .art-tasks i:nth-child(4) { top: 108px; right: 44%; }
 .art-tasks i:nth-child(-n+2)::before { background: #3f8f5f; }
+.accent-fluent .card-art { background: linear-gradient(135deg, #0f6cbd, #5b5fc7 60%, #8f6bd6); }
+.art-fluent i { width: 26%; height: 28px; border-radius: 8px; background: #ffffffee; box-shadow: 0 8px 16px #0b1f4d33; }
+.art-fluent i::before { content: ""; position: absolute; left: 8px; top: 9px; width: 22px; height: 10px; border-radius: 5px; background: #c50f1f; }
+.art-fluent i:nth-child(1) { left: 6%; top: 26px; }
+.art-fluent i:nth-child(2) { left: 6%; top: 62px; }
+.art-fluent i:nth-child(2)::before { background: #bc4b09; }
+.art-fluent i:nth-child(3) { left: 37%; top: 26px; transform: rotate(-8deg) translate(10px, 18px); }
+.art-fluent i:nth-child(3)::before { background: #0f6cbd; }
+.art-fluent i:nth-child(4) { left: 68%; top: 26px; }
+.art-fluent i:nth-child(4)::before { background: #107c10; }
 
 /* ---------- Studio ---------- */
 .studio { padding: 30px; border-radius: 30px; background: white; border: 1px solid var(--line); scroll-margin-top: 16px; box-shadow: 0 30px 80px #2a183d0f; }
@@ -222,10 +232,11 @@ h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: .98; letter-spacing: -.04
 .stage .overlay { position: relative; z-index: 2; }
 
 /* ---------- Content inside surfaces (no CSS transitions/animations: motion is owned by Underglass) ---------- */
+/* Fluent UI components (inside a FluentProvider or a Fluent portal node) bring their own styles. */
 .stage input, .stage textarea { max-width: 100%; }
-.stage button { border: 1px solid #c9c2d6; border-radius: 9px; padding: 6px 10px; background: white; color: #292437; font-weight: 650; }
-.stage button:not(:disabled):hover { background: #f4f0fb; }
-.stage :focus-visible { outline: 3px solid var(--violet); outline-offset: 2px; }
+.stage button:not(.fui-FluentProvider *, [data-portal-node] *) { border: 1px solid #c9c2d6; border-radius: 9px; padding: 6px 10px; background: white; color: #292437; font-weight: 650; }
+.stage button:not(:disabled):not(.fui-FluentProvider *, [data-portal-node] *):hover { background: #f4f0fb; }
+.stage :focus-visible:not(.fui-FluentProvider *, [data-portal-node] *) { outline: 3px solid var(--violet); outline-offset: 2px; }
 .stage h3 { margin: 0; }
 
 .backdrop > div { position: absolute; inset: 0; }
@@ -485,3 +496,42 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 .gpu-help-preview img { display: block; width: 100%; height: auto; margin-top: 12px; border-radius: 14px; box-shadow: 0 12px 30px #2a183d22; }
 .diagnostic-text details { margin-top: 4px; font-size: 12px; color: var(--muted); }
 .diagnostic-text details code { display: block; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+
+/* Fluent release board. Each layer holds its own FluentProvider; Fluent styles the controls. */
+.backdrop-fluent .backdrop-glow { background: radial-gradient(560px 420px at 70% 30%, #c7d7fb, transparent 70%), radial-gradient(420px 320px at 0% 100%, #e2dcfa, transparent 70%); }
+.fluent-fill { width: 100%; height: 100%; box-sizing: border-box; }
+.stage .fluent-clear { background-color: transparent; }
+.fl-panel { display: flex; flex-direction: column; gap: 12px; height: 100%; box-sizing: border-box; padding: 20px; }
+.fl-panel header { display: flex; flex-direction: column; gap: 2px; }
+.fl-panel h3 { margin: 0; }
+.fl-eyebrow { color: var(--colorBrandForeground1); font-weight: 600; letter-spacing: 1px; }
+.fl-form { display: flex; flex-direction: column; gap: 10px; }
+.fl-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fl-pair .fui-Dropdown { min-width: 0; }
+.fl-feedback { display: block; margin-top: auto; padding: 10px 12px; border-radius: var(--borderRadiusLarge); background: var(--colorNeutralBackground3);
+  color: var(--colorNeutralForeground2); font-size: var(--fontSizeBase200); line-height: var(--lineHeightBase200); min-height: 52px; box-sizing: border-box; }
+.fl-lanes { display: grid; grid-template-columns: repeat(3, 220px); gap: 8px; height: 100%; padding: 0 4px; box-sizing: border-box; }
+.fl-lane { display: flex; align-items: flex-start; justify-content: space-between; padding: 14px 12px; border-radius: 18px;
+  background: #ffffffa6; border: 1.5px dashed #b9c4dc; color: var(--colorNeutralForeground1); }
+.fl-lane.is-target { background: #e6efff; border: 1.5px solid var(--colorBrandStroke1); }
+.fl-card-layer { user-select: none; }
+.fl-card { width: 100%; height: 100%; box-sizing: border-box; gap: 6px; }
+.fl-card-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fl-card-title { flex: 1; min-width: 0; }
+.fl-grip { touch-action: none; cursor: grab; }
+.fl-poster { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 28px;
+  background: radial-gradient(420px 220px at 85% 0%, #5b5fc7aa, transparent 70%), radial-gradient(360px 200px at 0% 100%, #0f6cbd99, transparent 70%), linear-gradient(120deg, #1b1d40, #262a5c); }
+.fl-poster-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.fl-poster-kicker { letter-spacing: 1.5px; color: #b9c6ff; }
+.fl-poster-title { font: 800 34px/1.05 var(--display); letter-spacing: -1px; color: white; }
+.fl-poster-progress { max-width: 360px; }
+.fl-poster-side { display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.stage .fl-card-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left;
+  font-weight: var(--fontWeightSemibold); color: var(--colorNeutralForeground1); }
+.fl-card-progress { flex: 1; }
+.fl-editor { display: flex; flex-direction: column; gap: 12px; height: 100%; box-sizing: border-box; padding: 18px 20px; }
+.fl-editor header { display: flex; align-items: flex-start; justify-content: space-between; }
+.fl-editor h3 { margin: 0; }
+.fl-editor .fl-pair { align-items: start; }
+.fl-editor-actions { display: flex; justify-content: flex-end; margin-top: auto; }
+.fl-editor-title { display: flex; flex-direction: column; gap: 2px; }

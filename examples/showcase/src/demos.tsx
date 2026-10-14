@@ -10,9 +10,10 @@ import { CardDeck } from "./deck";
 import { ShaderLab } from "./lab";
 import { NotificationStack } from "./notices";
 import { WebcamPond } from "./pond";
+import { FluentBoard } from "./fluent";
 import "../../playground/src/apps/todo/todo.css";
 
-const themes: Record<ExampleId, BackdropTheme> = { layers: "postcard", motion: "deck", effects: "lab", presence: "notices", tasks: "tasks", pond: "pond" };
+const themes: Record<ExampleId, BackdropTheme> = { layers: "postcard", motion: "deck", effects: "lab", presence: "notices", tasks: "tasks", pond: "pond", fluent: "fluent" };
 
 /**
  * One React root for every example. Switching examples swaps the enrolled
@@ -30,7 +31,8 @@ export function Demo({ id, onReady }: { id: ExampleId; onReady(change: (id: Exam
         : selected === "effects" ? <ShaderLab key="effects" />
           : selected === "presence" ? <NotificationStack key="presence" />
             : selected === "pond" ? <WebcamPond key="pond" />
-              : <Tasks key="tasks" />}
+              : selected === "fluent" ? <FluentBoard key="fluent" />
+                : <Tasks key="tasks" />}
   </SceneProvider>;
 }
 
