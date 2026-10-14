@@ -9,7 +9,7 @@ import { Surface } from "@underglass/react";
 import { STAGE } from "./pose";
 
 /** Which example's scenery the backdrop draws. */
-export type BackdropTheme = "postcard" | "deck" | "lab" | "notices" | "tasks" | "pond" | "fluent";
+export type BackdropTheme = "postcard" | "deck" | "lab" | "notices" | "tasks" | "pond" | "fluent" | "compare";
 
 /**
  * A stage-sized decorative layer drawn first. The GPU compositor presents an
@@ -30,7 +30,7 @@ export function Backdrop({ theme }: { theme: BackdropTheme }) {
   </Surface>;
 }
 const backgroundFor: Record<BackdropTheme, string> = {
-  postcard: "rgb(255,240,226)", deck: "rgb(14,52,64)", lab: "rgb(11,13,30)", notices: "rgb(43,25,84)", tasks: "rgb(231,244,236)", pond: "rgb(14,30,26)", fluent: "rgb(235,239,248)",
+  postcard: "rgb(255,240,226)", deck: "rgb(14,52,64)", lab: "rgb(11,13,30)", notices: "rgb(43,25,84)", tasks: "rgb(231,244,236)", pond: "rgb(14,30,26)", fluent: "rgb(235,239,248)", compare: "rgb(14,13,26)",
 };
 
 /** The left-hand native control panel shared by the studio examples. */

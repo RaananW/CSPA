@@ -410,6 +410,59 @@ try {
       await page.waitForFunction(() => !document.querySelector("[id='fluent-item-2'], [id='fluent-item-6']"));
       await quiet();
       record.fluent.released = await fluentMode("released");
+      // GPU or CSS?: every comparison keeps the lane's mode. The colour map is the shader's work: the Underglass
+      // pane is the raw grey capture in DOM and coloured on the GPU, frozen while paused and fresh while running.
+      await page.locator('.example-card[href="#/compare"]').click();
+      const comparisonInputs = page.locator(".stage input[name=compare-scene]");
+      await comparisonInputs.first().waitFor();
+      const comparisons = await comparisonInputs.evaluateAll(inputs => inputs.map(input => input.value));
+      assert.deepEqual(comparisons, ["glow", "ripple", "split", "burn", "cells", "glass"]);
+      record.compare = {};
+      // Paused first: a continuously repainting CSS pane always has a fresh capture pending, so settle() would not finish.
+      await page.locator(".stage input[name=compare-run][value=none]").check();
+      for (const id of comparisons) {
+        await page.locator(`.stage input[name=compare-scene][value=${id}]`).check();
+        await settle();
+        const current = await state();
+        assert.equal(current.mode, lane === "native" ? "gpu" : "dom", `compare ${id}: ${current.reason}`);
+        record.compare[id] = { mode: current.mode, decorativeEffects: current.runtimeResources.decorativeEffects };
+      }
+      await page.locator(".stage input[name=compare-scene][value=cells]").check();
+      // Native hits: the centre of a comparison chip is its (transparent) original radio input.
+      assert.equal(await page.locator(".stage input[name=compare-scene][value=glow]").evaluate(input => {
+        const box = input.getBoundingClientRect();
+        return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === input;
+      }), true);
+      // The Underglass heat map, inside the right pane (stage x 716..1003, y 112..567): mean channel spread and a copy.
+      const heatMap = async name => {
+        await settle();
+        const image = PNG.sync.read(await page.locator(".stage").screenshot({ path: join(run, `${lane}-compare-${name}.png`) }));
+        const pixels = [];
+        let spread = 0;
+        for (let y = 112; y < 567; y += 2) for (let x = 716; x < 1003; x += 2) {
+          const index = (y * image.width + x) * 4, [r, g, b] = image.data.subarray(index, index + 3);
+          spread += Math.max(r, g, b) - Math.min(r, g, b);
+          pixels.push(r, g, b);
+        }
+        return { spread: spread / (pixels.length / 3), pixels };
+      };
+      const changed = (a, b) => a.pixels.filter((value, index) => Math.abs(value - b.pixels[index]) > 8).length;
+      const pausedA = await heatMap("paused-a");
+      await page.waitForTimeout(500);
+      const pausedB = await heatMap("paused-b");
+      record.compare.heatMap = { spread: pausedA.spread, pausedChanged: changed(pausedA, pausedB) };
+      assert.equal(record.compare.heatMap.pausedChanged, 0);
+      if (lane === "native") {
+        assert.ok(pausedA.spread > 40, `colour map applied: ${pausedA.spread}`);
+        await page.locator(".stage input[name=compare-run][value=gpu]").check();
+        const runningA = await heatMap("running-a");
+        await page.waitForTimeout(700);
+        const runningB = await heatMap("running-b");
+        record.compare.heatMap.runningChanged = changed(runningA, runningB);
+        assert.ok(record.compare.heatMap.runningChanged > 100, `running colour map is fresh: ${record.compare.heatMap.runningChanged}`);
+        assert.equal((await state()).mode, "gpu");
+      } else assert.ok(pausedA.spread < 12, `DOM shows the grey capture: ${pausedA.spread}`);
+      await page.locator(".stage input[name=compare-run][value=both]").check();
       record.beforeDispose = await state();
       assert.equal(record.beforeDispose.mode, lane === "native" ? "gpu" : "dom", record.beforeDispose.reason);
       // Explicit dispose must retire every GPU and runtime resource.
