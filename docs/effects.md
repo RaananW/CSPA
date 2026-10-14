@@ -33,10 +33,25 @@ pass already holds do not rebuild anything.
 
 `setEffects(id, descriptors)` validates the complete chain before replacing
 ownership. Every descriptor explicitly declares `bounds: "layer"`,
-`interaction: "decorative"`, `media: "identity"`, `fallback: "static"` and
-`time: { seconds, playing? }`. Only explicitly decorative, inert, aria-hidden
-enrollments without interactive descendants are allowed. Pointer-transparent
-GPU output is **not** justification for distorting or hiding native controls.
+`interaction`, `media: "identity"`, `fallback: "static"` and
+`time: { seconds, playing? }`. Every operation in a chain declares the same
+`interaction`:
+
+- `"decorative"`: only explicitly decorative, inert, aria-hidden enrollments
+  without interactive descendants. Pointer-transparent GPU output is **not**
+  justification for distorting or hiding native controls.
+- `"inert"` (transition effects): any non-decorative enrolled layer whose
+  boundary element is not itself interactive, for the length of a transition
+  (entering, leaving, landing). While the handle is active the runtime makes the
+  boundary's element children inert, including children added meanwhile; the
+  boundary itself keeps its hit area. A click on displaced or dissolved pixels
+  therefore lands on that non-interactive boundary: it can neither activate the
+  layer's controls nor fall through to a control under the layer, so native hits
+  never disagree with what is drawn. Focus inside the layer is lost when the
+  effect starts. Ending the handle in any way (cancel, dispose, replacement,
+  fallback, unenrollment) restores exactly the inert flags it set. If application
+  code makes locked content interactive again, the handle ends as `cancelled`
+  ("Layer content became interactive during a transition effect") and GPU stays on.
 
 - `ripple`: `amplitude`0..12 CSS pixels.
 - `chromatic`: `displacement`0..12 CSS pixels; red/blue sample displacement.
@@ -50,8 +65,10 @@ fades displacement at its boundary; no effect expands output bounds. Zero
 amplitude/displacement/amount is identity. Dissolve amount1 is transparent.
 The shared compositor still presents its existing opaque white backdrop.
 
-The handle exposes `seek`, `play`, `pause`, `cancel`, `dispose`, `state` and
-`finished`. There is no implicit completion duration: playing is an explicitly
+The handle exposes `seek`, `play`, `pause`, `update`, `cancel`, `dispose`, `state` and
+`finished`. `update(parameters)` takes one parameter object per operation, in
+chain order and with exactly the declared keys, and applies them without
+recompiling, so a transition can animate `amount` or `amplitude` every frame. There is no implicit completion duration: playing is an explicitly
 looping seconds clock (wrapped at1000 seconds, as in the compatible ripple).
 Replacement resolves the previous handle as `replaced`;
 cancel/dispose are idempotent, and stale handles cannot affect successors.

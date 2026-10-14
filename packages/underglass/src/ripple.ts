@@ -3,7 +3,7 @@ export interface Ripple {
   seconds: number;
   playing?: boolean;
 }
-const interactive = 'button,input,select,textarea,a[href],dialog,[popover],[tabindex]:not([tabindex="-1"]),[contenteditable]:not([contenteditable="false"]),[role="button"],[role="textbox"]';
+export const interactive = 'button,input,select,textarea,a[href],dialog,[popover],[tabindex]:not([tabindex="-1"]),[contenteditable]:not([contenteditable="false"]),[role="button"],[role="textbox"]';
 export function decorative(element: HTMLElement) {
   return element.inert && element.getAttribute("aria-hidden") === "true"
     && !element.matches(interactive) && !element.querySelector(interactive);

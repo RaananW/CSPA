@@ -4,7 +4,7 @@ import type { Layout } from "./compiler.js";
 import type { MountBoundaryOptions } from "./mount-boundary.js";
 import { DeclarationOwnership, prepareAnimation, rejectImportantPresentation, type AnimationPlayback } from "./animation.js";
 import { validateCSSSource, type CSSAnimationSource } from "./css-animation.js";
-import { decorative, validateRipple, type Ripple } from "./ripple.js";
+import { decorative, interactive, validateRipple, type Ripple } from "./ripple.js";
 import { effectNumber, validateEffects, type EffectDescriptor, type EffectHandle, type EffectResult } from "./effects.js";
 import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion.js";
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
@@ -79,13 +79,13 @@ export class CanvasRuntime {
   private readonly transitions = new Map<string, { finish(status: TransitionResult["status"], reason: string, transferred?: boolean): void; pause(): void; resume(): void; lease: DeclarationOwnership; start: number; end: number }>();
   private clockFrame = 0;
   private clockTime: number | undefined;
-  private readonly effects = new Map<string, { values: EffectDescriptor[]; finish(result: EffectResult): void }>();
+  private readonly effects = new Map<string, { values: EffectDescriptor[]; transition: boolean; finish(result: EffectResult): void }>();
   /** Last React-supplied transform per Surface, and one supplied while motion owned the layer. */
   private readonly reactTransforms = new Map<string, Transform>();
   private readonly deferredTransforms = new Map<string, Transform>();
   private reconcileQueued = false;
   private readonly environment = { visible: !document.hidden, reducedMotion: this.reduced.matches, forcedColors: this.forced.matches };
-  private readonly resources = { mutationObservers: 1, resizeObservers: 1, environmentListeners: 0, controllerFrames: 0, visibilityWaiters: 0, enrolledLayers: 0, animationOwners: 0, decorativeEffects: 0, nativeMotions: 0, declarativeMotions: 0, readmissionFrames: 0 };
+  private readonly resources = { mutationObservers: 1, resizeObservers: 1, environmentListeners: 0, controllerFrames: 0, visibilityWaiters: 0, enrolledLayers: 0, animationOwners: 0, decorativeEffects: 0, transitionEffects: 0, nativeMotions: 0, declarativeMotions: 0, readmissionFrames: 0 };
 
   constructor(private readonly options: RuntimeOptions) {
     if (options.admissionPolicy !== undefined && options.admissionPolicy !== "explicit" && options.admissionPolicy !== "automatic") {
@@ -494,7 +494,9 @@ export class CanvasRuntime {
       if (layer.element.isContentEditable || layer.element.matches(nativeBoundary) || layer.element.querySelector(nativeBoundary)) {
         return "Editable/top-layer boundaries require DOM or the explicit NativeOverlay boundary";
       }
-      if (this.effects.has(layer.id) && !decorative(layer.element)) return `Effects are decorative/inert only: ${layer.id}; ordinary DOM required`;
+      // Transition effects hold their layer's content inert themselves and end if it becomes interactive.
+      const effect = this.effects.get(layer.id);
+      if (effect && !effect.transition && !decorative(layer.element)) return `Effects are decorative/inert only: ${layer.id}; ordinary DOM required`;
       // Descendant animations repaint native content and are captured by the paint
       // event; only animations of the boundary's own GPU-owned presentation conflict.
       if (layer.element.getAnimations().some(animation => !sources.has(animation) && animatesPresentation(animation))) {
@@ -1260,7 +1262,13 @@ export class CanvasRuntime {
     const layer = this.registry.get(id);
     if (!layer) throw new Error(`Unknown Surface: ${id}`);
     const values = validateEffects(descriptors);
-    if (!layer.decorative || !decorative(layer.element)) throw new Error("Effects require explicit decorative, inert, aria-hidden noninteractive enrollment");
+    const transition = values[0]!.interaction === "inert";
+    if (transition) {
+      if (layer.decorative) throw new Error("Decorative layers use decorative effect interaction");
+      // The boundary keeps the layer's hit area while its content is inert, so a click on
+      // displaced pixels lands on it instead of on a control in or under the layer.
+      if (layer.element.matches(interactive)) throw new Error("Transition effects require a non-interactive layer boundary element");
+    } else if (!layer.decorative || !decorative(layer.element)) throw new Error("Effects require explicit decorative, inert, aria-hidden noninteractive enrollment");
     const state = this.renderer().state();
     if (state.initializing || state.transitioning || state.resources.pendingEngines || (state.resources.pendingCleanups && state.mode !== "gpu") || state.resources.probeReadbacks) throw new Error("Effects require idle DOM or admitted GPU without pending lifecycle work");
     // A custom definition the layer's current pass was not built with gets a new pass: the
@@ -1272,19 +1280,24 @@ export class CanvasRuntime {
     }
     if (this.reduced.matches) for (const value of values) value.time.playing = false;
     let active = true;
+    let unlock: (() => void) | undefined;
     let resolve!: (result: EffectResult) => void;
     const finished = new Promise<EffectResult>(done => { resolve = done; });
-    const entry = { values, finish: (result: EffectResult) => {
+    const counter = transition ? "transitionEffects" : "decorativeEffects";
+    const entry = { values, transition, finish: (result: EffectResult) => {
       if (!active) return;
       active = false;
-      if (this.effects.get(id) === entry) { this.effects.delete(id); this.resources.decorativeEffects--; this.invalidatePolicy(); }
+      unlock?.();
+      if (this.effects.get(id) === entry) { this.effects.delete(id); this.resources[counter]--; this.invalidatePolicy(); }
       resolve(result);
       this.stopClock(); this.requestDraw(); this.startClock();
     } };
     this.effects.get(id)?.finish({ status: "replaced", reason: "Validated successor acquired ownership" });
     this.effects.set(id, entry);
     this.invalidatePolicy();
-    this.resources.decorativeEffects++;
+    this.resources[counter]++;
+    if (transition) unlock = lockContent(layer.element,
+      () => entry.finish({ status: "cancelled", reason: "Layer content became interactive during a transition effect" }));
     if (rebuild) { this.revision++; this.reconcile(); }
     this.stopClock();
     this.requestDraw();
@@ -1299,6 +1312,11 @@ export class CanvasRuntime {
       seek: seconds => { effectNumber(seconds, 0, 1e6, "Effect seconds"); change(() => { for (const value of values) value.time.seconds = seconds; }); },
       play: () => change(() => { if (this.reduced.matches) throw new Error("Effect playback is disabled by reduced motion"); for (const value of values) value.time.playing = true; }),
       pause: () => change(() => { for (const value of values) value.time.playing = false; }),
+      update: parameters => {
+        if (!Array.isArray(parameters) || parameters.length !== values.length) throw new Error("Effect update requires one parameter set per operation");
+        const next = validateEffects(values.map((value, index) => ({ ...value, parameters: parameters[index]! }) as EffectDescriptor));
+        change(() => next.forEach((value, index) => { values[index]!.parameters = value.parameters; }));
+      },
       cancel: () => entry.finish({ status: "cancelled", reason: "Effect cancelled" }),
       dispose: () => entry.finish({ status: "disposed", reason: "Effect disposed" }),
     };
@@ -1347,7 +1365,7 @@ export class CanvasRuntime {
       declarativeMotion: [...this.transitions].map(([id, motion]) => ({ id, start: motion.start, end: motion.end })),
       decorativeEffects: [...this.effects].map(([id, effect]) => {
         const ripple = effect.values.find(value => value.kind === "ripple");
-        return { id, amplitude: ripple?.parameters.amplitude ?? 0, seconds: ripple?.time.seconds ?? effect.values[0]!.time.seconds, playing: ripple?.time.playing ?? false,
+        return { id, interaction: effect.values[0]!.interaction, amplitude: ripple?.parameters.amplitude ?? 0, seconds: ripple?.time.seconds ?? effect.values[0]!.time.seconds, playing: ripple?.time.playing ?? false,
           effects: effect.values.map(value => ({ kind: value.kind, parameters: { ...value.parameters }, time: { ...value.time } })) };
       }),
       effectBudget: { passes: 1, operationsPerLayer: 3, extraTextures: 0, uniformBytesPerLayer: 160, gpuTimestampMs: null },
@@ -1376,4 +1394,31 @@ export class CanvasRuntime {
     for (const remove of this.removers.splice(0)) remove();
     return this.state();
   }
+}
+
+/**
+ * Makes an enrolled layer's content inert for a transition effect while the boundary keeps
+ * its hit area. Children added meanwhile are locked too. Returns the release; `broken` runs
+ * when application code makes locked content interactive again.
+ */
+function lockContent(boundary: HTMLElement, broken: () => void) {
+  const owned = new Set<HTMLElement>();
+  const lock = (node: Node) => { if (node instanceof HTMLElement && !node.inert) { node.inert = true; owned.add(node); } };
+  for (const child of boundary.children) lock(child);
+  const observer = new MutationObserver(records => {
+    for (const record of records) {
+      if (record.type === "childList" && record.target === boundary) record.addedNodes.forEach(lock);
+      else if (record.type === "attributes" && record.target instanceof HTMLElement && owned.has(record.target) && !record.target.inert) {
+        owned.delete(record.target);
+        broken();
+        return;
+      }
+    }
+  });
+  observer.observe(boundary, { childList: true, subtree: true, attributes: true, attributeFilter: ["inert"] });
+  return () => {
+    observer.disconnect();
+    for (const node of owned) node.inert = false;
+    owned.clear();
+  };
 }

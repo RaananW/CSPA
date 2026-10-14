@@ -88,11 +88,16 @@ composition stay native.
 
 ### 6. Separate decoration from interaction
 
-Shader effects only run on **decorative** layers: `inert`, `aria-hidden`, with no
-buttons, links, inputs or focusable elements. If your component has artwork worth
-animating with effects, render it as a sibling decorative element the app can
+Continuous shader effects only run on **decorative** layers: `inert`, `aria-hidden`,
+with no buttons, links, inputs or focusable elements. If your component has artwork
+worth animating with effects, render it as a sibling decorative element the app can
 enroll with `decorative: true`, next to the interactive part. Do not mark
 interactive content `aria-hidden` to make it eligible.
+
+An interactive layer can carry a **transition effect** (`interaction: "inert"`) while
+it enters, leaves or lands: its content is inert for that time, then interactive again
+(see [Effects](effects.md#transition-effects-on-interactive-layers)). Keep the layer's
+boundary element itself non-interactive (a wrapper, not a `<button>`).
 
 ### 7. Accessibility is the DOM's
 

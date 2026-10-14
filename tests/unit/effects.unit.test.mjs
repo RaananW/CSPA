@@ -16,6 +16,13 @@ test("entire effect chain validates order, finite ranges and exact policies with
     [ripple, { ...dissolve, parameters: { amount: 2, speed: 0 } }]]) assert.throws(() => validateEffects(chain));
   assert.equal(effectUniforms(validateEffects([ripple, dissolve])).length, 24);
 });
+test("a chain declares one interaction: decorative or inert (transition), never mixed or unknown", () => {
+  const inert = { ...common, interaction: "inert" };
+  assert.deepEqual(validateEffects([{ ...inert, kind: "ripple", parameters: { amplitude: 4 } }, { ...inert, kind: "dissolve", parameters: { amount: .3, speed: 0 } }])
+    .map(value => value.interaction), ["inert", "inert"]);
+  assert.throws(() => validateEffects([{ ...inert, kind: "ripple", parameters: { amplitude: 4 } }, dissolve]), /share one interaction/);
+  assert.throws(() => validateEffects([{ ...ripple, interaction: "interactive" }]), /decorative or inert interaction/);
+});
 test("trusted external definition freezes exact typed numeric schema and rejects fabricated definitions", () => {
   const definition = defineEffect({ name: "tint", geometry: "color", bounds: "layer", capabilities: ["webgpu"],
     parameters: { strength: { min: 0, max: 1 } }, wgsl: "return color;" });
