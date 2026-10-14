@@ -5,7 +5,14 @@
  */
 export type Support = "likely" | "chrome-flags" | "unsupported";
 
+/**
+ * Guesses up front whether GPU mode can work here: `"likely"` when the HTML-in-Canvas methods and
+ * `navigator.gpu` are present, `"chrome-flags"` for another Chromium browser (the flags may simply be
+ * off), else `"unsupported"`. `main.tsx` uses it only to choose the help panel; property presence is
+ * never treated as proof, which is why `enable()` still runs functional admission.
+ */
 export function detectSupport(): Support {
+  // The prototype carries the HTML-in-Canvas members when the browser exposes the API.
   const canvas = HTMLCanvasElement.prototype as unknown as Record<string, unknown>;
   const htmlInCanvas = "content" in canvas && typeof canvas.requestPaint === "function" && typeof canvas.updateElementGeometry === "function";
   if (htmlInCanvas && "gpu" in navigator) return "likely";
@@ -14,14 +21,18 @@ export function detectSupport(): Support {
   return chromium ? "chrome-flags" : "unsupported";
 }
 
+/** The `chrome://flags` entries the help panel asks visitors to enable in Chrome Canary. */
 export const flags = [
   { url: "chrome://flags/#canvas-draw-element" },
   { url: "chrome://flags/#enable-experimental-web-platform-features" },
 ] as const;
 
+/** A short headline for a runtime reason, with an optional next step for the visitor. */
 interface Explanation { title: string; hint?: string }
 /** Plain-language explanations of runtime reasons; the raw reason stays available as details. */
 const known: [RegExp, Explanation][] = [
+  // Tested in order against the runtime's reason text (`CanvasStatus.reason`); the first match
+  // wins. These only change what the status line says, never what the runtime does.
   [/^Current content=drawable/, { title: "GPU mode is on.", hint: "Every control is still the original React element." }],
   [/Ordinary DOM startup/, { title: "Ordinary DOM is ready.", hint: "GPU mode is experimental and starts only when you enable it." }],
   [/Explicit disable/, { title: "Back in ordinary DOM.", hint: "Same controls, same state. Enable GPU again whenever you like." }],
@@ -37,6 +48,7 @@ const known: [RegExp, Explanation][] = [
   [/Pending cleanup|cleanup pending/i, { title: "Finishing GPU cleanup…", hint: "Enable becomes available again in a moment." }],
   [/disposed/i, { title: "This example is disposed.", hint: "Reload the page to start a fresh session." }],
 ];
+/** Explains a runtime reason in plain language; an unrecognised reason is shown as its own title. */
 export function explain(reason: string): Explanation {
   return known.find(([pattern]) => pattern.test(reason))?.[1] ?? { title: reason };
 }

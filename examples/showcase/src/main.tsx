@@ -1,3 +1,9 @@
+/**
+ * Entry point of the showcase site. `App` is ordinary React page chrome (hero, catalog, status,
+ * browser help) that lives outside the Underglass root. Its effect creates the canvas hosts and mounts
+ * a second tree with `mountCanvasApp`, which renders `Demo` from `demos.tsx`. The two sides talk
+ * through the controller (enable, disable, dispose), `onStatusChange` and the URL hash.
+ */
 import { useCallback, useEffect, useRef, useState, version } from "react";
 import { createRoot } from "react-dom/client";
 import { version as reactDOMVersion } from "react-dom";
@@ -15,19 +21,27 @@ import pondPreview from "./previews/webcam-pond.jpg";
 const previews: Partial<Record<ExampleId, string>> = { layers: postcardPreview, motion: deckPreview, effects: labPreview, presence: noticesPreview, pond: pondPreview };
 import "./style.css";
 
+/** The whole page: marketing sections, the example catalog and the live studio with its stage. */
 function App() {
   const [selected, setSelected] = useState<ExampleId>(route(location.hash));
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
+  // `mode` and `diagnostic` mirror the runtime: `onStatusChange` and the result of each action.
   const [mode, setMode] = useState("dom");
   const [diagnostic, setDiagnostic] = useState("Ordinary DOM startup; admission pending.");
+  // A guess made once at load; see `detectSupport`. Admission still decides.
   const [support] = useState<Support>(detectSupport);
+  // `busy` disables the buttons while an action is in flight. `disposed` lasts until reload.
   const [busy, setBusy] = useState(false);
   const [disposed, setDisposed] = useState(false);
+  // Set when the runtime is disposed or the page is going away; hash changes are then ignored.
   const retired = useRef(false);
+  // The `.stage` element that the canvas and DOM hosts are created in.
   const frame = useRef<HTMLDivElement>(null);
+  // The studio section, scrolled into view when a catalog card is chosen.
   const studio = useRef<HTMLElement>(null);
   const controller = useRef<CanvasController>(undefined);
+  // Setter registered by `Demo` (through `onReady`) to switch examples inside the running root.
   const change = useRef<(id: ExampleId) => void>(undefined);
   const ready = useCallback((update: (id: ExampleId) => void) => { change.current = update; }, []);
   const current = examples.find(example => example.id === selected)!;
@@ -38,15 +52,20 @@ function App() {
     outputCanvas.className = "output"; ordinaryHost.className = "ordinary"; overlayHost.className = "overlay";
     let app: CanvasController | undefined;
     let cancelled = false;
+    // Hash routing: `#/id` selects an example in the page chrome and in the running `Demo`. Other
+    // hashes (page anchors such as `#examples`) are left alone.
     const navigate = () => {
       if (retired.current) return;
       if (location.hash && !location.hash.startsWith("#/")) return;
       const id = route(location.hash); setSelected(id); change.current?.(id);
     };
+    // Marks the app retired and disposes the runtime (page hide, or unmount of this effect).
     const close = () => {
       retired.current = true;
       void app?.dispose().catch(error => console.error("Showcase disposal failed", error));
     };
+    // A page restored from the back/forward cache comes back after `pagehide` disposed its runtime,
+    // so it is shown as disposed instead of half alive.
     const restore = (event: PageTransitionEvent) => {
       if (event.persisted) { setDisposed(true); setMode("disposed"); setBusy(false); setDiagnostic("Restored a retired page. Reload to start a fresh session."); }
     };
@@ -56,6 +75,7 @@ function App() {
       app = mountCanvasApp({ outputCanvas, ordinaryHost, overlayHost,
         onStatusChange(status) { setDiagnostic(status.reason); setMode(status.mode); } }, <Demo id={route(location.hash)} onReady={ready} />);
       controller.current = app;
+      // Handle for inspecting the running example from the console.
       window.showcase = { state: () => app!.state(), controller: app, react: version, reactDOM: reactDOMVersion };
     });
     window.addEventListener("hashchange", navigate);
@@ -64,6 +84,8 @@ function App() {
     return () => { cancelled = true; window.removeEventListener("hashchange", navigate); window.removeEventListener("pagehide", close);
       window.removeEventListener("pageshow", restore); close(); };
   }, [ready]);
+  // Runs a caller-owned lifecycle action on the controller, then shows the resulting mode and
+  // reason. A rejection is shown in the status line.
   async function action(operation: "enable" | "disable" | "dispose") {
     setBusy(true);
     try {
@@ -78,6 +100,7 @@ function App() {
     } finally { setBusy(false); }
   }
   const filtered = searchExamples(query, category);
+  // The page reflects the runtime's actual mode, not what was requested.
   const gpu = mode === "gpu";
   return <>
     <a className="skip-link" href="#studio">Skip to live example</a>
@@ -187,9 +210,11 @@ function HeroVisual() {
   </div>;
 }
 
+// Types the `window.showcase` inspection handle.
 declare global {
   interface Window { showcase: { state(): ReturnType<CanvasController["state"]>; controller: CanvasController; react: string; reactDOM: string } }
 }
+// The page chrome is a normal React root; the Underglass root is created separately in `App`.
 createRoot(document.getElementById("app")!).render(<App />);
 
 /** Plain-language status with the runtime's exact reason one click away. */

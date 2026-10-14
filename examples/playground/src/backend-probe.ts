@@ -1,3 +1,10 @@
+/**
+ * Backend comparison used by `probe.ts` (`probe.html`, exposed as `window.nativeProbe.backend`). It captures two
+ * DOM elements into 2D staging canvases and uploads them as textures to either the Lite WebGPU engine or the Lite
+ * WebGL2 engine, then draws both layers with one shader. Tests use it to compare capture and upload cost and to
+ * check that every engine, texture, effect, snapshot and canvas is released again (`resources` counts).
+ * Only one backend may be live at a time.
+ */
 import type { DrawableCanvas } from "./native";
 import { isDrawableContext, waitForPaint } from "./native";
 import {
@@ -14,6 +21,8 @@ import {
   setEffectFloat, drawEffect,
 } from "@babylonjs/lite-gl";
 
+// The two Lite backends expose different entry points; each is gathered into one object so `start` can pick a
+// set and share the capture and upload code.
 const gpuApi = {
   createEngine, disposeEngine, createDynamicTexture, updateDynamicTexture, releaseTexture,
   createEffectWrapper, disposeEffectWrapper, setEffectTexture, createEffectRenderer,
@@ -27,19 +36,33 @@ const glApi = {
   setEffectTexture: setGLTexture, setEffectFloat, drawEffect,
 };
 
+/** Which Lite engine to drive. */
 type Backend = "webgpu" | "webgl2";
+// Resolves with the next animation-frame timestamp.
 const nextFrame = () => new Promise<number>((resolve) => requestAnimationFrame(resolve));
 
+/**
+ * Creates the probe for a drawable `host` canvas and the `elements` to capture (the first two are used as the
+ * two shader layers). Returns `start`, `update`, `frames`, `dispose` and the `resources`/`metrics` counters.
+ */
 export function createBackendProbe(host: DrawableCanvas, elements: readonly HTMLElement[]) {
+  // `resources` counts live objects and must return to zero after `dispose`; `metrics` accumulates timings and
+  // byte counts and is reset by each `start`.
   const resources = { engines: 0, textures: 0, effects: 0, stagingCanvases: 0, snapshots: 0, outputCanvases: 0 };
   const metrics = { captures: 0, pixelCopies: 0, generatedSources: 0, uploads: 0, uploadBytes: 0, captureMs: [] as number[], uploadMs: [] as number[], frameWorkMs: [] as number[], frameIntervalsMs: [] as number[] };
   let release: (() => void) | undefined;
   let draw: ((offset: number, phase: number) => void) | undefined;
   let upload: ((index: number) => void) | undefined;
   let staging: HTMLCanvasElement[] = [];
+  // `starting` also covers the late-engine case: after a timeout the flag is only cleared once the engine
+  // creation that timed out has settled (the engine is disposed, or creation failed).
   let starting = false;
+  // How pixels reach the staging canvases: "native" draws the element snapshot into the staging 2D context,
+  // "generated" paints synthetic colours (upload smoke test, no capture API), and "owning-staged" draws the
+  // snapshot on the host canvas first, then copies those pixels.
   let sourceMode: "native" | "generated" | "owning-staged" = "native";
 
+  // Refreshes `staging[index]` from `elements[index]`. Snapshots are closed in `finally` so none stay live.
   async function capture(index: number) {
     const element = elements[index];
     const canvas = staging[index];
@@ -57,6 +80,7 @@ export function createBackendProbe(host: DrawableCanvas, elements: readonly HTML
       metrics.generatedSources++;
       return;
     }
+    // Wait for a paint before capturing the element.
     await waitForPaint(host);
     const started = performance.now();
     const snapshot = host.captureElementImage(element);
@@ -86,6 +110,7 @@ export function createBackendProbe(host: DrawableCanvas, elements: readonly HTML
     }
   }
 
+  // Uploads one staging canvas to its texture and records time and bytes (RGBA, 4 bytes per pixel).
   function push(index: number) {
     if (!upload) throw new Error("Backend is not initialized");
     const started = performance.now();
@@ -97,6 +122,9 @@ export function createBackendProbe(host: DrawableCanvas, elements: readonly HTML
 
   return {
     resources, metrics,
+    // Builds the backend: output canvas, staging canvases, a first capture of every layer, the engine, textures and
+    // shader, then uploads and draws once. Everything created is registered in `cleanup` (run in reverse) so a
+    // failure at any step releases what was built so far.
     async start(backend: Backend, mode: "native" | "generated" | "owning-staged" = "native") {
       if (release || starting) throw new Error("Serial lifetimes required: dispose the previous backend first");
       starting = true;
@@ -131,6 +159,8 @@ export function createBackendProbe(host: DrawableCanvas, elements: readonly HTML
           const api = gpuApi;
           let timedOut = false;
           let timer: ReturnType<typeof setTimeout> | undefined;
+          // Race engine creation against a 5 s timer. If it finishes after the timeout, dispose that engine as soon as
+          // it arrives so it does not leak.
           const pending = api.createEngine(output, { msaaSamples: 1, maxDevicePixelRatio: 1 }).then((engine) => {
             if (timedOut) {
               api.disposeEngine(engine);
@@ -162,6 +192,8 @@ export function createBackendProbe(host: DrawableCanvas, elements: readonly HTML
             cleanup.push(() => { api.releaseTexture(texture); resources.textures--; });
             return texture;
           });
+          // WebGPU shader: layer `first` is drawn at (40 + offset, 40) sized 200x140 and `second` at (270, 40) sized 30x30
+          // (output pixels). `state.x` is the horizontal offset and `state.y` darkens the second layer.
           const effect = api.createEffectWrapper(engine, {
             name: "native-layer-probe",
             bindings: [
@@ -207,6 +239,7 @@ export function createBackendProbe(host: DrawableCanvas, elements: readonly HTML
           };
         } else {
           const api = glApi;
+          // `preserveDrawingBuffer` keeps the last frame readable after drawing so tests can sample pixels.
           const engine = api.createGLEngine(output, { preserveDrawingBuffer: true });
           resources.engines++;
           cleanup.push(() => { api.disposeGLEngine(engine); resources.engines--; });
@@ -242,11 +275,13 @@ void main() {
           });
           resources.effects++;
           cleanup.push(() => { api.disposeEffectWrapper(effect); resources.effects--; });
+          // Wait until the effect reports ready, polling once per frame, with a 1.5 s limit.
           const deadline = performance.now() + 1500;
           while (!api.isEffectReady(engine, effect.effect)) {
             if (performance.now() > deadline) throw new Error("Lite GL shader compilation timed out");
             await nextFrame();
           }
+          // The GL fragment shader flips Y itself (`1.0 - vUv.y`) when computing pixel coordinates.
           upload = (index) => api.updateDynamicTexture(engine, textures[index], staging[index], false, false);
           draw = (offset, phase) => {
             api.setViewport(engine);
@@ -259,6 +294,7 @@ void main() {
           };
         }
         for (let index = 0; index < elements.length; index++) push(index);
+        // Reverse-order disposal; clears the hooks so a new backend can start.
         release = () => {
           for (const dispose of cleanup.reverse()) dispose();
           release = undefined; draw = undefined; upload = undefined;
@@ -281,6 +317,8 @@ void main() {
       draw(0, 0);
       await nextFrame();
     },
+    // Draws `count` animation frames with a sinusoidal offset and alternating darkening, recording frame interval
+    // and CPU work per frame. It never captures or uploads; the returned counts show that stayed unchanged.
     async frames(count = 300) {
       if (!draw) throw new Error("Backend is not initialized");
       const before = { captures: metrics.captures, uploads: metrics.uploads };
@@ -297,6 +335,7 @@ void main() {
       await nextFrame();
       return { frames: count, newCaptures: metrics.captures - before.captures, newUploads: metrics.uploads - before.uploads, metrics: structuredClone(metrics) };
     },
+    // Synchronous release of all resources; refused while `start` is still waiting on the engine.
     dispose() {
       if (starting) throw new Error("Cannot dispose while backend initialization is pending");
       release?.();

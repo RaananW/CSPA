@@ -1,3 +1,10 @@
+/**
+ * Entry for `effects.html` (poster composer): shows decorative effects on a non-interactive artwork layer next to
+ * a native form and dialog. It uses `useSurfaceRef` to enrol existing DOM, `controller.setEffects` with the built-in
+ * ripple, chromatic and dissolve effects plus a custom WGSL effect (`apps/effects/color-cycle.ts`), and a Radix
+ * dialog in the native overlay host. `window.effectsProbe` is the hook for the browser tests; `?dom` starts without
+ * GPU and `?strict` enables React StrictMode.
+ */
 import { Profiler, version, useState, useEffect, useCallback, type ProfilerOnRenderCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { createRoot, flushSync } from "./react-root";
@@ -6,14 +13,20 @@ import { colorCycle } from "../apps/effects/color-cycle";
 import "./effects.css";
 
 const params = new URLSearchParams(location.search);
+// Profiler/effect counters: reported by `state()` (Profiler commits, effect mounts and cleanups).
 const commits = { count: 0, mounts: 0, cleanups: 0 };
 const profile: ProfilerOnRenderCallback = () => { commits.count++; };
 let controller!: CanvasController;
 let handle: EffectHandle | undefined;
 let update!: (value: string) => void;
 const listeners: (() => void)[] = [];
+// Ring buffer of the runtime's `onMeasure` samples (capped at 4096 in `mount`).
 const samples: { kind: string; at: number; durationMs: number; phase: string }[] = [];
+// Effect policy shared by every descriptor: layer-sized bounds, no pointer interaction, `media: "identity"`
+// and a static fallback.
 const policy = { bounds: "layer", interaction: "decorative", media: "identity", fallback: "static" } as const;
+// Builds an effect descriptor of the given kind with the shared policy and clock; `custom` carries the WGSL
+// definition.
 function descriptor(kind: "ripple" | "chromatic" | "dissolve" | "custom", seconds = 0, playing = false): EffectDescriptor {
   const common = { ...policy, time: { seconds, playing } };
   switch (kind) {
@@ -23,17 +36,21 @@ function descriptor(kind: "ripple" | "chromatic" | "dissolve" | "custom", second
     case "custom": return { ...common, kind, definition: colorCycle, parameters: { strength: 1, rate: 2 } };
   }
 }
+// Replaces the effect chain on the `art` layer and keeps the returned handle.
 function apply(values: readonly EffectDescriptor[]) { handle = controller.setEffects("art", values); return handle; }
 function report(error: unknown) { document.querySelector("#status")!.textContent = String(error); console.error(error); }
+// Applies a playing effect and also starts a short motion transition on the artwork layer.
 function choose(kind: "ripple" | "chromatic" | "dissolve" | "custom") {
   try {
     apply([descriptor(kind, 0, true)]);
     controller.transition("art", { keyframes: [{ offset: 0 }, { offset: 1, x: 15, rotation: 2 }], timing: { duration: 800 } });
   } catch (error) { report(error); }
 }
+// Two enrolled layers: `panel` holds the native controls, `art` is decorative (the only layer that takes effects).
 function App() {
   const panel = useSurfaceRef<HTMLElement>({ id: "panel" });
   const art = useSurfaceRef<HTMLElement>({ id: "art", decorative: true });
+  // Decorative layers must be inert; set that on the node before handing it to the runtime ref.
   const artRef = useCallback((element: HTMLElement | null) => {
     if (element) element.inert = true;
     art(element);
@@ -70,6 +87,7 @@ function App() {
     </Dialog.Portal>
   </Dialog.Root>;
 }
+// Mount the app and start with the custom effect applied (effects only render in GPU mode).
 function mount() {
   controller = mountCanvasApp({
     captureHost: document.querySelector<HTMLCanvasElement>("#capture")!, outputCanvas: document.querySelector<HTMLCanvasElement>("#output")!,
@@ -81,15 +99,18 @@ function mount() {
 }
 function state() { return { ...controller.state(), reactVersion: version, commits: { ...commits }, demoListeners: listeners.length }; }
 async function dispose() { await controller.dispose(); for (const remove of listeners.splice(0)) remove(); return state(); }
+// After a dispose the capture/output canvases are gone; recreate them so a new mount can run.
 function restoreCanvases() {
   for (const id of ["capture", "output"]) if (!document.getElementById(id)) {
     const canvas = document.createElement("canvas"); canvas.id = id; canvas.hidden = true;
     document.querySelector("#frame")!.insertBefore(canvas, document.querySelector("#ordinary"));
   }
 }
+// HMR: wait for the previous module's disposal before mounting again.
 const prior: unknown = import.meta.hot?.data.disposal;
 if (prior instanceof Promise) { await prior; restoreCanvases(); }
 mount();
+// Wire the Enable / Disable / Dispose buttons.
 function install() {
   for (const [id, operation] of [["enable", () => controller.enable()], ["disable", () => controller.disable()], ["dispose", dispose]] as const) {
     const element = document.getElementById(id)!;
@@ -99,6 +120,8 @@ function install() {
 }
 install();
 let liveSerial = 0;
+// Test hook. `compile` and `live` exercise custom WGSL: `compile` goes through disable and enable, `live` swaps the
+// effect while GPU stays active. `cycle` disposes and remounts the whole page.
 window.effectsProbe = {
   state, dispose, descriptor, apply, controller: () => controller, handle: () => handle!,
   update: value => flushSync(() => update(value)), samples: () => [...samples], clearSamples: () => { samples.length = 0; },
@@ -116,6 +139,7 @@ window.effectsProbe = {
   },
   async cycle() { const retired = await dispose(); restoreCanvases(); mount(); install(); await controller.enable(); return { retired, active: state() }; },
 };
+// GPU is on by default; `?dom` leaves the ordinary DOM.
 if (!params.has("dom")) void controller.enable().catch(report);
 if (import.meta.hot) {
   import.meta.hot.accept();

@@ -1,9 +1,20 @@
 /**
+ * The showcase catalog: the copy for each example card, the studio heading and the "Why the GPU
+ * here" panel, plus hash routing and search. Pure data with no Underglass imports, so it is shared by
+ * `main.tsx` (the page chrome outside the Underglass root), `demos.tsx` and the unit tests.
+ */
+
+/**
  * Why each example uses the GPU, stated honestly: what the GPU path does here and
  * what CSS alone would do, including where CSS would be just as good.
  */
 export interface GPUReason { headline: string; points: readonly string[]; css: string }
 
+/**
+ * Every example, in catalog order. `id` is also the hash route (`#/layers`) and selects the demo in
+ * `demos.tsx`; `accent` picks the card's CSS colour class. `as const` keeps the ids as literal types
+ * for `ExampleId`, and `satisfies` checks that each entry has a complete `gpu` explanation.
+ */
 export const examples = [
   { id: "layers", number: "01", title: "Postcard studio", category: "Native controls",
     summary: "Design a postcard with real inputs, radio swatches and stamps. One native React form edits the GPU-presented card.",
@@ -83,11 +94,17 @@ export const examples = [
     } },
 ] as const satisfies readonly { id: string; gpu: GPUReason; [key: string]: unknown }[];
 
+/** The id of one catalog example, such as `"layers"` or `"pond"`. */
 export type ExampleId = typeof examples[number]["id"];
+/** Maps a location hash (`#/motion`, `#motion` or empty) to an example id; unknown ids open `"layers"`. */
 export function route(hash: string): ExampleId {
   const id = hash.replace(/^#\/?/, "");
   return examples.find(example => example.id === id)?.id ?? "layers";
 }
+/**
+ * Filters the catalog by category (`"All"` keeps every category) and by a case-insensitive substring
+ * of the title, summary, category and tags. An empty query matches everything.
+ */
 export function searchExamples(query: string, category: string) {
   const text = query.trim().toLowerCase();
   return examples.filter(example => (category === "All" || example.category === category)
