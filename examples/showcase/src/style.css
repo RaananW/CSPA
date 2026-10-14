@@ -195,6 +195,14 @@ h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: .98; letter-spacing: -.04
 .is-gpu .diagnostic-label { background: #0d8a6a; }
 .disposed-note { padding: 12px 16px; border-radius: 12px; background: #fff2e8; color: #8a3b14; font-weight: 650; }
 .stage-note { font-size: 12px; color: var(--muted); line-height: 1.6; }
+.why-gpu { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; margin-top: 22px; }
+.why-col { padding: 20px 22px; border-radius: 18px; background: #f6f2ff; border: 1px solid #e4dcfb; }
+.why-col h3 { margin: 4px 0 10px; font-size: 18px; line-height: 1.35; }
+.why-col ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; }
+.why-col li, .why-col p { font-size: 14px; line-height: 1.6; color: #3c3350; }
+.why-col .eyebrow { margin: 0; }
+.why-css { background: #f7f5f2; border-color: var(--line); }
+.why-hint { margin: 12px 0 0; font-size: 13px; color: var(--muted); }
 .stage-frame { border-radius: 26px; padding: 8px; background: linear-gradient(160deg, #1b1730, #0d0b1a); box-shadow: 0 24px 60px #160c2a33; }
 .is-gpu .stage-frame { background: linear-gradient(160deg, #1d1440, #0b2b2c); box-shadow: 0 24px 60px #6d4aff33, 0 0 0 1px #19c3b155; }
 .stage-chrome { display: flex; align-items: center; gap: 7px; padding: 6px 10px 12px; }
@@ -339,6 +347,7 @@ h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: .98; letter-spacing: -.04
 .check.clock { margin-top: 4px; padding-top: 10px; border-top: 1px solid #34366a; }
 .check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px !important; font-weight: 700 !important; }
 .check input { width: 16px; height: 16px; margin: 0; accent-color: #5ee1d0; }
+.check.riso input { accent-color: #e5604f; }
 .placard-kicker { font: 700 10px var(--mono); letter-spacing: 2px; color: #6d4aff; }
 .placard-title { font: 700 28px/1.1 var(--serif); letter-spacing: -.4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .placard-chain { font: 600 12px var(--mono); color: #5b5578; }
@@ -401,6 +410,7 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
   .example-grid { grid-template-columns: 1fr; }
   .filters { flex-direction: column; }
   .studio { padding: 16px; border-radius: 22px; }
+  .why-gpu { grid-template-columns: 1fr; }
   .studio-head { flex-wrap: wrap; }
   .control-bar { padding: 14px; }
   .section-heading { flex-wrap: wrap; align-items: flex-start; }

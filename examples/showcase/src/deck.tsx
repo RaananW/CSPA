@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Surface, useGPUHost, type TransitionHandle } from "@canvas-spa/react";
 import { Panel, describe, useReducedMotion } from "./shared";
-import { useSceneArt } from "./scene";
+import { usePulse, useSceneArt } from "./scene";
 import { at, fromTransform, keepInside, path, type Pose, type Rect } from "./pose";
 
 const SIZE = { width: 320, height: 280 };
@@ -31,6 +31,7 @@ export function CardDeck() {
   const handles = useRef<TransitionHandle[]>([]);
   const slot = useRef<Record<CardId, number>>({ "deck-sky": 0, "deck-sea": 1, "deck-fern": 2, "showcase-card": 3 });
   const generation = useRef(0);
+  const pulse = usePulse();
   useEffect(() => () => { generation.current++; for (const handle of handles.current) handle.cancel(); handles.current = []; }, []);
 
   useSceneArt(() => ({ layout: { x: 362, y: 20, width: 664, height: 660, overflow: "hidden" },
@@ -84,7 +85,8 @@ export function CardDeck() {
       void Promise.all(started.map(handle => handle.finished)).then(results => {
         if (version !== generation.current) return;
         const completed = results.filter(result => result.status === "completed").length;
-        setFeedback(`${label}. ${completed} of ${results.length} transitions completed; every like button is still the original.`);
+        const rippled = completed > 0 && pulse(6);
+        setFeedback(`${label}. ${completed} of ${results.length} transitions completed${rippled ? " and the felt rippled where they landed" : ""}; every like button is still the original.`);
       });
     } catch (error) { setFeedback(`Motion unavailable: ${describe(error)}`); console.error(error); }
   }

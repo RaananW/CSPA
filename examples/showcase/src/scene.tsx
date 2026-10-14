@@ -106,3 +106,23 @@ export function useSceneArt(spec: () => ArtSpec, dependencies: DependencyList) {
   const { publish } = useScene();
   useLayoutEffect(() => { publish(spec()); }, dependencies);
 }
+
+/**
+ * Briefly ripples the decorative art layer, a GPU-only displacement of its rendered
+ * pixels, then restores the resident chain. A no-op in ordinary DOM or with
+ * reduced motion; a newer pulse replaces an older one.
+ */
+export function usePulse() {
+  const scene = useScene();
+  const controller = useGPUHost();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => { if (timer.current !== undefined) { clearTimeout(timer.current); scene.setChain(residentChain()); } }, [scene]);
+  return useCallback((amplitude: number, milliseconds = 1100) => {
+    const state = controller.state();
+    if (state.mode !== "gpu" || matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+    if (timer.current !== undefined) clearTimeout(timer.current);
+    scene.setChain([{ kind: "ripple", parameters: { amplitude }, time: { seconds: 0, playing: true }, ...policy }, ...residentChain()]);
+    timer.current = setTimeout(() => { timer.current = undefined; scene.setChain(residentChain()); }, milliseconds);
+    return true;
+  }, [controller, scene]);
+}

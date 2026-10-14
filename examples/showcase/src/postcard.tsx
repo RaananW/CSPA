@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Surface } from "@canvas-spa/react";
 import { Panel } from "./shared";
-import { useSceneArt } from "./scene";
+import { policy, residentChain, useScene, useSceneArt } from "./scene";
 
 export const palettes = {
   sunset: { name: "Sunset", card: "rgb(255,222,201)", ink: "rgb(66,25,40)", accent: "rgb(229,86,72)",
@@ -40,6 +40,13 @@ export function PostcardStudio() {
   const [stamp, setStamp] = useState<StampId>("sun");
   const [sent, setSent] = useState<Sent[]>([]);
   const [feedback, setFeedback] = useState("Type, choose a palette and a stamp. The card follows every keystroke.");
+  const [riso, setRiso] = useState(false);
+  const scene = useScene();
+  // Riso print: shift the rendered landscape's colour channels apart (GPU only).
+  useEffect(() => {
+    scene.setChain(riso ? [{ kind: "chromatic", parameters: { displacement: 4 }, time: { seconds: 0, playing: false }, ...policy }, ...residentChain()] : residentChain());
+  }, [riso, scene]);
+  useEffect(() => () => { scene.setChain(residentChain()); }, [scene]);
   const colors = palettes[palette];
   const serial = sent.length + 1;
   useSceneArt(() => ({ layout: { x: 378, y: 330, width: 350, height: 346, overflow: "hidden" },
@@ -79,6 +86,10 @@ export function PostcardStudio() {
             <span className="stamp-icon"><StampIcon kind={id} color="currentColor" /></span>{stamps[id]}
           </label>)}
         </fieldset>
+        <label className="check riso"><input type="checkbox" checked={riso} onChange={event => {
+          setRiso(event.target.checked);
+          setFeedback(event.target.checked ? (scene.mode() === "gpu" ? "Riso print on: the landscape's colour channels are printed slightly out of register." : "Riso print is a GPU effect; enable experimental GPU to see it.") : "Riso print off.");
+        }} />Riso print (GPU effect)</label>
         <button type="submit" className="primary">Save postcard</button>
       </form>
       <output id="studio-feedback" role="status">{feedback}</output>
