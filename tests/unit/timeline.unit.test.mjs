@@ -1,3 +1,8 @@
+/**
+ * Unit tests for `compileTimeline` and `parseTransform` in `packages/underglass/src/timeline.ts`: sampling
+ * at delay, iteration and direction boundaries, easing overshoot, and rejection of unsupported inputs.
+ * Run with `npm run test:unit`.
+ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compileTimeline, parseTransform } from "../../packages/underglass/src/timeline.ts";
@@ -15,6 +20,7 @@ test("narrow timeline delay, alternate, endpoints and exact phase", () => {
   assert.equal(timeline.sample(2100).x, 0);
   assert.equal(timeline.sample(10000).x, 0);
 });
+// Easing may overshoot 0..1, so transforms extrapolate; opacity is clamped to its valid range.
 test("valid overshoot easing extrapolates transform, clamps only opacity and rejects singular paths", () => {
   const values = frames.map((frame, index) => ({ ...frame, opacity: index, transform: `translate(${index * 100}px, 0px) rotate(0deg) scale(1)` }));
   const timeline = compileTimeline(values, { duration: 1000, easing: "cubic-bezier(0.2,-2,0.8,3)" });

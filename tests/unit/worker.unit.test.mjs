@@ -1,8 +1,14 @@
+/**
+ * Unit tests for the experimental worker compositor's program builder (`build.ts`) and its protocol
+ * validators (`worker-protocol.ts`). Run with `npm run test:unit`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { validateWorkerFrame, validateWorkerProgram } from "../../packages/underglass/src/worker-protocol.ts";
 
+// `build.ts` imports siblings as `./x.js`, which only exist as `.ts` in the source tree. This hook
+// maps those specifiers to `.ts` for the dynamic import below, then is removed.
 const sourceRoot = new URL("../../packages/underglass/src/", import.meta.url).href;
 const hooks = registerHooks({
   resolve(specifier, context, next) {

@@ -1,3 +1,7 @@
+/**
+ * Unit tests for `compileMotion` in `packages/underglass/src/motion.ts`: typed keyframe and timing
+ * validation, and sampling through the shared timeline. Run with `npm run test:unit`.
+ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { compileMotion } from "../../packages/underglass/src/motion.ts";
@@ -8,6 +12,7 @@ test("numeric motion snapshots channels/timing and shares bounded timeline sampl
     timing: { duration: 1000, delay: 100, iterations: 2, direction: "alternate", fill: "both" },
   };
   const compiled = compileMotion(descriptor);
+  // Mutating the descriptor after compiling must not change the compiled motion (it is a snapshot).
   descriptor.keyframes[1].x = 999;
   descriptor.timing.duration = 1;
   assert.deepEqual(compiled.timeline.sample(600), { x: 35, y: 10, rotation: 5, scaleX: 0.925, scaleY: 0.925, opacity: 0.75 });

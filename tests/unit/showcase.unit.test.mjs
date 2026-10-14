@@ -1,3 +1,8 @@
+/**
+ * Unit tests for the public showcase: base path policy, hash routing and catalog search, the GitHub Pages
+ * workflow file, and `scripts/check-showcase-assets.mjs`. Reads files relative to the repository root, so
+ * run from the root with `npm run test:unit`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, mkdtemp, mkdir, writeFile, rm, realpath } from "node:fs/promises";
@@ -22,6 +27,7 @@ test("showcase hash navigation and catalog filtering remain local and predictabl
   assert.equal(searchExamples("unfindable", "All").length, 0);
 });
 test("Pages workflow deploys only main, uses immutable pins and confines deployment permissions", async () => {
+  // Normalise CRLF so the multi-line regular expressions below also match on Windows checkouts.
   const workflow = (await readFile(".github/workflows/showcase-pages.yml", "utf8")).replaceAll(String.fromCharCode(13, 10), String.fromCharCode(10));
   assert.match(workflow, /on:\n  push:\n    branches: \[main\]\n/);
   assert.match(workflow, /\n  workflow_dispatch:/);
@@ -41,6 +47,7 @@ test("public output guard fails before an unexpected artifact can be uploaded", 
     await writeFile(join(root, "index.html"), "<html>Showcase</html>");
     await writeFile(join(root, "assets/index-abc.js"), "export {}");
     await writeFile(join(root, "assets/index-abc.css"), "body{}");
+    // Runs the checker as a child process on the fake build output and returns its status and stderr.
     const check = () => spawnSync(process.execPath, ["scripts/check-showcase-assets.mjs", root], { encoding: "utf8" });
     assert.equal(check().status, 0);
     if (await symlinkOrSkip(t, "index-abc.js", join(root, "assets/alias.js"))) {

@@ -1,3 +1,7 @@
+/**
+ * Unit test for `validateTrackedEvidence` in `scripts/check-evidence.mjs`: which evidence files may be
+ * committed and how large they may be. Run with `npm run test:unit`.
+ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { curatedEvidence, validateTrackedEvidence } from "../../scripts/check-evidence.mjs";

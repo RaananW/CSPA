@@ -1,3 +1,7 @@
+/**
+ * Unit tests for the browser capability and input helpers in `packages/underglass/src/native.ts`, using
+ * small fakes for the DOM and the canvas instead of a real browser. Run with `npm run test:unit`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { capabilities, waitForPaint, validateGeometry, nativeEditingControl, nativeScrollKind } from "../../packages/underglass/src/native.ts";
@@ -25,6 +29,7 @@ test("native editing eligibility distinguishes original text controls from viewp
   assert.equal(nativeEditingControl({ ...viewport, ownerDocument: { defaultView: null } }), false);
 });
 
+// Support is judged by each API being a callable function, not by a property name merely existing.
 test("capability detection accepts functions, not names or dictionary constructors", () => {
   const unavailable = capabilities({ getContext: () => ({}) });
   assert.equal(unavailable.available, false);
@@ -42,6 +47,7 @@ test("capability detection accepts functions, not names or dictionary constructo
   assert.ok(capabilities(canvas).missing.includes("updateElementGeometry"));
 });
 
+// `listeners` is the net number of registered listeners, so a paint listener left behind on any exit path fails the test.
 test("paint timeout and request failure remove listeners", async () => {
   let listeners = 0;
   class Canvas extends EventTarget {
@@ -60,6 +66,7 @@ test("paint timeout and request failure remove listeners", async () => {
   assert.equal(listeners, 0);
 });
 
+// `validateGeometry` must throw for a non-invertible, non-finite or 3D matrix.
 test("bad native geometry is rejected atomically", () => {
   const identity = { is2D: true, a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
   assert.doesNotThrow(() => validateGeometry(identity));

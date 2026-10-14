@@ -1,3 +1,17 @@
+/**
+ * Browser suite for dynamic structure on `integration.html` (`window.integrationProbe`, from
+ * `examples/playground/src/demo/integration-demo.tsx`): React layers are added, removed, reordered, moved and
+ * resized, the DPR changes, and admission, device and environment events arrive while GPU presents. It proves
+ * that GPU ownership survives supported structural changes (no revoke, no re-admission), that pending captures
+ * and pending admission never reveal stale or blank output, that the original native controls keep identity,
+ * value, selection and focus, and that explicit disable/dispose and genuine failures are respected and leave
+ * nothing live. Fixtures that fake a condition (held GPU fences, a held `requestAdapter`, injected capture
+ * errors, emulated media or DPR) say so in the `fixture` field of the `dynamic` evidence reports.
+ *
+ * Query flags: `dom` skips the automatic initial enable; `auto` selects `admissionPolicy: "automatic"`, a
+ * compatibility option that behaves like the default `explicit` policy except that a diagnosed recovery
+ * latches admission intent to `blocked` until an explicit `enable()`.
+ */
 import { chromium } from "@playwright/test";
 import { test, expect } from "../helpers/current-browser.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -6,12 +20,17 @@ import { evidenceDirectory } from "../helpers/evidence.mjs";
 import { previewURL } from "../helpers/urls.mjs";
 import { browserLaunchOptions } from "../helpers/browser.mjs";
 
+// Evidence directory for JSON reports.
 const directory = evidenceDirectory("dynamic");
 async function save(name, data) {
   await mkdir(directory, { recursive: true });
   await writeFile(`${directory}/${name}.json`, JSON.stringify(data, null, 2));
 }
 const state = page => page.evaluate(() => window.integrationProbe.state());
+/**
+ * Waits until the probe is in `mode`, no initialization or transition is running, and (for `dom`) the engine
+ * has been released, then drains scheduled capture and draw work.
+ */
 async function settled(page, mode) {
   await page.waitForFunction(mode => {
     const s = window.integrationProbe.state();
@@ -20,6 +39,11 @@ async function settled(page, mode) {
   }, mode);
   await page.evaluate(() => window.integrationProbe.settle());
 }
+/**
+ * Opens the page with the automatic initial enable skipped (`?dom`), records the browser identity, asserts
+ * that admission intent starts disabled, then enables GPU explicitly and waits for it. With `automatic` the page
+ * is loaded with `?auto` (`admissionPolicy: "automatic"`).
+ */
 async function ready(page, automatic = true) {
   const cdp = await page.context().newCDPSession(page);
   const metadata = { identity: await cdp.send("Browser.getVersion"), launch: await cdp.send("Browser.getBrowserCommandLine") };
@@ -31,12 +55,17 @@ async function ready(page, automatic = true) {
   await settled(page, "gpu");
   return metadata;
 }
+/** Disposes the probe and asserts that every GPU and runtime resource counter is zero; returns the report. */
 async function zero(page) {
   const retired = await page.evaluate(() => window.integrationProbe.dispose());
   expect(Object.values(retired.resources).every(n => n === 0)).toBe(true);
   expect(Object.values(retired.runtimeResources).every(n => n === 0)).toBe(true);
   return retired;
 }
+/**
+ * Reads one pixel of the `#frame` screenshot at frame-local CSS pixel (x, y). The default (55, 345) lies inside
+ * the red primary layer, rgb(240, 30, 60). The screenshot is scaled by its pixel ratio to find the pixel.
+ */
 async function color(page, x = 55, y = 345) {
   const width = await page.locator("#frame").evaluate(node => node.getBoundingClientRect().width);
   const png = PNG.sync.read(await page.locator("#frame").screenshot());
@@ -44,6 +73,10 @@ async function color(page, x = 55, y = 345) {
   const offset = (Math.floor(y * scale) * png.width + Math.floor(x * scale)) * 4;
   return [...png.data.subarray(offset, offset + 4)];
 }
+/**
+ * Puts the native controls into a known state (typed value, a one-character selection, a second input) and
+ * remembers the original input and root so `continuity` can prove they are never replaced.
+ */
 async function native(page) {
   await page.locator("#name-label").click();
   await expect(page.locator("#name")).toBeFocused();
@@ -57,6 +90,7 @@ async function native(page) {
     window.originalRoot = document.querySelector(".app-container");
   });
 }
+/** Asserts the original input and root are still in place with the same value, selection and focus. */
 async function continuity(page) {
   const result = await page.evaluate(() => ({
     sameInput: window.originalInput === document.querySelector("#name"), sameRoot: window.originalRoot === document.querySelector(".app-container"),
@@ -70,6 +104,9 @@ async function continuity(page) {
   return result;
 }
 
+// Delays every GPU queue fence (`onSubmittedWorkDone`) until the test releases it. A structural change then
+// creates a successor engine while the old one waits for cleanup; an explicit disable at that point must fall
+// back to DOM but keep the healthy resources alive behind the pending fence instead of destroying them.
 test("successor retirement and explicit disable retain healthy resources behind a bounded fence", async ({ page }) => {
   const metadata = await ready(page);
   await native(page);
@@ -86,6 +123,7 @@ test("successor retirement and explicit disable retain healthy resources behind 
   const successor = await state(page);
   expect(successor.mode).toBe("gpu");
   expect(successor.resources.pendingCleanups).toBeGreaterThan(0);
+  // A declarative motion can still be started and cancelled while the fence is pending.
   const motion = await page.evaluate(async () => {
     const transition = window.integrationProbe.transition({
       keyframes: [{ offset: 0 }, { offset: 1, x: 5 }], timing: { duration: 60000 },
@@ -98,15 +136,22 @@ test("successor retirement and explicit disable retain healthy resources behind 
   expect(retired.mode).toBe("dom");
   expect(retired.resources.pendingCleanups).toBeGreaterThan(0);
   expect(retired.resources.engines).toBe(1);
+  // The diagnosed reason names the pending cleanup; the engine is retained until the fence completes.
   expect(retired.reason).toMatch(/cleanup pending/);
   await continuity(page);
+  // Releasing the fence lets the retained resources be freed.
   await page.evaluate(() => { window.restoreSuccessorFence(); window.releaseSuccessorFence(); });
   await page.waitForFunction(() => window.integrationProbe.state().resources.pendingCleanups === 0);
   const disposed = await zero(page);
   await save("successor-retirement-fence", { metadata, successor, motion, retired, disposed });
 });
 
+// The three tests in this loop run at DPR 1 and 2.
 for (const dpr of [1, 2]) {
+  // With a 60 s transition running, three structural changes (add and reorder plus move, resize, remove) are
+  // applied. Right after each commit the output is still visible and GPU; afterwards the original controls are
+  // intact and the red pixel is still painted. Admission attempts must not increase: the changes are coalesced
+  // into the running GPU session rather than triggering new admissions.
   test(`opt-in coalesces structural changes during motion with original native hits DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {
@@ -121,6 +166,7 @@ for (const dpr of [1, 2]) {
           if (operation === "remove") p.extra(0);
           return { state: p.state(), hidden: document.querySelector("#output").hidden };
         }, operation);
+        // Right after the commit the output is still visible and presenting GPU.
         expect(barrier.hidden).toBe(false);
         expect(barrier.state.mode).toBe("gpu");
         await settled(page, "gpu");
@@ -134,6 +180,7 @@ for (const dpr of [1, 2]) {
         observations.push({ operation, barrier, retained });
       }
       const after = await state(page);
+      // No re-admission happened for any of the structural changes.
       expect(after.admission.attempts - before.admission.attempts).toBe(0);
       expect(after.metrics.admission.attempts).toBe(1);
       const retired = await zero(page);
@@ -141,6 +188,10 @@ for (const dpr of [1, 2]) {
     } finally { await page.close(); }
   });
 
+  // Part 1: the `paint` event is swallowed, so a requested capture stays pending. A structural change during
+  // the wait must leave the previously presented pixels on screen (no blank frame), upload nothing and skip the
+  // incomplete frame. Part 2: during a real admission readback a layout change arrives (injected from the
+  // geometry callback); the barrier must show mode `admitting` and the stale generation must never be revealed.
   test(`held capture and queued admission readback never reveal retired generations DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {
@@ -148,6 +199,7 @@ for (const dpr of [1, 2]) {
       await page.evaluate(() => {
         const host = document.querySelector("#output");
         const original = host.requestPaint.bind(host), hold = event => event.stopImmediatePropagation();
+        // Swallow paint events and `requestPaint` so the pending capture cannot complete until `restorePaint()`.
         host.addEventListener("paint", hold, true); host.requestPaint = () => {};
         window.restorePaint = () => { host.removeEventListener("paint", hold, true); host.requestPaint = original; original(); };
         window.integrationProbe.render();
@@ -167,11 +219,13 @@ for (const dpr of [1, 2]) {
         const offset = (Math.floor(y * ratio) * retainedPixels.width + Math.floor(x * ratio)) * 4;
         return [...retainedPixels.data.subarray(offset, offset + 4)];
       };
+      // The retained frame still shows the red primary layer and the green stationary layer.
       expect(retainedColor(55, 345)).toEqual([240, 30, 60, 255]);
       expect(retainedColor(400, 200)).toEqual([20, 200, 90, 255]);
       const held = await state(page);
       expect(held.mode).toBe("gpu");
       expect(held.metrics.gpuFrames).toBe(before.metrics.gpuFrames);
+      // The incomplete frame was skipped rather than drawn blank.
       expect(held.metrics.incompleteFramesSkipped).toBeGreaterThan(before.metrics.incompleteFramesSkipped);
       await page.evaluate(() => window.restorePaint());
       await settled(page, "gpu"); await continuity(page);
@@ -180,6 +234,8 @@ for (const dpr of [1, 2]) {
       const result = await page.evaluate(async () => {
         const host = document.querySelector("#output"), original = host.getElementTransform;
         let queued = false;
+        // The first geometry read of a child queues a microtask that changes layout while the admission readback is
+        // still outstanding.
         host.getElementTransform = function(element) {
           const matrix = original.call(this, element);
           if (!queued && element.parentElement === host) {
@@ -206,12 +262,15 @@ for (const dpr of [1, 2]) {
     } finally { await page.close(); }
   });
 
+  // A DPR change (emulated through CDP) keeps GPU and resizes the output to 640 CSS pixels x the new ratio.
+  // After an explicit disable, later structural changes must not re-admit even with the automatic policy.
   test(`DPR changes and disabled automatic intent stay generation-safe DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     const cdp = await page.context().newCDPSession(page);
     try {
       const metadata = await ready(page); await native(page);
       const next = dpr === 1 ? 2 : 1;
+      // No resize event is dispatched here; a render is requested so the new DPR is reconciled.
       await cdp.send("Emulation.setDeviceMetricsOverride", { width: 900, height: 750, deviceScaleFactor: next, mobile: false });
       await page.evaluate(() => window.integrationProbe.render());
       await settled(page, "gpu"); const retained = await continuity(page);
@@ -220,6 +279,7 @@ for (const dpr of [1, 2]) {
       await page.evaluate(() => window.disabled); await settled(page, "dom");
       const disabled = await state(page);
       await page.evaluate(() => { window.integrationProbe.extra(2); window.integrationProbe.layout({ width: 310 }); });
+      // Quiet period: no new admission attempt may start.
       await page.waitForTimeout(150);
       expect((await state(page)).metrics.admission.attempts).toBe(disabled.metrics.admission.attempts);
       expect((await state(page)).admission.intent).toBe("disabled");
@@ -229,6 +289,8 @@ for (const dpr of [1, 2]) {
   });
 }
 
+// Under the default `explicit` policy supported layout changes are reconciled in GPU without any admission
+// attempt.
 test("default explicit policy reconciles supported layout without reentry", async ({ page }) => {
   const metadata = await ready(page, false);
   await page.evaluate(() => window.integrationProbe.extra(1)); await settled(page, "gpu");
@@ -239,6 +301,9 @@ test("default explicit policy reconciles supported layout without reentry", asyn
   await save("explicit", { metadata, before, after, retired: await zero(page) });
 });
 
+// A held `requestAdapter` keeps public engine initialization pending. Layout changes during the wait are
+// absorbed (GPU ends up admitted), while an explicit disable or dispose issued during the wait wins: the output
+// stays hidden, and no GPU is presented afterwards.
 for (const operation of ["layout", "disable", "dispose"]) {
   test(`pending public engine initialization respects ${operation}`, async ({ page }) => {
     const metadata = await ready(page); await native(page);
@@ -278,6 +343,7 @@ for (const operation of ["layout", "disable", "dispose"]) {
   });
 }
 
+// Reduced motion is not a reason to revoke GPU: ownership stays and no new admission happens.
 test("reduced motion preserves structural GPU ownership without new admission", async ({ page }) => {
   const metadata = await ready(page);
   await page.evaluate(() => {
@@ -293,6 +359,9 @@ test("reduced motion preserves structural GPU ownership without new admission", 
   await save("inflight-media", { metadata, held, retired: await zero(page), fixture: "Emulated reduced motion; no new engine/admission" });
 });
 
+// Each refusal below (editable boundary, injected capture error, destroyed device) ends in DOM with intent
+// `blocked`. After that, later layout changes must not retry admission; only an explicit `enable()` does.
+// Forced colors alone must not revoke GPU.
 test("policy/media/fault/loss refusal latches until explicit enable", async ({ page }) => {
   const metadata = await ready(page);
   await page.emulateMedia({ forcedColors: "active" }); await settled(page, "gpu");
@@ -317,6 +386,7 @@ test("policy/media/fault/loss refusal latches until explicit enable", async ({ p
   await page.waitForTimeout(150); expect((await state(page)).admission.intent).toBe("blocked");
   expect((await page.evaluate(() => window.integrationProbe.enable())).mode).toBe("gpu");
   await page.evaluate(() => {
+    // Capture the configured device so the test can destroy it, which the page sees as device loss.
     const configure = GPUCanvasContext.prototype.configure;
     GPUCanvasContext.prototype.configure = function(options) { window.dynamicDevice = options.device; return configure.call(this, options); };
   });
@@ -329,6 +399,8 @@ test("policy/media/fault/loss refusal latches until explicit enable", async ({ p
     fixture: "Emulated media, injected native capture error and public configured-device destroy; not physical loss/accessibility proof" });
 });
 
+// Synthetic `document.hidden` (not a real background tab): while hidden, no re-admission frames run, and
+// disposing during that state cancels pending work and releases everything.
 test("healthy GPU publication pauses while hidden and unmount cancels pending work", async ({ page }) => {
   const metadata = await ready(page);
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -355,6 +427,8 @@ test("healthy GPU publication pauses while hidden and unmount cancels pending wo
   await save("environment-dispose", { metadata, reduced, hidden, retired, fixture: "Synthetic document.hidden change, not genuine background-tab proof" });
 });
 
+// Chrome launched without the HTML-in-Canvas flags: enabling is refused with a diagnosed `blocked` intent, no
+// admission is retried on later changes, and the original controls stay usable.
 test("opt-in without native flags refuses useful DOM once and retains real controls", async () => {
   const browser = await chromium.launch(browserLaunchOptions({ native: false }));
   try {

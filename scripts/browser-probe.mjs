@@ -1,3 +1,19 @@
+/**
+ * Engineering probe of the installed Chrome's HTML-in-Canvas support, run against the playground's
+ * `probe.html` page (`window.nativeProbe`). It captures an element, edits a native input, checks that native
+ * clicks still land after translate, scale and rotate transforms, renders generated pixels through the
+ * WebGPU and WebGL2 backends, and tries a list of DOM-fallback transitions to see whether the original
+ * controls stay usable.
+ *
+ * Invoked as `npm run probe` against a running preview server. Environment: `PROBE_URL` (default: the preview
+ * URL from `tests/helpers/urls.mjs`), `NO_NATIVE_FLAGS` (launch without the HTML-in-Canvas flags),
+ * `DPR` (device scale factor, default 1), `EVIDENCE_DIR` (output directory, which must be an allowed
+ * evidence root; default `<evidence root>/chrome`).
+ *
+ * Output: `report.json` plus PNG screenshots in the evidence directory, and the same report on stdout. The
+ * process exits 0 even when a probe step fails; failures are recorded in the report (`captureError`,
+ * `nativeClickPassed`, `generatedPixelsPassed`, `verdict`).
+ */
 import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -7,15 +23,21 @@ import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
 import { previewURL } from "../tests/helpers/urls.mjs";
 
 const url = process.env.PROBE_URL || previewURL;
+// Headless launch; the HTML-in-Canvas flags are enabled unless NO_NATIVE_FLAGS is set.
 const launchOptions = browserLaunchOptions({ native: !process.env.NO_NATIVE_FLAGS, headless: true });
 const executablePath = launchOptions.executablePath ?? launchOptions.channel;
 const args = launchOptions.args;
 const directory = validateEvidenceRoot(process.env.EVIDENCE_DIR || evidenceDirectory("chrome"));
 await mkdir(directory, { recursive: true });
 const browser = await chromium.launch(launchOptions);
+// The report starts with the exact browser, flags and URL so a result can be tied to the build tested.
 const report = { executablePath, version: browser.version(), headless: true, requestedFlags: args, defaultArgs: chromium.defaultArgs?.(), url, startedAt: new Date().toISOString(), results: [] };
+// RGBA of the pixel at (x, y) in a decoded PNG.
 function pixel(png, x, y) { return [...png.data.subarray((y * png.width + x) * 4, (y * png.width + x) * 4 + 4)]; }
+// SHA-256 of raw bytes, used to tell whether two screenshots differ.
 function digest(data) { return createHash("sha256").update(data).digest("hex"); }
+// Screenshots the backend fixture's output canvas and samples fixed points: the red and green marker
+// squares and the background. The coordinates are specific to the layout of the backend fixture in `probe.html`.
 async function backendImage(page, path) {
   const bytes = await page.locator("#backend-output").screenshot({ path });
   const png = PNG.sync.read(bytes);
@@ -29,13 +51,18 @@ try {
   page.on("pageerror", (error) => report.results.push({ pageError: error.message }));
   await page.goto(`${url}/probe.html`);
   await page.waitForFunction(() => window.nativeProbe);
+  // `capability.available` reports whether the page found the capture API. The capture, editing, geometry and
+  // backend steps run only when it is true; the fallback transitions at the end run regardless.
   report.capability = await page.evaluate(() => window.nativeProbe.capability);
   if (report.capability.available) {
     try {
+      // First capture of the element tree into a snapshot, then a screenshot as the baseline.
       report.capture = await page.evaluate(() => window.nativeProbe.capture());
       await page.screenshot({ path: `${directory}/native-capture.png` });
       report.captureScreenshot = `${directory}/native-capture.png`;
       report.nativeInitialPixelHash = digest(PNG.sync.read(await page.locator("#host").screenshot()).data);
+      // Type into the native input through real pointer and keyboard events, then recapture. The host's
+      // pixels must change, proving edits in the original control reach the captured image.
       await page.mouse.click(100, 117);
       await page.keyboard.press("End");
       await page.keyboard.type("-edited");
@@ -44,6 +71,7 @@ try {
       await page.screenshot({ path: `${directory}/native-editing.png` });
       report.nativeEditedPixelHash = digest(PNG.sync.read(await page.locator("#host").screenshot()).data);
       report.nativeEditingPixelsChanged = report.nativeEditedPixelHash !== report.nativeInitialPixelHash;
+      // A captured snapshot must not be drawable from an OffscreenCanvas; the expected result is an error.
       report.offscreenTransfer = await page.evaluate(() => {
         const host = document.querySelector("#host");
         const snapshot = host.captureElementImage(document.querySelector("#layer"));
@@ -54,6 +82,8 @@ try {
           return { error: error.message };
         } finally { snapshot.close(); }
       });
+      // For each transform, ask the page where its button now is and click that screen point. The native click
+      // must register exactly once, which shows hit-testing follows the transformed geometry.
       for (const kind of ["translate", "scale", "rotate"]) {
         const point = await page.evaluate((kind) => window.nativeProbe.transform(kind), kind);
         const before = await page.evaluate(() => window.nativeProbe.state());
@@ -65,6 +95,7 @@ try {
     } catch (error) {
       report.results.push({ captureError: error.message });
     }
+    // The generated-pixels check runs per backend (WebGPU, then WebGL2) on a freshly loaded page.
     report.backends = [];
     if (report.capture) {
       await page.goto(`${url}/probe.html`);
@@ -91,6 +122,9 @@ try {
           result.changed = await backendImage(page, `${directory}/${backend}-changed.png`);
           result.frames = await page.evaluate(() => window.nativeProbe.backend.frames(300));
           result.effect = await backendImage(page, `${directory}/${backend}-effect.png`);
+          // Pass criteria: marker colours within +/-2 per channel of the expected values, the update changed the
+          // image, the effect darkened the green marker, no new captures or uploads while only frames ran, and no
+          // console errors.
           result.generatedPixelsPassed = result.identity.red.slice(0, 3).every((v, i) => Math.abs(v - [240, 30, 60][i]) <= 2)
             && result.identity.green.slice(0, 3).every((v, i) => Math.abs(v - [20, 200, 90][i]) <= 2)
             && result.changed.hash !== result.identity.hash
@@ -108,6 +142,9 @@ try {
       }
     }
   }
+  // Each fallback transition is applied to a fresh page. Afterwards the button's centre is clicked natively
+  // and the input's identity and selection are compared with the state before, to see whether the original
+  // controls survive the transition.
   for (const kind of ["content-fallback", "remove-content", "display-contents", "display-block", "zero-bitmap", "visibility-hidden-child-visible", "layout-subtree-off", "display-none"]) {
     await page.goto(`${url}/probe.html`);
     await page.waitForFunction(() => window.nativeProbe);
@@ -130,11 +167,13 @@ try {
     report.results.push({ fallback: kind, before, transition, target: target || null, after, nativeClickPassed: after.clicks === 1, screenshot: `${directory}/fallback-${kind}.png` });
   }
   report.disposal = await page.evaluate(() => window.nativeProbe.dispose());
+  // A summary label only: it says whether any tested fallback kept the original controls clickable.
   report.verdict = report.results.some((result) => result.fallback && result.nativeClickPassed)
     ? "Candidate needs visual/state validation; not approved for app use"
     : "BLOCKED: no tested usable in-place runtime DOM fallback; real app remains DOM";
 } finally {
   await browser.close();
+  // Always written, even if a step threw, so a partial run still leaves a report.
   await writeFile(`${directory}/report.json`, `${JSON.stringify(report, null, 2)}\n`);
 }
 console.log(JSON.stringify(report, null, 2));

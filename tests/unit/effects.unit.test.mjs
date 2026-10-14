@@ -1,8 +1,13 @@
+/**
+ * Unit tests for effect validation and uniform packing in `packages/underglass/src/effects.ts`, plus the
+ * evidence directory helper. Pure data checks, no browser. Run with `npm run test:unit`.
+ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { defineEffect, validateEffects, effectUniforms } from "../../packages/underglass/src/effects.ts";
 import { evidenceDirectory, validateEvidenceRoot } from "../helpers/evidence.mjs";
 
+// Shared fields of a valid effect; individual cases override one field to break it.
 const common = { bounds: "layer", interaction: "decorative", media: "identity", fallback: "static", time: { seconds: 0 } };
 const ripple = { ...common, kind: "ripple", parameters: { amplitude: 0 } };
 const dissolve = { ...common, kind: "dissolve", parameters: { amount: .5, speed: 1 } };

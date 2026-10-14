@@ -1,3 +1,13 @@
+/**
+ * Drives the installed-package todo app through a full native-editing session in a fresh browser and
+ * asserts the GPU-first contract holds: originals stay in place, input is trusted, overlays and focus work,
+ * motion costs no captures or uploads, and disposal leaves nothing behind.
+ *
+ * Not run directly: `package-consumer.mjs` (`npm run test:package`) imports `todoContract` and calls it
+ * against a built consumer app. The browser comes from `browserLaunchOptions` in `tests/helpers/browser.mjs`.
+ * Writes `todo-react<major>-<flags>-<dpr>.json` (updated after every step, so a crash leaves a partial
+ * record) and, in GPU runs, an owning-canvas screenshot into `directory`. Throws on the first failed assertion.
+ */
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
@@ -5,10 +15,18 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
 
+/**
+ * Runs the todo scenario against `url`. `major` and `expectedVersion` identify the React peer, `flags`
+ * says whether the HTML-in-Canvas flags are enabled (GPU must then be admitted; otherwise the page must
+ * stay on DOM with a capability reason), `dpr` is the device scale factor and `directory` receives the
+ * evidence. Returns the result record with `status: "passed"`.
+ */
 export async function todoContract(url, major, expectedVersion, flags, dpr, directory) {
   const name = `todo-react${major}-${flags}-${dpr}`;
   const result = { major, flags, dpr, steps: [], errors: [] };
+  // `native` is true only when flags are requested, so the no-flags run proves the plain-DOM path.
   const browser = await chromium.launch(browserLaunchOptions({ native: !!flags }));
+  // Rewrites the evidence file; called after each step so a hang or crash still leaves a partial record.
   const record = () => writeFile(join(directory, `${name}.json`), JSON.stringify(result, null, 2));
   try {
     const context = await browser.newContext({ viewport: { width: 900, height: 950 }, deviceScaleFactor: dpr });
@@ -21,6 +39,8 @@ export async function todoContract(url, major, expectedVersion, flags, dpr, dire
     await page.goto(url);
     await page.waitForFunction(() => window.packageTask && document.getElementById("new-task"));
     await page.evaluate(() => {
+      // Capture-phase listeners record every native event with its trust flag, target, path and runtime mode,
+      // so the end of the run can prove real (trusted) input reached the original controls in the right mode.
       window.taskNativeEvents = [];
       for (const type of ["pointerdown", "pointerup", "click", "keydown", "input", "submit", "focusin"]) {
         document.addEventListener(type, event => window.taskNativeEvents.push({
@@ -30,9 +50,11 @@ export async function todoContract(url, major, expectedVersion, flags, dpr, dire
         }), true);
       }
     });
+    // Appends the app's reported state to the evidence under `label`.
     const snapshot = async label => { result.steps.push({ label, state: await page.evaluate(() => window.packageTask.state()) }); await record(); };
     await snapshot("useful-native-start");
     assert.equal(result.steps[0].state.version, expectedVersion);
+    // With flags the runtime must admit GPU. Without them it must stay in DOM and say why.
     await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
     await page.waitForFunction(() => !window.packageTask.state().initializing);
     const admitted = await page.evaluate(() => window.packageTask.state());
@@ -67,6 +89,8 @@ export async function todoContract(url, major, expectedVersion, flags, dpr, dire
     await page.waitForTimeout(250);
     await page.evaluate(() => window.packageTask.controller.settle());
     if (flags) {
+      // The owning canvas must show the app's pixels: sample (720, 440) in the 760px-wide layout (scaled by the
+      // screenshot ratio). That point lies inside the task detail panel, whose background is rgb(224,244,232).
       const png = PNG.sync.read(await page.locator("#output").screenshot({ path: join(directory, `${name}-owning.png`) }));
       const scale = png.width / 760;
       const at = (Math.floor(440 * scale) * png.width + Math.floor(720 * scale)) * 4;
@@ -76,6 +100,8 @@ export async function todoContract(url, major, expectedVersion, flags, dpr, dire
       await page.getByRole("heading", { level: 1 }).click();
       await page.evaluate(async () => { for (let i = 0; i < 30; i++) await new Promise(requestAnimationFrame); await window.packageTask.controller.settle(); });
       const commits = (await page.evaluate(() => window.packageTask.state())).commits;
+      // Freeze the ripple and advance 30 frames: GPU frames must be presented while captures, uploads and
+      // React commits stay unchanged (motion must not re-capture the DOM).
       result.motion = await page.evaluate(async () => {
         window.packageTask.controller.setRipple("todo-decoration", { amplitude: 4, seconds: 0, playing: false });
         return window.packageTask.controller.advance(30, 1);
@@ -93,6 +119,7 @@ export async function todoContract(url, major, expectedVersion, flags, dpr, dire
     await page.waitForFunction(() => document.activeElement.id === "task-search");
     assert.equal(await page.getByLabel("Open task 1", { exact: true }).count(), 0);
     assert.equal(await page.evaluate(() => document.activeElement.id), "task-search");
+    // After dispose every counted GPU and runtime resource, timer and listener must be back to zero.
     await page.evaluate(() => window.packageTask.dispose());
     result.disposed = await page.evaluate(() => window.packageTask.state());
     result.events = await page.evaluate(() => window.taskNativeEvents);
