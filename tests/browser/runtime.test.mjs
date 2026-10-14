@@ -750,3 +750,42 @@ test("layer origin pivots GPU pixels, native hits and DOM presentation identical
   zero(await page.evaluate(() => window.runtimeProbe.dispose()));
   expect(errors).toEqual([]);
 });
+
+test("rotated layer crossing the frame edge stays GPU with canvas-bounded pixels and hits", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  const admitted = await page.evaluate(() => window.runtimeProbe.state());
+  // Admission proves, with a rotated probe across a visible canvas edge, that hits stop at the content box.
+  expect(admitted.metrics.admission.last.frameBounds.result).toBe("bounded");
+  expect(admitted.metrics.admission.last.frameBounds.hits).toEqual([true, false]);
+  // Stationary (140x100 at 380,60) rotated about its centre, moved so it crosses the right frame edge (640).
+  const crossed = await page.evaluate(() => {
+    window.runtimeProbe.origin("stationary", "center");
+    window.runtimeProbe.transform("stationary", { x: 200, rotation: 25 });
+    return window.runtimeProbe.state();
+  });
+  expect(crossed.mode).toBe("gpu");
+  const [a, b, c, d, e, f] = crossed.layers.find(layer => layer.id === "stationary").matrix;
+  const corners = [[0, 0], [140, 0], [0, 100], [140, 100]].map(([x, y]) => a * x + c * y + e);
+  expect(Math.max(...corners)).toBeGreaterThan(640);
+  expect(Math.min(...corners)).toBeLessThan(640);
+  await page.waitForTimeout(200);
+  await page.evaluate(() => window.runtimeProbe.settle());
+  const inside = { x: 630, y: 110 }, beyond = { x: 650, y: 110 };
+  const hits = await page.evaluate(([inside, beyond]) => {
+    const frame = document.querySelector("#frame").getBoundingClientRect();
+    const name = point => {
+      const hit = document.elementFromPoint(frame.x + point.x, frame.y + point.y);
+      return hit?.closest("#stationary") ? "stationary" : hit?.id || hit?.tagName;
+    };
+    return [name(inside), name(beyond)];
+  }, [inside, beyond]);
+  expect(hits).toEqual(["stationary", "BODY"]);
+  const pixels = await snap(page, "frame-edge-gpu");
+  expect(pixels(inside.x, inside.y)).toEqual([20, 200, 90, 255]);
+  const state = await page.evaluate(() => window.runtimeProbe.state());
+  expect(state.mode).toBe("gpu");
+  zero(await page.evaluate(() => window.runtimeProbe.dispose()));
+  expect(errors).toEqual([]);
+});
