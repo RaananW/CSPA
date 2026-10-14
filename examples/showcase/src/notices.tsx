@@ -18,13 +18,13 @@ interface Entry { serial: number; at: string; text: string; status: string }
 
 // Centre-pivoted enter/exit descriptors; every slot shares the same size.
 const enter: MotionDescriptor = { keyframes: [
-  { offset: 0, ...toTransform(slots[0]!, { dx: 0, dy: -36, rotation: 0, scale: .9, opacity: 0 }) },
-  { offset: .7, ...toTransform(slots[0]!, { dx: 0, dy: 4, rotation: 0, scale: 1.02, opacity: 1 }) },
+  { offset: 0, ...toTransform({ dx: 0, dy: -36, rotation: 0, scale: .9, opacity: 0 }) },
+  { offset: .7, ...toTransform({ dx: 0, dy: 4, rotation: 0, scale: 1.02, opacity: 1 }) },
   { offset: 1 },
 ], timing: { duration: 520, easing: "ease-out" } };
 const exit: MotionDescriptor = { keyframes: [
   { offset: 0 },
-  { offset: 1, ...toTransform(slots[0]!, { dx: 70, dy: 0, rotation: 0, scale: .92, opacity: 0 }) },
+  { offset: 1, ...toTransform({ dx: 70, dy: 0, rotation: 0, scale: .92, opacity: 0 }) },
 ], timing: { duration: 380, easing: "ease-in" } };
 
 export function NotificationStack() {
@@ -109,7 +109,7 @@ export function NotificationStack() {
     </Panel>
     {slots.map((rect, index) => {
       const slot = stack[index]!;
-      return <Surface key={index} id={`notice-${index}`} aria-label={`Notification slot ${index + 1}`}
+      return <Surface key={index} id={`notice-${index}`} origin="center" aria-label={`Notification slot ${index + 1}`}
         layout={{ x: rect.x, y: rect.y, width: rect.width, height: rect.height }}>
         <Presence id={`notice-${index}`} present={slot.present} enter={enter} exit={exit} onComplete={result => completed(index, result)}>
           {slot.notice && <article className="toast" style={{ ["--tint" as string]: kinds[slot.notice.kind].tint }}>

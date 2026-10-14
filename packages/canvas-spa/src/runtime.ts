@@ -1,4 +1,4 @@
-import { affine, cssMatrix, point, type Transform } from "./affine.js";
+import { affine, cssMatrix, pivot, point, type Transform, type TransformOrigin } from "./affine.js";
 import { createSurfaceRenderer, type SurfaceRendererOptions } from "./renderer.js";
 import type { Layout } from "./compiler.js";
 import type { MountBoundaryOptions } from "./mount-boundary.js";
@@ -29,6 +29,8 @@ export interface LayerDefinition {
   element: HTMLElement;
   layout: Layout;
   transform: Transform;
+  /** Static pivot for rotation and scale; defaults to "top-left". */
+  origin?: TransformOrigin;
   preserveStyles?: boolean;
   decorative?: boolean;
 }
@@ -112,6 +114,10 @@ export class CanvasRuntime {
     this.resize = new ResizeObserver(() => {
       if (this.stopped || !this.core) return;
       this.invalidatePolicy();
+      // A non-default origin is a fraction of the layer size; ordinary DOM bakes it
+      // into the CSS matrix, so a resize must rewrite that matrix.
+      if (this.core.phase() !== "gpu" && this.core.phase() !== "admitting"
+        && [...this.registry.values()].some(layer => layer.origin && layer.origin !== "top-left")) this.presentation("dom");
       this.reconcile();
       this.checkPolicy();
     });
@@ -125,7 +131,7 @@ export class CanvasRuntime {
         },
         layers: () => this.ordered().map(layer => ({
           id: layer.id, element: layer.element,
-          matrix: () => new DOMMatrix(Array.from(affine(layer.transform, this.origin(layer)))),
+          matrix: () => new DOMMatrix(Array.from(this.matrix(layer))),
           clip: matrix => this.viewportClip(layer, matrix),
           opacity: () => layer.transform.opacity ?? 1,
           effects: () => this.effects.get(layer.id)?.values ?? [],
@@ -286,6 +292,15 @@ export class CanvasRuntime {
     return [...this.registry.values()].sort((a, b) =>
       a.element.compareDocumentPosition(b.element) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
   }
+  /**
+   * Layer-to-canvas matrix for `transform` (default: the layer's current one),
+   * pivoted around the layer's static origin. `placed: false` omits the laid-out
+   * position, giving the CSS `transform` used by ordinary DOM presentation.
+   */
+  private matrix(layer: LayerDefinition, transform: Transform = layer.transform, placed = true) {
+    const around = pivot(layer.origin, { width: layer.element.offsetWidth, height: layer.element.offsetHeight });
+    return affine(transform, placed ? this.origin(layer) : undefined, around);
+  }
   private origin(layer: LayerDefinition) {
     return this.viewportGeometry.get(layer.element)?.origin ?? scrollOrigin(layer.element, this.rootContainer!);
   }
@@ -366,7 +381,7 @@ export class CanvasRuntime {
     let clip = geometry?.clip;
     const { width, height } = this.size();
     const frame = { x: 0, y: 0, width, height };
-    const applied = matrix ?? new DOMMatrix(Array.from(affine(layer.transform, this.origin(layer))));
+    const applied = matrix ?? new DOMMatrix(Array.from(this.matrix(layer)));
     if (!clip && !geometry?.own && geometry && viewportContains(applied, geometry.extent, frame)) return;
     clip = clip ? intersectViewport(clip, frame) : frame;
     const local = localViewport(applied, clip);
@@ -400,7 +415,7 @@ export class CanvasRuntime {
       } else {
         const lost = restored.get(layer.id) ?? this.relinquishedDeclarations.get(layer.id);
         if (!lost?.has("transform-origin")) layer.element.style.setProperty("transform-origin", "0 0");
-        if (!lost?.has("transform")) layer.element.style.setProperty("transform", cssMatrix(affine(layer.transform)));
+        if (!lost?.has("transform")) layer.element.style.setProperty("transform", cssMatrix(this.matrix(layer, layer.transform, false)));
         if (!lost?.has("opacity")) layer.element.style.setProperty("opacity", String(layer.transform.opacity ?? 1));
       }
     }
@@ -428,7 +443,7 @@ export class CanvasRuntime {
     if (!gpuGeometry) return undefined;
     const { width, height } = this.size();
     for (const layer of this.registry.values()) {
-      const matrix = affine(layer.transform, this.origin(layer));
+      const matrix = this.matrix(layer);
       let viewport: ViewportRect | undefined;
       try { viewport = this.viewportClip(layer); }
       catch (error) { return String(error); }
@@ -529,7 +544,7 @@ export class CanvasRuntime {
   }
   register(definition: LayerDefinition): () => void {
     this.assertLive();
-    affine(definition.transform, this.origin(definition));
+    this.matrix(definition);
     if (!definition.element.isConnected || !this.rootContainer?.contains(definition.element)
       || definition.element.ownerDocument !== this.options.ordinaryHost.ownerDocument) {
       throw new Error("Surface must belong to the connected persistent root");
@@ -610,7 +625,7 @@ export class CanvasRuntime {
     this.assertLive();
     const layer = this.registry.get(id);
     if (!layer) throw new Error(`Unknown Surface: ${id}`);
-    affine(transform, this.origin(layer));
+    this.matrix(layer, transform);
     const owner = this.ownership.get(id);
     const supplied = JSON.stringify(transform) !== JSON.stringify(this.reactTransforms.get(id) ?? {});
     this.reactTransforms.set(id, { ...transform });
@@ -633,9 +648,29 @@ export class CanvasRuntime {
     const layer = this.registry.get(id);
     if (!layer) throw new Error(`Unknown Surface: ${id}`);
     if (this.ownership.has(id) || this.transitions.has(id)) throw new Error("Transform is animation-owned; release or cancel first");
-    affine(transform, this.origin(layer));
+    this.matrix(layer, transform);
     this.relinquishedDeclarations.delete(id);
     layer.transform = { ...transform };
+    this.checkPolicy();
+    if (this.core?.phase() !== "gpu") this.presentation("dom");
+    else this.reconcile();
+  }
+  /**
+   * Changes the layer's static rotation/scale pivot. Applies immediately, also to a
+   * running transition; animation-owned layers keep the source's top-left origin.
+   */
+  setOrigin(id: string, origin: TransformOrigin | undefined) {
+    this.assertLive();
+    const layer = this.registry.get(id);
+    if (!layer) throw new Error(`Unknown Surface: ${id}`);
+    pivot(origin, { width: 1, height: 1 });
+    if (JSON.stringify(origin ?? "top-left") === JSON.stringify(layer.origin ?? "top-left")) return;
+    if (this.ownership.has(id) && origin !== undefined && origin !== "top-left") {
+      throw new Error("Animation ownership uses the source animation's top-left origin; release it first");
+    }
+    layer.origin = typeof origin === "object" ? { x: origin.x, y: origin.y } : origin;
+    this.matrix(layer);
+    this.invalidatePolicy();
     this.checkPolicy();
     if (this.core?.phase() !== "gpu") this.presentation("dom");
     else this.reconcile();
@@ -902,7 +937,7 @@ export class CanvasRuntime {
     if (compiled.timeline.iterations !== 1 || compiled.timeline.direction !== "normal" || compiled.timeline.end > 60000) {
       throw new Error("Declarative transitions require one normal iteration and at most 60000ms including delay");
     }
-    for (const frame of input.keyframes) affine(frame, this.origin(layer));
+    for (const frame of input.keyframes) this.matrix(layer, frame);
     if (state.mode === "dom") {
       rejectImportantPresentation(layer.element, true);
       const style = getComputedStyle(layer.element);
@@ -946,7 +981,7 @@ export class CanvasRuntime {
       lease.check();
       if (this.core?.phase() === "dom") {
         const style = getComputedStyle(layer.element);
-        const expected = affine(transform);
+        const expected = this.matrix(layer, transform, false);
         const actual = new DOMMatrix(style.transform === "none" ? undefined : style.transform);
         if (style.transformOrigin !== "0px 0px" || style.translate !== "none" || style.rotate !== "none" || style.scale !== "none"
           || ![actual.a, actual.b, actual.c, actual.d, actual.e, actual.f].every((value, index) =>
@@ -961,7 +996,7 @@ export class CanvasRuntime {
       const transform = compiled.timeline.sample(time);
       if (this.core?.phase() === "dom") {
         lease.write("transform-origin", "0 0");
-        lease.write("transform", cssMatrix(affine(transform)));
+        lease.write("transform", cssMatrix(this.matrix(layer, transform, false)));
         lease.write("opacity", String(transform.opacity));
       }
       validate(transform);
@@ -1076,9 +1111,10 @@ export class CanvasRuntime {
     const layer = this.registry.get(id);
     if (!layer || this.ownership.has(id) || this.transitions.has(id)) throw new Error("Unknown or already animation-owned layer");
     if (JSON.stringify(affine(layer.transform)) !== JSON.stringify(affine()) || (layer.transform.opacity ?? 1) !== 1) throw new Error("Animation requires neutral controller transform/opacity");
+    if (layer.origin && layer.origin !== "top-left") throw new Error("Animation ownership uses the source animation's top-left origin; remove the layer origin first");
     const base = { ...layer.transform };
     const lease = prepareAnimation(layer.element, source, {
-      validate: transform => { affine(transform, this.origin(layer)); },
+      validate: transform => { this.matrix(layer, transform); },
       apply: transform => {
         check?.();
         layer.transform = transform;
@@ -1211,7 +1247,7 @@ export class CanvasRuntime {
       admission: { policy: this.options.admissionPolicy ?? "explicit", intent: this.admissionIntent,
         pending: this.readmissionPending, attempts: this.automaticAttempts, reason: this.admissionReason },
       layers: this.ordered().map(layer => ({ id: layer.id, width: layer.element.offsetWidth, height: layer.element.offsetHeight,
-        matrix: affine(layer.transform, this.origin(layer)), transform: { ...layer.transform } })),
+        matrix: this.matrix(layer), transform: { ...layer.transform }, ...(layer.origin ? { origin: layer.origin } : {}) })),
       runtimeResources: { ...this.resources, presentationOverrides: this.relinquishedDeclarations.size,
         cssReplacementSources: [...this.ownership.values()].reduce((sum, owner) => sum + (owner.resources?.() ?? 0), 0) }, moving: this.moving,
       animationOwnership: [...this.ownership].map(([id, owner]) => ({ id, ...owner.lease.playback.state() })),

@@ -72,6 +72,18 @@ geometry still run every frame. Paint events upload only layers listed in
 `changedElements`, plus stale ones (new slot, extent/grid change, invalidated,
 or after a hidden-document pause); unchanged layers are not re-uploaded.
 
+## Changes 2026-10-14
+
+- **Transform origin:** new static per-layer pivot, `origin?: TransformOrigin` on
+  `Surface`, `useSurfaceRef`/`enroll` options and `LayerDefinition`, plus
+  `setOrigin(id, origin)`. `TransformOrigin` is `"top-left"` (default), `"center"` or
+  `{ x, y }` fractions of the layer's layout size. See [Authoring](#authoring-and-controller).
+
+**Upstream check (AGENTS.md):** WICG html-in-canvas proposal unchanged since
+`5fb3df86d84de598c7f0fcfc5ee53de1df067e7d` (2026-10-09), checked 2026-10-14.
+Chromium hotlist 6783002 still requires sign-in; no issue data was read. Tested
+browser: Chrome Canary 157.0.8102.0 on Windows 11.
+
 ## Changes 2026-10-13
 
 Implementer-verified, not independently accepted.
@@ -242,7 +254,7 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | `NativeScroll` | Original browser scroll container; bounded axis-aligned scrolling refreshes native captures without revoking GPU |
 | `NativeOverlay` | Portal to one fixed adapter-owned external host; original native dialog/popover controls, not GPU-painted clones |
 | `useGPUHost()` | Returns the narrow controller inside the adapter tree |
-| `useSurfaceRef<T>({id, decorative?})` / `enroll(element, options)` | Enroll an original direct-root element, preserve authored layout/CSS; callback stable for stable options, release on replacement/null; imperative form returns an idempotent release |
+| `useSurfaceRef<T>({id, decorative?, origin?})` / `enroll(element, options)` | Enroll an original direct-root element, preserve authored layout/CSS; callback stable for stable options, release on replacement/null; imperative form returns an idempotent release |
 | `useNativeOverlayHost()` | Fixed external native host for a library's public portal-container prop |
 | `transition(id, descriptor)` | Bounded declarative numeric motion; explicit completion/cancellation handle, no separate native animation source |
 | `transitionGroup(items, stagger?)` | Prepare 1..8 distinct boundaries, one start epoch, index-based0..1000ms stagger; invalid descriptors/groups have no enrollment/motion side effects |
@@ -252,6 +264,7 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | `enable()` | Serialized structural and functional admission; owning native canvas must be laid out/visible for paint and functional probes during `admitting`; only complete application capture establishes `gpu`. No automatic initial enable |
 | `disable()` | Cancels desired/retry/admission intent; same-root DOM recovery, geometry clearing and safe fenced GPU release; repeated calls are harmless |
 | `setTransform(id, transform)` | Replaces a layer's transform; GPU mode updates uniforms/native geometry without React reconciliation |
+| `setOrigin(id, origin)` | Replaces a layer's static rotation/scale pivot (`Surface` and `useSurfaceRef` call it when their `origin` changes); applies immediately, including to a running transition |
 | `animate(id, target, length)` | Interpolation of specified fields; unspecified fields stay at their starting values. A number is a fixed count of displayed frames (1..10000, refresh-rate dependent); `{ duration }` is time-based in milliseconds. Default 300 |
 | `requestReconcile()` (`CanvasRuntime`) | Public request to reconcile membership/geometry. React commits call it through layout effects and it coalesces into one microtask |
 | `createMotion(id, descriptor)` | Numeric keyframes/timing for new applications; creates one managed native source in idle DOM and returns explicit ownership/playback/disposal controls |
@@ -313,7 +326,15 @@ selectors are not normalized or proven compatible.
 The positioned x/y origin applies to Surface; Box remains ordinary flow layout.
 
 `Transform` supports x/y, scaleX/scaleY, rotation in degrees and opacity.
-Origin is the enrolled layer's top-left. Rotation is normalized modulo 360
+Rotation and scale pivot around the layer's static `origin`, like CSS
+`transform-origin`: `"top-left"` (default), `"center"` or `{ x, y }` fractions
+of the layer's layout size (`{ x: .5, y: .5 }` is the centre). The origin is not
+animated; transitions, `animate` and `setTransform` all pivot around it. The
+pivot is baked into the one canonical matrix, so the element itself keeps
+`transform-origin: 0 0`; ordinary DOM rewrites that matrix when a pivoted layer
+resizes. Animation ownership (`ownAnimation`, `ownCSSAnimation`,
+`ownCompiledAnimation`, `createMotion`) keeps the source animation's top-left
+origin and refuses a layer with another origin. Rotation is normalized modulo 360
 before conversion to radians. Computed coefficients, determinant and inverse
 must remain finite and invertible (determinant magnitude >= 1e-8); opacity is
 0..1. Huge finite scale inputs can therefore be rejected. Registration/update/

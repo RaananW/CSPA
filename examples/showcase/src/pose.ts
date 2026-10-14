@@ -10,26 +10,17 @@ export const rest: Pose = { dx: 0, dy: 0, rotation: 0, scale: 1, opacity: 1 };
 
 const radians = (degrees: number) => degrees * Math.PI / 180;
 
-/**
- * CanvasSPA transforms pivot around the layer's top-left corner. Convert a
- * centre-pivoted pose into that transform: T = c + d - R*S*c.
- */
-export function toTransform(rect: Rect, pose: Pose): Transform {
-  const cx = rect.width / 2, cy = rect.height / 2, angle = radians(pose.rotation);
-  const rx = Math.cos(angle) * pose.scale * cx - Math.sin(angle) * pose.scale * cy;
-  const ry = Math.sin(angle) * pose.scale * cx + Math.cos(angle) * pose.scale * cy;
-  return { x: round(cx + pose.dx - rx), y: round(cy + pose.dy - ry), rotation: round(pose.rotation),
+/** Transform for a layer declared with `origin="center"`, which pivots rotation and scale itself. */
+export function toTransform(pose: Pose): Transform {
+  return { x: round(pose.dx), y: round(pose.dy), rotation: round(pose.rotation),
     scaleX: round(pose.scale), scaleY: round(pose.scale), opacity: round(pose.opacity ?? 1) };
 }
 
 /** Inverse of toTransform for the current sampled layer transform. */
-export function fromTransform(rect: Rect, transform: Transform | undefined): Pose {
+export function fromTransform(transform: Transform | undefined): Pose {
   const { x = 0, y = 0, rotation = 0, scaleX = 1, opacity = 1 } = transform ?? {};
-  const cx = rect.width / 2, cy = rect.height / 2, angle = radians(rotation);
-  const rx = Math.cos(angle) * scaleX * cx - Math.sin(angle) * scaleX * cy;
-  const ry = Math.sin(angle) * scaleX * cx + Math.cos(angle) * scaleX * cy;
   const normalized = ((rotation % 360) + 540) % 360 - 180;
-  return { dx: x + rx - cx, dy: y + ry - cy, rotation: normalized, scale: scaleX, opacity };
+  return { dx: x, dy: y, rotation: normalized, scale: scaleX, opacity };
 }
 
 /** Moves a pose back inside the stage so no rotated corner leaves the output frame. */
@@ -57,9 +48,9 @@ function blend(a: Pose, b: Pose, t: number): Pose {
 }
 
 /**
- * Builds a declarative transition from centre-pivoted waypoints. Keyframes
- * interpolate x/y/rotation linearly, so the path is sampled densely (<= 32
- * frames) to keep the pivot at the card centre while it spins or scales.
+ * Builds a declarative transition from centre-pivoted waypoints (the layer uses
+ * `origin="center"`). The path is sampled (<= 32 frames) to ease between
+ * waypoints and keep every frame inside the stage.
  * `rotate: false` keeps every frame axis-aligned.
  */
 export function path(rect: Rect, waypoints: readonly { at: number; pose: Pose }[], duration: number, samples = 20, rotate = true): MotionDescriptor {
@@ -71,7 +62,7 @@ export function path(rect: Rect, waypoints: readonly { at: number; pose: Pose }[
     const from = waypoints[segment - 1]!, to = waypoints[segment]!;
     const local = to.at === from.at ? 1 : (t - from.at) / (to.at - from.at);
     const pose = blend(from.pose, to.pose, smooth(Math.min(1, Math.max(0, local))));
-    keyframes.push({ offset: t, ...toTransform(rect, keepInside(rect, rotate ? pose : { ...pose, rotation: 0 })) });
+    keyframes.push({ offset: t, ...toTransform(keepInside(rect, rotate ? pose : { ...pose, rotation: 0 })) });
   }
   return { keyframes, timing: { duration, easing: "linear" } };
 }

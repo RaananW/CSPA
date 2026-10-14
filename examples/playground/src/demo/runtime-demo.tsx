@@ -1,6 +1,6 @@
 import { Profiler, version, useState, useEffect, useRef, type ProfilerOnRenderCallback } from "react";
 import { createRoot, flushSync } from "./react-root";
-import { mountCanvasApp, Surface, Box, NativeOverlay, NativeScroll, type CanvasController, type Transform } from "canvas-spa-phase-one";
+import { mountCanvasApp, Surface, Box, NativeOverlay, NativeScroll, type CanvasController, type Transform, type TransformOrigin } from "canvas-spa-phase-one";
 
 const params = new URLSearchParams(location.search);
 const commits = { count: 0, mounts: 0, cleanups: 0 };
@@ -144,6 +144,7 @@ mount();
 window.runtimeProbe = { state, animate, dispose,
   enable: () => controller.enable(), disable: () => controller.disable(), settle: () => controller.settle(),
   transform: (id: string, transform: Transform) => controller.setTransform(id, transform),
+  origin: (id: string, origin?: TransformOrigin) => controller.setOrigin(id, origin),
   invalidate: (id?: string) => controller.invalidate(id),
   async cycle() {
     const retired = await dispose();
@@ -192,6 +193,7 @@ declare global {
     state: typeof state; animate: typeof animate; dispose: typeof dispose;
     cycle(): Promise<{ retired: ReturnType<typeof state>; active: ReturnType<typeof state> }>;
     enable(): ReturnType<CanvasController["enable"]>; disable(): ReturnType<CanvasController["disable"]>;
-    settle(): Promise<void>; transform(id: string, transform: Transform): void; invalidate(id?: string): void;
+    settle(): Promise<void>; transform(id: string, transform: Transform): void;
+    origin(id: string, origin?: TransformOrigin): void; invalidate(id?: string): void;
   } }
 }
