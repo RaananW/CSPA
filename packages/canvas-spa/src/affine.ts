@@ -6,23 +6,45 @@ export interface Transform {
   rotation?: number;
   opacity?: number;
 }
+/**
+ * Static pivot for a layer's rotation and scale, like CSS `transform-origin`.
+ * `{ x, y }` are fractions of the layer's layout size: `{ x: .5, y: .5 }` is
+ * `"center"`. The default is `"top-left"`.
+ */
+export type TransformOrigin = "top-left" | "center" | { x: number; y: number };
 
 export type Affine = readonly [number, number, number, number, number, number];
 export interface Point { x: number; y: number }
 
-export function affine(transform: Transform = {}, origin: Point = { x: 0, y: 0 }): Affine {
+/** Resolves a TransformOrigin to a pivot in the layer's local CSS pixels. */
+export function pivot(origin: TransformOrigin | undefined, size: { width: number; height: number }): Point {
+  const fraction = origin === undefined || origin === "top-left" ? { x: 0, y: 0 }
+    : origin === "center" ? { x: .5, y: .5 } : origin;
+  if (!fraction || typeof fraction !== "object" || !Number.isFinite(fraction.x) || !Number.isFinite(fraction.y)) {
+    throw new Error("Transform origin requires \"top-left\", \"center\" or finite { x, y } fractions");
+  }
+  return { x: fraction.x * size.width, y: fraction.y * size.height };
+}
+
+/**
+ * Layer-to-canvas matrix: `origin` is the layer's laid-out position and `around`
+ * the resolved pivot, so rotation and scale apply around `origin + around`.
+ */
+export function affine(transform: Transform = {}, origin: Point = { x: 0, y: 0 }, around: Point = { x: 0, y: 0 }): Affine {
   const { x = 0, y = 0, scaleX = 1, scaleY = 1, rotation = 0, opacity = 1 } = transform;
-  if (![x, y, scaleX, scaleY, rotation, opacity, origin.x, origin.y].every(Number.isFinite)
+  if (![x, y, scaleX, scaleY, rotation, opacity, origin.x, origin.y, around.x, around.y].every(Number.isFinite)
     || Math.abs(scaleX * scaleY) < 1e-8 || opacity < 0 || opacity > 1) {
     throw new Error("Transform requires finite invertible scales and opacity in [0,1]");
   }
   const angle = (rotation % 360) * Math.PI / 180;
-  const matrix: Affine = [Math.cos(angle) * scaleX, Math.sin(angle) * scaleX,
-    -Math.sin(angle) * scaleY, Math.cos(angle) * scaleY, origin.x + x, origin.y + y];
+  const a = Math.cos(angle) * scaleX, b = Math.sin(angle) * scaleX;
+  const c = -Math.sin(angle) * scaleY, d = Math.cos(angle) * scaleY;
+  const matrix: Affine = [a, b, c, d,
+    origin.x + x + around.x - (a * around.x + c * around.y),
+    origin.y + y + around.y - (b * around.x + d * around.y)];
   inverse(matrix);
   return matrix;
 }
-
 export function inverse([a, b, c, d, e, f]: Affine): Affine {
   const determinant = a * d - b * c;
   if (![a, b, c, d, e, f, determinant].every(Number.isFinite) || Math.abs(determinant) < 1e-8) throw new Error("Invalid affine inverse: finite invertible coefficients required");

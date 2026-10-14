@@ -36,9 +36,9 @@ export function CardDeck() {
   useSceneArt(() => ({ layout: { x: 362, y: 20, width: 664, height: 660, overflow: "hidden" },
     appearance: { background: "rgb(22,84,88)", radius: 40 },
     content: <div className="mat"><div className="felt-rings" /><span className="mat-label">THE TABLE</span></div> }), []);
-  function current(id: CardId, rect: Rect): Pose {
+  function current(id: CardId): Pose {
     const layer = controller.state().layers.find(entry => entry.id === id);
-    return fromTransform(rect, layer?.transform);
+    return fromTransform(layer?.transform);
   }
   function slotPose(id: CardId, rect: Rect): Pose {
     const target = centre(slots[slot.current[id]]!);
@@ -53,7 +53,7 @@ export function CardDeck() {
         cards.forEach((card, index) => { slot.current[card.id] = order[index]!; });
       }
       const items = cards.map((card, index) => {
-        const from = current(card.id, card.rect);
+        const from = current(card.id);
         const home = slotPose(card.id, card.rect);
         let waypoints: { at: number; pose: Pose }[];
         if (kind === "deal") waypoints = [{ at: 0, pose: from }, { at: 1, pose: home }];
@@ -93,7 +93,7 @@ export function CardDeck() {
     const card = cards[3];
     const mode = controller.state().mode === "gpu" ? "on the GPU" : "in ordinary DOM";
     try {
-      const from = current(card.id, card.rect);
+      const from = current(card.id);
       const lifted = keepInside(card.rect, { ...from, scale: from.scale * 1.06, dy: from.dy - 14 });
       const motion = path(card.rect, [
         { at: 0, pose: from }, { at: .18, pose: lifted },
@@ -140,7 +140,7 @@ export function CardDeck() {
       <p className="panel-note">{reduced ? "Your system asks for reduced motion, so arrangements apply instantly."
         : "React only re-renders when you type, like or save. The same typed motion runs in ordinary DOM and on the GPU."}</p>
     </Panel>
-    {cards.map(card => <Surface key={card.id} id={card.id} className={`deck-card deck-${card.art}`} aria-label={card.id === "showcase-card" ? "Your card" : card.title}
+    {cards.map(card => <Surface key={card.id} id={card.id} origin="center" className={`deck-card deck-${card.art}`} aria-label={card.id === "showcase-card" ? "Your card" : card.title}
       layout={{ x: card.rect.x, y: card.rect.y, width: card.rect.width, height: card.rect.height, direction: "column" }}
       appearance={{ background: "rgb(255,253,248)", color: "rgb(28,30,44)", radius: 22, fontSize: 14 }}>
       <div className="deck-art-frame"><CardArt kind={card.art} /></div>
