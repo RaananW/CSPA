@@ -1,4 +1,11 @@
 /// <reference types="@types/webxr" preserve="true" />
+/**
+ * Public entry point of `@underglass/react`: the typed React components and hooks, the explicit
+ * `mountCanvasApp` bootstrap, host helpers, enrollment errors, the trusted local module adapter and
+ * the public authoring, motion and effect types. Anything not re-exported here is internal.
+ * Build-time generators (`./build`) and the experimental worker backend (`./experimental-worker`,
+ * `./experimental-worker/thread`) are separate package entries.
+ */
 export { GPUHost, Surface, Box, NativeScroll, NativeOverlay, Presence, useSurfaceRef, useNativeOverlayHost, useGPUHost, mountCanvasApp } from "./react.js";
 export type { SurfaceProps, BoxProps, PresenceProps, MountCanvasOptions, CanvasController } from "./react.js";
 export { createCanvasHosts } from "./hosts.js";

@@ -1,6 +1,16 @@
+/**
+ * Convenience scaffolding for the explicit mount boundary. `mountCanvasApp` requires empty,
+ * connected, same-document sibling hosts outside every React root; `createCanvasHosts` builds
+ * them inside an application-owned frame so callers do not hand-write the host styles.
+ */
+
+/** The adapter-owned hosts returned by `createCanvasHosts`, ready to pass to `mountCanvasApp`. */
 export interface CanvasHosts {
+  /** Owning WebGPU output canvas; in GPU mode the original React root is moved inside it. */
   outputCanvas: HTMLCanvasElement;
+  /** Holds the original React root before GPU admission and after recovery or `disable()`. */
   ordinaryHost: HTMLDivElement;
+  /** Empty host for `NativeOverlay` portals; native dialogs and popovers stay outside capture. */
   overlayHost: HTMLDivElement;
   /** Removes the hosts; call only after the controller is disposed. */
   remove(): void;
@@ -18,12 +28,15 @@ export function createCanvasHosts(frame: HTMLElement): CanvasHosts {
   const outputCanvas = document.createElement("canvas");
   const ordinaryHost = document.createElement("div");
   const overlayHost = document.createElement("div");
+  // Both presentations fill the frame at the same origin, so DOM and GPU layouts coincide.
   for (const node of [outputCanvas, ordinaryHost]) {
     Object.assign(node.style, { position: "absolute", left: "0", top: "0", width: "100%", height: "100%" });
   }
   // The renderer enables pointer events while GPU output is presented.
   outputCanvas.style.pointerEvents = "none";
+  // Ordinary DOM is the initial presentation; admission reveals the canvas.
   outputCanvas.hidden = true;
+  // The absolutely positioned hosts need a containing block; only a static frame is changed.
   if (getComputedStyle(frame).position === "static") frame.style.position = "relative";
   frame.append(outputCanvas, ordinaryHost, overlayHost);
   return { outputCanvas, ordinaryHost, overlayHost, remove() { outputCanvas.remove(); ordinaryHost.remove(); overlayHost.remove(); } };
