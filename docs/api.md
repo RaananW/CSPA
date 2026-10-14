@@ -78,6 +78,13 @@ or after a hidden-document pause); unchanged layers are not re-uploaded.
   `Surface`, `useSurfaceRef`/`enroll` options and `LayerDefinition`, plus
   `setOrigin(id, origin)`. `TransformOrigin` is `"top-left"` (default), `"center"` or
   `{ x, y }` fractions of the layer's layout size. See [Authoring](#authoring-and-controller).
+- **Rotated layers at the frame edge:** a rotated or skewed layer may now cross the
+  output frame's edge and stay on the GPU. Functional admission rotates its probe
+  across a visible canvas content edge and checks that the inner half is hit and
+  the outer half is not (`state().metrics.admission.last.frameBounds`:
+  `bounded`/`unbounded`/`unverifiable`). Only `bounded`, with the canvas content
+  box equal to the frame, drops the frame clip for such layers; otherwise the old
+  refusal stands. Rotated layers inside a clipping ancestor still use ordinary DOM.
 
 **Upstream check (AGENTS.md):** WICG html-in-canvas proposal unchanged since
 `5fb3df86d84de598c7f0fcfc5ee53de1df067e7d` (2026-10-09), checked 2026-10-14.
@@ -296,7 +303,9 @@ intersections feed identical transform-local native `canvasClip` and explicit GP
 visual clipping. Scroll requests fresh native paint; pending capture coverage
 retains the last complete output. Original scroll containers, controls and events
 remain unchanged. Ancestors inside the adapter root must be untransformed;
-clipped layer transforms must be positive axis-aligned. Arbitrary transformed
+layers clipped by an ancestor must use positive axis-aligned transforms. A
+rotated layer clipped only by the output frame is bounded by the canvas content
+box itself once admission has proven that native hits stop at that edge. Arbitrary transformed
 chains and general CSS clipping remain framework boundaries, not demonstrated
 missing browser functionality. Ordinary document and untransformed axis-aligned
 external ancestor scrolling refresh the cached owner-local projection without

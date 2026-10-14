@@ -9,7 +9,7 @@ import { effectNumber, validateEffects, type EffectDescriptor, type EffectHandle
 import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion.js";
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
 import { nativeEditingControl, nativeScrollKind } from "./native.js";
-import { scrollOrigin, intersectViewport, localViewport, canvasContentOrigin, viewportContains, type ViewportRect } from "./viewport.js";
+import { scrollOrigin, intersectViewport, localViewport, canvasContentOrigin, viewportContains, axisAligned, type ViewportRect } from "./viewport.js";
 import { validateCompiledPrograms, verifyCompiledAnimation, type CompiledAnimation } from "./compiled.js";
 
 /** `"automatic"` is accepted for compatibility and behaves like `"explicit"`: initial and diagnosed reentry both require `enable()`. */
@@ -306,6 +306,7 @@ export class CanvasRuntime {
   }
   private externalAncestors = new Set<HTMLElement>();
   private ownerContentOrigin = { x: 0, y: 0 };
+  private ownerContentSize = { width: 0, height: 0 };
   private reconcileProjection() {
     if (this.stopped || this.core?.phase() !== "gpu") return;
     try {
@@ -324,6 +325,8 @@ export class CanvasRuntime {
     const owner = this.options.outputCanvas;
     const ownerStyle = getComputedStyle(owner);
     this.ownerContentOrigin = canvasContentOrigin(owner, ownerStyle);
+    this.ownerContentSize = { width: owner.clientWidth - parseFloat(ownerStyle.paddingLeft) - parseFloat(ownerStyle.paddingRight),
+      height: owner.clientHeight - parseFloat(ownerStyle.paddingTop) - parseFloat(ownerStyle.paddingBottom) };
     let externalError: string | undefined;
     for (let node: HTMLElement | null = owner; node; node = node.parentElement) {
       ancestors.add(node);
@@ -383,9 +386,19 @@ export class CanvasRuntime {
     const frame = { x: 0, y: 0, width, height };
     const applied = matrix ?? new DOMMatrix(Array.from(this.matrix(layer)));
     if (!clip && !geometry?.own && geometry && viewportContains(applied, geometry.extent, frame)) return;
+    // A rotated/skewed layer has no axis-aligned local frame clip. With no clipping
+    // ancestor, the output canvas content box already bounds its GPU pixels and,
+    // as proven at admission, its native hits, so only its own overflow clip remains.
+    if (!clip && geometry && !axisAligned(applied) && this.canvasBoundsFrame()) return geometry.own;
     clip = clip ? intersectViewport(clip, frame) : frame;
     const local = localViewport(applied, clip);
     return geometry?.own ? intersectViewport(local, geometry.own) : local;
+  }
+  /** The canvas content box is the frame, and admission proved native hits stop at its edge. */
+  private canvasBoundsFrame() {
+    const { width, height } = this.size();
+    return !!this.core?.frameBounded() && Math.abs(this.ownerContentSize.width - width) < 0.5
+      && Math.abs(this.ownerContentSize.height - height) < 0.5;
   }
   private presentation(mode: "dom" | "gpu", releaseOwnership = false) {
     this.invalidatePolicy();
@@ -448,7 +461,7 @@ export class CanvasRuntime {
       try { viewport = this.viewportClip(layer); }
       catch (error) { return String(error); }
       const corners = [[0, 0], [layer.element.offsetWidth, 0], [0, layer.element.offsetHeight], [layer.element.offsetWidth, layer.element.offsetHeight]];
-      if (!viewport && corners.some(([x, y]) => {
+      if (!viewport && !this.canvasBoundsFrame() && corners.some(([x, y]) => {
         const p = point(matrix, { x: x!, y: y! });
         return p.x < 0 || p.y < 0 || p.x > width || p.y > height;
       })) return `Transformed layer requires unsupported outer clipping: ${layer.id}`;
