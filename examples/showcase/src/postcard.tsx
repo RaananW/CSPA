@@ -1,8 +1,15 @@
+/**
+ * Example 01, "Postcard studio": a native form (inputs, textarea, radios, checkbox) edits the
+ * postcard `Surface` live, saved cards appear in an outbox `Surface` with native Reuse buttons, and
+ * the landscape artwork is the decorative art layer. The "Riso print" checkbox sets a chromatic
+ * effect on that art layer only; the form and the card text are never touched by effects.
+ */
 import { useEffect, useState } from "react";
 import { Surface } from "@underglass/react";
 import { Panel } from "./shared";
 import { policy, residentChain, useScene, useSceneArt } from "./scene";
 
+// Four palettes. Each colours the card (native text) and the landscape (decorative art).
 export const palettes = {
   sunset: { name: "Sunset", card: "rgb(255,222,201)", ink: "rgb(66,25,40)", accent: "rgb(229,86,72)",
     sky: ["#ff9a7a", "#ffd39b"], sun: "#fff3c4", hills: ["#e5604f", "#b8395a", "#6e2350"] },
@@ -18,6 +25,8 @@ export type PaletteId = keyof typeof palettes;
 const stamps = { sun: "Sun", wave: "Wave", leaf: "Leaf", star: "Star" } as const;
 type StampId = keyof typeof stamps;
 
+// SVG shapes for a stamp in a 40x40 box, drawn in `color`. Shared by the card, the outbox
+// thumbnails and the landscape.
 function stampShapes(kind: StampId, color: string) {
   switch (kind) {
     case "sun": return <><circle cx="20" cy="20" r="8" fill={color} />{Array.from({ length: 8 }, (_, index) =>
@@ -27,12 +36,15 @@ function stampShapes(kind: StampId, color: string) {
     case "star": return <path d="m20 4 4.7 10.1 11 1.3-8.1 7.6 2.1 10.9L20 28.4l-9.7 5.5 2.1-10.9-8.1-7.6 11-1.3Z" fill={color} />;
   }
 }
+/** A stamp as an inline SVG that fills its container. */
 export function StampIcon({ kind, color }: { kind: StampId; color: string }) {
   return <svg viewBox="0 0 40 40" width="100%" height="100%" aria-hidden="true">{stampShapes(kind, color)}</svg>;
 }
 
+// A saved postcard in the outbox.
 interface Sent { serial: number; title: string; message: string; palette: PaletteId; stamp: StampId }
 
+/** The postcard example: the form, the live card and the outbox, plus the Riso print toggle. */
 export function PostcardStudio() {
   const [title, setTitle] = useState("Greetings from the GPU");
   const [message, setMessage] = useState("The inputs on the left are real. So is this text.");
@@ -46,19 +58,26 @@ export function PostcardStudio() {
   useEffect(() => {
     scene.setChain(riso ? [{ kind: "chromatic", parameters: { displacement: 4 }, time: { seconds: 0, playing: false }, ...policy }, ...residentChain()] : residentChain());
   }, [riso, scene]);
+  // Leaving the example restores the identity chain.
   useEffect(() => () => { scene.setChain(residentChain()); }, [scene]);
   const colors = palettes[palette];
+  // Number of the card that Save would create.
   const serial = sent.length + 1;
+  // The landscape is the decorative art layer; it follows the palette and stamp.
   useSceneArt(() => ({ layout: { x: 378, y: 330, width: 350, height: 346, overflow: "hidden" },
     appearance: { background: palettes[palette].sky[0], radius: 22 }, content: <Landscape palette={palette} stamp={stamp} /> }), [palette, stamp]);
+  // Saves the current card to the outbox, newest first, keeping at most four.
   function post() {
     setSent(list => [{ serial, title, message, palette, stamp }, ...list].slice(0, 4));
     setFeedback(`Postcard No. ${String(serial).padStart(3, "0")} saved on the original React tree.`);
   }
+  // Loads a saved card back into the native form fields.
   function reuse(card: Sent) {
     setTitle(card.title); setMessage(card.message); setPalette(card.palette); setStamp(card.stamp);
     setFeedback(`Loaded postcard No. ${String(card.serial).padStart(3, "0")} back into the native form.`);
   }
+  // Three native layers: the control panel, the live card (real DOM text) and the outbox. The
+  // landscape behind them is drawn by `SceneArt` in `demos.tsx`.
   return <>
     <Panel label="STUDIO 01" title="Postcard studio">
       <form className="stack" onSubmit={event => { event.preventDefault(); post(); }}>
@@ -129,6 +148,7 @@ export function PostcardStudio() {
   </>;
 }
 
+/** Decorative SVG landscape for the art layer, coloured by palette with the stamp in a corner. */
 function Landscape({ palette, stamp }: { palette: PaletteId; stamp: StampId }) {
   const colors = palettes[palette];
   return <svg width="350" height="346" viewBox="0 0 350 346" aria-hidden="true">

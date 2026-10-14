@@ -1,7 +1,20 @@
+/**
+ * Functional admission probe. Instead of trusting that the HTML-in-Canvas methods exist, admission
+ * builds a tiny drawable element and checks the resulting pixels (`verifyProbePixels`), native hit
+ * geometry (`verifyProbeGeometry`) and whether hits stop at the canvas edge (`verifyFrameBounds`).
+ * It builds on the native helpers in `native.ts`.
+ */
 import { validateAppliedGeometry, type DrawableCanvas } from "./native.js";
 
+// Expected RGBA of the two probe marker points: the red body and the green inner band.
 const colors = [[207, 37, 83, 255], [31, 179, 113, 255]];
 
+/**
+ * Builds the admission probe: a small two-colour `drawable` element appended to the capture canvas
+ * `host`, plus the canvas-space transform and clip used to test it. `points` are two interior marker
+ * points (one per colour band, in the element's local space) and `clipped` is a point the clip must
+ * exclude. Throws when the canvas is too small (under 16 CSS pixels per axis) to host it.
+ */
 export function createAdmissionProbe(host: DrawableCanvas) {
   const extent = Math.min(32, Math.floor(Math.min(host.width, host.height) / 4));
   if (extent < 4) throw new Error("Functional admission requires a capture surface of at least 16 CSS pixels per axis");
@@ -33,6 +46,10 @@ export function createAdmissionProbe(host: DrawableCanvas) {
     clip: { x: 0, y: 0, width: extent * 0.75, height: extent } };
 }
 
+/**
+ * Checks that the two marker pixels read back from `stage` (the native capture or the GPU output)
+ * match the probe colours within 2 levels per channel. Throws when pixels are missing or wrong.
+ */
 export function verifyProbePixels(pixels: number[][], stage: "native" | "GPU"): void {
   if (pixels.length !== colors.length || pixels.some((pixel, index) =>
     pixel.length !== 4 || pixel.some((value, channel) =>
@@ -41,6 +58,12 @@ export function verifyProbePixels(pixels: number[][], stage: "native" | "GPU"): 
   }
 }
 
+/**
+ * Applies the probe's transform and clip (offset by `origin`, the canvas content-box origin) and
+ * proves native hit geometry with `elementFromPoint`: both interior markers must hit the probe and
+ * the clipped point must not. Throws when the geometry is not applied, a probe point is outside the
+ * viewport (hit testing cannot be verified) or a hit result is wrong. Returns the evidence.
+ */
 export function verifyProbeGeometry(host: DrawableCanvas, probe: ReturnType<typeof createAdmissionProbe>,
   origin = { x: 0, y: 0 }) {
   const matrix = new DOMMatrix().translate(origin.x, origin.y).multiply(probe.matrix);
@@ -65,6 +88,7 @@ export function verifyProbeGeometry(host: DrawableCanvas, probe: ReturnType<type
     hitCheck: "elementFromPoint: two interiors and one clipped exterior" };
 }
 
+/** Outcome of `verifyFrameBounds`; see there for what each value means. */
 export type FrameBounds = "bounded" | "unbounded" | "unverifiable";
 
 /**

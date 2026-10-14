@@ -1,3 +1,13 @@
+/**
+ * Browser suite for decorative GPU effects (ripple, chromatic, dissolve and a custom WGSL effect) on
+ * `effects.html` (`window.effectsProbe`, from `examples/playground/src/demo/effects-demo.tsx`). Pixels are
+ * decoded from `#frame` screenshots of the owning GPU canvas. The suite proves that effects are deterministic
+ * (zero-parameter identity, time, alpha, order, bounds), that they run as GPU-only work (300 frames without
+ * React commits, captures, uploads or readbacks), that invalid chains are refused atomically, that handles and
+ * descriptors behave as documented, and that failures (shader compile errors, pipeline validation, device loss,
+ * pending fences, HMR) fall back to the same usable original DOM with a diagnosed reason and no leaked
+ * resources. Tests with `strict` run on the Vite dev server (React StrictMode); the rest use the preview build.
+ */
 import { test, expect } from "../helpers/current-browser.mjs";
 import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
 import { PNG } from "pngjs";
@@ -7,11 +17,16 @@ import { evidenceDirectory } from "../helpers/evidence.mjs";
 // One blended effect pass per enrolled layer (panel, art) plus the background clear pass.
 const EFFECT_PASSES = 3;
 
+// Evidence directory for JSON reports and screenshots.
 const directory = evidenceDirectory("effects");
 async function save(name, value) {
   await mkdir(directory, { recursive: true });
   await writeFile(`${directory}/${name}.json`, JSON.stringify(value, null, 2));
 }
+/**
+ * Opens `effects.html` (dev server with `?strict` when `strict`; `?dom` skips the automatic enable), waits for
+ * GPU, lets it settle for 300 ms, and cancels the page's default effect so tests start from neutral pixels.
+ */
 async function ready(page, strict = false, dom = false) {
   await page.goto(`${strict ? developmentURL : ""}/effects.html?${strict ? "strict&" : ""}${dom ? "dom" : ""}`);
   await page.waitForFunction(() => window.effectsProbe && !window.effectsProbe.state().initializing);
@@ -19,24 +34,33 @@ async function ready(page, strict = false, dom = false) {
   await page.waitForTimeout(300);
   await page.evaluate(async () => { window.effectsProbe.handle().cancel(); await window.effectsProbe.controller().settle(); });
 }
+/** Settles pending GPU work, then screenshots `#frame` (saved as evidence) and returns the decoded PNG. */
 async function pixels(page, name) {
   await page.evaluate(() => window.effectsProbe.controller().settle());
   await mkdir(directory, { recursive: true });
   return PNG.sync.read(await page.locator("#frame").screenshot({ path: `${directory}/${name}.png` }));
 }
+/** Copies the RGBA bytes of a rectangle (frame pixels) so regions can be compared with `changed`. */
 function region(png, x, y, width, height) {
   const result = [];
   for (let row = y; row < y + height; row++) result.push(...png.data.subarray((row * png.width + x) * 4, (row * png.width + x + width) * 4));
   return Buffer.from(result);
 }
+/** Counts the bytes that differ between two equal-length buffers. */
 function changed(a, b) { return a.reduce((sum, value, index) => sum + (value !== b[index] ? 1 : 0), 0); }
+/** SHA-256 hex digest, recorded in the evidence instead of the full pixel data. */
 function hash(bytes) { return createHash("sha256").update(bytes).digest("hex"); }
+/** Asserts that disposal left no GPU, runtime or demo-listener resources. */
 function zero(state) {
   expect(Object.values(state.resources).every(value => value === 0)).toBe(true);
   expect(Object.values(state.runtimeResources).every(value => value === 0)).toBe(true);
   expect(state.demoListeners).toBe(0);
 }
 
+// Regions of the 640-wide frame: the essential panel (24,30 260x330) and the decorated art (330,50 240x260),
+// separated by a white gap. For each effect: zero parameters leave the pixels byte-identical to neutral;
+// two times give different art pixels; the panel and the gap never change (bounds). Then full dissolve is
+// fully transparent, effect order matters, and native edits and a dialog still work.
 for (const strict of [false, true]) test(`decoded effect identity, time, alpha, order, bounds and original native app strict=${strict}`, async ({ page }) => {
   await ready(page, strict);
   const neutral = await pixels(page, `neutral-${strict}`);
@@ -46,6 +70,7 @@ for (const strict of [false, true]) test(`decoded effect identity, time, alpha, 
   for (const kind of ["ripple", "chromatic", "dissolve", "custom"]) {
     await page.evaluate(kind => {
       const descriptor = window.effectsProbe.descriptor(kind);
+      // Zero every parameter to build an identity version of the effect.
       for (const key of Object.keys(descriptor.parameters)) descriptor.parameters[key] = 0;
       window.effectsProbe.apply([descriptor]);
     }, kind);
@@ -54,9 +79,11 @@ for (const strict of [false, true]) test(`decoded effect identity, time, alpha, 
     for (const seconds of [.2, .9]) {
       await page.evaluate(({ kind, seconds }) => window.effectsProbe.apply([window.effectsProbe.descriptor(kind, seconds)]), { kind, seconds });
       const png = await pixels(page, `${kind}-${seconds}-${strict}`);
+      // Effects on the art layer must not leak into the panel or into the gap between them.
       expect(region(png, 24, 30, 260, 330)).toEqual(essential);
       expect(region(png, 320, 40, 10, 280).every(value => value === 255)).toBe(true);
       const bytes = region(png, 330, 50, 240, 260);
+      // The art must visibly change (more than 500 bytes), and differ between the two times.
       expect(changed(bytes, art)).toBeGreaterThan(500);
       images.push(bytes);
     }
@@ -64,22 +91,27 @@ for (const strict of [false, true]) test(`decoded effect identity, time, alpha, 
     results.push({ kind, hashes: images.map(hash), distinctBytes: changed(images[0], images[1]), essentialSha256: hash(essential) });
   }
   await page.evaluate(() => {
+    // Dissolve at amount 1 removes the art entirely, leaving the white frame (alpha handling).
     const value = window.effectsProbe.descriptor("dissolve"); value.parameters.amount = 1;
     window.effectsProbe.apply([value]);
   });
   expect(region(await pixels(page, `transparent-${strict}`), 330, 50, 240, 260).every(value => value === 255)).toBe(true);
+  // The same effects in a different order must give different pixels (the chain is applied in sequence).
   const orders = [];
   for (const kinds of [["ripple", "chromatic", "dissolve"], ["chromatic", "ripple", "dissolve"]]) {
     await page.evaluate(kinds => window.effectsProbe.apply(kinds.map(kind => window.effectsProbe.descriptor(kind, .7))), kinds);
     orders.push(region(await pixels(page, `order-${kinds[0]}-${strict}`), 330, 50, 240, 260));
   }
   expect(changed(orders[0], orders[1])).toBeGreaterThan(100);
+  // Same for colour-changing effects (custom and dissolve).
   const colorOrders = [];
   for (const kinds of [["custom", "dissolve"], ["dissolve", "custom"]]) {
     await page.evaluate(kinds => window.effectsProbe.apply(kinds.map(kind => window.effectsProbe.descriptor(kind, .7))), kinds);
     colorOrders.push(region(await pixels(page, `color-order-${kinds[0]}-${strict}`), 330, 50, 240, 260));
   }
   expect(changed(colorOrders[0], colorOrders[1])).toBeGreaterThan(100);
+  // Native keyboard editing and a native dialog still work on the original controls, and the edited text shows
+  // up in the captured pixels (region 330,220 240x60).
   await page.locator("#title").click();
   await page.keyboard.press("ControlOrMeta+a"); await page.keyboard.type("Native changed poster"); await page.keyboard.press("Enter");
   await expect(page.locator("#saved")).toHaveText("Native changed poster");
@@ -91,9 +123,11 @@ for (const strict of [false, true]) test(`decoded effect identity, time, alpha, 
   const state = await page.evaluate(() => window.effectsProbe.state());
   expect(state.reactVersion).toBe(process.env.CANVAS_EXPECT_REACT_VERSION ?? "19.3.0");
   expect(state.resources.engines).toBe(1); expect(state.resources.effects).toBe(EFFECT_PASSES);
+  // The single admission recorded GPU probe pixels and no native pixels.
   expect(state.metrics.admission.last.nativePixels).toEqual([]);
   expect(state.metrics.admission.last.gpuPixels).toHaveLength(2);
   const compileSamples = await page.evaluate(() => window.effectsProbe.samples().filter(sample => sample.kind === "effectCompileMs"));
+  // Exactly one `effectCompileMs` sample is expected for the whole run.
   expect(compileSamples).toHaveLength(1);
   const disposed = await page.evaluate(() => window.effectsProbe.dispose()); zero(disposed);
   await save(`pixels-${strict}`, { results, orderHashes: orders.map(hash), orderDistinctBytes: changed(...orders),
@@ -103,6 +137,8 @@ for (const strict of [false, true]) test(`decoded effect identity, time, alpha, 
 for (const strict of [false, true]) test(`300 real GPU frames, incremental non-equivalent work and content update strict=${strict}`, async ({ page }) => {
   test.setTimeout(120000);
   await ready(page, strict);
+  // For neutral and each effect, advance 300 frames: they must all be GPU frames with no commit, capture, copy,
+  // readback or upload, no re-admission and no new shader compilation.
   const intervals = [];
   for (const kind of ["neutral", "ripple", "chromatic", "dissolve", "custom"]) {
     await page.evaluate(kind => {
@@ -125,6 +161,8 @@ for (const strict of [false, true]) test(`300 real GPU frames, incremental non-e
     expect(interval.after.resources.effects).toBe(EFFECT_PASSES);
     intervals.push({ kind, ...interval });
   }
+  // Declarative motion on top of two playing effects: another 300 real animation frames must again need no
+  // commits, captures or uploads.
   const motion = await page.evaluate(async () => {
     const probe = window.effectsProbe;
     probe.apply([probe.descriptor("ripple", 0, true), probe.descriptor("custom", 0, true)]);
@@ -140,6 +178,7 @@ for (const strict of [false, true]) test(`300 real GPU frames, incremental non-e
   expect(motion.after.metrics.gpuFrames - motion.before.metrics.gpuFrames).toBeGreaterThanOrEqual(300);
   expect(motion.after.metrics.admission).toEqual(motion.before.metrics.admission);
   const before = await pixels(page, `before-update-${strict}`);
+  // A real content update must reach the canvas as changed pixels.
   await page.evaluate(() => window.effectsProbe.update("Changed captured content"));
   await page.waitForTimeout(200);
   const after = await pixels(page, `after-update-${strict}`);
@@ -149,6 +188,10 @@ for (const strict of [false, true]) test(`300 real GPU frames, incremental non-e
     intervals, motion, contentChangedBytes: changed(before.data, after.data), disposed });
 });
 
+// Five invalid operations (out-of-range parameter, a colour effect (dissolve) placed before a sampling effect (ripple), an effect on `panel`, a tampered custom
+// definition, a non-finite seek) must each throw without changing any state. A descriptor is copied when
+// applied, so mutating it later has no effect. Applying a new chain replaces the previous handle (`replaced`);
+// using the stale handle throws.
 test("whole-chain atomic refusal, immutable descriptors and precise stale-handle replacement", async ({ page }) => {
   await ready(page);
   const result = await page.evaluate(async () => {
@@ -184,6 +227,8 @@ test("whole-chain atomic refusal, immutable descriptors and precise stale-handle
   await save("atomic-handles", result);
 });
 
+// Reduced motion keeps GPU but pins effects at identity and refuses `play()`. A synthetic `document.hidden`
+// pauses effect time and frames. Forced colors must not revoke GPU. The shader is compiled only once.
 test("reduced motion identity, synthetic visibility pause and forced-color GPU ownership", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await ready(page);
@@ -222,6 +267,8 @@ test("reduced motion identity, synthetic visibility pause and forced-color GPU o
   await save("media", { initial, reduced, fixture: "Synthetic hidden getter/event, not real background throttling", hiddenBefore, hiddenAfter, result, disposed });
 });
 
+// A custom effect whose WGSL fails to compile is a diagnosed GPU failure: the output is hidden, the handle
+// reports `fallback`, the original controls are untouched, and a later valid compile is admitted again.
 test("trusted custom compiler failure has hidden output, usable original DOM and safe reentry", async ({ page }) => {
   await ready(page);
   const result = await page.evaluate(async () => {
@@ -239,6 +286,10 @@ test("trusted custom compiler failure has hidden output, usable original DOM and
   await save("compiler-failure", { ...result, passed, disposed });
 });
 
+// Three fixtures: (1) without `navigator.gpu`, applying a custom effect throws and leaves existing state
+// alone; (2) a synthetic pipeline validation error from `popErrorScope` falls back to DOM; (3) the art element
+// is resized during the first application so its content extends beyond the enrolled capture bounds, which is
+// also a diagnosed fallback. Handles are retired on dispose.
 test("unsupported capability and public pipeline validation failure preserve usable DOM and retire handles", async ({ page }) => {
   await ready(page);
   const capability = await page.evaluate(async () => {
@@ -306,6 +357,8 @@ test("unsupported capability and public pipeline validation failure preserve usa
   await save("capability-pipeline", { fixture: "Synthetic missing navigator capability, public error-scope failure and late geometry mutation; genuine WGSL failure tested separately", capability, pipeline, lateGeometry, retirement });
 });
 
+// Destroying the configured device falls back to DOM. Then twenty StrictMode lifetimes release everything,
+// and touching the source file triggers a real Vite HMR whose old probe must be fully retired.
 test("effects retire through public device loss, twenty StrictMode lifetimes and real HMR", async ({ page }) => {
   test.setTimeout(120000);
   await ready(page, true);
@@ -327,6 +380,8 @@ test("effects retire through public device loss, twenty StrictMode lifetimes and
   const path = "examples/playground/src/demo/effects-demo.tsx";
   const before = await stat(path);
   try {
+    // Updating the modification time makes the dev server hot-replace the module; the original times are
+    // restored afterwards.
     await utimes(path, new Date(), new Date());
     await page.waitForFunction(() => window.oldEffectsProbe !== window.effectsProbe);
     await page.waitForFunction(() => window.effectsProbe.state().mode === "gpu");
@@ -336,6 +391,9 @@ test("effects retire through public device loss, twenty StrictMode lifetimes and
   await save("loss-hmr-retirement", { fixture: "Public configured-device destruction, not physical reset", loss, cycles, old, disposed });
 });
 
+// A delayed queue fence stands in for slow GPU work. A disable during the delay falls back to DOM but keeps
+// the healthy engine (no device loss) until the fence is released; new effect work and dispose are refused
+// meanwhile.
 test("custom effects preserve a healthy pending fence until real completion without device destruction", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {
@@ -365,8 +423,11 @@ test("custom effects preserve a healthy pending fence until real completion with
   await save("healthy-fence", { fixture: "Synthetic delayed public fence; released by genuine queue completion, no destroy", retained, failures, released, disposed });
 });
 
+// Replacing the custom WGSL while GPU presents recompiles one shader without a new admission and changes
+// pixels in the art. An invalid live definition becomes a diagnosed fallback with a usable original DOM.
 test("a new custom definition compiles while GPU keeps presenting", async ({ page }) => {
   await ready(page);
+  // A 40x20 box inside the art, used to check that the inverted colours are visible.
   const box = await page.evaluate(() => {
     const frame = document.querySelector("#frame").getBoundingClientRect(), art = document.querySelector("#art").getBoundingClientRect();
     return { x: Math.round(art.x - frame.x + art.width * 0.3), y: Math.round(art.y - frame.y + art.height * 0.3), width: 40, height: 20 };

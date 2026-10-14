@@ -1,35 +1,53 @@
+/**
+ * Browser suite for the TODO application on `todo.html` (`window.todoProbe`, from
+ * `examples/playground/src/demo/todo-demo.tsx` and `todo-probe.ts`): a realistic app with a task list, a detail
+ * view with a native textarea, overlays, a native scroll list and a decorative completion effect, presented
+ * through three enrolled layers on one GPU engine. It proves that the full user workflow works with real
+ * keyboard, pointer and wheel input both with GPU and with ordinary DOM; that GPU ownership, native hits and
+ * fresh pixels survive navigation, overlays, scrolling and transforms; that refused admissions (offscreen,
+ * occluded, clip not applied, missing browser flags, capture exceptions) give a diagnosed reason and a usable
+ * original DOM that can re-enter GPU; and that effect timers, HMR and disposal leave nothing live.
+ * The viewport is 900x950 unless a test says otherwise; tests marked `strict` use the Vite dev server.
+ */
 import { chromium } from "@playwright/test";
 import { test, expect } from "../helpers/current-browser.mjs";
 import { developmentURL, previewURL } from "../helpers/urls.mjs";
 import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
 import { PNG } from "pngjs";
 
+// Taller than the 900x750 default set in playwright.config.mjs.
 test.use({ viewport: { width: 900, height: 950 } });
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 import { browserLaunchOptions } from "../helpers/browser.mjs";
+// Evidence directory for JSON reports and screenshots.
 const directory = evidenceDirectory("todo");
 async function save(name, data) {
   await mkdir(directory, { recursive: true });
   await writeFile(`${directory}/${name}.json`, JSON.stringify(data, null, 2));
 }
+/** Opens `todo.html` (dev server with `?strict` when `strict`) and waits for the probe and the new-task input. */
 async function ready(page, strict = false) {
   await page.goto(`${strict ? developmentURL : ""}/todo.html${strict ? "?strict" : ""}`);
   await page.waitForFunction(() => window.todoProbe && document.getElementById("new-task"));
 }
+/** Asserts that disposal left no GPU, runtime, effect-timer or demo-listener resources. */
 function zero(state) {
   expect(Object.values(state.resources).every(value => value === 0)).toBe(true);
   expect(Object.values(state.runtimeResources).every(value => value === 0)).toBe(true);
   expect(state.transition.timers).toBe(0);
   expect(state.demoListeners).toBe(0);
 }
+/** Adds a task by typing into the "New task" input and pressing Enter. */
 async function add(page, title) {
   await page.getByLabel("New task", { exact: true }).fill(title);
   await page.getByLabel("New task", { exact: true }).press("Enter");
 }
+/** Screenshots `#frame` (saved as evidence) and returns the decoded PNG. */
 async function pixels(page, name) {
   await mkdir(directory, { recursive: true });
   return PNG.sync.read(await page.locator("#frame").screenshot({ path: `${directory}/${name}.png` }));
 }
+/** Counts pixels in a rectangle (screenshot pixels) where any RGBA channel differs between two PNGs. */
 function differences(a, b, x, y, width, height) {
   let changed = 0;
   for (let row = y; row < y + height; row++) for (let col = x; col < x + width; col++) {
@@ -39,6 +57,10 @@ function differences(a, b, x, y, width, height) {
   return changed;
 }
 
+// Chrome without the HTML-in-Canvas flags: the app remains fully usable as ordinary DOM (add, complete, edit,
+// filter, open detail, overlay, delete). "Enable GPU" is refused with a reason naming the missing APIs
+// (`requestPaint`, `canvas.content`) that is also shown in the status line, and the diagnostics panel is
+// compact and starts collapsed.
 for (const dpr of [1, 2]) test(`TODO app without experimental flags retains a useful real native workflow DPR${dpr}`, async () => {
   const browser = await chromium.launch(browserLaunchOptions({ native: false }));
   try {
@@ -91,6 +113,8 @@ for (const dpr of [1, 2]) test(`TODO app without experimental flags retains a us
   } finally { await browser.close(); }
 });
 
+// A task workflow performed under GPU with real input, then an explicit switch to ordinary DOM: the original
+// root and input are the same elements, and the focused title input keeps its selection and value.
 for (const strict of [false, true]) test(`TODO GPU workflows preserve original native state through DOM recovery strict=${strict}`, async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -141,6 +165,11 @@ for (const strict of [false, true]) test(`TODO GPU workflows preserve original n
   await save(`workflow-${strict}`, { active, continuity, disposed, errors });
 });
 
+// A real checkbox click starts the completion effect. `holdEffect(t)` freezes it at a given phase so the
+// pixels are deterministic: the effect area (460,490 280x140) differs from the neutral frame and between
+// phases 0 and 0.7, while the region (20,20 420x660) is identical between those two phases. The layer geometry does not change, and
+// 300 settled frames (1 ms apart) cost no commit, capture, copy, readback or upload. Reopening the task lets
+// the effect end and the pixels return exactly to the neutral frame.
 test("real task action produces decorative pixels and a settled shader-only interval", async ({ page }) => {
   await ready(page);
   await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
@@ -181,6 +210,9 @@ test("real task action produces decorative pixels and a settled shader-only inte
     triggered, geometry0, changed: [differences(identity, phase0, 460, 490, 280, 140), differences(phase0, phase7, 460, 490, 280, 140)], interval, disposed });
 });
 
+// An exception thrown by the native capture call is a diagnosed fallback to DOM with the original task input
+// and root intact and the typed edit kept. After the call is restored, an explicit enable is admitted again,
+// a real viewport resize keeps GPU, and tasks can still be added.
 test("capture failure and continuous viewport reconciliation preserve TODO edits", async ({ page }) => {
   await ready(page);
   await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
@@ -214,6 +246,8 @@ test("capture failure and continuous viewport reconciliation preserve TODO edits
   await save("fallback-reentry", { fixture: "synthetic capture exception and explicit reentry; subsequent real viewport resize remains GPU", failure, resized, disposed });
 });
 
+// At capacity (six tasks) a seventh is rejected with a visible message, while GPU keeps one engine and three
+// layers.
 test("six-task capacity stays one engine/three layers and rejects extra tasks explicitly", async ({ page }) => {
   await ready(page);
   await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
@@ -232,6 +266,8 @@ test("six-task capacity stays one engine/three layers and rejects extra tasks ex
   await save("capacity", { active, disposed });
 });
 
+// Touching the demo source triggers a real HMR: the old probe, its running effect timer and its GPU resources
+// are retired, and the new module starts fresh (task state is reset).
 test("TODO development HMR retires active transition timers and old GPU resources", async ({ page }) => {
   await ready(page, true);
   await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
@@ -254,6 +290,10 @@ test("TODO development HMR retires active transition timers and old GPU resource
   } finally { await utimes(path, original.atime, original.mtime); }
 });
 
+// Moves the frame offscreen (left: 1100px) so native clipping cannot be proven: admission is refused with an
+// exact diagnostic, no GPU resources exist, and the original DOM stays usable. Then `updateElementGeometry` is
+// wrapped to drop `canvasClip`, which makes the clip ineffective: admission must refuse again (interior points
+// not clipped). With the real call restored, enabling succeeds and the status line tracks each lifecycle step.
 test("Phase13 rendered diagnostic categorizes actual offscreen refusal and explicit lifecycle", async ({ page }) => {
   await ready(page, true);
   await page.evaluate(() => {
@@ -261,6 +301,7 @@ test("Phase13 rendered diagnostic categorizes actual offscreen refusal and expli
     window.diagnosticInput = document.getElementById("new-task");
     document.activeElement?.blur();
     window.scrollTo(0, 0);
+    // Push the frame out of the viewport.
     document.getElementById("frame").style.left = "1100px";
   });
   await page.getByRole("button", { name: "Enable GPU", exact: true }).click();
@@ -306,6 +347,11 @@ test("Phase13 rendered diagnostic categorizes actual offscreen refusal and expli
   await save("diagnostic-reentry-disposal", { refused, disposed, status: await page.locator("#status").innerText() });
 });
 
+// The complete task workspace at each DPR. Order of checks: refused admission while offscreen, refused while an
+// opaque element covers the frame (native hits unproven), then admission; native notes editing and scrolling,
+// overlays outside the captured root, focus return and inert detail view, search, delete, native list scroll,
+// pixels of the owning canvas, transformed hit geometry, live motion, reduced motion and forced colors,
+// 300 settled frames, and disable/enable keeping the textarea's identity, focus and selection.
 for (const dpr of [1, 2]) test.describe(`Phase13 task workspace DPR${dpr}`, () => {
   test.use({ deviceScaleFactor: dpr });
   test("list detail overlays and native scroll retain complete GPU ownership and settled independent motion", async ({ page }) => {
@@ -335,6 +381,7 @@ for (const dpr of [1, 2]) test.describe(`Phase13 task workspace DPR${dpr}`, () =
     await page.locator("#frame").evaluate(node => {
       node.style.left = "0";
       const cover = document.createElement("div"); cover.id = "phase13-occluder";
+      // An opaque cover above the frame makes the output not hit-testable, so admission must refuse.
       cover.style.cssText = "position:absolute;inset:0;z-index:100;background:white";
       node.append(cover);
     });
@@ -406,9 +453,12 @@ for (const dpr of [1, 2]) test.describe(`Phase13 task workspace DPR${dpr}`, () =
     const png = PNG.sync.read(await page.locator("#output").screenshot({ path: `${directory}/phase13-owning-${dpr}.png` }));
     const scale = png.width / 760;
     const offset = (Math.floor(440 * scale) * png.width + Math.floor(720 * scale)) * 4;
+    // Sample the owning canvas at (720, 440) of its 760-wide coordinate space (scaled by DPR); the colour must match.
     const sentinel = [...png.data.subarray(offset, offset + 4)];
     expect(sentinel).toEqual([224, 244, 232, 255]);
     const originalOpen = await page.getByLabel("Open task 7", { exact: true }).boundingBox();
+    // Move the controls layer 60 px right: the native hit target must move with it. The old position must no
+    // longer hit the control (and clicking there does nothing), the new position must.
     await page.evaluate(async () => { window.todoProbe.controller().setTransform("todo-controls", { x: 60 }); await window.todoProbe.controller().settle(); });
     const currentOpen = await page.getByLabel("Open task 7", { exact: true }).boundingBox();
     expect(currentOpen.x - originalOpen.x).toBeCloseTo(60, 1);
@@ -417,11 +467,14 @@ for (const dpr of [1, 2]) test.describe(`Phase13 task workspace DPR${dpr}`, () =
     await page.mouse.click(oldPoint.x, oldPoint.y);
     await page.getByLabel("Open task 7", { exact: true }).click();
     const listBounds = await list.boundingBox();
+    // A point just below the clipped list must not reach any task.
     const exterior = { x: listBounds.x + 40, y: listBounds.y + listBounds.height + 5 };
     expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-task-id]')?.getAttribute("data-task-id"), exterior)).toBeUndefined();
     await page.mouse.click(exterior.x, exterior.y);
     await page.evaluate(async () => { window.todoProbe.controller().setTransform("todo-controls", {}); await window.todoProbe.controller().settle(); });
     await page.evaluate(() => {
+      // Live motion plus native list and window scrolling: the untransformed position of the controls layer must
+      // already be white in the canvas, GPU frames keep being presented and the layer count stays three.
       window.phase13LiveMotion = window.todoProbe.controller().transition("todo-controls", {
         keyframes: [{ offset: 0, x: 60 }, { offset: 1, x: 100 }], timing: { duration: 1200 },
       });
@@ -439,6 +492,7 @@ for (const dpr of [1, 2]) test.describe(`Phase13 task workspace DPR${dpr}`, () =
     expect(liveAfter.layers).toHaveLength(3);
     await page.evaluate(async () => { window.phase13LiveMotion.cancel(); window.todoProbe.controller().setTransform("todo-controls", {}); await window.todoProbe.controller().settle(); });
     const beforeMedia = await page.evaluate(() => window.todoProbe.state());
+    // Reduced motion and forced colors must not revoke GPU while a task is completed with the keyboard.
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
     await page.getByLabel("Complete selected task", { exact: true }).focus();
     await page.keyboard.press("Space");
@@ -452,6 +506,7 @@ for (const dpr of [1, 2]) test.describe(`Phase13 task workspace DPR${dpr}`, () =
       for (let index = 0; index < 30; index++) await new Promise(requestAnimationFrame);
       await window.todoProbe.controller().settle();
     });
+    // 300 settled frames: no capture, upload, readback or commit, and the engine and layers are unchanged.
     const interval = await page.evaluate(() => window.todoProbe.advance(300, 1));
     await save(`phase13-preassert-${dpr}`, { initial, notesState, sentinel, liveBefore, liveAfter, liveGeometry, beforeMedia, interval,
       events: await page.evaluate(() => window.phase13Events) });

@@ -1,3 +1,6 @@
+/**
+ * Unit test for the published-package allowlist in `scripts/package-policy.mjs`. Run with `npm run test:unit`.
+ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { packageFiles, validatePackageContents } from "../../scripts/package-policy.mjs";

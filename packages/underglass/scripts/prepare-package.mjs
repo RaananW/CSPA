@@ -1,3 +1,6 @@
+// Prepack step for `@underglass/react`: copies the repository's `docs/distribution.md` into
+// `packages/underglass/docs/` so the packed tarball ships it (it is listed in the manifest's
+// `files`). Run by the package's `prepack` script after `npm run build`; it takes no arguments.
 import { mkdir, copyFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 

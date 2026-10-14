@@ -1,3 +1,10 @@
+/**
+ * Entry for `probe.html` (native topology probe): a disposable fixture that talks to the raw native
+ * HTML-in-Canvas API (`captureElementImage`, `drawElementImage`, `updateElementGeometry`, `clearElementGeometry`)
+ * without React or the library runtime. `window.nativeProbe` lets tests capture layers, apply transforms,
+ * check hit-test geometry, try fallback-triggering fixture changes, and (via `backend-probe.ts`) compare Lite
+ * WebGPU and WebGL2 uploads. It uses the `./native` shim for capability checks and type guards.
+ */
 import { capabilities, enableDrawable, isDrawableCanvas, isDrawableContext, validateGeometry, waitForPaint } from "./native";
 import { createBackendProbe } from "./backend-probe";
 
@@ -17,6 +24,7 @@ const onClick = () => {
   text.textContent = `Native count ${clicks}`;
 };
 button.addEventListener("click", onClick);
+// Live counters; `liveSnapshots` must be back to 0 after each capture and `listeners` to 0 after dispose.
 const metrics = { paints: 0, captures: 0, liveSnapshots: 0, stagingCanvases: 0, listeners: 2 };
 const onPaint = () => metrics.paints++;
 host.addEventListener("paint", onPaint);
@@ -26,6 +34,8 @@ const api = {
   metrics,
   backend: isDrawableCanvas(host) ? createBackendProbe(host, [layer, nested]) : null,
   state: () => ({ clicks, value: editing.value, selectionStart: editing.selectionStart, focused: document.activeElement === editing }),
+  // Captures each layer, draws it at its own offset and registers canvas geometry for it, then samples one pixel
+  // per layer. Snapshots are closed in `finally` so none stay live.
   async capture() {
     if (disposed) throw new Error("Probe has been disposed");
     if (!isDrawableCanvas(host)) throw new Error(`Missing native APIs: ${capabilities(host).missing.join(", ")}`);
@@ -53,6 +63,9 @@ const api = {
     }
     return pixels;
   },
+  // Draws the `layer` element with a translate (plus optional scale or rotate) and registers the same matrix as its
+  // native geometry. Returns the page position of the layer's button, derived from the matrix, so a test can click it
+  // natively; `bad-geometry` (zero scale) is expected to be rejected by `validateGeometry`.
   async transform(kind: string) {
     if (!isDrawableCanvas(host)) throw new Error("Geometry unavailable");
     const context = host.getContext("2d");
@@ -82,6 +95,8 @@ const api = {
       metrics.liveSnapshots--;
     }
   },
+  // Clears native geometry, applies one fixture change to the host (`content` attribute, display, bitmap size or
+  // visibility) and reports where the layer is after two frames.
   async fallback(kind: string) {
     let afterClear;
     if (isDrawableCanvas(host)) {
@@ -112,6 +127,7 @@ const api = {
     const rect = layer.getBoundingClientRect();
     return { sameParent: layer.parentElement === host, afterClear, rect: rect.toJSON(), state: api.state() };
   },
+  // Idempotent teardown: releases backend resources, clears native geometry, removes the canvas and listeners.
   dispose() {
     if (disposed) return { ...metrics, connected: host.isConnected };
     api.backend?.dispose();

@@ -1,3 +1,19 @@
+/**
+ * End-to-end validation of the opt-in CSS compiler (`packages/css-compiler`) as a downstream project would
+ * use it. In an isolated copy of the repository it packs the library, the compiler and a fixture component
+ * package, builds the fixture app with both Vite and webpack (Sass modules in an installed package, source
+ * maps), checks that unsupported CSS and bad configuration are rejected with useful diagnostics, and then
+ * loads each build in a real browser to check the compiled animation against native CSS, the WGSL sampler
+ * against the JS sampler, and the GPU-first behaviour of the compiled app.
+ *
+ * Invoked as `npm run test:compiler` (which builds the library first). Flag: `--runtime-regression` also runs
+ * the unit tests, playground build and the animation, recovery and runtime browser suites in the copied
+ * tree, with the browser identity checked by `assertBrowserIdentity`. Environment: `CANVAS_BROWSER_EXECUTABLE`,
+ * `CANVAS_REQUIRE_BROWSER_PIN=1`.
+ *
+ * Output: a new `evidence/compiler/run-<uuid>/` directory (path printed first) with command logs,
+ * screenshots, per-bundler browser records and `report.json`. Exits non-zero when any step fails.
+ */
 import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -24,9 +40,13 @@ await mkdir(run);
 console.log(run);
 const tree = join(run, "workspace");
 await mkdir(tree);
+// Built up during the run and written to `report.json` in the `finally` block, pass or fail.
 const report = { status: "running", run, commands: [], builds: [], native: [], limits: ["No performance claim", "No dev/HMR certification", "No publication"] };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 let browser;
+// Runs a process in `cwd` with no user npm config and no browser download, and saves its output as
+// `<label>.log`. With `expectedFailure` the command must fail (returning its output so the diagnostic can
+// be checked); otherwise a failure throws.
 async function command(executable, args, cwd, label, expectedFailure = false, extraEnv = {}) {
   let output;
   let failed = false;
@@ -44,12 +64,14 @@ async function command(executable, args, cwd, label, expectedFailure = false, ex
   if (expectedFailure) assert.equal(failed, true, `${label} unexpectedly accepted unsupported input`);
   return output;
 }
+// Extracts a packed archive into `node_modules/<name>`, to install exactly the packed bytes.
 async function installArchive(directory, archive, name) {
   const target = join(directory, "node_modules", name);
   await mkdir(target, { recursive: true });
   // Relative paths: GNU tar (Git Bash) reads a Windows drive letter as a remote host.
   await command("tar", ["-xzf", relative(directory, archive).split(sep).join("/"), "-C", relative(directory, target).split(sep).join("/"), "--strip-components=1"], directory, `extract-${name.replaceAll("/", "-")}-${basename(directory)}`);
 }
+// Minimal static file server for a built app (random localhost port; refuses paths outside `directory`).
 async function serve(directory) {
   const server = createServer(async (request, response) => {
     try {
@@ -69,6 +91,7 @@ async function serve(directory) {
   return { url, close: () => new Promise(done => server.close(done)) };
 }
 try {
+  // Work in a copy of the repository so the checkout is never written to.
   for (const path of ["packages", "fixtures/css-compiler", "tests/compiler", "package.json", "package-lock.json"]) {
     await cp(join(root, path), join(tree, path), { recursive: true, filter: path => !["node_modules", "dist"].includes(basename(path)) });
   }
@@ -80,6 +103,8 @@ try {
   await command(node, [tsc, "-p", "tsconfig.json"], library, "library-types");
   const archives = join(run, "archives");
   await mkdir(archives);
+  // Pack the library, the compiler and the fixture component package; the compiler and the fixture app
+  // then consume them as installed packages.
   for (const [name, source] of [
     ["library", library], ["compiler", join(tree, "packages/css-compiler")],
     ["component", join(tree, "fixtures/css-compiler/component-package")],
@@ -93,10 +118,13 @@ try {
   await command(node, ["--test", "tests/compiler/compiler.test.mjs", "tests/compiler/conformance.test.mjs"], tree, "compiler-units");
   const { compileStylesheet } = await import(pathToFileURL(join(tree, "packages/css-compiler/src/index.mjs")).href);
   const { generateModule } = await import(pathToFileURL(join(tree, "packages/css-compiler/src/generate.mjs")).href);
+  // Compile every accepted stylesheet in the shared corpus (`tests/compiler/css-corpus.mjs`) and keep the
+  // generated module and sample times for the browser comparisons.
   const corpus = acceptedCSS.map(fixture => {
     const animations = compileStylesheet(fixture.css, [fixture.entry], { modules: fixture.modules });
     return { ...fixture, animation: animations[0], source: generateModule(animations, 1), times: referenceTimes(animations[0]) };
   });
+  // WGSL-versus-JS parity runs in batches of 16 animations per generated module.
   const parityBatches = [];
   for (let offset = 0; offset < corpus.length; offset += 16) {
     const batch = corpus.slice(offset, offset + 16);
@@ -104,9 +132,11 @@ try {
       ...fixture.animation, id: `sample${index}/motion`,
     })), 1), times: batch.map(fixture => fixture.times) });
   }
+  // The tolerances and the clock-diagnostic caveat are written into the report next to the results.
   report.corpus = { accepted: acceptedCSS.map(fixture => fixture.label), refused: refusedCSS.map(fixture => fixture.label),
     nativeBoundaryOffsetMilliseconds: 0.01, matrixOpacityTolerance: 0.0005, translationTolerancePixels: 0.02,
     clockLimit: "One-microsecond native CSS seeks are retained as clock diagnostics, not interpolation-equivalence assertions." };
+  // The compiler's public entry points and the generated-module types must typecheck under NodeNext.
   await writeFile(join(tree, "compiler-types.ts"), `import {createCompiler,compileStylesheet,type CompilerConfig} from "@underglass/css-compiler";
     import {underglass} from "@underglass/css-compiler/vite";import {UnderglassPlugin} from "@underglass/css-compiler/webpack";
     import type {CompiledProgramSet} from "@underglass/react";import "@underglass/css-compiler/client";
@@ -115,6 +145,8 @@ try {
     createCompiler(config);compileStylesheet("",config.entries);underglass();new UnderglassPlugin();void valid;`);
   await command(node, [tsc, "--noEmit", "--strict", "--skipLibCheck", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2022", "compiler-types.ts"], tree, "compiler-public-types");
   const applications = [];
+  // Build the same fixture app with each bundler. The Sass module inside the installed package must be
+  // left unmodified by the build.
   for (const bundler of ["vite", "webpack"]) {
     const app = join(tree, bundler);
     await cp(join(tree, "fixtures/css-compiler/app"), app, { recursive: true });
@@ -155,6 +187,9 @@ try {
     applications.push({ bundler, app, dist: join(app, "dist") });
     report.builds.push({ bundler, packageScssUnchanged: true });
   }
+  // Negative cases, each of which must make the build fail with a diagnostic that names the cause: an
+  // unsupported property (`filter`) in an app stylesheet, a stylesheet that the package does not export, and
+  // a webpack configuration that does not process CSS through css-loader.
   const negative = join(tree, "negative");
   await cp(applications[0].app, negative, { recursive: true });
   await writeFile(join(negative, "local.scss"), (await readFile(join(negative, "local.scss"), "utf8")).replace("opacity: 0.8;", "opacity: 0.8; filter: blur(3px);"));
@@ -173,6 +208,7 @@ try {
     const compiler=webpack(config);compiler.run((error,stats)=>compiler.close(()=>{if(error)throw error;if(stats.hasErrors())throw new Error(stats.toString({all:false,errors:true}));}));`],
     negative, "unsupported-webpack-loader", true);
   assert.match(unsupportedLoader, /processed CSS through css-loader/);
+  // Each built app is loaded in the real browser; its identity is recorded (and pinned when requested).
   browser = await chromium.launch(browserLaunchOptions());
   for (const application of applications) {
     const server = await serve(application.dist);
@@ -194,6 +230,8 @@ try {
       await page.waitForFunction(() => window.compilerDemo);
       observations.generatedTargets = await page.evaluate(() => window.compilerDemo.compiled.animations.map(animation => animation.id));
       assert.deepEqual(observations.generatedTargets, ["card/float", "local/pulse"]);
+      // The compiled JS sampler must agree with what the browser computes for the same CSS, and the WGSL
+      // sampler with the JS one (the JS sampler drives native hit geometry).
       observations.nativeCSS = await verifyNativeCSS(page, corpus.map(({ label, css, source, times }) => ({ label, css, source, times })));
       observations.parity = { count: 0, maximumError: 0, stylesheetCases: corpus.length };
       for (const batch of parityBatches) {
@@ -206,6 +244,7 @@ try {
       observations.initial = await state();
       assert.equal(observations.initial.mode, "dom");
       await page.evaluate(() => {
+        // Record every click, input, key and submit with its trust flag, to prove real input reached the originals.
         window.trustedEvents = [];
         for (const event of ["click", "input", "keydown", "submit"]) document.addEventListener(event, value => window.trustedEvents.push({ type: event, trusted: value.isTrusted, id: value.target.id }));
       });
@@ -216,9 +255,12 @@ try {
       assert.equal(observations.enable.mode, "gpu", observations.enable.reason);
       await page.waitForFunction(() => window.compilerDemo.state().mode === "gpu" && !window.compilerDemo.state().initializing);
       observations.admitted = await state();
+      // Compiled programs are used as shipped: no shader source is generated at runtime, and the CSS animation
+      // is detached from the DOM element in favour of the GPU one.
       assert.equal(observations.admitted.metrics.shaderSourceGenerations, 0);
       assert.ok(observations.admitted.metrics.precompiledShaderSelections > 0);
       assert.equal(observations.admitted.animationOwnership[0].detached, true);
+      // Screenshot of the owning canvas, saved as evidence and decoded for pixel comparisons.
       const image = async name => {
         const bytes = await page.locator("#gpu").screenshot();
         await writeFile(join(run, `${application.bundler}-${name}.png`), bytes, { flag: "wx" });
@@ -228,10 +270,13 @@ try {
       await page.evaluate(() => window.compilerDemo.playback().seek(600));
       await page.waitForTimeout(100);
       const second = await image("seek");
+      // Seeking the compiled animation must visibly change the presented output.
       let changed = 0;
       for (let i = 0; i < first.data.length; i += 4) if (first.data.subarray(i, i + 3).some((value, offset) => Math.abs(value - second.data[i + offset]) > 16)) changed++;
       assert.ok(changed > 1000, `Actual generated shader output did not move: ${changed}`);
       observations.motionPixels = changed;
+      // Click through real pointer events at the element's centre, after checking that the browser's own hit
+      // test returns that element (native hit geometry is correct).
       const trustedClick = async selector => {
         const point = await page.locator(selector).evaluate(element => {
           const rectangle = element.getBoundingClientRect();
@@ -256,6 +301,7 @@ try {
       await page.waitForFunction(() => document.querySelector("#saved").textContent === "Package edited through native GPU");
       await page.evaluate(() => window.compilerDemo.controller.settle());
       await page.waitForTimeout(400);
+      // With playback running, the GPU must present new frames without any React commit, capture or upload.
       const before = await state();
       await page.evaluate(() => window.compilerDemo.playback().play());
       await page.waitForTimeout(250);
@@ -267,6 +313,7 @@ try {
       assert.equal(after.metrics.uploads, before.metrics.uploads);
       observations.reuse = { before, after };
       await page.evaluate(() => window.compilerDemo.playback().play());
+      // Reduced motion pauses playback but must not revoke GPU.
       await page.emulateMedia({ reducedMotion: "reduce" });
       await page.waitForFunction(() => window.compilerDemo.state().environment.reducedMotion && !window.compilerDemo.playback().state().playing);
       observations.reducedMotion = await state();
@@ -276,6 +323,8 @@ try {
       await page.keyboard.press("Home");
       await page.keyboard.press("Shift+ArrowRight");
       const focused = await state();
+      // disable() must return to DOM with the same input and root, focus and selection, and restore the
+      // original CSS animation (paused) on the element.
       await page.evaluate(() => window.compilerDemo.controller.disable());
       const rolled = await state();
       assert.equal(rolled.mode, "dom");
@@ -307,6 +356,7 @@ try {
         style.opacity = "0.4";
         await window.compilerDemo.controller.disable();
       });
+      // Styles the app authors after enabling GPU must be left in place by disable().
       observations.laterAuthored = await page.locator("#card").evaluate(element => ({
         name: element.style.animationName, transform: element.style.transform, opacity: element.style.opacity,
       }));
@@ -321,6 +371,8 @@ try {
       consoleErrors.length = 0;
       await page.reload();
       await page.waitForFunction(() => window.compilerDemo);
+      // Corrupt a compiled fragment shader: enabling GPU must fail with a diagnosed DOM fallback, release the
+      // animation owners and engine, and leave the original input usable.
       await page.evaluate(() => { window.compilerDemo.compiled.programs[0].fragmentWGSL = "invalid WGSL"; });
       await page.evaluate(() => window.compilerDemo.enable());
       const invalidProgram = await state();
@@ -336,6 +388,7 @@ try {
       observations.invalidProgram = { refusal: invalidProgram, disposed: await state() };
       assert.ok(Object.values(observations.invalidProgram.disposed.resources).every(value => value === 0));
       assert.ok(Object.values(observations.invalidProgram.disposed.runtimeResources).every(value => value === 0));
+      // Hide `navigator.gpu` to simulate a browser without WebGPU: same expectations as for the bad shader.
       await context.addInitScript(() => Object.defineProperty(navigator, "gpu", { value: undefined }));
       await page.reload();
       await page.waitForFunction(() => window.compilerDemo);
@@ -351,6 +404,7 @@ try {
       observations.syntheticDisposed = await state();
       assert.ok(Object.values(observations.syntheticDisposed.resources).every(value => value === 0));
       assert.ok(Object.values(observations.syntheticDisposed.runtimeResources).every(value => value === 0));
+      // The only console errors allowed are the two expected refusal diagnostics (bad shader, no WebGPU).
       observations.expectedFailureConsole = consoleErrors.slice();
       assert.equal(consoleErrors.length, 2);
       assert.match(consoleErrors[0], /Application effect compilation failed/);
@@ -360,11 +414,15 @@ try {
   }
   await browser.close();
   browser = undefined;
+  // Optional heavier pass: the existing runtime suites, run in the same copied tree after adding the playground,
+  // tests and scripts to it.
   if (process.argv.includes("--runtime-regression")) {
     for (const path of ["examples", "tests", "scripts", "fixtures/react18", "vite.config.ts", "README.md", "docs", ".github/workflows"]) {
       await cp(join(root, path), join(tree, path), { recursive: true,
         filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(basename(path)) });
     }
+    // Patch the copy's browser identity fixture to call `assertBrowserIdentity`, which enforces the pin when
+    // `CANVAS_REQUIRE_BROWSER_PIN=1`.
     const helper = join(tree, "tests/helpers/current-browser.mjs");
     const original = await readFile(helper, "utf8");
     assert.match(original, /await use\(identity\);/);

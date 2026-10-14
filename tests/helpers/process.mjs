@@ -3,8 +3,11 @@
 import { devNull } from "node:os";
 import { isAbsolute, relative, sep } from "node:path";
 
+// Re-exported so callers can point npm's user config at the null device without importing node:os.
 export { devNull };
+// Only npm and npx need a shell, and only on Windows (their .cmd shims cannot be spawned directly).
 const needsShell = command => process.platform === "win32" && /^(npm|npx)(\.cmd)?$/i.test(command);
+// Quotes an argument for the shell unless it only contains characters that are safe unquoted.
 const quote = value => (/^[\w@%+=:,./\-]+$/.test(value) ? value : `"${String(value).replaceAll('"', '\\"')}"`);
 
 // tar arguments that work with bsdtar and with Git Bash's GNU tar on Windows: absolute paths become

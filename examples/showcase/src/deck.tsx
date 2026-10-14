@@ -1,9 +1,17 @@
+/**
+ * Example 02, "Card deck": four cards moved by declarative typed motion. Each arrangement builds
+ * one waypoint path per card (`pose.ts`) and starts them together with `transitionGroup`; the
+ * "layer journey" runs a single `transition` on one card. React state holds only text, likes and
+ * feedback. Card positions live in the runtime's layer transforms, so moving a card never
+ * re-renders, and the Like buttons are ordinary React buttons that stay clickable mid-flight.
+ */
 import { useEffect, useRef, useState } from "react";
 import { Surface, useGPUHost, type TransitionHandle } from "@underglass/react";
 import { Panel, describe, useReducedMotion } from "./shared";
 import { usePulse, useSceneArt } from "./scene";
 import { at, fromTransform, keepInside, path, type Pose, type Rect } from "./pose";
 
+// All four cards share one size, so their slots are interchangeable.
 const SIZE = { width: 320, height: 280 };
 /** DOM order is paint order: "your" card (showcase-card) is last, so it rides on top. */
 const cards = [
@@ -13,12 +21,17 @@ const cards = [
   { id: "showcase-card", title: "", note: "Your card", art: "ember", rect: { x: 378, y: 36, ...SIZE } },
 ] as const;
 type CardId = typeof cards[number]["id"];
+// The four resting layout boxes; each card owns one slot index at a time.
 const slots = cards.map(card => card.rect);
+// Centre point of a layout box, in stage pixels.
 const centre = (rect: Rect) => ({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+// Where stacked and shuffling cards pile up, roughly the middle of the card area.
 const deckCentre = { x: 705, y: 350 };
 
+// The buttons that each run one `transitionGroup` over all four cards.
 type Arrangement = "deal" | "stack" | "fan" | "shuffle" | "spin";
 
+/** The card deck example: arrangement buttons and a stagger slider driving four `Surface` cards. */
 export function CardDeck() {
   const controller = useGPUHost();
   const reduced = useReducedMotion();
@@ -28,44 +41,61 @@ export function CardDeck() {
   const [stagger, setStagger] = useState(90);
   const [runs, setRuns] = useState(0);
   const [feedback, setFeedback] = useState("Pick an arrangement. Try liking a card while it flies.");
+  // Transitions that may still be running, cancelled on unmount.
   const handles = useRef<TransitionHandle[]>([]);
+  // The slot each card currently belongs to. Shuffle permutes it; Deal sends cards back to it.
   const slot = useRef<Record<CardId, number>>({ "deck-sky": 0, "deck-sea": 1, "deck-fern": 2, "showcase-card": 3 });
+  // Counts motion requests. A completion callback from an older request sees a different value and
+  // stays silent, so stale results never overwrite newer feedback.
   const generation = useRef(0);
   const pulse = usePulse();
+  // On unmount, invalidate pending callbacks and cancel running transitions.
   useEffect(() => () => { generation.current++; for (const handle of handles.current) handle.cancel(); handles.current = []; }, []);
 
+  // The felt table is this example's art layer; `pulse` ripples it when cards land.
   useSceneArt(() => ({ layout: { x: 362, y: 20, width: 664, height: 660, overflow: "hidden" },
     appearance: { background: "rgb(22,84,88)", radius: 40 },
     content: <div className="mat"><div className="felt-rings" /><span className="mat-label">THE TABLE</span></div> }), []);
+  // The card's present pose, read from the runtime's sampled layer transform, so a new motion starts
+  // from wherever the card is, even mid-flight.
   function current(id: CardId): Pose {
     const layer = controller.state().layers.find(entry => entry.id === id);
     return fromTransform(layer?.transform);
   }
+  // Pose that puts the card's centre on the centre of its slot.
   function slotPose(id: CardId, rect: Rect): Pose {
     const target = centre(slots[slot.current[id]]!);
     return at(rect, target.x, target.y);
   }
+  // Starts `kind` for all four cards as one group. Every path starts from the card's current pose.
   function arrange(kind: Arrangement) {
     const version = ++generation.current;
     try {
+      // Shuffle picks a new slot for each card, retrying until at least one card actually moves.
       if (kind === "shuffle") {
         const order = [0, 1, 2, 3];
         do order.sort(() => Math.random() - .5); while (order.every((value, index) => value === index));
         cards.forEach((card, index) => { slot.current[card.id] = order[index]!; });
       }
+      // One entry per card for `transitionGroup`: the layer id and its sampled `MotionDescriptor`.
       const items = cards.map((card, index) => {
         const from = current(card.id);
         const home = slotPose(card.id, card.rect);
+        // Pose waypoints with `at` in 0..1; `path` samples them into keyframes.
         let waypoints: { at: number; pose: Pose }[];
         if (kind === "deal") waypoints = [{ at: 0, pose: from }, { at: 1, pose: home }];
         else if (kind === "stack") {
+          // Small per-card offset (x, y) and tilt (degrees) around the pile centre.
           const jitter = [[-14, 10, -7], [10, -6, 5], [-4, -12, -2], [6, 4, 3]][index]!;
           waypoints = [{ at: 0, pose: from }, { at: 1, pose: at(card.rect, deckCentre.x + jitter[0]!, deckCentre.y + jitter[1]!, jitter[2]!, .92) }];
         } else if (kind === "fan") {
+          // Fan: cards sit on an arc of `radius` px around a pivot below the stage, each tilted by its angle.
           const angle = [-24, -8, 8, 24][index]!, radius = 440, pivot = { x: 694, y: 820 };
           const x = pivot.x + radius * Math.sin(angle * Math.PI / 180), y = pivot.y - radius * Math.cos(angle * Math.PI / 180);
           waypoints = [{ at: 0, pose: from }, { at: 1, pose: at(card.rect, x, y, angle, .72) }];
         } else if (kind === "shuffle") {
+          // Shuffle: neighbouring cards turn in opposite directions. Each lifts, flies to the pile, then
+          // lands on its new slot after whole turns, so it ends upright.
           const turn = index % 2 ? -180 : 180;
           waypoints = [{ at: 0, pose: from }, { at: .2, pose: { ...from, scale: from.scale * 1.05, dy: from.dy - 12 } },
             { at: .55, pose: at(card.rect, deckCentre.x + (index - 1.5) * 26, deckCentre.y, from.rotation + turn, .58) },
@@ -74,14 +104,20 @@ export function CardDeck() {
           waypoints = [{ at: 0, pose: from }, { at: .5, pose: { ...from, rotation: from.rotation + 180, scale: from.scale * .78 } },
             { at: 1, pose: { ...from, rotation: from.rotation + 360 } }];
         }
+        // Durations are in ms. Two-point moves use 12 samples; the multi-waypoint shuffle and spin use
+        // 31, the most a timeline allows (32 keyframes).
         return { id: card.id, motion: path(card.rect, waypoints, kind === "shuffle" ? 1500 : kind === "spin" ? 1300 : 900, kind === "deal" || kind === "stack" || kind === "fan" ? 12 : 31) };
       });
+      // Starts every card together; card `i` is delayed by `i * stagger` ms. Throws when the runtime
+      // refuses the group, which the catch below reports.
       const started = controller.transitionGroup(items, stagger);
       handles.current = started;
       setRuns(value => value + started.length);
       const label = { deal: "Dealt to the grid", stack: "Stacked", fan: "Fanned", shuffle: "Shuffled", spin: "Spun" }[kind];
       setFeedback(reduced ? `${label}. Reduced motion is on, so the cards went straight to their places.`
         : `${label}: one transition group, ${stagger} ms stagger, pivoted around each card's centre.`);
+      // When every card has settled, ignore the result if a newer request started. Otherwise ripple the
+      // table (a no-op outside GPU mode) and report how many transitions completed.
       void Promise.all(started.map(handle => handle.finished)).then(results => {
         if (version !== generation.current) return;
         const completed = results.filter(result => result.status === "completed").length;
@@ -90,6 +126,8 @@ export function CardDeck() {
       });
     } catch (error) { setFeedback(`Motion unavailable: ${describe(error)}`); console.error(error); }
   }
+  // One long `transition` on a single card ("Your card"): lift, half a turn to the pile, then a full
+  // turn back to rest.
   function journey() {
     const version = ++generation.current;
     const card = cards[3];
@@ -113,6 +151,8 @@ export function CardDeck() {
       });
     } catch (error) { setFeedback(`Motion unavailable: ${describe(error)}`); console.error(error); }
   }
+  // The panel is the native control layer. The cards are four `Surface`s with `origin="center"`, so
+  // rotation and scale pivot on the card's middle.
   return <>
     <Panel label="STUDIO 02" title="Card deck">
       <form className="inline-form" onSubmit={event => { event.preventDefault(); setSaved(title); setFeedback("Saved on the original React tree; your card updated in place."); }}>
@@ -161,6 +201,7 @@ export function CardDeck() {
   </>;
 }
 
+/** Inline SVG artwork for a card, decoration only (hence `aria-hidden`). */
 function CardArt({ kind }: { kind: typeof cards[number]["art"] }) {
   return <svg className="deck-art" width="320" height="150" viewBox="0 0 320 150" aria-hidden="true">
     {kind === "sky" && <><rect width="320" height="150" fill="#8ec5ff" /><circle cx="236" cy="62" r="30" fill="#fff4c2" />

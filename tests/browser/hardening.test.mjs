@@ -1,17 +1,33 @@
+/**
+ * Browser suite that stresses GPU ownership under races and environment changes, on `integration.html`
+ * (`integrationProbe`), `performance.html` (`measurement`), `todo.html` (`todoProbe`) and `effects.html`
+ * (`effectsProbe`), at DPR 1 and 2 on the preview build. It proves that React layer moves, reorders, additions,
+ * removals and resizes keep GPU active with the original native controls (identity, value, selection, focus),
+ * that pending captures and admissions never reveal stale or blank frames, that a DPR change is reconciled
+ * without losing native hits, that native paint, hover and rapid edits reach the canvas, and that disposal
+ * always returns every resource counter to zero. Several tests hold or inject browser calls to force a race;
+ * the `fixture` or `limit` text in each `hardening` evidence report states what was synthetic.
+ */
 import { test, expect } from "../helpers/current-browser.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { PNG } from "pngjs";
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 
+// Evidence directory for JSON reports and screenshots.
 const directory = evidenceDirectory("hardening");
 async function save(name, value) {
   await mkdir(directory, { recursive: true });
   await writeFile(`${directory}/${name}.json`, JSON.stringify(value, null, 2));
 }
+/** Asserts that every GPU and runtime resource counter in a dispose report is zero. */
 function zero(state) {
   expect(Object.values(state.resources).every(value => value === 0)).toBe(true);
   expect(Object.values(state.runtimeResources).every(value => value === 0)).toBe(true);
 }
+/**
+ * Opens `integration.html` (`?dom` skips the automatic enable), waits for GPU unless `dom`, then waits 900 ms and
+ * drains scheduled work so the page is quiet before the test starts racing it.
+ */
 async function ready(page, dom = false) {
   await page.goto(`/integration.html?${dom ? "dom" : ""}`);
   await page.waitForFunction(() => window.integrationProbe && !window.integrationProbe.state().initializing);
@@ -19,6 +35,7 @@ async function ready(page, dom = false) {
   await page.waitForTimeout(900);
   await page.evaluate(() => window.integrationProbe.settle());
 }
+/** Waits for a completed fallback to DOM: engine released, no transition running and the output hidden. */
 async function recovered(page) {
   await page.waitForFunction(() => {
     const state = window.integrationProbe.state();
@@ -26,6 +43,10 @@ async function recovered(page) {
   });
   expect(await page.locator("#output").evaluate(node => node.hidden)).toBe(true);
 }
+/**
+ * Screenshots `#frame` (saved as evidence) and returns the RGBA of frame-local CSS pixel (x, y), scaling by the
+ * screenshot-to-CSS ratio. The `dpr` argument is only informational.
+ */
 async function pixels(page, name, dpr, x, y) {
   await mkdir(directory, { recursive: true });
   const width = await page.locator("#frame").evaluate(node => node.getBoundingClientRect().width);
@@ -36,7 +57,13 @@ async function pixels(page, name, dpr, x, y) {
   return [...png.data.subarray(offset, offset + 4)];
 }
 
+// Every test below runs at DPR 1 and 2 on fresh pages.
 for (const dpr of [1, 2]) {
+  // Five structural operations are each applied while a 60 s transition runs. Right after the commit the mode
+  // is still GPU (and, for move, reorder and remove, the newest layout generation has already been submitted),
+  // then the original input, root and layers keep identity, value, selection and focus, the number of captured
+  // layers is right, and the primary layer pixel (55, 345) is still red. The pixels are the owning GPU output, not
+  // an ordinary-DOM reference.
   test(`same-size moves, React reorder/add/remove, resize and native continuity DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {
@@ -55,6 +82,7 @@ for (const dpr of [1, 2]) {
       for (const operation of ["move", "reorder", "add", "remove", "resize"]) {
         const postcommit = await page.evaluate(async operation => {
           const probe = window.integrationProbe;
+          // Keep a long motion running so the change lands while GPU owns the presentation.
           window.activeTransition = probe.transition({ keyframes: [{ offset: 0 }, { offset: 1, x: 5 }], timing: { duration: 60000 } });
           if (operation === "move") probe.layout({ left: 50 });
           if (operation === "reorder") probe.reorder();
@@ -88,6 +116,7 @@ for (const dpr of [1, 2]) {
         expect(continuity.focus).toBe("name");
         expect(continuity.transition.status).toBe("cancelled");
         expect(continuity.state.mode).toBe("gpu");
+        // Three layers captured, or five after `extra(2)` adds two.
         expect(continuity.state.publication.captures).toHaveLength(operation === "add" ? 5 : 3);
         if (operation === "reorder") expect(continuity.order.indexOf("replacement")).toBeLessThan(continuity.order.indexOf("stage"));
         const gpuPixel = await pixels(page, `layout-${operation}-gpu-before-action-${dpr}`, dpr, 55, 345);
@@ -115,6 +144,8 @@ for (const dpr of [1, 2]) {
     } finally { await page.close(); }
   });
 
+  // Changing DPR through CDP must resize the output to the new ratio (640x420 CSS pixels times DPR) with GPU
+  // still active, the same original input, and native hits and pixels still correct.
   test(`actual CDP DPR replacement with original native hits DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     const cdp = await page.context().newCDPSession(page);
@@ -148,6 +179,9 @@ for (const dpr of [1, 2]) {
     } finally { await page.close(); }
   });
 
+  // Admission is cancelled while its readback screenshot is queued: a layout change, an extra layer and an
+  // explicit disable are injected from the geometry callback. The queued readback must still be drained (none
+  // left), the output hidden, no engine or cleanup left behind, and a later enable must succeed.
   test(`cancelled admission drains a queued public screenshot while hidden DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {
@@ -191,6 +225,9 @@ for (const dpr of [1, 2]) {
     } finally { await page.close(); }
   });
 
+  // The `paint` event is swallowed so a capture stays pending while the layout changes to a resized layer. The
+  // previous complete GPU output must stay on screen (output visible, `.app-container` still parented to it) and
+  // the successor must upload new content once the held paint is released.
   test(`pending native capture retains complete GPU output before resized successor DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {
@@ -228,6 +265,10 @@ for (const dpr of [1, 2]) {
     } finally { await page.close(); }
   });
 
+  // Holds the real `GPUBuffer.mapAsync` of the admission readback while reorder, replace x2 and move arrive.
+  // During the wait the mode is `admitting` with the output visible. The stale admission result is not shown;
+  // the newer generation is admitted. Then six extra layers exceed the layer-count admission budget, which
+  // falls back to DOM with a diagnosed reason, and removing them lets an explicit enable succeed.
   test(`pending admission generation, rapid replacements and layer budget DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {
@@ -271,6 +312,11 @@ for (const dpr of [1, 2]) {
     } finally { await page.close(); }
   });
 
+  // Uses the 8-layer GPU performance fixture: hover styling, typing, selection and ten rapid `fill()` edits must
+  // reach the canvas. Paint events are recorded. A manual `requestPaint()` with no attribution must recapture
+  // every layer (at least 8 captures for the 8 layers). Finally the GPU screenshot is compared with the DOM one:
+  // both must show the expected background colour (245, 196, 41) at frame pixel (60, 200); the number of
+  // differing bytes is only recorded.
   test(`root-attributed native paint, hover, selection, styles and rapid edits DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {
@@ -278,6 +324,7 @@ for (const dpr of [1, 2]) {
       await page.waitForFunction(() => window.measurement);
       await page.evaluate(() => {
         const sheet = document.createElement("style");
+        // Adds a hover style so a real mouse hover must change the canvas pixels.
         sheet.textContent = "#measurement-input:hover { background: rgb(20,200,90) }";
         document.head.append(sheet);
         window.paintAttribution = [];
@@ -339,6 +386,8 @@ for (const dpr of [1, 2]) {
     } finally { await page.close(); }
   });
 
+  // On the TODO app: form entry, a checkbox toggled with Space and a title edited with the keyboard. Switching to
+  // DOM and back must preserve the title's selection and focus, and a modal delete confirmation hides the list.
   test(`TODO native form, task state, keyboard selection and DPR geometry DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {
@@ -371,6 +420,9 @@ for (const dpr of [1, 2]) {
     } finally { await page.close(); }
   });
 
+  // Effects with continuous layout change: with a ripple, chromatic effect and a motion running, moving the art
+  // element must keep GPU and the output visible. Cancelling ends them with `cancelled`; reduced motion refuses
+  // to play an effect; forced colors keeps GPU and the title input stays editable.
   test(`effects/native overlay, media and continuous active-effect layout DPR${dpr}`, async ({ browser }) => {
     const page = await browser.newPage({ deviceScaleFactor: dpr });
     try {

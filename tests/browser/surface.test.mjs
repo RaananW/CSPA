@@ -1,3 +1,14 @@
+/**
+ * Browser suite for the low-level surface renderer (`createSurfaceRenderer`) on the playground page
+ * `surface.html` (`window.surfaceProbe`), plus the native backend probe on `probe.html`. A captured
+ * card and badge layer are composited on GPU; the same elements are also shown in ordinary DOM with a
+ * differently coloured card (blue instead of red), so a sample at (30,225) tells which path is
+ * presenting. The suite proves GPU pixels and native controls, GPU-only frames with no React commits or
+ * captures, and recovery to the same original root and native state from startup faults, capture
+ * errors, real device loss and stuck GPU queue fences. Production preview is the default; `strict`
+ * uses the Vite development server with React StrictMode. JSON reports and screenshots go to the
+ * `surface` evidence directory.
+ */
 import { test, expect } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
@@ -6,22 +17,27 @@ import { PNG } from "pngjs";
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 import { developmentURL } from "../helpers/urls.mjs";
 const evidence = evidenceDirectory("surface");
+// Hash of the decoded RGBA pixels (not the PNG file bytes), for "did the pixels change" checks.
 const hash = bytes => createHash("sha256").update(PNG.sync.read(bytes).data).digest("hex");
+// RGBA of PNG pixel (x, y) in device pixels (this suite runs at DPR 1).
 function pixel(bytes, x, y) {
   const png = PNG.sync.read(bytes);
   return [...png.data.subarray((y * png.width + x) * 4, (y * png.width + x) * 4 + 4)];
 }
+// Opens `surface.html`, waits for GPU admission and a quiet period, then drains scheduled work.
 async function ready(page, strict = false) {
   await page.goto(strict ? `${developmentURL}/surface.html?strict` : "/surface.html");
   await page.waitForFunction(() => window.surfaceProbe?.state().mode === "gpu" && !window.surfaceProbe.state().initializing);
   await page.waitForTimeout(200);
   await page.evaluate(() => window.surfaceProbe.settle());
 }
+// Clicks the control, selects all and types, replacing its value with real keyboard input.
 async function edit(page, id, value) {
   await page.locator(`#${id}`).click();
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type(value);
 }
+// Screenshots `.surface-frame` and saves it as evidence.
 async function screenshot(page, name) {
   return page.locator(".surface-frame").screenshot({ path: `${evidence}/${name}.png` });
 }
@@ -30,6 +46,7 @@ for (const strict of [false, true]) {
   test(`integrated native GPU pixels, controls, caching and stable-root recovery StrictMode=${strict}`, async ({ page, browser }) => {
     await mkdir(evidence, { recursive: true });
     const name = strict ? "development-strict" : "production";
+    // The report records which browser executable or channel is under test.
     const report = { startedAt: new Date().toISOString(), strict, reactBuild: strict ? "development" : "production-profiling", executablePath: (test.info().project.use.launchOptions.executablePath ?? test.info().project.use.launchOptions.channel), errors: [], cycles: [] };
     page.on("pageerror", error => report.errors.push(error.message));
     page.on("console", message => { if (message.type() === "error") report.errors.push(message.text()); });
@@ -50,7 +67,9 @@ for (const strict of [false, true]) {
       expect(report.initial.resources.textures).toBe(2);
       const first = await screenshot(page, `${name}-initial`);
       report.initialPixels = { card: pixel(first, 30, 225), alpha: pixel(first, 270, 235) };
+      // Card pixel is the red layer colour (240,30,60); the `alpha` sample at (270,235) is the expected blended pixel.
       expect(report.initialPixels).toEqual({ card: [240, 30, 60, 255], alpha: [130, 115, 75, 255] });
+      // Nothing may be drawn into the capture host's own 2D bitmap: every alpha value must be 0.
       report.ownerBitmapBlank = await page.evaluate(() => {
         const host = document.querySelector("#capture-host");
         const data = host.getContext("2d").getImageData(0, 0, host.width, host.height).data;
@@ -60,6 +79,7 @@ for (const strict of [false, true]) {
       await page.locator("#count").click();
       await page.locator("#badge").click();
       await expect(page.locator("#count")).toHaveText("Count 2");
+      // A nested React update must cause exactly one commit.
       report.nestedCommitProbe = { before: (await page.evaluate(() => window.surfaceProbe.state())).metrics.reactCommits };
       await page.locator("#nested-count").click();
       await expect(page.locator("#nested-count")).toHaveText("Nested 1");
@@ -78,12 +98,15 @@ for (const strict of [false, true]) {
       expect(hash(edited)).not.toBe(hash(first));
       await page.waitForTimeout(500);
       await page.evaluate(() => window.surfaceProbe.settle());
+      // `frames(count, shift, shade)` runs `count` GPU-only frames (1-300) shifting layers by `shift` CSS px
+      // and tinting by swapping colour channels by `shade` (0-1). Nothing may reach React or capture.
       report.gpuOnly = await page.evaluate(() => window.surfaceProbe.frames(300, 40, 1));
       expect(report.gpuOnly.after.reactCommits).toBe(report.gpuOnly.before.reactCommits);
       expect(report.gpuOnly.after.captures).toBe(report.gpuOnly.before.captures);
       expect(report.gpuOnly.after.pixelCopies).toBe(report.gpuOnly.before.pixelCopies);
       expect(report.gpuOnly.after.uploads).toBe(report.gpuOnly.before.uploads);
       expect(report.gpuOnly.after.gpuFrames - report.gpuOnly.before.gpuFrames).toBe(300);
+      // Shifted by 40 px: the old card position is white and the card sits further right with red and blue swapped.
       const transformed = await screenshot(page, `${name}-shader-shift`);
       expect(pixel(transformed, 30, 225)).toEqual([255, 255, 255, 255]);
       expect(pixel(transformed, 70, 225)).toEqual([60, 30, 240, 255]);
@@ -102,6 +125,8 @@ for (const strict of [false, true]) {
         window.originalSurfaceContainer = document.querySelector(".app-container");
         window.originalSurfaceInput = document.querySelector("#controlled");
       });
+      // Fall back to ordinary DOM: native geometry is reset to identity for both layers and every native
+      // value, focus and selection must be carried over unchanged.
       report.beforeFallback = await page.evaluate(() => window.surfaceProbe.state());
       report.dom = await page.evaluate(() => window.surfaceProbe.disable());
       expect(report.dom.clearedGeometry).toEqual([{ id: "card-layer", identity: true }, { id: "badge-layer", identity: true }]);
@@ -113,6 +138,7 @@ for (const strict of [false, true]) {
       expect(report.dom.uncontrolled).toBe("native-kept");
       expect(report.dom.focus).toBe("controlled");
       expect(report.dom.selection).toEqual(report.beforeFallback.selection);
+      // The ordinary DOM card is blue, which tells the DOM path from the GPU path.
       const dom = await screenshot(page, `${name}-ordinary-DOM`);
       expect(pixel(dom, 30, 225)).toEqual([30, 100, 220, 255]);
       await page.locator("#count").click();
@@ -136,6 +162,8 @@ for (const strict of [false, true]) {
       await screenshot(page, `${name}-reentry`);
       await page.locator("#count").click();
       await expect(page.locator("#count")).toHaveText("Count 6");
+      // Ten disable/enable rounds with a click in each state (+2 to the count per round, so 6 becomes 26);
+      // the original container and input must remain the same nodes at the end.
       for (let cycle = 0; cycle < 10; cycle++) {
         const out = await page.evaluate(() => window.surfaceProbe.disable());
         await page.locator("#count").click();
@@ -165,6 +193,9 @@ for (const strict of [false, true]) {
   });
 }
 
+// Startup faults installed before the page scripts run (`addInitScript`): each removes or breaks one
+// capability the GPU path needs. enable() must fail with a "GPU admission failed" diagnosis, keep the
+// ordinary DOM usable and preserve typed input, and leave no GPU resources.
 for (const fault of ["capture-unavailable", "no-gpu", "move-unavailable", "paint-timeout", "gpu-admission-rejected", "geometry-rejected", "null-configuration", "loss-observation-unavailable"]) {
   test(`surface startup keeps usable ordinary DOM: ${fault}`, async ({ page }) => {
     await page.addInitScript(fault => {
@@ -203,6 +234,8 @@ for (const fault of ["capture-unavailable", "no-gpu", "move-unavailable", "paint
   });
 }
 
+// A capture error after GPU was active must return to the same root and keep both the controlled and
+// uncontrolled input values, with the failure reason recorded and the engine released.
 test("surface runtime capture failure recovers the original root and editing state", async ({ page }) => {
   await mkdir(evidence, { recursive: true });
   await ready(page);
@@ -230,6 +263,8 @@ test("surface runtime capture failure recovers the original root and editing sta
   await writeFile(`${evidence}/runtime-capture-failure.json`, JSON.stringify({ result, final }, null, 2));
 });
 
+// The adapter request completes after the 5 s admission deadline. enable() reports a timeout, a second
+// enable() is refused while the first engine request is pending, and the late engine is disposed.
 test("late GPU admission after timeout is disposed and serial reentry is enforced", async ({ page }) => {
   await mkdir(evidence, { recursive: true });
   await page.addInitScript(() => {
@@ -254,6 +289,8 @@ test("late GPU admission after timeout is disposed and serial reentry is enforce
   await writeFile(`${evidence}/late-engine-timeout.json`, JSON.stringify({ timedOut, late, final }, null, 2));
 });
 
+// Pixel staging through the owning canvas works on both public GPU backends (WebGPU, WebGL2) in
+// `probe.html`: two real native layers captured, copied and uploaded, with the expected colours.
 test("owning-canvas pixel staging transfers real native layers through both public backends", async ({ page }) => {
   await mkdir(evidence, { recursive: true });
   await page.goto("/probe.html");
@@ -274,6 +311,10 @@ test("owning-canvas pixel staging transfers real native layers through both publ
   await writeFile(`${evidence}/native-public-backends.json`, JSON.stringify(reports, null, 2));
 });
 
+// The configured GPU device is destroyed through the public API so the browser delivers a real loss.
+// With `motion` a bounded GPU animation is in flight and must be interrupted. Either way the surface
+// must return to the same DOM root with native values, focus and selection intact and no GPU
+// resources, then re-enter GPU. Repeated losses are also exercised (production build with motion only).
 for (const strict of [false, true]) {
   for (const motion of [false, true]) {
     test(`public device destruction delivers actual loss and preserves root StrictMode=${strict} motion=${motion}`, async ({ page }) => {
@@ -369,6 +410,9 @@ for (const strict of [false, true]) {
   }
 }
 
+// The queue fence never resolves (`pending`) or rejects (`rejected`) on a healthy device. The engine
+// cannot be proven idle, so resources stay as pending cleanup instead of being torn down, lifecycle
+// calls are refused, and only an actual device loss releases them.
 for (const fence of ["pending", "rejected"]) {
   test(`healthy ${fence} fence retains resources until actual loss instead of unsafe teardown`, async ({ page }) => {
     await ready(page);
@@ -408,6 +452,8 @@ for (const fence of ["pending", "rejected"]) {
   });
 }
 
+// A slow but successful fence: pending cleanup is released on completion, outcome is "completed", and
+// no device loss is recorded.
 test("healthy delayed fence completion releases retained resources without inventing a device loss", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {
@@ -435,6 +481,10 @@ test("healthy delayed fence completion releases retained resources without inven
   }, null, 2));
 });
 
+// The device is destroyed during admission: the paint request is held until the loss is delivered.
+// Admission must fail to usable DOM and record the loss as during admission. Then queued
+// enable/disable/enable are serialized: disable cancels the still-queued first enable, and the last
+// enable admits.
 test("actual destruction during admission recovers and queued lifecycle requests stay serial", async ({ page }) => {
   await page.goto("/surface.html?dom");
   await page.waitForFunction(() => window.surfaceProbe && document.querySelector("#controlled"));
@@ -493,6 +543,8 @@ test("actual destruction during admission recovers and queued lifecycle requests
   }, null, 2));
 });
 
+// `createMountBoundary` (imported from the dev server source) must reject disconnected, foreign
+// document, shared canvas, nested and non-empty hosts before calling `mount`, without changing the DOM.
 test("mount boundary guards reject invalid ownership/topology before mounting", async ({ page }) => {
   await page.goto(`${developmentURL}/surface.html?dom`);
   await page.waitForFunction(() => window.surfaceProbe && document.querySelector("#count"));
@@ -533,6 +585,8 @@ test("mount boundary guards reject invalid ownership/topology before mounting", 
   await writeFile(`${evidence}/mount-boundary-rejections.json`, JSON.stringify({ result, final }, null, 2));
 });
 
+// Delay delivery of the first device's `lost` promise until after a replacement engine is active:
+// a stale loss from the old generation must not tear down the replacement.
 test("late old-generation loss delivery cannot tear down a replacement engine", async ({ page }) => {
   await page.goto("/surface.html?dom");
   await page.waitForFunction(() => window.surfaceProbe && document.querySelector("#count"));
@@ -576,6 +630,8 @@ test("late old-generation loss delivery cannot tear down a replacement engine", 
   }, null, 2));
 });
 
+// Out-of-range `frames` arguments throw; after dispose(), enable() and frames() throw while dispose()
+// stays idempotent.
 test("invalid motion and disposed lifecycle calls fail explicitly without mutating the specimen", async ({ page }) => {
   await ready(page);
   for (const args of [[0, 40, 1], [301, 40, 1], [1.5, 40, 1], [1, 101, 1], [1, 40, 2], [1, null, 1]]) {
@@ -591,6 +647,8 @@ test("invalid motion and disposed lifecycle calls fail explicitly without mutati
   expect((await page.evaluate(() => window.surfaceProbe.dispose())).resources).toEqual(final.resources);
 });
 
+// Capture throws and, in a microtask, disposal is requested: queued recovery from the failure must not
+// undo the final disposal.
 test("queued capture-failure recovery cannot undo final disposal", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {

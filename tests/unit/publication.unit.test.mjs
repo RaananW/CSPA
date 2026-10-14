@@ -1,7 +1,13 @@
+/**
+ * Unit tests for capture coverage (`publication.ts`) and the composition uniform and shader builders
+ * (`composition.ts`) that decide what the GPU presents. Pure data checks. Run with `npm run test:unit`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { completeCoverage } from "../../packages/underglass/src/publication.ts";
 import { registerHooks } from "node:module";
+// `composition.ts` imports siblings as `./x.js`, which only exist as `.ts` in the source tree.
+// This hook maps those specifiers to `.ts` for the dynamic import below, then is removed.
 const sourceImports = registerHooks({
   resolve(specifier, context, next) {
     if (context.parentURL?.endsWith("/underglass/src/composition.ts") && specifier.startsWith("./") && specifier.endsWith(".js")) {
@@ -13,6 +19,7 @@ const sourceImports = registerHooks({
 const { compositionUniforms, compositionShader } = await import("../../packages/underglass/src/composition.ts");
 sourceImports.deregister();
 
+// A capture of slot 1 at 100x80 CSS pixels backed by 200x160 device pixels (device pixel ratio 2).
 const capture = { slot: 1, capturedSlot: 1, width: 100, height: 80, pixelWidth: 200, pixelHeight: 160 };
 test("cached publication requires every logical slot and current native extent", () => {
   assert.ok(completeCoverage(capture, { width: 100, height: 80, pixelWidth: 200, pixelHeight: 160 }));

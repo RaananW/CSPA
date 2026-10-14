@@ -1,3 +1,10 @@
+/**
+ * Example 06, "Webcam pond" (experimental): a koi pond drawn as ordinary HTML (floor, typed text,
+ * CSS-animated fish spans and an optional camera `<video>`) inside the decorative art layer. A
+ * continuous ripple plus the custom `showcase-pond` WGSL shader refract and light all of it on the
+ * GPU. A rotated lily pad with a native button floats above as a separate, interactive layer. The
+ * camera starts only on a button press; frames go to this page's `<video>` and nowhere else.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Surface, defineEffect, type EffectDescriptor } from "@underglass/react";
 import { Panel, describe, useReducedMotion } from "./shared";
@@ -7,6 +14,7 @@ import { policy, residentChain, useScene, useSceneArt } from "./scene";
 const POND = { x: 378, y: 28, width: 642, height: 644 };
 /** The lily pad floats over the pond as its own native layer. */
 const PAD = { x: 742, y: 438, width: 196, height: 118 };
+// The lily pad's centre in the pond layer's own coordinates, where fish positions are measured.
 const padCentre = { x: PAD.x - POND.x + PAD.width / 2, y: PAD.y - POND.y + PAD.height / 2 };
 
 /**
@@ -35,9 +43,15 @@ export const pondWater = defineEffect({
     return vec4f(tinted + vec3f(0.78, 0.96, 1.0) * (caustic * 0.5 + glint) * (0.35 + 0.65 * rim), color.a);`,
 });
 
+// A koi: `x`/`y` position in pond coordinates, `angle` heading in degrees, `hue` for its colour
+// and `size` as a scale factor.
 interface Fish { id: number; x: number; y: number; angle: number; hue: number; size: number }
+// One hue per fish; the length is also the number of fish.
 const fishHues = [18, 32, 0, 42, 24, 8];
+// Heading in degrees of the vector (x, y).
 const degrees = (y: number, x: number) => Math.atan2(y, x) * 180 / Math.PI;
+// Picks a fish's next target and heading. Unfed fish go to a random spot; fed fish gather round the
+// lily pad. The movement itself is a CSS transition on the fish element.
 function wander(fish: Fish, fed: boolean): Fish {
   if (!fed) {
     const target = { x: 70 + Math.random() * (POND.width - 140), y: 90 + Math.random() * (POND.height - 200) };
@@ -52,14 +66,18 @@ function wander(fish: Fish, fed: boolean): Fish {
   return { ...fish, ...target, angle };
 }
 
+// off: no stream. starting: waiting for permission. on: streaming. error: unavailable or refused.
 type CameraState = "off" | "starting" | "on" | "error";
 
+/** The pond example: camera and water controls plus the lily pad that feeds the fish. */
 export function WebcamPond() {
   const scene = useScene();
   const reduced = useReducedMotion();
   const [camera, setCamera] = useState<CameraState>("off");
   const [stream, setStream] = useState<MediaStream>();
   const [message, setMessage] = useState("Nothing here leaves your device");
+  // `calm` is the resting ripple amplitude in px, `reflection` the camera/sky opacity and `caustics`
+  // the water shader's light strength.
   const [calm, setCalm] = useState(3);
   const [reflection, setReflection] = useState(0.55);
   const [caustics, setCaustics] = useState(0.5);
@@ -67,15 +85,20 @@ export function WebcamPond() {
   const [xray, setXray] = useState(false);
   const [feedback, setFeedback] = useState("Start the camera to see yourself in the water, or just watch the fish.");
   const [fish, setFish] = useState<Fish[]>(() => fishHues.map((hue, id) => wander({ id, x: POND.width / 2, y: POND.height / 2, angle: 0, hue, size: 0.8 + (id % 3) * 0.18 }, false)));
+  // The live stream, also kept in a ref so `stop` always ends the current tracks.
   const streamRef = useRef<MediaStream | undefined>(undefined);
 
+  // Stops every track (the camera is released, not paused) and clears the stream.
   const stop = useCallback(() => {
     for (const track of streamRef.current?.getTracks() ?? []) track.stop();
     streamRef.current = undefined;
     setStream(undefined);
   }, []);
+  // Leaving the example stops the camera.
   useEffect(() => stop, [stop]);
 
+  // Runs only when the visitor presses Start camera. Requests video only (no audio); the stream is
+  // attached to the `<video>` in the pond layer and goes nowhere else.
   async function start() {
     if (!navigator.mediaDevices?.getUserMedia) { setCamera("error"); setFeedback("This browser does not offer camera access here."); return; }
     setCamera("starting");
@@ -103,15 +126,19 @@ export function WebcamPond() {
     const timer = setInterval(() => setFish(list => list.map(item => Math.random() < 0.45 || fed ? wander(item, fed) : item)), 1600);
     return () => clearInterval(timer);
   }, [fed, reduced]);
+  // Retarget every fish at once when feeding starts or stops.
   useEffect(() => { setFish(list => list.map(item => wander(item, fed))); }, [fed]);
 
   // Water: a continuous ripple refracts everything in the pond, then the custom water
   // shader adds caustics, depth and glints. Every update carries the same running
   // clock, so changing a setting or the splash strength never restarts the wave.
   const clock = useRef(performance.now());
+  // Latest slider values for the animation-frame loop, which would otherwise see stale closures.
   const settings = useRef({ calm, caustics, reduced });
   settings.current = { calm, caustics, reduced };
   const splash = useRef<number | undefined>(undefined);
+  // Installs the pond chain: a ripple of `amplitude` px (clamped to the 0..12 the ripple allows),
+  // then the water shader.
   const water = useCallback((amplitude: number) => {
     const time = { seconds: (performance.now() - clock.current) / 1000 % 1000, playing: !settings.current.reduced };
     const chain: EffectDescriptor[] = [
@@ -120,7 +147,9 @@ export function WebcamPond() {
     ];
     scene.setChain(chain);
   }, [scene]);
+  // Reapply the calm chain when settings change, unless a splash is currently driving the chain.
   useEffect(() => { if (splash.current === undefined) water(calm); }, [water, calm, caustics, reduced]);
+  // On leaving, stop any splash and restore the identity chain for the next example.
   useEffect(() => () => {
     if (splash.current !== undefined) cancelAnimationFrame(splash.current);
     splash.current = undefined;
@@ -130,6 +159,8 @@ export function WebcamPond() {
   function dropPebble() {
     if (settings.current.reduced) { setFeedback("Reduced motion is on, so the water stays still."); return; }
     if (splash.current !== undefined) cancelAnimationFrame(splash.current);
+    // The ripple takes `rise` seconds to reach `peak` (12 px, the ripple maximum), then decays
+    // exponentially back to the calm amplitude.
     const started = performance.now(), rise = 0.14, peak = 12;
     const step = () => {
       const t = (performance.now() - started) / 1000;
@@ -143,9 +174,13 @@ export function WebcamPond() {
     setFeedback("Plop. The pebble's ripple bends everything under the surface, your reflection included.");
   }
 
+  // The whole pond is the art layer, so the ripple and the water shader refract floor, text, fish
+  // and camera image together.
   useSceneArt(() => ({ layout: { ...POND, overflow: "hidden" }, appearance: { background: "rgb(16,58,62)", radius: 44 },
     content: <PondFloor message={message} stream={stream} reflection={reflection} fish={fish} xray={xray} /> }), [message, stream, reflection, fish, xray]);
 
+  // Two native layers: the control panel and the lily pad. The pad is rotated and sits above the
+  // pond; its button stays a real, hit-tested control while the pond beneath is refracted.
   return <>
     <Panel tone="dark" label="STUDIO 06" title="Webcam pond">
       <p className="privacy" role="note"><strong>Camera stays on your device.</strong> The video is drawn into this page only:
@@ -185,6 +220,7 @@ export function WebcamPond() {
 function PondFloor({ message, stream, reflection, fish, xray }: { message: string; stream?: MediaStream; reflection: number; fish: Fish[]; xray: boolean }) {
   const video = useRef<HTMLVideoElement>(null);
   useEffect(() => {
+    // Attach or detach the camera stream. A rejected `play()` is ignored.
     const element = video.current;
     if (!element) return;
     element.srcObject = stream ?? null;
@@ -202,6 +238,7 @@ function PondFloor({ message, stream, reflection, fish, xray }: { message: strin
   </div>;
 }
 
+/** A labelled native range input. */
 function PondSlider({ label, value, min, max, step, unit = "", percent = false, onChange }: {
   label: string; value: number; min: number; max: number; step: number; unit?: string; percent?: boolean; onChange(value: number): void;
 }) {
