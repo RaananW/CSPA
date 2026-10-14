@@ -364,3 +364,39 @@ test("custom effects preserve a healthy pending fence until real completion with
   const disposed = await page.evaluate(() => window.effectsProbe.dispose()); zero(disposed);
   await save("healthy-fence", { fixture: "Synthetic delayed public fence; released by genuine queue completion, no destroy", retained, failures, released, disposed });
 });
+
+test("a new custom definition compiles while GPU keeps presenting", async ({ page }) => {
+  await ready(page);
+  const box = await page.evaluate(() => {
+    const frame = document.querySelector("#frame").getBoundingClientRect(), art = document.querySelector("#art").getBoundingClientRect();
+    return { x: Math.round(art.x - frame.x + art.width * 0.3), y: Math.round(art.y - frame.y + art.height * 0.3), width: 40, height: 20 };
+  });
+  const before = await pixels(page, "live-custom-before");
+  const admitted = await page.evaluate(() => window.effectsProbe.state());
+  // Invert colours: an obvious per-pixel change no CSS filter chain is needed to verify.
+  const applied = await page.evaluate(async () => {
+    window.effectsProbe.live("return vec4f(vec3f(1.0) - color.rgb, color.a);");
+    const controller = window.effectsProbe.controller();
+    for (let i = 0; i < 60 && (controller.state().publication.pending || controller.state().metrics.effectShaderCompilations === 0); i++) await new Promise(r => requestAnimationFrame(r));
+    await controller.settle();
+    return window.effectsProbe.state();
+  });
+  expect(applied.mode, applied.reason).toBe("gpu");
+  expect(applied.metrics.admission.passes).toBe(admitted.metrics.admission.passes);
+  expect(applied.metrics.effectShaderCompilations).toBe(admitted.metrics.effectShaderCompilations + 1);
+  const after = await pixels(page, "live-custom-after");
+  expect(changed(region(before, box.x, box.y, box.width, box.height), region(after, box.x, box.y, box.width, box.height))).toBeGreaterThan(1000);
+  await page.locator("#title").fill("Live effect"); await page.locator("#save").click();
+  await expect(page.locator("#saved")).toHaveText("Live effect");
+  // An invalid live definition is still a diagnosed GPU failure with usable original DOM.
+  const failed = await page.evaluate(async () => {
+    window.effectsProbe.live("return definitely_invalid_wgsl;");
+    await page_wait();
+    async function page_wait() { for (let i = 0; i < 120 && window.effectsProbe.state().mode === "gpu"; i++) await new Promise(r => setTimeout(r, 25)); }
+    return window.effectsProbe.state();
+  });
+  expect(failed.mode).toBe("dom");
+  expect(failed.reason).toMatch(/compilation failed/);
+  const disposed = await page.evaluate(() => window.effectsProbe.dispose()); zero(disposed);
+  await save("live-custom", { admitted: admitted.metrics.admission, applied: applied.metrics.effectShaderCompilations, failed: failed.reason });
+});

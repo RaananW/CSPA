@@ -1248,9 +1248,12 @@ export class CanvasRuntime {
     if (!layer.decorative || !decorative(layer.element)) throw new Error("Effects require explicit decorative, inert, aria-hidden noninteractive enrollment");
     const state = this.renderer().state();
     if (state.initializing || state.transitioning || state.resources.pendingEngines || (state.resources.pendingCleanups && state.mode !== "gpu") || state.resources.probeReadbacks) throw new Error("Effects require idle DOM or admitted GPU without pending lifecycle work");
+    // A custom definition the layer's current pass was not built with gets a new pass: the
+    // renderer compiles it as a successor and keeps presenting the previous frame until ready.
+    let rebuild = false;
     for (const value of values) if (value.kind === "custom") {
       if (!navigator.gpu) throw new Error("Application effect requires WebGPU; original DOM remains usable");
-      if (state.mode === "gpu" && !this.renderer().acceptsCustom(id, value.definition)) throw new Error("New custom definitions require idle DOM and explicit fresh GPU admission");
+      if (state.mode === "gpu" && !this.renderer().acceptsCustom(id, value.definition)) rebuild = true;
     }
     if (this.reduced.matches) for (const value of values) value.time.playing = false;
     let active = true;
@@ -1267,6 +1270,7 @@ export class CanvasRuntime {
     this.effects.set(id, entry);
     this.invalidatePolicy();
     this.resources.decorativeEffects++;
+    if (rebuild) { this.revision++; this.reconcile(); }
     this.stopClock();
     this.requestDraw();
     this.startClock();
