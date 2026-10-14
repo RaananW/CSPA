@@ -14,11 +14,13 @@ export interface Ripple {
   seconds: number;
   playing?: boolean;
 }
-// Anything a user could focus, click, edit or open; a decorative layer may contain none of it.
-const interactive = 'button,input,select,textarea,a[href],dialog,[popover],[tabindex]:not([tabindex="-1"]),[contenteditable]:not([contenteditable="false"]),[role="button"],[role="textbox"]';
+// Anything a user could focus, click, edit or open; a decorative layer may contain none of it,
+// and a transition effect's layer boundary may not be one.
+export const interactive = 'button,input,select,textarea,a[href],dialog,[popover],[tabindex]:not([tabindex="-1"]),[contenteditable]:not([contenteditable="false"]),[role="button"],[role="textbox"]';
 /**
  * True when `element` is authored as decoration: `inert`, `aria-hidden="true"`, and neither it
- * nor a descendant is interactive. Only such layers may carry effects.
+ * nor a descendant is interactive. Only such layers may carry decorative effects; interactive
+ * layers get transition effects, which hold their content inert meanwhile.
  */
 export function decorative(element: HTMLElement) {
   return element.inert && element.getAttribute("aria-hidden") === "true"

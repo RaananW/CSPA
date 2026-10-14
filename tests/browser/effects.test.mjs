@@ -461,3 +461,111 @@ test("a new custom definition compiles while GPU keeps presenting", async ({ pag
   const disposed = await page.evaluate(() => window.effectsProbe.dispose()); zero(disposed);
   await save("live-custom", { admitted: admitted.metrics.admission, applied: applied.metrics.effectShaderCompilations, failed: failed.reason });
 });
+
+test("transition effects run on an interactive layer: GPU stays on, content is inert, hits stay on the layer", async ({ page }) => {
+  // A transition effect displaces a live layer's pixels, so its content must not take input
+  // while it runs, and a click on it must not fall through to a control underneath.
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/runtime.html");
+  await page.waitForFunction(() => window.runtimeProbe?.state().mode === "gpu" && !window.runtimeProbe.state().initializing);
+  await page.locator("#third").click();
+  await page.locator("#third-control").waitFor();
+  // Put the third layer (later in DOM, so on top) exactly over the primary layer's Count button.
+  await page.evaluate(async () => {
+    const frame = document.querySelector("#frame").getBoundingClientRect(), count = document.querySelector("#count").getBoundingClientRect();
+    window.runtimeProbe.transform("third-layer", { x: count.x - frame.x + count.width / 2 - 450, y: count.y - frame.y + count.height / 2 - 235 });
+    window.transitionClicks = { third: 0 };
+    document.querySelector("#third-control").addEventListener("click", () => window.transitionClicks.third++);
+    await window.runtimeProbe.settle();
+  });
+  const frame = page.locator("#frame");
+  const centre = await page.locator("#third-layer").evaluate(node => { const r = node.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  const region = await page.locator("#third-layer").evaluate(node => {
+    const r = node.getBoundingClientRect(), f = document.querySelector("#frame").getBoundingClientRect();
+    return { x: Math.round(r.x - f.x), y: Math.round(r.y - f.y), width: Math.round(r.width), height: Math.round(r.height) };
+  });
+  const pixels = async name => {
+    await page.evaluate(() => window.runtimeProbe.settle());
+    await mkdir(directory, { recursive: true });
+    const png = PNG.sync.read(await frame.screenshot({ path: `${directory}/${name}.png` }));
+    return Array.from({ length: region.height * region.width }, (_, index) => {
+      const x = region.x + index % region.width, y = region.y + Math.floor(index / region.width);
+      return png.data.readUInt32BE((y * png.width + x) * 4);
+    });
+  };
+  const differing = (a, b) => a.filter((value, index) => value !== b[index]).length;
+  const before = await pixels("transition-before");
+  const policy = { bounds: "layer", interaction: "inert", media: "identity", fallback: "static" };
+  const started = await page.evaluate(policy => {
+    window.transitionEffect = window.runtimeProbe.effects("third-layer", [
+      { kind: "ripple", parameters: { amplitude: 6 }, time: { seconds: 0.4, playing: false }, ...policy },
+      { kind: "dissolve", parameters: { amount: 0.55, speed: 0 }, time: { seconds: 0, playing: false }, ...policy }]);
+    const state = window.runtimeProbe.state(), layer = document.querySelector("#third-layer");
+    return { mode: state.mode, reason: state.reason, transitionEffects: state.runtimeResources.transitionEffects,
+      boundaryInert: layer.inert, controlInert: document.querySelector("#third-control").inert };
+  }, policy);
+  expect(started.mode, started.reason).toBe("gpu");
+  expect(started).toMatchObject({ transitionEffects: 1, boundaryInert: false, controlInert: true });
+  const dissolving = await pixels("transition-dissolving");
+  expect(differing(before, dissolving), "the effect changes the live layer pixels").toBeGreaterThan(200);
+  // The click lands on the layer's own boundary: neither its control nor the Count button underneath reacts.
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.id, centre)).toBe("third-layer");
+  const count = await page.locator("#count").innerText();
+  await page.mouse.click(centre.x, centre.y);
+  await page.keyboard.press("Enter");
+  expect(await page.locator("#count").innerText()).toBe(count);
+  expect(await page.evaluate(() => window.transitionClicks.third)).toBe(0);
+  // Parameters animate per frame without recompiling.
+  const revision = await page.evaluate(() => window.runtimeProbe.state().registryRevision);
+  await page.evaluate(() => window.transitionEffect.update([{ amplitude: 0 }, { amount: 0.95, speed: 0 }]));
+  const nearlyGone = await pixels("transition-updated");
+  expect(differing(dissolving, nearlyGone)).toBeGreaterThan(200);
+  expect(await page.evaluate(() => window.runtimeProbe.state().registryRevision)).toBe(revision);
+  expect(await page.evaluate(() => { try { window.transitionEffect.update([{ amount: 1, speed: 0 }]); return "accepted"; } catch (error) { return String(error); } }))
+    .toMatch(/one parameter set per operation/);
+  // Application code making the content interactive ends the effect instead of revoking GPU.
+  const broken = await page.evaluate(async () => {
+    document.querySelector("#third-control").inert = false;
+    const result = await window.transitionEffect.finished;
+    const state = window.runtimeProbe.state();
+    return { result, mode: state.mode, transitionEffects: state.runtimeResources.transitionEffects };
+  });
+  expect(broken).toEqual({ result: { status: "cancelled", reason: "Layer content became interactive during a transition effect" }, mode: "gpu", transitionEffects: 0 });
+  // Cancelling restores the original pixels and native input.
+  await page.evaluate(policy => {
+    window.transitionEffect = window.runtimeProbe.effects("third-layer", [{ kind: "chromatic", parameters: { displacement: 8 }, time: { seconds: 0 }, ...policy }]);
+  }, policy);
+  expect(await page.locator("#third-control").evaluate(node => node.inert)).toBe(true);
+  await page.evaluate(() => window.transitionEffect.cancel());
+  expect(await page.evaluate(() => window.transitionEffect.finished)).toEqual({ status: "cancelled", reason: "Effect cancelled" });
+  expect(differing(before, await pixels("transition-cancelled"))).toBe(0);
+  const control = await page.locator("#third-control").boundingBox();
+  await page.mouse.click(control.x + control.width / 2, control.y + control.height / 2);
+  expect(await page.evaluate(() => window.transitionClicks.third)).toBe(1);
+  // Returning to ordinary DOM ends a running transition effect and releases the content.
+  const fallback = await page.evaluate(async policy => {
+    const handle = window.runtimeProbe.effects("third-layer", [{ kind: "dissolve", parameters: { amount: 0.5, speed: 1 }, time: { seconds: 0, playing: true }, ...policy }]);
+    await window.runtimeProbe.disable();
+    return { result: await handle.finished, inert: document.querySelector("#third-control").inert };
+  }, policy);
+  expect(fallback).toEqual({ result: { status: "fallback", reason: "Ordinary DOM uses static original decoration" }, inert: false });
+  // Decorative and transition interaction stay distinct.
+  const refused = await page.evaluate(policy => {
+    const failures = [];
+    for (const [id, interaction] of [["third-layer", "decorative"], ["primary", "mixed"]]) {
+      try {
+        window.runtimeProbe.effects(id, interaction === "mixed"
+          ? [{ kind: "ripple", parameters: { amplitude: 2 }, time: { seconds: 0 }, ...policy }, { kind: "dissolve", parameters: { amount: 0.2, speed: 0 }, time: { seconds: 0 }, ...policy, interaction: "decorative" }]
+          : [{ kind: "ripple", parameters: { amplitude: 2 }, time: { seconds: 0 }, ...policy, interaction }]);
+      } catch (error) { failures.push(String(error)); }
+    }
+    return failures;
+  }, policy);
+  expect(refused).toHaveLength(2);
+  expect(refused[0]).toMatch(/decorative, inert, aria-hidden/);
+  expect(refused[1]).toMatch(/share one interaction/);
+  const disposed = await page.evaluate(() => window.runtimeProbe.dispose());
+  expect(Object.values(disposed.runtimeResources).every(value => value === 0)).toBe(true);
+  expect(errors).toEqual([]);
+});

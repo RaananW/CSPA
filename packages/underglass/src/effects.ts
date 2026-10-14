@@ -14,7 +14,12 @@ export interface EffectTime { seconds: number; playing?: boolean }
  */
 interface EffectPolicy {
   bounds: "layer";
-  interaction: "decorative";
+  /**
+   * "decorative": the layer is decorative enrollment (inert, aria-hidden, no controls).
+   * "inert": any enrolled layer in a transition; the runtime makes its content inert while
+   * the effect runs, so displaced pixels never meet a live control.
+   */
+  interaction: "decorative" | "inert";
   media: "identity";
   fallback: "static";
   time: EffectTime;
@@ -68,6 +73,8 @@ export interface EffectHandle {
   seek(seconds: number): void;
   play(): void;
   pause(): void;
+  /** Replaces each operation's parameters (same schema, same order) without recompiling. */
+  update(parameters: readonly Record<string, number>[]): void;
   cancel(): void;
   dispose(): void;
 }
@@ -114,9 +121,11 @@ export function validateEffects(values: readonly EffectDescriptor[]): EffectDesc
   if (!Array.isArray(values) || values.length < 1 || values.length > 3) throw new Error("Effect chain requires 1..3 operations in declared order");
   const kinds = new Set<string>();
   let colorOnly = false;
+  const interaction = values[0]?.interaction;
   return values.map(value => {
-    if (!value || value.bounds !== "layer" || value.interaction !== "decorative" || value.media !== "identity"
-      || value.fallback !== "static" || !value.time || !value.parameters) throw new Error("Effects require layer bounds, decorative interaction, identity media and static DOM fallback");
+    if (!value || value.bounds !== "layer" || !["decorative", "inert"].includes(value.interaction) || value.media !== "identity"
+      || value.fallback !== "static" || !value.time || !value.parameters) throw new Error("Effects require layer bounds, decorative or inert interaction, identity media and static DOM fallback");
+    if (value.interaction !== interaction) throw new Error("Effect chain operations must share one interaction");
     if (kinds.has(value.kind)) throw new Error("Effect kinds may occur only once per chain");
     kinds.add(value.kind);
     // The shader resolves all sampling displacements before it samples the texture, then applies

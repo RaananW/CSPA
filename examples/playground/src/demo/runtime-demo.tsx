@@ -8,7 +8,7 @@
  */
 import { Profiler, version, useState, useEffect, useRef, type ProfilerOnRenderCallback } from "react";
 import { createRoot, flushSync } from "./react-root";
-import { mountCanvasApp, Surface, Box, NativeOverlay, NativeScroll, type CanvasController, type Transform, type TransformOrigin } from "@underglass/react";
+import { mountCanvasApp, Surface, Box, NativeOverlay, NativeScroll, type CanvasController, type EffectDescriptor, type EffectHandle, type Transform, type TransformOrigin } from "@underglass/react";
 
 const params = new URLSearchParams(location.search);
 const commits = { count: 0, mounts: 0, cleanups: 0 };
@@ -168,6 +168,7 @@ window.runtimeProbe = { state, animate, dispose,
   enable: () => controller.enable(), disable: () => controller.disable(), settle: () => controller.settle(),
   transform: (id: string, transform: Transform) => controller.setTransform(id, transform),
   origin: (id: string, origin?: TransformOrigin) => controller.setOrigin(id, origin),
+  effects: (id: string, chain: EffectDescriptor[]) => controller.setEffects(id, chain),
   invalidate: (id?: string) => controller.invalidate(id),
   async cycle() {
     const retired = await dispose();
@@ -220,5 +221,6 @@ declare global {
     enable(): ReturnType<CanvasController["enable"]>; disable(): ReturnType<CanvasController["disable"]>;
     settle(): Promise<void>; transform(id: string, transform: Transform): void;
     origin(id: string, origin?: TransformOrigin): void; invalidate(id?: string): void;
+    effects(id: string, chain: EffectDescriptor[]): EffectHandle;
   } }
 }

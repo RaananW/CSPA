@@ -519,6 +519,15 @@ is explicit and inert/aria-hidden with no interactive/editable descendants.
 These constraints are checked again at runtime. There is no second engine,
 extra effect texture/capture, raw GL or private device access.
 
+Transition effects (`interaction: "inert"`) apply the same bounded operations to a
+non-decorative layer for the length of a transition. Hit-geometry safety holds
+because no control can take input meanwhile: the runtime sets `inert` on the
+boundary's element children (and children added during the effect) and restores
+exactly those flags when the handle ends, by any route. The boundary must not be
+interactive itself and stays hit-testable, so input over displaced pixels lands on
+it rather than falling through to a covered control. Application code that makes
+locked content interactive ends the handle; it does not revoke GPU.
+
 The module adapter accepts only already-imported trusted local code with a
 mount/enroll/unmount contract. The adapter still owns only the stable external
 container/destinations; React still owns original descendants. The module must

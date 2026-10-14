@@ -77,3 +77,33 @@ it for displacement.
 Anything that paints inside the decorative layer is captured, including CSS
 animations and `<video>` (a camera stream works too). The showcase's webcam pond
 refracts a camera image together with HTML text and CSS-animated fish.
+
+## Transition effects on interactive layers
+
+A layer with real controls can carry an effect **while it is in a transition**:
+dissolving away when it is removed, materialising when it appears, or a shockwave when
+it lands. Declare `interaction: "inert"` instead of `"decorative"`:
+
+```tsx
+const inert = { bounds: "layer", interaction: "inert", media: "identity", fallback: "static" } as const;
+const handle = gpu.setEffects("card-7", [
+  { kind: "ripple", parameters: { amplitude: 8 }, time: { seconds: 0, playing: true }, ...inert },
+  { kind: "dissolve", parameters: { amount: 0, speed: 0 }, time: { seconds: 0 }, ...inert },
+]);
+// Every frame of the transition:
+handle.update([{ amplitude: 8 * (1 - t) }, { amount: t, speed: 0 }]);
+// When it ends (or remove the layer):
+handle.cancel();
+```
+
+- While the handle is active, the layer's content is `inert`: no clicks, focus or
+  typing reach it, and focus inside it is lost. The layer's own box still catches
+  clicks, so a click on distorted pixels never reaches a control inside or under it.
+- Ending the handle (`cancel`, `dispose`, a new `setEffects`, removing the layer or
+  returning to ordinary DOM) makes the content interactive again.
+- `update` changes parameters every frame without recompiling anything.
+- The layer's boundary element must not itself be a control. `Surface` renders a
+  `<section>`, which is fine.
+- In ordinary DOM nothing is drawn, but the content is still inert until the handle
+  ends, so a transition behaves the same in both modes. With reduced motion the
+  effect shows its original pixels.
