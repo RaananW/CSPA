@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile, rm, realpath } from "node:fs/promises";
+import { readFile, mkdtemp, mkdir, writeFile, rm, realpath } from "node:fs/promises";
 import { symlinkOrSkip } from "../helpers/symlink.mjs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -20,6 +20,18 @@ test("showcase hash navigation and catalog filtering remain local and predictabl
   assert.equal(route("#/missing"), "layers");
   assert.deepEqual(searchExamples("layer", "Motion").map(example => example.id), ["motion"]);
   assert.equal(searchExamples("unfindable", "All").length, 0);
+});
+test("manual Pages workflow uses immutable pins and confines deployment permissions", async () => {
+  const workflow = (await readFile(".github/workflows/showcase-pages.yml", "utf8")).replaceAll(String.fromCharCode(13, 10), String.fromCharCode(10));
+  assert.match(workflow, /on:\n  workflow_dispatch:/);
+  assert.ok(!/\n  (push|pull_request|schedule):/.test(workflow));
+  for (const action of workflow.matchAll(/uses: (\S+)/g)) assert.match(action[1], /^[\w/-]+@[a-f0-9]{40}$/);
+  assert.match(workflow, /persist-credentials: false/);
+  assert.match(workflow, /path: examples\/showcase\/dist/);
+  assert.equal((workflow.match(/pages: write/g) ?? []).length, 1);
+  assert.ok(workflow.indexOf("pages: write") > workflow.indexOf("  deploy:"));
+  assert.match(workflow, /id-token: write/);
+  assert.match(workflow, /npm ci --ignore-scripts --no-audit --no-fund/);
 });
 test("public output guard fails before an unexpected artifact can be uploaded", async t => {
   const root = await mkdtemp(join(await realpath(tmpdir()), "canvas-showcase-assets-unit-"));
