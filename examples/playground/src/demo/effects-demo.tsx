@@ -98,6 +98,7 @@ function install() {
   }
 }
 install();
+let liveSerial = 0;
 window.effectsProbe = {
   state, dispose, descriptor, apply, controller: () => controller, handle: () => handle!,
   update: value => flushSync(() => update(value)), samples: () => [...samples], clearSamples: () => { samples.length = 0; },
@@ -106,6 +107,12 @@ window.effectsProbe = {
     const definition = defineEffect({ ...colorCycle, name: "compile-fixture", wgsl });
     apply([{ ...descriptor("custom"), kind: "custom", definition, parameters: { strength: 1, rate: 2 } }]);
     return controller.enable();
+  },
+  /** Defines a brand-new custom effect and applies it while GPU keeps presenting. */
+  live(wgsl: string) {
+    const definition = defineEffect({ ...colorCycle, name: `live-${++liveSerial}`, wgsl });
+    apply([{ ...descriptor("custom"), kind: "custom", definition, parameters: { strength: 1, rate: 0 } }]);
+    return state();
   },
   async cycle() { const retired = await dispose(); restoreCanvases(); mount(); install(); await controller.enable(); return { retired, active: state() }; },
 };
@@ -119,6 +126,7 @@ declare global {
     state: typeof state; dispose: typeof dispose; descriptor: typeof descriptor; apply: typeof apply; handle(): EffectHandle; controller(): CanvasController;
     update(value: string): void; samples(): typeof samples; clearSamples(): void;
     compile(wgsl: string): ReturnType<CanvasController["enable"]>;
+    live(wgsl: string): ReturnType<typeof state>;
     cycle(): Promise<{ retired: ReturnType<typeof state>; active: ReturnType<typeof state> }>;
   } }
 }

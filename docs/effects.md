@@ -22,9 +22,12 @@ not a shader graph, sandbox, remote loader, geometry/sampling extension or
 resource allocator. An application supplies up to four bounded numeric
 parameters and a WGSL function body. It receives only sampled color, local
 coordinates, extent, seconds and a parameter vector. There are no engine objects
-in the public contract. New custom definitions are prepared in idle DOM and
-compiled during fresh hidden GPU admission. Parameter/time/chain updates to an
-already admitted definition do not rebuild the shader.
+in the public contract. A custom definition is compiled into its layer's own pass:
+during admission, or, when `setEffects` introduces a new definition while GPU
+presents, as a successor pass that is validated before it replaces the current one
+(the previous frame stays on screen meanwhile). A compile failure is a diagnosed GPU
+failure with usable original DOM. Parameter/time/chain updates to a definition the
+pass already holds do not rebuild anything.
 
 ## Contract
 
