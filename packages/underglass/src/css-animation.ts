@@ -1,9 +1,25 @@
+/**
+ * Checks that a CSS animation the page declared matches the rule and keyframes the caller enrolled,
+ * so the GPU can replace it without changing what the page authored. `validateCSSSource` verifies
+ * the selector, computed animation properties, supported keyframe properties and resolved keyframes,
+ * and returns hooks that follow the browser's CSS animation object while it is owned. Used by the
+ * runtime for `CSSAnimationSource` enrollment; keyframe maths is in `timeline.ts`.
+ */
 import { compileTimeline, parseTransform } from "./timeline.js";
 
+/** The authored style rule and `@keyframes` rule that define a CSS animation, as the caller enrolls them. */
 export interface CSSAnimationSource {
   rule: CSSStyleRule;
   keyframes: CSSKeyframesRule;
 }
+/**
+ * Throws unless `element` is animated exactly by `provenance`: same-sheet top-level rules, an exact
+ * ID selector, no inline `animation`, no `var()`/`calc()`/`env()`/inheritance keywords, computed animation
+ * properties equal to the authored ones and keyframes the timeline compiler supports. Returns the
+ * live `CSSAnimation` as `source`, `check()` to detect changes or browser regeneration of the
+ * animation, `restore()` to cancel any replacement it created, and `resources()` (1 while a
+ * replacement is held).
+ */
 export function validateCSSSource(element: HTMLElement, provenance: CSSAnimationSource) {
   const { rule, keyframes } = provenance;
   if (!(rule instanceof CSSStyleRule) || !(keyframes instanceof CSSKeyframesRule)
@@ -13,9 +29,11 @@ export function validateCSSSource(element: HTMLElement, provenance: CSSAnimation
     || rule.style.animationName !== keyframes.name || element.style.animation) {
     throw new Error("CSS adapter requires explicit same-sheet top-level rules and one exact ID selector/name");
   }
+  // Fingerprint of the authored CSS; any later edit means the enrolled provenance is stale.
   const signature = rule.cssText + keyframes.cssText;
   if (/(?<![\w-])(?:var|calc|env)\(|(?<![\w-])(?:inherit|revert|revert-layer|unset|initial)(?![\w-])/i.test(signature)) throw new Error("CSS animation rule dependencies are unsupported");
   const computed = getComputedStyle(element);
+  // Parses a CSS time (s or ms) to milliseconds, or NaN, so 1s and 1000ms compare equal.
   const time = (value: string) => /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:ms|s)$/.test(value)
     ? Number(value.slice(0, value.endsWith("ms") ? -2 : -1)) * (value.endsWith("ms") ? 1 : 1000) : NaN;
   for (const property of ["animation-name", "animation-duration", "animation-delay", "animation-iteration-count", "animation-direction",
@@ -28,14 +46,17 @@ export function validateCSSSource(element: HTMLElement, provenance: CSSAnimation
   }
   const source = element.getAnimations().find(animation => animation instanceof CSSAnimation && animation.animationName === keyframes.name);
   if (!source) throw new Error("The enrolled CSS source animation is not active on this element");
+  // Frames as authored; each frame inherits the rule's easing, defaulting to CSS's initial `ease`.
   const rawFrames = Array.from(keyframes.cssRules).map(frame => {
     if (!(frame instanceof CSSKeyframeRule)) throw new Error("Invalid CSS keyframe rule");
     const offset = frame.keyText === "from" ? 0 : frame.keyText === "to" ? 1 : /^\d+(?:\.\d+)?%$/.test(frame.keyText) ? Number(frame.keyText.slice(0, -1)) / 100 : NaN;
     if (Array.from(frame.style).some(name => !["transform", "opacity", "animation-timing-function"].includes(name))) throw new Error("Unsupported CSS keyframe property");
     return { offset, transform: frame.style.transform, opacity: frame.style.opacity, easing: frame.style.animationTimingFunction || rule.style.animationTimingFunction || "ease" };
   });
+  // Dry-run compile: rejects unsupported or out-of-range keyframes (the duration here is arbitrary).
   compileTimeline(rawFrames, { duration: 1, fill: "both" });
   if (!(source.effect instanceof KeyframeEffect)) throw new Error("CSS source effect unavailable");
+  // The browser's resolved keyframes must agree with the authored ones, or something overrides them.
   const resolved = source.effect.getKeyframes();
   if (resolved.length !== rawFrames.length || resolved.some((frame, index) =>
     !(Math.abs(frame.computedOffset - rawFrames[index]!.offset) <= 1e-9) || Number(frame.opacity) !== Number(rawFrames[index]!.opacity)
@@ -44,10 +65,12 @@ export function validateCSSSource(element: HTMLElement, provenance: CSSAnimation
   const sourceTiming = JSON.stringify(source.effect.getTiming());
   let replacement: CSSAnimation | undefined;
   let lastTime = source.currentTime;
+  // Other CSS animations on the element with the same name, such as a browser-regenerated copy.
   function replacements() {
     return element.getAnimations().filter((animation): animation is CSSAnimation => animation instanceof CSSAnimation
       && animation !== source && animation.animationName === keyframes.name);
   }
+  // True when `animation` has the same timing and resolved keyframes as the original source.
   function matches(animation: Animation) {
     if (!(animation.effect instanceof KeyframeEffect) || animation.timeline !== document.timeline
       || JSON.stringify(animation.effect.getTiming()) !== sourceTiming) return false;
