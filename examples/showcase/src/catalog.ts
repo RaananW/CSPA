@@ -68,12 +68,13 @@ export const examples = [
       css: "In ordinary DOM the app works identically, which is the point: GPU presentation is additive. The ripple has no CSS equivalent.",
     } },
   { id: "pond", number: "06", title: "Webcam pond", category: "Experimental",
-    summary: "See yourself reflected in a koi pond. Write on its floor, drop pebbles and feed the fish from a native lily pad.",
+    summary: "See yourself reflected in a koi pond. The koi are plain HTML spans, refracted by GPU water. Feed them from a native lily pad.",
     detail: "Optional camera, on your device only: nothing is recorded or sent anywhere. The pond floor, your text, the fish and the reflection are ordinary HTML in one decorative layer; ripple refraction and a custom WGSL water shader run over it on the GPU.",
     accent: "pond", tags: ["Webcam", "Refraction", "Custom WGSL"],
     gpu: {
       headline: "Live HTML and your camera image, refracted and lit as water.",
       points: [
+        "The koi are pure HTML: each fish is a <span> drawn with CSS gradients and moved by CSS transitions and animations, no images or canvas. X-ray labels them.",
         "A continuous ripple bends where every pixel samples from, so the text on the floor, the fish and your reflection wobble together like light through water.",
         "A custom WGSL shader adds caustic light, depth tint and glints, compiled while the GPU keeps presenting.",
         "Each camera frame is captured from the original <video> element straight into a GPU texture; the lily pad's buttons stay native while it floats rotated above.",

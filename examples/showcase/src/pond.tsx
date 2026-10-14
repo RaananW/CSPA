@@ -37,11 +37,18 @@ export const pondWater = defineEffect({
 
 interface Fish { id: number; x: number; y: number; angle: number; hue: number; size: number }
 const fishHues = [18, 32, 0, 42, 24, 8];
+const degrees = (y: number, x: number) => Math.atan2(y, x) * 180 / Math.PI;
 function wander(fish: Fish, fed: boolean): Fish {
-  const target = fed
-    ? { x: padCentre.x + Math.cos(fish.id * 1.1 + Date.now() / 900) * 70, y: padCentre.y + Math.sin(fish.id * 1.1 + Date.now() / 900) * 50 }
-    : { x: 70 + Math.random() * (POND.width - 140), y: 90 + Math.random() * (POND.height - 200) };
-  const angle = Math.atan2(target.y - fish.y, target.x - fish.x) * 180 / Math.PI;
+  if (!fed) {
+    const target = { x: 70 + Math.random() * (POND.width - 140), y: 90 + Math.random() * (POND.height - 200) };
+    return { ...fish, ...target, angle: degrees(target.y - fish.y, target.x - fish.x) };
+  }
+  // Fed fish gather in a slowly turning ring just outside the lily pad, so they stay
+  // visible beside it instead of hiding underneath; once there they face the pad.
+  const around = fish.id / fishHues.length * Math.PI * 2 + Date.now() / 6000;
+  const target = { x: padCentre.x + Math.cos(around) * (PAD.width / 2 + 40), y: padCentre.y + Math.sin(around) * (PAD.height / 2 + 32) };
+  const far = Math.hypot(target.x - fish.x, target.y - fish.y) > 120;
+  const angle = far ? degrees(target.y - fish.y, target.x - fish.x) : degrees(padCentre.y - target.y, padCentre.x - target.x);
   return { ...fish, ...target, angle };
 }
 
@@ -57,8 +64,7 @@ export function WebcamPond() {
   const [reflection, setReflection] = useState(0.55);
   const [caustics, setCaustics] = useState(0.5);
   const [fed, setFed] = useState(false);
-  const [pebbles, setPebbles] = useState(0);
-  const [splash, setSplash] = useState(false);
+  const [xray, setXray] = useState(false);
   const [feedback, setFeedback] = useState("Start the camera to see yourself in the water, or just watch the fish.");
   const [fish, setFish] = useState<Fish[]>(() => fishHues.map((hue, id) => wander({ id, x: POND.width / 2, y: POND.height / 2, angle: 0, hue, size: 0.8 + (id % 3) * 0.18 }, false)));
   const streamRef = useRef<MediaStream | undefined>(undefined);
@@ -100,33 +106,55 @@ export function WebcamPond() {
   useEffect(() => { setFish(list => list.map(item => wander(item, fed))); }, [fed]);
 
   // Water: a continuous ripple refracts everything in the pond, then the custom water
-  // shader adds caustics, depth and glints. A pebble briefly raises the ripple.
-  useEffect(() => {
+  // shader adds caustics, depth and glints. Every update carries the same running
+  // clock, so changing a setting or the splash strength never restarts the wave.
+  const clock = useRef(performance.now());
+  const settings = useRef({ calm, caustics, reduced });
+  settings.current = { calm, caustics, reduced };
+  const splash = useRef<number | undefined>(undefined);
+  const water = useCallback((amplitude: number) => {
+    const time = { seconds: (performance.now() - clock.current) / 1000 % 1000, playing: !settings.current.reduced };
     const chain: EffectDescriptor[] = [
-      { kind: "ripple", parameters: { amplitude: splash ? 12 : calm }, time: { seconds: 0, playing: !reduced }, ...policy },
-      { kind: "custom", definition: pondWater, parameters: { depth: 0.75, caustics, speed: 1, glint: 0.8 }, time: { seconds: 0, playing: !reduced }, ...policy },
+      { kind: "ripple", parameters: { amplitude: Math.min(12, Math.max(0, amplitude)) }, time: { ...time }, ...policy },
+      { kind: "custom", definition: pondWater, parameters: { depth: 0.75, caustics: settings.current.caustics, speed: 1, glint: 0.8 }, time: { ...time }, ...policy },
     ];
     scene.setChain(chain);
-  }, [scene, calm, caustics, splash, reduced]);
-  useEffect(() => () => { scene.setChain(residentChain()); }, [scene]);
-  useEffect(() => {
-    if (!splash) return;
-    const timer = setTimeout(() => setSplash(false), 900);
-    return () => clearTimeout(timer);
-  }, [splash, pebbles]);
+  }, [scene]);
+  useEffect(() => { if (splash.current === undefined) water(calm); }, [water, calm, caustics, reduced]);
+  useEffect(() => () => {
+    if (splash.current !== undefined) cancelAnimationFrame(splash.current);
+    splash.current = undefined;
+    scene.setChain(residentChain());
+  }, [scene]);
+  /** A pebble: the ripple rises quickly to a splash, then eases back to the calm water. */
+  function dropPebble() {
+    if (settings.current.reduced) { setFeedback("Reduced motion is on, so the water stays still."); return; }
+    if (splash.current !== undefined) cancelAnimationFrame(splash.current);
+    const started = performance.now(), rise = 0.14, peak = 12;
+    const step = () => {
+      const t = (performance.now() - started) / 1000;
+      const envelope = t < rise ? Math.sin(t / rise * Math.PI / 2) : Math.exp(-(t - rise) * 2.1);
+      const { calm } = settings.current;
+      if (t > rise && envelope < 0.01) { splash.current = undefined; water(calm); return; }
+      water(calm + (peak - calm) * envelope);
+      splash.current = requestAnimationFrame(step);
+    };
+    splash.current = requestAnimationFrame(step);
+    setFeedback("Plop. The pebble's ripple bends everything under the surface, your reflection included.");
+  }
 
   useSceneArt(() => ({ layout: { ...POND, overflow: "hidden" }, appearance: { background: "rgb(16,58,62)", radius: 44 },
-    content: <PondFloor message={message} stream={stream} reflection={reflection} fish={fish} /> }), [message, stream, reflection, fish]);
+    content: <PondFloor message={message} stream={stream} reflection={reflection} fish={fish} xray={xray} /> }), [message, stream, reflection, fish, xray]);
 
   return <>
     <Panel tone="dark" label="STUDIO 06" title="Webcam pond">
-      <p className="privacy" role="note"><strong>Camera stays on your device.</strong> The video is drawn into this page and its GPU canvas only.
-        Nothing is recorded, uploaded or sent to any server. Leaving this example or pressing Stop turns the camera off.</p>
+      <p className="privacy" role="note"><strong>Camera stays on your device.</strong> The video is drawn into this page only:
+        nothing is recorded, uploaded or sent to any server. Stop, or leaving this example, turns it off.</p>
       <div className="inline-row">
         {camera === "on"
           ? <button type="button" onClick={stopCamera}>Stop camera</button>
           : <button type="button" className="primary" disabled={camera === "starting"} onClick={() => void start()}>Start camera</button>}
-        <button type="button" onClick={() => { setPebbles(value => value + 1); setSplash(true); setFeedback("Plop. The pebble's ripple bends everything under the surface, your reflection included."); }}>Drop a pebble</button>
+        <button type="button" onClick={dropPebble}>Drop a pebble</button>
       </div>
       <div className="field">
         <label htmlFor="pond-message">Write on the pond floor</label>
@@ -135,22 +163,26 @@ export function WebcamPond() {
       <PondSlider label="Ripple" value={calm} min={0} max={6} step={0.5} unit="px" onChange={setCalm} />
       <PondSlider label="Reflection" value={reflection} min={0} max={1} step={0.05} percent onChange={setReflection} />
       <PondSlider label="Caustics" value={caustics} min={0} max={1} step={0.05} percent onChange={setCaustics} />
+      <label className="check xray"><input type="checkbox" checked={xray} onChange={event => {
+        setXray(event.target.checked);
+        setFeedback(event.target.checked ? "X-ray on: koi are <span>s, the text a <p>, pebbles <i>s, all still refracted." : "X-ray off.");
+      }} />X-ray: show the HTML under the water</label>
       <output id="studio-feedback" role="status">{feedback}</output>
       <p className="panel-note">{reduced ? "Reduced motion is on: the water and fish hold still."
-        : "The text, fish and reflection are ordinary HTML inside one decorative layer; the water is a shader over it."}</p>
+        : "Every koi is a plain <span> styled with CSS: no images or canvas. The water is a shader over that HTML."}</p>
     </Panel>
     <Surface id="showcase-card" className="lily-pad" aria-label="Lily pad" origin="center"
       layout={{ ...PAD, padding: 16, direction: "column", gap: 8 }} transform={{ rotation: -7 }}
       appearance={{ background: "rgb(74,150,84)", color: "rgb(240,255,236)", radius: 60, fontSize: 13 }}>
       <span className="pad-label">Lily pad · native buttons</span>
-      <button type="button" onClick={() => { setFed(value => !value); setFeedback(fed ? "The fish wander off again." : "The fish gather under the lily pad."); }}>
+      <button type="button" onClick={() => { setFed(value => !value); setFeedback(fed ? "The fish wander off again." : "The fish gather around the lily pad."); }}>
         {fed ? "Let them roam" : "Feed the fish"}</button>
     </Surface>
   </>;
 }
 
 /** Everything under (and reflected on) the water: one decorative, inert subtree. */
-function PondFloor({ message, stream, reflection, fish }: { message: string; stream?: MediaStream; reflection: number; fish: Fish[] }) {
+function PondFloor({ message, stream, reflection, fish, xray }: { message: string; stream?: MediaStream; reflection: number; fish: Fish[]; xray: boolean }) {
   const video = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const element = video.current;
@@ -158,11 +190,13 @@ function PondFloor({ message, stream, reflection, fish }: { message: string; str
     element.srcObject = stream ?? null;
     if (stream) void element.play().catch(() => {});
   }, [stream]);
-  return <div className="pond">
+  return <div className={`pond ${xray ? "xray" : ""}`}>
     <div className="pond-floor"><i /><i /><i /><i /><i /><i /><i /></div>
     <p className="pond-message">{message || " "}</p>
     {fish.map(item => <span key={item.id} className="koi" style={{ left: item.x, top: item.y,
-      ["--angle" as string]: `${item.angle}deg`, ["--hue" as string]: item.hue, ["--size" as string]: item.size }}><i /></span>)}
+      ["--angle" as string]: `${item.angle}deg`, ["--hue" as string]: item.hue, ["--size" as string]: item.size }}><i />
+      {xray && <b className="html-tag">{"<span>"}</b>}</span>)}
+    {xray && stream && <b className="html-tag video-tag">{"<video> your mirrored camera"}</b>}
     <video ref={video} className="pond-reflection" muted playsInline style={{ opacity: stream ? reflection : 0 }} />
     <div className="pond-sky" style={{ opacity: stream ? 0 : reflection * 0.8 }} />
   </div>;
