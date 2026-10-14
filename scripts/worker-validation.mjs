@@ -1,3 +1,19 @@
+/**
+ * Validation of the experimental worker presentation path (`@underglass/react/experimental-worker`, see
+ * docs/worker.md). In an isolated copy of the repository it builds and packs the library, installs the
+ * packed archive, builds the fixture app in `fixtures/worker/app`, and runs functional proofs in a real
+ * browser (pixels, native input, rollback, media and DPR changes, refusals, cancellation, disposal),
+ * followed by a CSS / main-thread / worker timing comparison.
+ *
+ * Invoked as `npm run test:worker`. Flags: `--react18` (use the React 18.3.1 peer instead of 19.3.0),
+ * `--functional-only` (skip the timing comparison). Environment: `CANVAS_WORKER_EXCLUSIVE=1` (only records
+ * that the run was alone on the machine; run it that way for timing), `CANVAS_BROWSER_EXECUTABLE`,
+ * `CANVAS_REQUIRE_BROWSER_PIN=1`.
+ *
+ * Output: a new `evidence/worker/run-<uuid>/` directory (path printed first) with command logs, screenshots
+ * and `report.json`; a final JSON status line is printed. Sets a non-zero exit code on any failure. A 180 s
+ * watchdog closes the browser if the proof hangs.
+ */
 import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { cp, mkdir, readFile, writeFile, readdir } from "node:fs/promises";
@@ -24,6 +40,8 @@ await mkdir(run);
 console.log(run);
 const tree = join(run, "workspace");
 await mkdir(tree);
+// Built up during the run and written to `report.json` in the `finally` block. `limits` states what the
+// measurements do and do not show.
 const report = { status: "running", peer, functionalOnly, startedAt: new Date().toISOString(),
   host: { platform: process.platform, arch: process.arch, release: release(), cpu: cpus()[0]?.model },
   exclusiveOwnedMeasurement: process.env.CANVAS_WORKER_EXCLUSIVE === "1",
@@ -36,6 +54,8 @@ const report = { status: "running", peer, functionalOnly, startedAt: new Date().
 ] };
 let browser, server, watchdog;
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+// SHA-256 of the library sources, the worker fixture app and a few manifests and docs under `directory`. Compared
+// for the checkout and for the copy, before and after, to show the copy is faithful and nothing moved.
 async function inputs(directory) {
   const records = [];
   async function visit(path) {
@@ -54,6 +74,8 @@ async function inputs(directory) {
     "package.json", "package-lock.json"]) records.push({ path, sha256: hash(await readFile(join(directory, path))) });
   return records;
 }
+// Runs a process in `cwd`, recording its status in the report and its output as `<label>.log`; throws
+// with the output on failure.
 async function command(executable, args, cwd, label) {
   let output = "";
   try {
@@ -67,6 +89,7 @@ async function command(executable, args, cwd, label) {
     throw new Error(`${label}: ${output}`, { cause: error });
   } finally { await writeFile(join(run, `${label}.log`), output, { flag: "wx" }); }
 }
+// Number of pixels whose largest RGB channel difference exceeds 10, between two equally sized PNGs.
 const changedPixels = (before, after) => {
   const a = PNG.sync.read(before), b = PNG.sync.read(after);
   assert.equal(a.width, b.width); assert.equal(a.height, b.height);
@@ -75,11 +98,16 @@ const changedPixels = (before, after) => {
     Math.max(...[0, 1, 2].map(channel => Math.abs(a.data[index + channel] - b.data[index + channel]))) > 10) changed++;
   return changed;
 };
+// Count, median, 95th percentile and maximum of a list of numbers (simple index-based percentiles).
 const distribution = values => {
   const sorted = [...values].sort((a, b) => a - b);
   return { count: sorted.length, median: sorted[Math.floor(sorted.length / 2)] ?? null,
     p95: sorted[Math.floor(sorted.length * 0.95)] ?? null, maximum: sorted.at(-1) ?? null };
 };
+// Opens a fresh browser context on the served fixture for `variant` (`css`, `main`, `worker` or
+// `worker-ripple`). `extra` is appended to the query string; `&absent=1` hides `navigator.gpu` before the
+// page loads. Checks the browser identity and the React peer, and returns the context, page and the list
+// of uncaught page errors.
 async function open(variant, options = {}, extra = "") {
   const context = await browser.newContext({ viewport: { width: 900, height: 650 }, ...options });
   const page = await context.newPage();
@@ -97,10 +125,12 @@ async function open(variant, options = {}, extra = "") {
   report.runtimePeers.push({ variant, ...runtime });
   return { context, page, errors, actual };
 }
+// Invokes a method of the fixture's `window.workerFixture` API in the page, failing after 20 s.
 const call = (page, method, ...args) => page.evaluate(([method, args]) => Promise.race([
   window.workerFixture[method](...args),
   new Promise((_, reject) => setTimeout(() => reject(new Error(`Fixture ${method} timed out`)), 20_000)),
 ]), [method, args]);
+// Enables GPU in the fixture and requires admission to succeed.
 async function enable(page) {
   console.log("admitting", new URL(page.url()).search);
   const state = await call(page, "enable");
@@ -110,6 +140,7 @@ async function enable(page) {
 }
 try {
   report.inputs = await inputs(root);
+  // Validate a copy of the repository, never the checkout itself.
   for (const path of ["packages", "tests", "fixtures/worker/app", "fixtures/react18/package-lock.json", "examples",
     "package.json", "package-lock.json", "scripts", "docs", "CONTRIBUTING.md"]) {
     await cp(join(root, path), join(tree, path), { recursive: true,
@@ -123,6 +154,8 @@ try {
   const library = join(tree, "packages/underglass");
   await command(node, [vite, "build"], library, "library-build");
   await command(node, [tsc, "-p", "tsconfig.json"], library, "library-types");
+  // Pack the library and extract the archive into the copy's `node_modules`, so the fixture uses the
+  // published file set rather than the workspace sources.
   const archiveDir = join(run, "archive"); await mkdir(archiveDir);
   await command(node, ["scripts/prepare-package.mjs"], library, "package-guide");
   const packed = JSON.parse(await command("npm", ["pack", "--ignore-scripts", "--json", "--pack-destination", archiveDir], library, "package-pack"))[0];
@@ -132,6 +165,8 @@ try {
   const installed = join(tree, "node_modules/@underglass/react"); await mkdir(installed, { recursive: true });
   await command("tar", tarArgs(["-xzf", archive, "-C", installed, "--strip-components=1"], tree), tree, "extract-package");
   const app = join(tree, "fixtures/worker/app");
+  // The fixture precompiles its shader into `program.json` before the build; its size and capacity are
+  // recorded in the report.
   await command(node, ["prepare.mjs"], app, "prebuild-shader");
   const literal = await readFile(join(app, "program.json"));
   report.program = { sha256: hash(literal), bytes: literal.length, capacity: JSON.parse(literal).capacity };
@@ -140,6 +175,7 @@ try {
     "--resolveJsonModule", "--allowSyntheticDefaultImports", "--target", "ES2022", "main.tsx", "thread.ts"], app, "fixture-public-types");
   await command(node, ["--test", "tests/unit/worker.unit.test.mjs", "tests/unit/workspace.unit.test.mjs"], tree, "targeted-units");
   const assets = join(app, "dist");
+  // Static server for the built fixture, confined to its `dist` directory.
   server = createServer(async (request, response) => {
     try {
       const pathname = new URL(request.url, "http://localhost").pathname;
@@ -155,12 +191,14 @@ try {
   report.actual = await (await browser.newBrowserCDPSession()).send("Browser.getVersion");
   report.browserCommandLine = await (await browser.newBrowserCDPSession()).send("Browser.getBrowserCommandLine");
   assertBrowserIdentity(report.actual);
+  // Closing the browser makes any pending page call fail instead of hanging the run.
   watchdog = setTimeout(() => {
     report.watchdog = "Owned browser proof exceeded 180 seconds";
     void browser.close();
   }, 180_000);
   report.assets = await readdir(join(assets, "assets"));
 
+  // Main proof, once per device pixel ratio, starting from reduced motion so the fixture is static.
   for (const dpr of [1, 2]) {
     const { context, page, errors } = await open("worker", { deviceScaleFactor: dpr, reducedMotion: "reduce" });
     const proof = { dpr }; report.proof.push(proof);
@@ -177,6 +215,8 @@ try {
       await page.locator("#native-input").fill("W".repeat(32));
       await call(page, "settle");
       const rect = await page.locator("#native-input").boundingBox();
+      // Edit the original input with a wide and then a narrow string. The owning canvas pixels in the input's
+      // box must change, so the live native input is really being presented.
       const glyphW = await page.screenshot({ clip: rect });
       await page.locator("#native-input").fill("I".repeat(32));
       await call(page, "settle");
@@ -189,16 +229,20 @@ try {
       assert.equal(await page.locator("#saved").textContent(), "I".repeat(32));
       assert.deepEqual(await page.evaluate(() => window.trustedClicks), [true]);
       assert.equal((await call(page, "state")).mode, "gpu");
+      // Changing essential geometry on the fixed-geometry path is refused with a diagnostic and must leave the
+      // state unchanged.
       const guarded = await call(page, "fixedGeometryGuard");
       assert.match(guarded.reason, /essential geometry must remain fixed/);
       assert.deepEqual(guarded.before, guarded.after);
       proof.fixedGeometryGuard = guarded.reason;
+      // Structure changes (removing then restoring a layer) must keep GPU on.
       await call(page, "structure"); await call(page, "settle");
       assert.equal(await page.locator("#layer-7").count(), 0);
       assert.equal((await call(page, "state")).mode, "gpu");
       await call(page, "structure"); await call(page, "layout"); await call(page, "settle");
       assert.equal(await page.locator("#layer-7").count(), 1);
       assert.equal((await call(page, "state")).mode, "gpu");
+      // disable() is caller-owned: it must keep the same input and root, with focus, value and selection.
       await page.locator("#native-input").focus();
       await page.evaluate(() => originalInput.setSelectionRange(3, 8));
       await call(page, "disable");
@@ -216,6 +260,8 @@ try {
       await page.locator("#enable").focus();
       await page.emulateMedia({ reducedMotion: "no-preference" });
       await call(page, "settle");
+      // With motion allowed, the worker must keep presenting frames while the main thread captures nothing
+      // and React does not rerender.
       const before = await call(page, "state");
       const imageBefore = await page.locator("#frame").screenshot({ caret: "initial" });
       await page.waitForTimeout(280);
@@ -227,6 +273,7 @@ try {
       assert.ok(after.worker.frames > before.worker.frames);
       assert.equal(after.captures, before.captures, "GPU-only frames must reuse captures");
       assert.equal(after.renders, before.renders, "GPU-only frames must not rerender React");
+      // Reduced motion and forced colors pause the animation but must not revoke GPU.
       await page.emulateMedia({ reducedMotion: "reduce", forcedColors: "active" });
       await call(page, "settle");
       await page.waitForTimeout(80);
@@ -238,6 +285,8 @@ try {
       proof.media = { paused, stillPaused };
       await page.emulateMedia({ reducedMotion: "no-preference", forcedColors: "none" });
       await call(page, "settle");
+      // Synthetic hidden tab: the worker must stop producing frames while hidden and resume when visible,
+      // still on GPU.
       await call(page, "visibility", true);
       await page.waitForTimeout(80);
       const hidden = await call(page, "state");
@@ -249,6 +298,8 @@ try {
       assert.equal(visible.mode, "gpu");
       assert.ok(visible.worker.frames > hidden.worker.frames);
       proof.syntheticVisibility = { hidden, visible };
+      // Layout and device-pixel-ratio changes must not revoke GPU, and native editing must still change pixels
+      // at the new density.
       await page.setViewportSize({ width: 1000, height: 700 }); await call(page, "settle");
       assert.equal((await call(page, "state")).mode, "gpu");
       const density = dpr === 1 ? 2 : 1;
@@ -274,6 +325,8 @@ try {
       assert.deepEqual(errors, []);
     } finally { await context.close(); }
   }
+  // Genuine refusals (no WebGPU, worker construction failure) must fall back to DOM with a diagnosis, keep
+  // the original input usable and dispose cleanly.
   for (const [extra, pattern] of [["&absent=1", /unavailable/], ["&fault=factory", /construction failure/]]) {
     const { context, page, errors } = await open("worker", {}, extra);
     try {
@@ -286,6 +339,8 @@ try {
     } finally { await context.close(); }
   }
   {
+    // Ripple variant: pixels move, and after a simulated device loss the controller falls back to DOM and a
+    // new enable() brings GPU back.
     const { context, page, errors } = await open("worker-ripple");
     try {
       await enable(page);
@@ -300,6 +355,9 @@ try {
       assert.deepEqual(errors, []);
     } finally { await context.close(); }
   }
+  // Source faults injected after admission (animation ownership, newly interactive content, native picker,
+  // descendant geometry, unenrolled content) must each end in DOM with the matching reason and a usable
+  // original input.
   for (const [kind, reason] of [["animation", /ownership changed/], ["interactive", /became interactive/],
     ["picker", /native-picker boundary/], ["geometry", /descendant geometry changed/], ["unenrolled", /Unenrolled/]]) {
     const { context, page, errors } = await open("worker", { reducedMotion: "reduce" });
@@ -318,6 +376,7 @@ try {
   {
     const { context, page, errors } = await open("worker");
     try {
+      // Calling disable() while admission is in progress must cancel it without leaking a worker.
       const cancelled = await page.evaluate(async () => {
         const admission = workerFixture.enable();
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -328,6 +387,7 @@ try {
       assert.equal(cancelled.mode, "dom");
       assert.equal(cancelled.resources.workers, 0);
       await enable(page);
+      // Concurrent disable() and repeated dispose() calls must settle on `disposed` with zero resources.
       const disposed = await page.evaluate(async () => {
         await Promise.all([workerFixture.disable(), workerFixture.dispose(), workerFixture.dispose()]);
         return workerFixture.state();
@@ -342,6 +402,8 @@ try {
     const { context, page, errors } = await open("worker", {}, "&fault=stop-delay");
     try {
       await enable(page);
+      // A worker that is slow to confirm stop makes disable() fail visibly. The controller must stay in
+      // `restoring` with cleanup pending (resources still counted), then complete on retry.
       await assert.rejects(call(page, "disable"), /stop reply timed out/);
       const pending = await page.evaluate(() => workerFixture.controller.state());
       assert.equal(pending.mode, "restoring");
@@ -356,6 +418,9 @@ try {
       assert.deepEqual(errors, []);
     } finally { await context.close(); }
   }
+  // Timing comparison: CSS animation, main-thread GPU and worker GPU, three repetitions with and without
+  // main-thread contention, rotating the variant order each repetition. Interval and CPU statistics are
+  // recorded; the only timing assertion is that the worker's summed rAF intervals are within 250 ms of the window.
   for (let repetition = 0; repetition < (functionalOnly ? 0 : 3); repetition++) for (const contention of [false, true]) {
     const variants = ["css", "main", "worker"];
     for (const variant of [...variants.slice(repetition), ...variants.slice(0, repetition)]) {
@@ -384,6 +449,7 @@ try {
       } finally { await context.close(); }
     }
   }
+  // The sources must be unchanged after the run, both in the copy and in the checkout.
   assert.deepEqual(await inputs(tree), report.inputs, "Worker execution source inputs changed");
   assert.deepEqual(await inputs(root), report.inputs, "Maintained worker source inputs changed");
   report.inputsUnchanged = true;

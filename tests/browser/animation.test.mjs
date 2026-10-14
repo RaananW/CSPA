@@ -1,3 +1,18 @@
+/**
+ * Browser suite for animation ownership on the playground page `paired.html` (`paired-demo.tsx`), driven
+ * through `window.pairedProbe`. `example=css` enrolls plain DOM sections (`#legacy`) whose animation comes
+ * from a CSS rule; `example=typed` uses `Surface` components (`#authored`) with an authored Web Animation.
+ * `strict` loads the Vite development server with React StrictMode. A second, decorative layer
+ * (`*-art`) carries a ripple effect.
+ *
+ * The runtime can take ownership of a source animation of transform and opacity while GPU is on: it seeks
+ * the source (detached, paused) and presents its values as GPU matrices, then restores the original
+ * declarations and phase on release, disable, failure or device loss. The suite proves that GPU pixels
+ * match the browser's own computed animation values, that GPU stays active while motion runs without
+ * React commits or captures, that unsupported or conflicting authored styles are rejected atomically
+ * with a diagnosis, and that the original root, controls and native state survive every exit path.
+ * Reports and screenshots go to the `animation` evidence directory.
+ */
 import { test, expect } from "../helpers/current-browser.mjs";
 import { developmentURL } from "../helpers/urls.mjs";
 import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
@@ -5,25 +20,34 @@ import { PNG } from "pngjs";
 
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 const directory = evidenceDirectory("animation");
+/** Writes one named JSON report into this suite's evidence directory. */
 async function save(name, data) {
   await mkdir(directory, { recursive: true });
   await writeFile(`${directory}/${name}.json`, JSON.stringify(data, null, 2));
 }
+/** Opens `paired.html` for `example` ("css" or "typed"); the probe starts in ordinary DOM until `enable()`. */
 async function ready(page, example = "typed", strict = false) {
   await page.goto(`${strict ? developmentURL : ""}/paired.html?example=${example}${strict ? "&strict" : ""}`);
   await page.waitForFunction(() => window.pairedProbe && document.querySelector("#counter"));
 }
+/** Screenshots `#frame` and returns the decoded PNG plus `at(x, y)`, the RGBA at frame-local pixel (x, y). */
 async function pixels(page, name) {
   await mkdir(directory, { recursive: true });
   const png = PNG.sync.read(await page.locator("#frame").screenshot({ path: `${directory}/${name}.png` }));
   return { png, at(x, y) { const offset = (Math.round(y) * png.width + Math.round(x)) * 4; return [...png.data.subarray(offset, offset + 4)]; } };
 }
+/** Asserts that disposal released every GPU and runtime resource, animation owner and demo listener. */
 function zero(state) {
   expect(Object.values(state.resources).every(value => value === 0)).toBe(true);
   expect(Object.values(state.runtimeResources).every(value => value === 0)).toBe(true);
   expect(state.demoListeners).toBe(0);
 }
 
+// Authored declarations written after ownership began (opacity, !important, removal, transform-origin,
+// individual `translate`/`rotate`/`scale`, an unrelated property, a React-driven opacity, and edits on
+// the unowned art layer) must survive every way ownership ends: release, disable, or a failure that
+// falls back to DOM. The restored inline style must equal what the author last wrote, not the value
+// captured when ownership started. The "unrelated" case must not cause a fallback by itself.
 for (const example of ["css", "typed"]) test(`later authored declarations survive release, disable and failure ${example}`, async ({ page }) => {
   const reports = [];
   for (const path of ["release", "disable", "failure"]) for (const fault of ["opacity", "important", "removal", "transform-removal", "origin", "priority", "translate", "rotate", "scale", "unrelated", "unowned-opacity", "unowned-removal", ...(example === "css" ? ["react"] : [])]) {
@@ -48,6 +72,7 @@ for (const example of ["css", "typed"]) test(`later authored declarations surviv
       if (fault === "unowned-opacity") element.style.opacity = "0.4";
       if (fault === "unowned-removal") element.style.removeProperty("opacity");
       if (fault === "react") window.pairedProbe.reactPresentation(0.4);
+      // The inline property each fault touches, so the same property can be compared after ownership ends.
       const property = ({ removal: "opacity", important: "opacity", react: "opacity", priority: "opacity",
         "transform-removal": "transform", origin: "transform-origin", unrelated: "color",
         "unowned-opacity": "opacity", "unowned-removal": "opacity" })[fault] ?? fault;
@@ -82,6 +107,8 @@ for (const example of ["css", "typed"]) test(`later authored declarations surviv
   await save(`later-declarations-${example}`, reports);
 });
 
+// If admission fails after React re-authored the presentation, the later React opacity must remain
+// rather than being overwritten by the values saved when the lease began.
 test("admission failure preserves later React presentation rather than original lease values", async ({ page }) => {
   await ready(page, "css");
   await page.evaluate(() => {
@@ -107,6 +134,11 @@ test("admission failure preserves later React presentation rather than original 
   await save("later-react-admission-failure", { recovered, disposed });
 });
 
+// Public numeric motion (`createMotion`): invalid keyframes (scale 0) are rejected without touching the
+// element; a motion owned before admission survives disable(); once GPU is on, the motion drives
+// pixels at the sought time, then release hands the phase back to a native animation on the same element
+// (visible as identical DOM pixels), and disposing the motion cancels it while a replacement keeps the
+// shared source alive until it is disposed too.
 test("public numeric motion owns pixels, native behavior, DOM phase and source lifetime", async ({ page }) => {
   await ready(page);
   const invalid = await page.evaluate(async () => {
@@ -147,6 +179,9 @@ test("public numeric motion owns pixels, native behavior, DOM phase and source l
     window.numericMotion.seek(600);
     await controller.settle();
   });
+  // Sought at 600 ms with delay 100 ms and duration 1000 ms, the animation is halfway: opacity 0.75 over
+  // white gives about (244,86,109) for the red layer, sampled at frame pixel (190,220). Tolerance 2 per
+  // channel covers blend rounding.
   const gpu = (await pixels(page, "numeric-motion-gpu")).at(190, 220);
   [244, 86, 109].forEach((value, index) => expect(Math.abs(gpu[index] - value)).toBeLessThanOrEqual(2));
   await page.locator("#counter").click();
@@ -177,6 +212,9 @@ test("public numeric motion owns pixels, native behavior, DOM phase and source l
   await save("numeric-motion", { invalid, beforeAdmission, gpu, released, sourceDisposed, disposed });
 });
 
+// Seeking the owned source (detached and paused by the runtime) must give deterministic pixels at
+// 100/600/1100/1600 ms, while the original controls keep working. Release restores the same animation
+// effect at the same time.
 for (const example of ["css", "typed"]) test(`transactional ${example} source, deterministic pixels and original native state`, async ({ page }) => {
   await ready(page, example);
   await page.evaluate(() => {
@@ -189,6 +227,7 @@ for (const example of ["css", "typed"]) test(`transactional ${example} source, d
   const observations = [];
   for (const time of [100, 600, 1100, 1600]) {
     const state = await page.evaluate(time => window.pairedProbe.seek(time), time);
+    // Progress through the opacity 1 -> 0.5 keyframes: start, midpoint, end, and midpoint again at 1600 ms.
     const fraction = time === 100 ? 0 : time === 1100 ? 1 : 0.5;
     expect(state.source.detached).toBe(true);
     expect(state.source.state).toBe("paused");
@@ -197,6 +236,8 @@ for (const example of ["css", "typed"]) test(`transactional ${example} source, d
     expect(state.source.opacity).toBe("1");
     expect(state.layers.find(layer => layer.id === state.id).transform.opacity).toBe(1 - fraction * 0.5);
     const image = await pixels(page, `${example}-${time}`);
+    // The marker follows the layer's 70 px translation; expected colour is the red layer at `alpha` over
+    // white, within 2 per channel.
     const marker = image.at(170 + fraction * 70, 220);
     const alpha = 1 - fraction * 0.5;
     marker.slice(0, 3).forEach((value, index) => expect(Math.abs(value - ([240, 30, 60][index] * alpha + 255 * (1 - alpha)))).toBeLessThanOrEqual(2));
@@ -225,6 +266,10 @@ for (const example of ["css", "typed"]) test(`transactional ${example} source, d
   await save(`source-${example}`, { original, observations, released, disposed });
 });
 
+// Sources the GPU path cannot reproduce exactly (extra properties, percentages, steps easing, singular
+// matrices, additive composite, authored origin, !important or stylesheet overrides, imports,
+// `@scope`, overlapping animations, individual transform properties) must be refused by
+// `ownAnimation` with an error, leaving styles, time, play state and effect unchanged and no owner.
 test("unsupported and precedence/conflicting source rejection is atomic", async ({ page }) => {
   const reports = [];
   for (const fault of ["property", "percentage", "steps", "singular", "composite", "origin", "important", "stylesheet-important", "stylesheet-import", "stylesheet-scope", "overlap", "individual"]) {
@@ -270,6 +315,7 @@ test("unsupported and precedence/conflicting source rejection is atomic", async 
     reports.push(result);
     zero(await page.evaluate(() => window.pairedProbe.dispose()));
   }
+  // Same checks for CSS-rule provenance: a keyframe using a variable, or an !important override, is rejected.
   for (const fault of ["variable", "important", "stylesheet-important"]) {
     await ready(page, "css");
     const result = await page.evaluate(fault => {
@@ -298,6 +344,10 @@ test("unsupported and precedence/conflicting source rejection is atomic", async 
   await save("atomic-rejections", reports);
 });
 
+// The decorative ripple changes only its own 200x200 region (more than 3000 pixels differ per step),
+// leaves the essential content untouched, matches the DOM when amplitude is 0, and never alters native
+// geometry. Then 300 owned frames (advance(300)) must cost zero React commits, captures, copies,
+// readbacks and uploads, and a later React commit must recapture.
 for (const example of ["css", "typed"]) for (const strict of [false, true]) test(`decorative refraction and 300 zero-work owned frames ${example} strict=${strict}`, async ({ page }) => {
   await ready(page, example, strict);
   const domImage = (await pixels(page, `ripple-${example}-${strict}-dom`)).png.data;
@@ -315,6 +365,7 @@ for (const example of ["css", "typed"]) for (const strict of [false, true]) test
     const geometry = await page.evaluate(() => window.pairedProbe.state().layers);
     expect(geometry).toEqual(originalGeometry);
   }
+  // Counts pixels whose RGB differs inside `area` (frame-local); the frame is 640 CSS pixels wide at DPR 1.
   function differences(a, b, area) {
     let changed = 0;
     for (let y = area.y; y < area.y + area.height; y++) for (let x = area.x; x < area.x + area.width; x++) {
@@ -344,6 +395,7 @@ for (const example of ["css", "typed"]) for (const strict of [false, true]) test
   for (const key of ["captures", "pixelCopies", "pixelReadbacks", "uploads"]) expect(interval.after.metrics[key]).toBe(interval.before.metrics[key]);
   expect(interval.after.metrics.admission).toEqual(interval.before.metrics.admission);
   expect(interval.after.source.detached).toBe(true);
+  // 300 frames are expected to advance the source by 5000 ms and the ripple by 5 s.
   expect(interval.after.source.time).toBeCloseTo(interval.before.source.time + 5000, 6);
   expect(interval.after.decorativeEffects[0].seconds).toBeCloseTo(interval.before.decorativeEffects[0].seconds + 5, 6);
   await page.locator("#counter").click();
@@ -356,6 +408,8 @@ for (const example of ["css", "typed"]) for (const strict of [false, true]) test
   await save(`ripple-motion-${example}-${strict}`, { environment, originalGeometry, changed, interval, dirty, disposed });
 });
 
+// Twenty enable/seek/disable rounds must restore the original declarations and the same animation effect
+// every time, and leave no owners, frames, replacement sources or GPU resources behind.
 for (const example of ["css", "typed"]) test(`twenty ownership/release transactions preserve source declarations ${example}`, async ({ page }) => {
   await ready(page, example);
   const original = await page.evaluate(() => window.pairedProbe.state().source.declarations);
@@ -384,6 +438,9 @@ for (const example of ["css", "typed"]) test(`twenty ownership/release transacti
   await save(`ownership-cycles-${example}`, { cycles, disposed });
 });
 
+// Playback control under GPU (play, pause, seek), reduced motion pausing playback, and a real device
+// destroy while playing: the logical source phase must be restored to a running native animation at or
+// after the time reached.
 test("play/pause/seek, reduced motion and actual device loss restore logical source phase", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => window.pairedProbe.enable());
@@ -426,6 +483,8 @@ test("play/pause/seek, reduced motion and actual device loss restore logical sou
   await save("playback-loss", { played, paused, lossAt, recovered, disposed, lossKind: "Explicit configured-device destruction, not physical GPU-reset proof" });
 });
 
+// While the source is GPU-owned, direct transforms, ripples on the owned layer, out-of-range ripple
+// amplitude and re-owning must all throw, and the previous layers and effects must be unchanged.
 test("owned-source conflict and interactive ripple rejection preserve prior state", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => window.pairedProbe.enable());
@@ -447,6 +506,8 @@ test("owned-source conflict and interactive ripple rejection preserve prior stat
   await save("owned-conflicts", { ...rejected, disposed });
 });
 
+// Editing the CSS keyframes rule that was translated to GPU makes the translation stale. The runtime
+// must fall back to DOM with a "provenance changed" diagnosis instead of presenting changed values.
 test("CSS source-rule mutation falls back instead of translating a changed dependency", async ({ page }) => {
   await ready(page, "css");
   await page.evaluate(() => window.pairedProbe.enable());
@@ -466,6 +527,11 @@ test("CSS source-rule mutation falls back instead of translating a changed depen
   await save("changed-css-rule", recovered);
 });
 
+// Oracle test: for each easing and direction, record the browser's own computed transform, opacity and
+// progress for the source at sample times, then require the GPU matrices and pixels to agree. The
+// `+ 40` and `+ 50` convert the computed transform (relative to the layer) to frame coordinates by
+// adding the layer's position. The layer-local point (150,220) is mapped through the matrix for the
+// pixel check. Tolerances: matrix 1e-3, opacity 4 digits, colour 2 per channel.
 test("native WAAPI oracle: standard and overshoot easing, alternate boundaries, GPU pixels", async ({ page }) => {
   await ready(page);
   const records = [];
@@ -510,6 +576,8 @@ test("native WAAPI oracle: standard and overshoot easing, alternate boundaries, 
   await save("native-easing-oracle", { records, sampleCount: records.reduce((sum, record) => sum + record.samples.length, 0), disposed });
 });
 
+// disable() while GPU cleanup cannot complete (queue fence never resolves): the owned source must be
+// restored to DOM immediately, before the GPU resources are released by an actual device loss.
 test("owned source restoration precedes indefinitely pending healthy GPU cleanup", async ({ page }) => {
   await ready(page, "css");
   const original = await page.evaluate(() => window.pairedProbe.state().source.declarations);
@@ -544,6 +612,8 @@ test("owned source restoration precedes indefinitely pending healthy GPU cleanup
   await save("owned-pending-cleanup", { fixture: "Synthetic indefinitely pending healthy queue; subsequent explicit destruction delivers actual loss", retained, active, disposed });
 });
 
+// If admission is refused (capture made a no-op), the owned source and declarations are restored
+// and the same controls stay usable.
 test("admission refusal restores owned source and same usable controls", async ({ page }) => {
   await ready(page, "css");
   const original = await page.evaluate(() => {
@@ -570,6 +640,8 @@ test("admission refusal restores owned source and same usable controls", async (
   await save("owned-admission-refusal", refused);
 });
 
+// A fake hidden document pauses playback and resumes it without catching up; mutating the live
+// effect timing while GPU-owned makes the runtime fall back with a "modified while GPU-owned" reason.
 test("live effect mutation and synthetic visibility pause respect source ownership", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => window.pairedProbe.enable());
@@ -602,6 +674,8 @@ test("live effect mutation and synthetic visibility pause respect source ownersh
   await save("owned-visibility-mutation", { fixture: "Synthetic document.hidden getter; not actual background-tab certification", hidden, resumed, visible, recovered });
 });
 
+// Same oracle comparison as above for a three-keyframe animation with per-keyframe easing and an
+// overall easing.
 test("three-frame per-keyframe easing agrees with native presentation and actual pixels", async ({ page }) => {
   await ready(page);
   const times = [100, 300, 500, 600, 900, 1100];
@@ -637,6 +711,9 @@ test("three-frame per-keyframe easing agrees with native presentation and actual
   await save("per-keyframe-easing", { samples, disposed });
 });
 
+// Touching `paired-demo.tsx` triggers real Vite HMR. The old controller must restore the source and
+// release its resources before the replacement; HMR is a new root lifetime. The file's timestamp is
+// restored afterwards.
 test("real paired-demo HMR serializes ownership restoration and retired resource cleanup", async ({ page }) => {
   const path = "examples/playground/src/demo/paired-demo.tsx", original = await stat(path), errors = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -668,6 +745,8 @@ test("real paired-demo HMR serializes ownership restoration and retired resource
   }
 });
 
+// With no owned animation, only the decorative ripple, switching on reduced motion must render the
+// decorative layer at identity: its region equals the plain DOM baseline pixel for pixel.
 test("effect-only reduced motion immediately renders decorative identity", async ({ page }) => {
   await ready(page);
   const baseline = (await pixels(page, "effect-only-dom")).png.data;

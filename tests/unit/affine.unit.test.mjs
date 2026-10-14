@@ -1,7 +1,12 @@
+/**
+ * Unit tests for the 2D affine helpers in `packages/underglass/src/affine.ts` (transform composition,
+ * inverse, pivot and CSS matrix output). Pure maths, no browser. Run with `npm run test:unit`.
+ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { affine, inverse, pivot, point, cssMatrix } from "../../packages/underglass/src/affine.ts";
 
+// Round trip: mapping a point forward and back through the inverse must return it within floating point error.
 test("canonical affine transform and inverse agree for rotation/scale/translation", () => {
   for (const transform of [{}, { x: 15, y: -2 }, { scaleX: 0.8, scaleY: 1.3, rotation: 27 }, { scaleX: -1, rotation: -75 }]) {
     const matrix = affine(transform, { x: 31, y: 82 });
@@ -14,12 +19,14 @@ test("canonical affine transform and inverse agree for rotation/scale/translatio
   }
 });
 
+// Invalid input must throw; there is no default transform that could be mistaken for success.
 test("finite singular/opacity guards reject without usable success defaults", () => {
   for (const transform of [{ x: NaN }, { y: Infinity }, { rotation: Infinity }, { scaleX: 0 }, { scaleY: 1e-12 },
     { opacity: -0.1 }, { opacity: 1.1 }]) assert.throws(() => affine(transform), /finite invertible/);
   assert.throws(() => inverse([0, 0, 0, 1, 0, 0]), /Invalid affine inverse/);
 });
 
+// Extreme finite inputs: a huge rotation is reduced, and scale/translation combinations that overflow are rejected.
 test("computed coefficients, determinant and inverse stay finite for extreme inputs", () => {
   assert.deepEqual(affine({ rotation: Number.MAX_VALUE }), affine({ rotation: Number.MAX_VALUE % 360 }));
   for (const transform of [{ scaleX: 1e308, scaleY: 1e308 },

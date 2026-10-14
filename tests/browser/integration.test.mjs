@@ -1,3 +1,14 @@
+/**
+ * Browser suite for the library integration on `integration.html` (`window.integrationProbe`, from
+ * `examples/playground/src/demo/integration-demo.tsx`): React `ref` enrollment of layers, `Presence` enter and
+ * exit, declarative motion (`transition`, `group`), a Radix dialog in the native overlay host, and the
+ * fallback and recovery paths. It proves that enrolled layers are GPU-presented with fresh pixels while the
+ * original React controls keep identity, value, selection and focus; that invalid enrollments and motion are
+ * refused atomically; that motion needs no React commit, capture or upload; and that device loss, HMR, missing
+ * browser flags and disposal leave a usable original DOM and zero live resources. Tests marked `strict` use
+ * the Vite dev server (React StrictMode); the others use the preview build. Fixed frame coordinates: the red
+ * `library` layer around (55, 345), the green layer/card around (400, 200) on a 640x420 frame at DPR 1.
+ */
 import { chromium } from "@playwright/test";
 import { test, expect } from "../helpers/current-browser.mjs";
 import { developmentURL, previewURL } from "../helpers/urls.mjs";
@@ -6,11 +17,16 @@ import { PNG } from "pngjs";
 
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 import { browserLaunchOptions } from "../helpers/browser.mjs";
+// Evidence directory for JSON reports and screenshots.
 const evidence = evidenceDirectory("integration");
 async function save(name, data) {
   await mkdir(evidence, { recursive: true });
   await writeFile(`${evidence}/${name}.json`, JSON.stringify(data, null, 2));
 }
+/**
+ * Opens `integration.html` (dev server with `?strict` when `strict`; `?dom` skips the automatic enable), waits for
+ * GPU unless `dom`, then waits 300 ms and drains scheduled work.
+ */
 async function ready(page, strict = false, dom = false) {
   await page.goto(`${strict ? developmentURL : ""}/integration.html?${strict ? "strict&" : ""}${dom ? "dom" : ""}`);
   await page.waitForFunction(() => window.integrationProbe && !window.integrationProbe.state().initializing);
@@ -18,11 +34,16 @@ async function ready(page, strict = false, dom = false) {
   await page.waitForTimeout(300);
   await page.evaluate(() => window.integrationProbe.settle());
 }
+/** Asserts that disposal left no GPU, runtime or demo-listener resources. */
 function zero(state) {
   expect(Object.values(state.resources).every(value => value === 0)).toBe(true);
   expect(Object.values(state.runtimeResources).every(value => value === 0)).toBe(true);
   expect(state.demoListeners).toBe(0);
 }
+/**
+ * Screenshots `#frame` (saved as evidence) and returns the RGBA at screenshot pixel (x, y). The coordinates are
+ * used as-is, so they equal CSS pixels only at DPR 1, which is what the tests using it run at.
+ */
 async function pixel(page, name, x = 400, y = 200) {
   await mkdir(evidence, { recursive: true });
   const png = PNG.sync.read(await page.locator("#frame").screenshot({ path: `${evidence}/${name}.png` }));
@@ -30,6 +51,10 @@ async function pixel(page, name, x = 400, y = 200) {
   return [...png.data.subarray(i, i + 4)];
 }
 
+// Three layers enrolled through refs. Admission verified two marker colours from the GPU output only. Native
+// typing, Enter, selection, a Radix dialog in the overlay host (outside the captured container) and focus
+// return all work on the original elements, including across an explicit disable and enable. Re-rendering
+// uploads new pixels, and an authored style set on a layer (opacity .7) survives disable.
 for (const strict of [false, true]) test(`ref enrollment and original Radix native semantics strict=${strict}`, async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -45,6 +70,7 @@ for (const strict of [false, true]) test(`ref enrollment and original Radix nati
   expect(initial.runtimeResources.enrolledLayers).toBe(3);
   expect(initial.resources.engines).toBe(1);
   expect(initial.metrics.admission.last.nativePixels).toEqual([]);
+  // Marker colours read back by admission from the GPU output.
   expect(initial.metrics.admission.last.gpuPixels).toEqual([[207, 37, 83, 255], [31, 179, 113, 255]]);
   await page.locator("#name-label").click();
   await expect(page.locator("#name")).toBeFocused();
@@ -88,9 +114,11 @@ for (const strict of [false, true]) test(`ref enrollment and original Radix nati
   const changedPixels = PNG.sync.read(await page.locator("#frame").screenshot());
   let changedBytes = 0;
   for (let i = 0; i < originalPixels.data.length; i++) if (originalPixels.data[i] !== changedPixels.data[i]) changedBytes++;
+  // The edited and re-rendered content must visibly change the canvas.
   expect(changedBytes).toBeGreaterThan(100);
   const authored = await page.evaluate(async () => {
     const element = document.querySelector("#library");
+    // An authored inline style is application-owned and must be left alone.
     element.style.opacity = ".7";
     await new Promise(resolve => setTimeout(resolve, 300));
     await window.integrationProbe.disable();
@@ -105,6 +133,9 @@ for (const strict of [false, true]) test(`ref enrollment and original Radix nati
   await save(`native-${strict}`, { initial, selection, changed, changedBytes, authored, disposed, errors });
 });
 
+// Eight times the original `#replacement` element is replaced by React. The old element must be retired
+// (disconnected, no `drawable` attribute), exactly one original remains, GPU stays active with no new
+// admission, three layers stay captured, and both layer colours are still painted at the right pixels.
 for (const dpr of [1, 2]) test(`original Replace ref actions retain GPU ownership DPR${dpr}`, async ({ browser }) => {
   const page = await browser.newPage({ deviceScaleFactor: dpr });
   try {
@@ -139,6 +170,9 @@ for (const dpr of [1, 2]) test(`original Replace ref actions retain GPU ownershi
   } finally { await page.close(); }
 });
 
+// Invalid enrollments (nested, foreign, detached, duplicate and bad id) each throw a coded error without
+// changing the element or the registry. After a React replace, the old element is cleaned up, and twenty
+// StrictMode lifetimes retire cleanly.
 test("atomic ref refusal, replacement, authored attribute cleanup and twenty retired lifetimes", async ({ page }) => {
   await ready(page, true);
   const atomic = await page.evaluate(() => {
@@ -169,6 +203,10 @@ test("atomic ref refusal, replacement, authored attribute cleanup and twenty ret
   await save("enrollment", { atomic, lifetimes });
 });
 
+// Presence exit and re-entry on the green card. Mid-exit the canvas shows a partially faded card (red channel
+// between 20 and 255); interrupting the exit restores the full card; after exit the frame is white. Then a
+// 60 s transition runs for 300 animation frames without commits, captures, copies, readbacks or uploads, and
+// a native edit afterwards still uploads fresh pixels.
 for (const strict of [false, true]) test(`single-subtree exit pixels, interruption and settled 300 frames strict=${strict}`, async ({ page }) => {
   await ready(page, strict);
   expect(await pixel(page, `presence-${strict}-entered`)).toEqual([20, 200, 90, 255]);
@@ -182,6 +220,7 @@ for (const strict of [false, true]) test(`single-subtree exit pixels, interrupti
   expect(await page.evaluate(() => window.originalCard === document.querySelector("#card"))).toBe(true);
   await page.waitForTimeout(1000);
   expect(await pixel(page, `presence-${strict}-interrupted`)).toEqual([20, 200, 90, 255]);
+  // Rapidly toggle presence six times (40 ms apart) to stress interrupted exits and entries.
   for (let index = 0; index < 6; index++) { await page.evaluate(value => window.integrationProbe.show(value), index % 2 === 1); await page.waitForTimeout(40); }
   await page.waitForTimeout(1000);
   expect(await page.locator("#card").count()).toBe(1);
@@ -225,6 +264,10 @@ for (const strict of [false, true]) test(`single-subtree exit pixels, interrupti
   await save(`presence-${strict}`, { exiting, entering, interval, changed, disposed });
 });
 
+// Motion API contract: a new transition replaces the running one (outcome `Replaced`) without a jump in the
+// layer's transform; durations above 60 s and infinite iterations are rejected; cancelling twice is harmless;
+// a competing native animation on the element is refused. Reduced motion skips the exit animation, and
+// after an explicit disable presence still works on the plain DOM.
 test("bounded timing, replacement outcome, conflicts, reduced motion and DOM recovery", async ({ page }) => {
   await ready(page);
   const outcomes = await page.evaluate(async () => {
@@ -277,6 +320,8 @@ test("bounded timing, replacement outcome, conflicts, reduced motion and DOM rec
   await save("transition-outcomes", { outcomes, fallback });
 });
 
+// Destroys the configured GPU device while an exit animation is running. The page falls back to DOM with the
+// original input and its value, finishes the exit, then a fresh explicit enable is admitted again.
 test("actual device loss interrupts presence, preserves native controls and permits fresh admission", async ({ page }) => {
   await ready(page);
   await page.locator("#name").fill("loss retained");
@@ -303,6 +348,8 @@ test("actual device loss interrupts presence, preserves native controls and perm
   await save("presence-loss", { fixture: "Public configured-device destruction, not physical driver-reset evidence", recovered, disposed });
 });
 
+// A group of two motions starts from one epoch with the second staggered by 200 ms (ends 500 and 700). An
+// invalid member rejects the whole group and leaves the state untouched.
 test("coordinated motion shares one epoch, staggers bounded starts and rejects groups atomically", async ({ page }) => {
   await ready(page);
   const report = await page.evaluate(async () => {
@@ -329,6 +376,9 @@ test("coordinated motion shares one epoch, staggers bounded starts and rejects g
   await save("coordinated", report);
 });
 
+// A held motion with translation, rotation and scale. The matrix stored for the layer must equal the matrix
+// reported by the browser (`getElementTransform`), and a real click at the transformed position of the input
+// must focus it and accept typing.
 test("nonidentity declarative motion applies actual affine native input geometry", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {
@@ -354,6 +404,7 @@ test("nonidentity declarative motion applies actual affine native input geometry
       hit: { x: frame.x + hit.x, y: frame.y + hit.y } };
   });
   expect(geometry.mode).toBe("gpu");
+  // Compare the 2D affine entries (a, b, c, d, e, f) with a tolerance of 1e-5.
   geometry.matrix.forEach((value, index) => expect(Math.abs(value - geometry.native[index])).toBeLessThanOrEqual(1e-5));
   await page.mouse.click(geometry.hit.x, geometry.hit.y);
   await expect(page.locator("#card-input")).toBeFocused();
@@ -366,6 +417,10 @@ test("nonidentity declarative motion applies actual affine native input geometry
   await save("affine-transition", { geometry, cancelled });
 });
 
+// In DOM mode, starting a group is refused when author CSS overrides the element's presentation
+// (transform-origin, `scale`, an opacity override through `:has`): each attempt must throw and leave
+// declarations, layers, motions and resources exactly as before. An already running motion
+// continues untouched. The variants cover a pre-existing motion and reduced motion.
 for (const { existing, reduced } of [
   { existing: false, reduced: false }, { existing: true, reduced: false }, { existing: false, reduced: true },
 ]) test(`DOM group presentation preparation is transactional existing=${existing} reduced=${reduced}`, async ({ page }) => {
@@ -427,6 +482,9 @@ for (const { existing, reduced } of [
   zero(report.disposed);
 });
 
+// An `!important` author declaration taking over a property during a motion cancels it (`ownership changed`)
+// without overwriting the author value. A group is refused while `!important` CSS is present. Unmounting the
+// Presence parent mid-exit cancels the motion and no stale callbacks fire.
 test("DOM declaration conflicts and Presence parent unmount cancel without stale callbacks", async ({ page }) => {
   await ready(page, true, true);
   const conflict = await page.evaluate(async () => {
@@ -481,6 +539,8 @@ test("DOM declaration conflicts and Presence parent unmount cancel without stale
   await save("unmount-and-declarations", { conflict, refused, before, unmounted, authored });
 });
 
+// Touching the demo source triggers a real Vite HMR; the previous probe, its refs and its presence lifetime
+// must be fully retired and the new module admitted again. The file times are restored afterwards.
 test("real development HMR retires the prior ref and presence lifetime", async ({ page }) => {
   await ready(page, true);
   await page.evaluate(() => { window.oldProbe = window.integrationProbe; window.integrationProbe.show(false); });
@@ -498,6 +558,8 @@ test("real development HMR retires the prior ref and presence lifetime", async (
   } finally { await utimes(path, original.atime, original.mtime); }
 });
 
+// Launched without the HTML-in-Canvas flags: the page stays in ordinary DOM mode and the controls and dialog
+// remain fully usable.
 test("installed Chrome without experimental flags keeps usable original library DOM", async () => {
   const browser = await chromium.launch(browserLaunchOptions({ native: false }));
   const page = await browser.newPage({ viewport: { width: 900, height: 750 } });

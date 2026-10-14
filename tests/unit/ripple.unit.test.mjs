@@ -1,3 +1,7 @@
+/**
+ * Unit test for `validateRipple` in `packages/underglass/src/ripple.ts`: parameter bounds and the
+ * `playing` default. Run with `npm run test:unit`.
+ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateRipple } from "../../packages/underglass/src/ripple.ts";

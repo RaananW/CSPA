@@ -1,3 +1,7 @@
+/**
+ * Unit test for `compileStyle` in `packages/underglass/src/compiler.ts`, which turns the typed layout and
+ * appearance props into browser style values. Run with `npm run test:unit`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compileStyle } from "../../packages/underglass/src/compiler.ts";

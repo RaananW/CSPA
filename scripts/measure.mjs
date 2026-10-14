@@ -1,3 +1,18 @@
+/**
+ * Serial production measurement of the playground performance fixture (`performance.html`) and of the
+ * todo app's pixel latency: DOM versus GPU presentation, static, affine and ripple variants, 2/4/8 layers,
+ * DPR 1 and 2, three repetitions each, plus a native-input window and a checkbox-to-pixels latency run.
+ *
+ * Invoked as `npm run measure` (which builds first) or `node scripts/measure.mjs --smoke` for a quick
+ * single-repetition pass (one DPR, two layers, 500 ms windows). It starts `vite preview` itself on
+ * `CANVAS_MEASURE_PORT` (default 5287) and refuses to run if something already serves that port, so the
+ * build under test is the one just built. The browser comes from `browserLaunchOptions`.
+ *
+ * Output: `<evidence root>/performance/performance.json` (`performance-smoke.json` with `--smoke`),
+ * rewritten after every run so a crash keeps earlier results; `completed: true` marks a finished report.
+ * Times are CPU and wall-clock only (GPU execution time is not measured). Any failed assertion throws and
+ * exits non-zero. Evidence is sanitized on exit.
+ */
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
 import { spawn } from "node:child_process";
@@ -8,6 +23,7 @@ import { evidenceDirectory } from "../tests/helpers/evidence.mjs";
 import { taskPixelLatency } from "./interaction-contract.mjs";
 import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
 
+// `--smoke` shrinks every dimension of the matrix for a fast sanity run.
 const smoke = process.argv.includes("--smoke");
 const port = Number(process.env.CANVAS_MEASURE_PORT ?? 5287);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Invalid measurement preview port");
@@ -16,11 +32,14 @@ const directory = evidenceDirectory("performance");
 const filename = `${directory}/performance${smoke ? "-smoke" : ""}.json`;
 await mkdir(directory, { recursive: true });
 try {
+  // Nothing may answer on the port yet. Only a refused connection lets the run continue; anything else
+  // could mean a stale or unknown build is being measured.
   await fetch(url);
   throw new Error(`Measurement port ${port} already serves a page; refusing to reuse an unknown build`);
 } catch (error) {
   if (error.cause?.code !== "ECONNREFUSED") throw error;
 }
+// Run Vite's preview through this Node process directly, as elsewhere in the harness, to avoid shell shims.
 const vite = fileURLToPath(new URL("./bin/vite.js", import.meta.resolve("vite/package.json")));
 const server = spawn(process.execPath, [vite, "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
   stdio: ["ignore", "pipe", "pipe"], detached: false,
@@ -28,6 +47,8 @@ const server = spawn(process.execPath, [vite, "preview", "--host", "127.0.0.1", 
 let serverOutput = "";
 for (const stream of [server.stdout, server.stderr]) stream.on("data", data => { serverOutput += data; });
 let browser;
+// Summary statistics for a list of numbers. Median and p95 use the nearest-rank method; an empty list
+// yields nulls.
 function distribution(values) {
   if (!values.length) return { count: 0, total: 0, median: null, p95: null, min: null, max: null };
   const ordered = [...values].sort((a, b) => a - b);
@@ -35,15 +56,21 @@ function distribution(values) {
     median: ordered[Math.ceil(ordered.length * 0.5) - 1], p95: ordered[Math.ceil(ordered.length * 0.95) - 1],
     min: ordered[0], max: ordered.at(-1) };
 }
+// Per-counter difference between two state snapshots of the fixture's metrics.
 function delta(before, after) {
   return Object.fromEntries(["captures", "pixelCopies", "pixelReadbacks", "uploads", "uploadBytes", "gpuFrames", "geometryUpdates", "paintNotifications"]
     .map(key => [key, after.metrics[key] - before.metrics[key]]));
 }
+// After dispose the controller must report mode `disposed` and every tracked resource count at zero.
 function zero(state) {
   assert.equal(state.mode, "disposed");
   assert(Object.values(state.resources).every(value => value === 0), "Retired core resources must be zero");
   assert(Object.values(state.runtimeResources).every(value => value === 0), "Retired runtime resources must be zero");
 }
+// Reduces one raw run to the reported figures: work counters, RAF interval statistics, an estimate of
+// missed refresh slots, CPU sample statistics and per-layer capture and upload rates. The refresh budget is
+// the run's own warmup median RAF interval, so a slot estimate is relative to that display, not a fixed
+// 60 Hz.
 function summary(run) {
   const budget = distribution(run.warmup.intervals).median;
   const d = delta(run.measurement.before, run.measurement.after);
@@ -64,10 +91,12 @@ function summary(run) {
     }),
   };
 }
+// Persists the whole report so far.
 async function save(report) {
   await writeFile(filename, JSON.stringify(report, null, 2));
 }
 try {
+  // Wait up to 15 s for the preview server to serve the fixture page.
   const deadline = Date.now() + 15000;
   while (true) {
     try { const response = await fetch(`${url}/performance.html`); if (response.ok) break; }
@@ -78,11 +107,13 @@ try {
   browser = await chromium.launch(browserLaunchOptions());
   const cdp = await browser.newBrowserCDPSession();
   const system = await cdp.send("SystemInfo.getInfo");
+  // Record the browser build, its command line and the GPU so results can be compared across machines.
   const environment = { browser: await cdp.send("Browser.getVersion"), launch: await cdp.send("Browser.getBrowserCommandLine"),
     gpu: system.gpu.devices.map(({ vendorString, deviceString }) => ({ vendorString, deviceString })),
     renderer: system.gpu.auxAttributes?.glRenderer, gpuExecutionTimestampMs: null,
     dependencies: JSON.parse(await readFile("package.json", "utf8")), build: "Vite production, react-dom/profiling; installed browser headless, single serial writer" };
   await cdp.detach();
+  // `method` states what each number means and does not mean; it is written into the report next to the data.
   const report = { environment, method: {
     requestedWindowMs: smoke ? 500 : 2000, warmupMs: 500, repetitions: smoke ? 1 : 3,
     timer: "performance.now, real wall-clock/rAF, no deterministic timeline advance",
@@ -94,11 +125,13 @@ try {
     isolation: "Matched viewport900x750, same browser/hardware/content; contexts differ only DPR, declared variant/count; variant order rotated each repetition; serial engine lifetimes",
     inputWorkload: "Separate 1000ms window: five native controlled-input replacements, 80ms spacing; includes automation/wait time, not a maximum throughput benchmark",
   }, runs: [], latency: [], latencyRetirements: [] };
+  // The variant order is rotated each repetition, so no variant is always run first.
   const variants = ["dom-static", "gpu-static", "dom-affine", "gpu-affine", "gpu-ripple"];
   for (const dpr of smoke ? [1] : [1, 2]) for (const layers of smoke ? [2] : [2, 4, 8]) {
     for (let repetition = 0; repetition < report.method.repetitions; repetition++) {
       const order = [...variants.slice(repetition), ...variants.slice(0, repetition)];
       for (const variant of order) {
+        // A fresh context per run, so each run starts with no engine, cache or listener left from the last.
         const context = await browser.newContext({ viewport: { width: 900, height: 750 }, deviceScaleFactor: dpr });
         const page = await context.newPage(), errors = [];
         page.on("pageerror", error => errors.push(error.message));
@@ -106,10 +139,13 @@ try {
           await page.goto(`${url}/performance.html?layers=${layers}&variant=${variant}`);
           await page.waitForFunction(() => window.measurement, null, { timeout: 10000 });
           assert.equal(await page.evaluate(() => window.measurement.version), "19.3.0");
+          // The warmup window yields the refresh-interval baseline used by `summary`; the measurement window follows.
           const warmup = await page.evaluate(() => window.measurement.collect(500));
           const measurement = await page.evaluate(ms => window.measurement.collect(ms), report.method.requestedWindowMs);
           assert.equal(measurement.after.mode, variant.startsWith("gpu") ? "gpu" : "dom");
           assert.equal(measurement.after.layers.length, layers);
+          // Input window: five real edits of the native input, 80 ms apart, while metrics are collected. Each edit
+          // must produce exactly one React commit and, in GPU variants, at least one upload.
           const beforeInput = PNG.sync.read(await page.locator("#frame").screenshot());
           const inputWindow = page.evaluate(() => window.measurement.collect(1000));
           for (let edit = 0; edit < 5; edit++) {
@@ -123,6 +159,7 @@ try {
           await page.locator("#measurement-input").evaluate(node => node.blur());
           await page.evaluate(() => window.measurement.settle());
           const afterInput = PNG.sync.read(await page.locator("#frame").screenshot());
+          // The edits must visibly change the fixture output, so a stale presented image cannot pass.
           const changedInputBytes = afterInput.data.reduce((total, value, index) => total + Number(value !== beforeInput.data[index]), 0);
           assert(changedInputBytes > 50, "Actual native edits must change decoded fixture output");
           const estimates = await page.evaluate(() => {
@@ -137,6 +174,8 @@ try {
           });
           const startup = await page.evaluate(() => ({ startupMs: window.measurement.startupMs }));
           let inputVsDOMBytes = null;
+          // For static variants, disable GPU and compare the plain DOM rendering with the GPU output; the byte
+          // difference is recorded, not asserted (text rasterization can differ at DPR 2).
           if (variant.endsWith("static")) {
             await page.evaluate(() => window.measurement.disable());
             const domInput = PNG.sync.read(await page.locator("#frame").screenshot());
@@ -159,6 +198,7 @@ try {
       }
     }
   }
+  // Latency runs: the todo app in DOM and in GPU mode, measured from a native click to changed task-row pixels.
   for (const dpr of smoke ? [1] : [1, 2]) for (const gpu of [false, true]) {
     const context = await browser.newContext({ viewport: { width: 900, height: 950 }, deviceScaleFactor: dpr });
     const page = await context.newPage();
