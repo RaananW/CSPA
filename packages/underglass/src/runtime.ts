@@ -312,7 +312,7 @@ export class CanvasRuntime {
       this.refreshViewportGeometry();
       this.core.draw();
     } catch (error) {
-      console.error("CanvasSPA viewport projection failed", error);
+      console.error("Underglass viewport projection failed", error);
       this.recover(`Native/GPU viewport projection failed: ${String(error)}`);
     }
   }
@@ -392,7 +392,7 @@ export class CanvasRuntime {
     // ancestor, the output canvas content box already bounds its GPU pixels and,
     // as proven at admission, its native hits, so only its own overflow clip remains.
     if (!clip && geometry && !axisAligned(applied) && this.canvasBoundsFrame()) {
-      // Chromium hit-tests a rotated canvasClip by its canvas-space bounding box, so a
+      // Chromium hit-tests a rotated canvasClip by its canvas-space bounding box (crbug.com/573454036), so a
       // clipped-away overflow would stay clickable; refuse rather than mismatch hits.
       if (geometry.own && geometry.overflowing) throw new Error("Rotated layers with clipped overflowing content require ordinary DOM");
       return geometry.own;
@@ -540,8 +540,8 @@ export class CanvasRuntime {
   private recover(reason: string) {
     if (this.stopped || !this.core) return;
     void this.core.recover(reason).catch(error => {
-      console.error("CanvasSPA recovery failed", error);
-      this.options.onStatus?.(`CanvasSPA recovery failed: ${String(error)}`);
+      console.error("Underglass recovery failed", error);
+      this.options.onStatus?.(`Underglass recovery failed: ${String(error)}`);
     });
   }
   private listen(target: EventTarget, name: string, callback: EventListener, capture = false) {
@@ -733,7 +733,7 @@ export class CanvasRuntime {
       this.admittedSize = signature;
       this.core.reconcile();
     }
-    catch (error) { console.error("CanvasSPA reconciliation failed", error); this.recover(`Native/GPU reconciliation failed: ${String(error)}`); }
+    catch (error) { console.error("Underglass reconciliation failed", error); this.recover(`Native/GPU reconciliation failed: ${String(error)}`); }
   }
   private reconcileMembership() {
     if (this.stopped || this.core?.phase() !== "gpu") return;

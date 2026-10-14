@@ -23,6 +23,7 @@ export function createAdmissionProbe(host: DrawableCanvas) {
   const matrix = new DOMMatrix().translate(place(rect.x, rect.width, view.innerWidth), place(rect.y, rect.height, view.innerHeight))
     .rotate(11).scale(0.75);
   // Marker points sit well inside their colour band and the clip. Chromium clips hits on a
+  // (crbug.com/573454036, WICG html-in-canvas#186)
   // rotated layer to the clip's canvas-space bounding box, not the rotated rectangle, so the
   // clipped point lies beyond that box: top right, where the rotated clip edge leans inward.
   // Every margin is several CSS pixels, so fractional canvas offsets cannot flip a result.
