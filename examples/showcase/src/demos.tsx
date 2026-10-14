@@ -9,9 +9,10 @@ import { PostcardStudio } from "./postcard";
 import { CardDeck } from "./deck";
 import { ShaderLab } from "./lab";
 import { NotificationStack } from "./notices";
+import { WebcamPond } from "./pond";
 import "../../playground/src/apps/todo/todo.css";
 
-const themes: Record<ExampleId, BackdropTheme> = { layers: "postcard", motion: "deck", effects: "lab", presence: "notices", tasks: "tasks" };
+const themes: Record<ExampleId, BackdropTheme> = { layers: "postcard", motion: "deck", effects: "lab", presence: "notices", tasks: "tasks", pond: "pond" };
 
 /**
  * One React root for every example. Switching examples swaps the enrolled
@@ -28,7 +29,8 @@ export function Demo({ id, onReady }: { id: ExampleId; onReady(change: (id: Exam
       : selected === "motion" ? <CardDeck key="motion" />
         : selected === "effects" ? <ShaderLab key="effects" />
           : selected === "presence" ? <NotificationStack key="presence" />
-            : <Tasks key="tasks" />}
+            : selected === "pond" ? <WebcamPond key="pond" />
+              : <Tasks key="tasks" />}
   </SceneProvider>;
 }
 
