@@ -1,7 +1,7 @@
 import { Profiler, version, useState, useEffect, useCallback, type ProfilerOnRenderCallback } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { createRoot, flushSync } from "./react-root";
-import { mountCanvasApp, useSurfaceRef, useNativeOverlayHost, defineEffect, type CanvasController, type EffectDescriptor, type EffectHandle } from "canvas-spa-phase-one";
+import { mountCanvasApp, useSurfaceRef, useNativeOverlayHost, defineEffect, type CanvasController, type EffectDescriptor, type EffectHandle } from "@canvas-spa/react";
 import { colorCycle } from "../apps/effects/color-cycle";
 import "./effects.css";
 

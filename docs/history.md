@@ -31,6 +31,10 @@ React18/19 peers, host CSS and actual installed-consumer verification.
 That standalone contract ships in the tarball; other links describe the
 repository checkout and its historical evidence.
 
+Rename (2026-10-14): the private library workspace `canvas-spa-phase-one@0.0.0`
+is now `@canvas-spa/react@0.1.0` (still `private`, unpublished); older entries and
+evidence keep the name used at the time.
+
 ## Phase 11 - native editing hardening
 
 **Phase11 engineering is independently accepted with limits; human/physical

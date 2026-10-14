@@ -16,7 +16,7 @@ const executable = process.env.CANVAS_BROWSER_EXECUTABLE;
 if (lane !== "build-only" && executable) await access(executable);
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const manifest = JSON.parse(await readFile("packages/canvas-spa/package.json", "utf8"));
-assert.equal(manifest.private, true); assert.equal(manifest.version, "0.0.0");
+assert.equal(manifest.private, true); assert.equal(manifest.version, "0.1.0");
 const parent = join(root, "evidence/phase14");
 assert.equal(process.env.CANVAS_RELEASE_ROOT, undefined, "Release root overrides are refused; prior archives are read-only");
 execFileSync("git", ["check-ignore", parent], { stdio: "pipe" });
@@ -153,7 +153,7 @@ try {
     const unitPaths = (await readdir(join(peer, "tests/unit"))).filter(path => path.endsWith(".unit.test.mjs")).map(path => `tests/unit/${path}`);
     await command(["--test", ...unitPaths], peer, `react${major}-units`);
     await writeFile(join(playground, "source-pilot.tsx"), (await readFile(join(peer, "fixtures/package-consumer/todo-main.tsx"), "utf8"))
-      .replace('"canvas-spa-phase-one"', '"../../packages/canvas-spa/src"').replaceAll('"./task/', '"./src/apps/todo/'));
+      .replace('"@canvas-spa/react"', '"../../packages/canvas-spa/src"').replaceAll('"./task/', '"./src/apps/todo/'));
     await writeFile(join(playground, "source-pilot.html"), (await readFile(join(playground, "todo.html"), "utf8")).replace("/src/demo/todo-demo.tsx", "/source-pilot.tsx"));
     await writeFile(join(peer, "source-pilot.config.mjs"), 'import config from "./examples/playground/vite.config.ts"; import {resolve} from "node:path"; export default {...config,cacheDir:resolve("owned-vite-cache"),build:{...config.build,target:"esnext",rollupOptions:{input:[...config.build.rollupOptions.input,resolve("examples/playground/source-pilot.html")]}}};');
     await command([tsc, "-p", "examples/playground/tsconfig.json"], peer, `react${major}-source-types`);

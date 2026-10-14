@@ -14,7 +14,7 @@
   },
   "files": ["src", "schema.json", "README.md"],
   "dependencies": {
-    "canvas-spa-phase-one": "0.0.0",
+    "@canvas-spa/react": "0.1.0",
     "magic-string": "1.4.3",
     "postcss": "8.5.29",
     "postcss-load-config": "6.0.1",

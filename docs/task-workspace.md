@@ -43,7 +43,7 @@ art is static in DOM fallback.
 ## Public adopter bootstrap
 
 The exact-package fixture `fixtures/package-consumer/todo-main.tsx` imports
-only the intentional `canvas-spa-phase-one` entry. Its generated application
+only the intentional `@canvas-spa/react` entry. Its generated application
 copies the actual task source and changes its API import to that entry; it does
 not alias the core source or import a demo controller. The task app is example
 source, **not** a new package export. An adopter authors/copies its application,
@@ -51,7 +51,7 @@ keeps its stylesheet and declares React/React DOM plus its chosen Radix version.
 Only matching installed peer versions are reused during local validation.
 
 ```tsx
-import { mountCanvasApp } from "canvas-spa-phase-one";
+import { mountCanvasApp } from "@canvas-spa/react";
 import { TodoApp } from "./task/TodoApp.js";
 import { taskTransitions } from "./task/transition.js";
 import "./task/todo.css";

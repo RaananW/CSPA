@@ -1,7 +1,7 @@
 import { Profiler, version, useState, useEffect, type ProfilerOnRenderCallback, type CSSProperties } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { createRoot, flushSync } from "./react-root";
-import { mountCanvasApp, Surface, Presence, useSurfaceRef, useNativeOverlayHost, type CanvasController, type MotionDescriptor, type TransitionResult, type TransitionHandle } from "canvas-spa-phase-one";
+import { mountCanvasApp, Surface, Presence, useSurfaceRef, useNativeOverlayHost, type CanvasController, type MotionDescriptor, type TransitionResult, type TransitionHandle } from "@canvas-spa/react";
 import "./integration.css";
 
 const params = new URLSearchParams(location.search);

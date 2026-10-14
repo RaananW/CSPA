@@ -8,7 +8,7 @@ The intentional source entry point is `packages/canvas-spa/src/index.ts`. This p
 experimental package has no published package name or stability promise.
 Do not import demo facades or internal renderer classes into application code.
 The private prepared tarball now exports the same API at
-`canvas-spa-phase-one` with declarations, independently accepted with Phase10
+`@canvas-spa/react` with declarations, independently accepted with Phase10
 limits. See [distribution](distribution.md) for actual install commands,
 host CSS, public dependency/type boundaries and the bounded browser contract.
 
@@ -38,9 +38,9 @@ worker backend.
 | `@canvas-spa/css-compiler/vite` and `/webpack` | Production-build adapters configured by `canvas-spa.config.json`; selected local/package styles use the application's verified preprocessing pipeline. |
 | `virtual:canvas-spa/compiled` | Generated `CompiledProgramSet`: literal WGSL/bindings and matching numeric native-geometry samplers. Pass it as `compiled` to `mountCanvasApp`. |
 | `controller.ownCompiledAnimation(id, animationId)` | Explicit ownership of an enrolled original element's matching CSS animation. Returns the existing playback interface; disable/release/disposal restores native behavior. |
-| `canvas-spa-phase-one/build` | Build-only compositor/animation generators, including `workerCompositorProgram(1..8)`. Do not import this entry into the compiled browser runtime. |
-| `canvas-spa-phase-one/experimental-worker` | `mountWorkerCanvasApp`, `WorkerSurface` and public worker types. Essential/native-control geometry is fixed; only inert decoration animates. |
-| `canvas-spa-phase-one/experimental-worker/thread` | `startWorkerCompositor(self)` for an application-owned module worker. React, DOM/layout and native capture remain main-thread. |
+| `@canvas-spa/react/build` | Build-only compositor/animation generators, including `workerCompositorProgram(1..8)`. Do not import this entry into the compiled browser runtime. |
+| `@canvas-spa/react/experimental-worker` | `mountWorkerCanvasApp`, `WorkerSurface` and public worker types. Essential/native-control geometry is fixed; only inert decoration animates. |
+| `@canvas-spa/react/experimental-worker/thread` | `startWorkerCompositor(self)` for an application-owned module worker. React, DOM/layout and native capture remain main-thread. |
 
 Compiled and worker runtime routes consume prebuilt shaders; the default
 noncompiled route still generates WGSL internally. Device-specific pipeline
@@ -171,8 +171,8 @@ Those styles are host integration, not layer authoring.
 
 ```tsx
 import { useState } from "react";
-import { mountCanvasApp, Surface, Box, NativeOverlay } from "canvas-spa-phase-one";
-import type { CanvasStatus } from "canvas-spa-phase-one";
+import { mountCanvasApp, Surface, Box, NativeOverlay } from "@canvas-spa/react";
+import type { CanvasStatus } from "@canvas-spa/react";
 
 function App() {
   const [name, setName] = useState("");

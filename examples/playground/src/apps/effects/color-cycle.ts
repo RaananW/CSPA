@@ -1,4 +1,4 @@
-import { defineEffect } from "canvas-spa-phase-one";
+import { defineEffect } from "@canvas-spa/react";
 
 export const colorCycle = defineEffect({
   name: "poster-color-cycle",

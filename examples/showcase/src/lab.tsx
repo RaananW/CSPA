@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Surface, type EffectDescriptor } from "canvas-spa-phase-one";
+import { Surface, type EffectDescriptor } from "@canvas-spa/react";
 import { Panel, useReducedMotion } from "./shared";
 import { aurora, policy, residentChain, useScene, useSceneArt } from "./scene";
 

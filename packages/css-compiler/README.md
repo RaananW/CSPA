@@ -98,7 +98,7 @@ preprocessors/loader chains require separate qualification.
 ```tsx
 /// <reference types="@canvas-spa/css-compiler/client" />
 import compiled from "virtual:canvas-spa/compiled";
-import { mountCanvasApp, useSurfaceRef } from "canvas-spa-phase-one";
+import { mountCanvasApp, useSurfaceRef } from "@canvas-spa/react";
 
 function App() {
   const ref = useSurfaceRef({ id: "card" });

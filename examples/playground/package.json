@@ -10,7 +10,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "canvas-spa-phase-one": "0.0.0",
+    "@canvas-spa/react": "0.1.0",
     "@radix-ui/react-dialog": "1.2.0",
     "@babylonjs/lite-gl": "1.15.0",
     "react": "19.3.0",

@@ -1,4 +1,4 @@
-import type { CanvasController } from "canvas-spa-phase-one";
+import type { CanvasController } from "@canvas-spa/react";
 import type { taskTransitions } from "../apps/todo/transition";
 import { TODO_DECORATION } from "../apps/todo/TodoApp";
 

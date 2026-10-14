@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Surface } from "canvas-spa-phase-one";
+import { Surface } from "@canvas-spa/react";
 import { Panel } from "./shared";
 import { useSceneArt } from "./scene";
 
