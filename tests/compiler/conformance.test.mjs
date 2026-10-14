@@ -1,3 +1,9 @@
+/**
+ * CSS conformance suite: one test per stylesheet in `css-corpus.mjs`. Accepted stylesheets must compile,
+ * generate a valid program set and produce finite, in-range samples at the reference times. Refused
+ * stylesheets must fail with a source-located `CssSyntaxError`. No browser; run with `node --test`. The
+ * browser comparison against native CSS is in `native-css-reference.mjs` and `gpu-parity.mjs`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compileStylesheet } from "../../packages/css-compiler/src/index.mjs";
@@ -13,6 +19,7 @@ for (const fixture of acceptedCSS) {
     validateCompiledPrograms(compiled);
     for (const time of referenceTimes(animations[0])) {
       const phase = compiled.animations[0].normalizeTime(time);
+      // The phase uploaded to the GPU lies in [0, 1], or [0, 2] for an alternating animation.
       assert.ok(Number.isFinite(phase) && phase >= 0 && phase <= (animations[0].timing.direction === "alternate" ? 2 : 1));
       const sample = compiled.animations[0].sample(time);
       assert.ok(Object.values(sample).every(Number.isFinite), `${fixture.label} at ${time}`);
