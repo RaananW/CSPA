@@ -198,8 +198,8 @@ refusals, cancellation/concurrent disposal, delayed stop/retry, synthetic
 device loss and zero resources after healthy disposal.
 
 The benchmark compares the same eight-layer React app and seven opacity
-animations across ordinary CSS/WAAPI **CSPA DOM fallback**, existing main-thread
-CSPA and the prebuilt worker route. This CSS baseline still contains CSPA's DOM
+animations across ordinary CSS/WAAPI **Underglass DOM fallback**, existing main-thread
+Underglass and the prebuilt worker route. This CSS baseline still contains Underglass's DOM
 bookkeeping; it is not an independently unadopted application.
 Three repetitions rotate execution order, with500ms warmup and2seconds measured
 per cell. Contention combines a React update every80ms and45ms synchronous

@@ -32,7 +32,7 @@ const report = { status: "running", peer, functionalOnly, startedAt: new Date().
   "Worker/main rAF and CPU work are not physical presentation, GPU execution or input-to-photon",
   "Memory is texture-byte accounting only, not browser/driver/RSS",
   "One installed Canary/hardware environment; no production or manual acceptance",
-  "CSS comparator is CSPA DOM fallback, not an unadopted no-framework app; external host activity uncontrolled",
+  "CSS comparator is Underglass DOM fallback, not an unadopted no-framework app; external host activity uncontrolled",
 ] };
 let browser, server, watchdog;
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");

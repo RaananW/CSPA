@@ -29,7 +29,7 @@ The package is not on npm yet. Build a tarball from this repository and install 
 ```sh
 npm ci --ignore-scripts
 npm run pack:library            # writes underglass-react-<version>.tgz
-cd ../your-app && npm install ../CSPA/underglass-react-*.tgz
+cd ../your-app && npm install ../underglass/underglass-react-*.tgz
 ```
 
 ## Your first layer
@@ -94,5 +94,5 @@ if (state.mode !== "gpu") console.info("Staying in DOM:", state.reason);
 - [Building components](components.md): the standard for components that work here.
 - [Troubleshooting](troubleshooting.md): what each fallback reason means.
 - [API reference](../api.md) for every option.
-- The [live showcase](https://raananw.github.io/CSPA/) and its source in
+- The [live showcase](https://raananw.github.io/underglass/) and its source in
   `examples/showcase`.

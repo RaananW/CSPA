@@ -43,16 +43,16 @@ descendants. Descendant CSS transitions/animations are allowed: they repaint
 native content and do not block declarative motion or revoke GPU.
 
 ```sh
-npm run dev:showcase       # builds the library first; localhost:5190/CSPA/
+npm run dev:showcase       # builds the library first; localhost:5190/underglass/
 npm run build:showcase     # examples/showcase/dist only
-npm run preview:showcase   # localhost:5191/CSPA/
+npm run preview:showcase   # localhost:5191/underglass/
 # For a domain-root site/local root preview:
 CANVAS_SHOWCASE_BASE=/ npm run build:showcase
 ```
 
-The default base is `/CSPA/`. Override `CANVAS_SHOWCASE_BASE` with an absolute
+The default base is `/underglass/`. Override `CANVAS_SHOWCASE_BASE` with an absolute
 directory path ending in `/` for a different project/domain. Hash URLs such as
-`/CSPA/#/motion` load and reload without server rewrite rules. Catalog navigation,
+`/underglass/#/motion` load and reload without server rewrite rules. Catalog navigation,
 search and categories stay in the SPA; no iframe capture is used.
 
 The surrounding responsive chrome uses ordinary CSS; its hero motion stops
@@ -92,7 +92,7 @@ Underglass checks working capture and geometry and reports refusal reasons.
 ## Deployment
 
 `.github/workflows/showcase-pages.yml` builds and deploys the showcase to GitHub
-Pages (<https://raananw.github.io/CSPA/>) on every push to `main` that touches
+Pages (<https://raananw.github.io/underglass/>) on every push to `main` that touches
 the showcase, the library, the compiler or the lockfile, and on manual dispatch.
 It never runs for pull requests. It uses immutable action refs, restores from
 the committed lockfile without browser downloads, uploads a showcase-only Pages
