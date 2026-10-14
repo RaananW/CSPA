@@ -316,7 +316,7 @@ export class CanvasRuntime {
       this.recover(`Native/GPU viewport projection failed: ${String(error)}`);
     }
   }
-  private viewportGeometry = new WeakMap<HTMLElement, { origin: { x: number; y: number }; extent: { width: number; height: number }; clip?: ViewportRect; own?: ViewportRect; error?: string }>();
+  private viewportGeometry = new WeakMap<HTMLElement, { origin: { x: number; y: number }; extent: { width: number; height: number }; clip?: ViewportRect; own?: ViewportRect; overflowing?: boolean; error?: string }>();
   private viewportAncestors = new Set<HTMLElement>();
   private refreshViewportGeometry() {
     const ancestors = new Set<HTMLElement>();
@@ -351,7 +351,7 @@ export class CanvasRuntime {
     this.externalAncestors = external;
     for (const layer of this.registry.values()) {
       const origin = scrollOrigin(layer.element, this.rootContainer!);
-      let clip: ViewportRect | undefined, own: ViewportRect | undefined, error = externalError;
+      let clip: ViewportRect | undefined, own: ViewportRect | undefined, overflowing = false, error = externalError;
       for (let node: HTMLElement | null = layer.element; node; node = node.parentElement) {
         if (node !== layer.element) ancestors.add(node);
         const style = getComputedStyle(node);
@@ -366,12 +366,15 @@ export class CanvasRuntime {
             ? { x: 0, y: 0 } : scrollOrigin(node, this.rootContainer!);
           const rect = { x: at.x + node.clientLeft, y: at.y + node.clientTop,
             width: node.clientWidth, height: node.clientHeight };
-          if (node === layer.element) own = { x: 0, y: 0, width: node.offsetWidth, height: node.offsetHeight };
+          if (node === layer.element) {
+            own = { x: 0, y: 0, width: node.offsetWidth, height: node.offsetHeight };
+            overflowing = node.scrollWidth > node.clientWidth || node.scrollHeight > node.clientHeight;
+          }
           else clip = clip ? intersectViewport(clip, rect) : rect;
         }
         if (node === this.rootContainer) break;
       }
-      this.viewportGeometry.set(layer.element, { origin, extent: { width: layer.element.offsetWidth, height: layer.element.offsetHeight }, clip, own, error });
+      this.viewportGeometry.set(layer.element, { origin, extent: { width: layer.element.offsetWidth, height: layer.element.offsetHeight }, clip, own, overflowing, error });
     }
     for (const node of this.viewportAncestors) if (!ancestors.has(node)) this.resize.unobserve(node);
     for (const node of ancestors) if (!this.viewportAncestors.has(node)) this.resize.observe(node);
@@ -388,7 +391,12 @@ export class CanvasRuntime {
     // A rotated/skewed layer has no axis-aligned local frame clip. With no clipping
     // ancestor, the output canvas content box already bounds its GPU pixels and,
     // as proven at admission, its native hits, so only its own overflow clip remains.
-    if (!clip && geometry && !axisAligned(applied) && this.canvasBoundsFrame()) return geometry.own;
+    if (!clip && geometry && !axisAligned(applied) && this.canvasBoundsFrame()) {
+      // Chromium hit-tests a rotated canvasClip by its canvas-space bounding box, so a
+      // clipped-away overflow would stay clickable; refuse rather than mismatch hits.
+      if (geometry.own && geometry.overflowing) throw new Error("Rotated layers with clipped overflowing content require ordinary DOM");
+      return geometry.own;
+    }
     clip = clip ? intersectViewport(clip, frame) : frame;
     const local = localViewport(applied, clip);
     return geometry?.own ? intersectViewport(local, geometry.own) : local;

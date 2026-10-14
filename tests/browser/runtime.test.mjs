@@ -819,3 +819,18 @@ test("more than eight layers draw as ordered per-layer passes that match ordinar
   zero(disposed);
   expect(errors).toEqual([]);
 });
+
+for (const offset of ["0.5px", "8.5px", "0.25px"]) test(`functional admission passes with the canvas at a fractional offset ${offset}`, async ({ page }) => {
+  // Scrollbars and centred layouts put real canvases on half pixels; the probe's hit
+  // margins must not depend on whole-pixel placement.
+  await page.goto("/runtime.html?dom");
+  await page.waitForFunction(() => window.runtimeProbe);
+  const state = await page.evaluate(async offset => {
+    document.querySelector("#frame").style.marginLeft = offset;
+    document.querySelector("#frame").style.marginTop = offset;
+    return window.runtimeProbe.enable();
+  }, offset);
+  expect(state.mode, state.reason).toBe("gpu");
+  expect(state.metrics.admission.last.geometry.hits).toEqual([true, true, false]);
+  zero(await page.evaluate(() => window.runtimeProbe.dispose()));
+});

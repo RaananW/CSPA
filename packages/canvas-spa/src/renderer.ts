@@ -848,7 +848,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
           return Array.from(screenshot.data.subarray(offset, offset + 4));
         });
         verifyProbePixels(gpuPixels, "GPU");
-        const clipped = probe.matrix.transformPoint({ x: probe.extent * 0.9, y: probe.extent / 2 });
+        const clipped = probe.matrix.transformPoint(probe.clipped);
         const clippedOffset = (Math.floor(clipped.y * dpr) * screenshot.width + Math.floor(clipped.x * dpr)) * 4;
         const clippedPixel = Array.from(screenshot.data.subarray(clippedOffset, clippedOffset + 4));
         if (clippedPixel.length !== 4 || clippedPixel.some(value => Math.abs(value - 255) > 2)) {
