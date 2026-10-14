@@ -83,9 +83,11 @@ try {
       const path = join(directory, entry.name), name = `${prefix}${entry.name}`;
       if (entry.isDirectory()) { assert.equal(name, "assets"); await checkAssets(path, "assets/"); }
       else {
-        assert.ok(name === "index.html" || /^assets\/[\w-]+\.(js|css)$/.test(name), `Unexpected public asset: ${name}`);
+        // Hashed JS/CSS plus the JPEG previews of GPU mode shown to browsers that cannot run it.
+        assert.ok(name === "index.html" || /^assets\/[\w-]+\.(js|css|jpg)$/.test(name), `Unexpected public asset: ${name}`);
         const bytes = await readFile(path);
-        assert.ok(!/\/Users\/|session-state|evidence\/phase|PRIVATE KEY|sourceMappingURL/.test(bytes.toString()), `Private asset leak: ${name}`);
+        if (name.endsWith(".jpg")) assert.ok(bytes[0] === 0xff && bytes[1] === 0xd8, `Public image is not a JPEG: ${name}`);
+        else assert.ok(!/\/Users\/|session-state|evidence\/phase|PRIVATE KEY|sourceMappingURL/.test(bytes.toString()), `Private asset leak: ${name}`);
         assets.push({ path: name, bytes: bytes.length, sha256: sha(bytes) });
       }
     }

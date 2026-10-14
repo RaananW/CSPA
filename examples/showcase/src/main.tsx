@@ -4,6 +4,15 @@ import { version as reactDOMVersion } from "react-dom";
 import { createCanvasHosts, mountCanvasApp, type CanvasController } from "@canvas-spa/react";
 import { Demo } from "./demos";
 import { examples, route, searchExamples, type ExampleId } from "./catalog";
+import { detectSupport, explain, flags, type Support } from "./support";
+import postcardPreview from "./previews/postcard-studio.jpg";
+import deckPreview from "./previews/card-deck.jpg";
+import labPreview from "./previews/shader-lab.jpg";
+import noticesPreview from "./previews/notification-stack.jpg";
+import pondPreview from "./previews/webcam-pond.jpg";
+
+/** GPU-mode screenshots (Chrome Canary) shown to visitors whose browser cannot run it. */
+const previews: Partial<Record<ExampleId, string>> = { layers: postcardPreview, motion: deckPreview, effects: labPreview, presence: noticesPreview, pond: pondPreview };
 import "./style.css";
 
 function App() {
@@ -11,7 +20,8 @@ function App() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [mode, setMode] = useState("dom");
-  const [diagnostic, setDiagnostic] = useState("Ordinary DOM is ready. GPU is experimental and explicitly opt-in.");
+  const [diagnostic, setDiagnostic] = useState("Ordinary DOM startup; admission pending.");
+  const [support] = useState<Support>(detectSupport);
   const [busy, setBusy] = useState(false);
   const [disposed, setDisposed] = useState(false);
   const retired = useRef(false);
@@ -129,7 +139,8 @@ function App() {
             <button disabled={busy || disposed} onClick={() => void action("disable")}>Use ordinary DOM</button>
             <button disabled={busy || disposed} onClick={() => void action("dispose")}>Dispose example</button></div>
         </div>
-        <p className="diagnostic" role="status" aria-live="polite"><span className="diagnostic-label">Status</span>{diagnostic}</p>
+        {!gpu && !disposed && support !== "likely" && <GpuHelp support={support} preview={previews[selected]} title={current.title} />}
+        <Status reason={diagnostic} />
         {disposed && <p className="disposed-note">The example is disposed. Reload this page to start a fresh session.</p>}
         <div className="stage-frame">
           <div className="stage-chrome" aria-hidden="true"><i /><i /><i /><span>{gpu ? "webgpu · shared compositor" : "ordinary dom"}</span></div>
@@ -180,3 +191,40 @@ declare global {
   interface Window { showcase: { state(): ReturnType<CanvasController["state"]>; controller: CanvasController; react: string; reactDOM: string } }
 }
 createRoot(document.getElementById("app")!).render(<App />);
+
+/** Plain-language status with the runtime's exact reason one click away. */
+function Status({ reason }: { reason: string }) {
+  const { title, hint } = explain(reason);
+  return <div className="diagnostic" role="status" aria-live="polite">
+    <span className="diagnostic-label">Status</span>
+    <span className="diagnostic-text"><strong>{title}</strong>{hint && <> {hint}</>}
+      {title !== reason && <details><summary>Details</summary><code>{reason}</code></details>}</span>
+  </div>;
+}
+
+/** Shown when this browser cannot run GPU mode: how to get it, and what it looks like. */
+function GpuHelp({ support, preview, title }: { support: Support; preview?: string; title: string }) {
+  const [copied, setCopied] = useState<string>();
+  const [showPreview, setShowPreview] = useState(false);
+  const copy = (url: string) => { void navigator.clipboard?.writeText(url).then(() => setCopied(url), () => setCopied(undefined)); };
+  return <section className="gpu-help" aria-labelledby="gpu-help-title">
+    <div className="gpu-help-text">
+      <h3 id="gpu-help-title">{support === "chrome-flags" ? "Turn on GPU mode in Chrome Canary" : "You're seeing the ordinary DOM version"}</h3>
+      <p>{support === "chrome-flags"
+        ? "This browser doesn't have HTML-in-Canvas turned on. Everything below works as ordinary DOM; GPU mode adds the effects described under the stage."
+        : "GPU mode needs Chrome Canary's experimental HTML-in-Canvas. Every example below still works here as plain DOM, with the same controls."}</p>
+      <ol>
+        <li>Install <a href="https://www.google.com/chrome/canary/" target="_blank" rel="noreferrer">Chrome Canary</a>.</li>
+        {flags.map(flag => <li key={flag.url}>Open <code>{flag.url}</code>
+          <button type="button" className="copy" onClick={() => copy(flag.url)}>{copied === flag.url ? "Copied" : "Copy"}</button>
+          and set it to <strong>Enabled</strong>.</li>)}
+        <li>Restart Canary, come back here and press <strong>Enable experimental GPU</strong>.</li>
+      </ol>
+    </div>
+    {preview && <div className="gpu-help-preview">
+      <button type="button" className="preview-toggle" aria-expanded={showPreview} onClick={() => setShowPreview(value => !value)}>
+        {showPreview ? "Hide GPU preview" : "Show what GPU mode looks like"}</button>
+      {showPreview && <img src={preview} alt={`${title} in GPU mode, captured in Chrome Canary`} width={1040} height={700} />}
+    </div>}
+  </section>;
+}
