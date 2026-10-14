@@ -1,7 +1,7 @@
 # Example showcase and GitHub Pages preparation
 
 The private `examples/showcase` npm workspace is a React SPA using the public
-Underglass package. Its catalog opens six live examples in the same app. The
+Underglass package. Its catalog opens seven live examples in the same app. The
 engineering playground remains separate; raw reports, probes, test evidence and
 private fixtures are not served.
 
@@ -13,6 +13,7 @@ private fixtures are not served.
 | `#/presence` Notification stack | Four stable toast surfaces use `Presence` enter/exit; Dismiss buttons are ordinary React buttons and `onComplete` results are logged. Each arrival ripples the phone wallpaper. |
 | `#/tasks` Small tasks | The maintained task component reused unchanged from `examples/playground`. |
 | `#/pond` Webcam pond (experimental) | An optional camera image is mirrored onto a koi pond. The pond floor, text typed into a native input, CSS-animated fish and the camera `<video>` are one decorative layer under a continuous ripple (refraction) and the custom `showcase-pond` WGSL water shader (caustics, depth, glints). A native, rotated lily-pad layer feeds the fish. |
+| `#/fluent` Fluent release board | Stock Fluent UI v9 components (`@fluentui/react-components`), one `FluentProvider` inside each layer and `PortalMountNodeProvider` pointing Fluent's menus, dropdowns, tooltips and dialog at the overlay host. Cards are thrown between lanes on JavaScript springs (`setTransform` per frame) that keep the release velocity. Transition effects run on the live components: archiving burns a card away (custom `showcase-burn` WGSL), adding one materialises it, its editor (a full Fluent form) grows out of the card under ripple, chromatic and dissolve, a hard throw lands with a shockwave, and released cards warp into the poster. Content is inert only while an effect runs. |
 
 Under the stage, a **Why the GPU here** panel (from `src/catalog.ts`) states what the
 GPU path does in that example and, next to it, what CSS alone would do, including where

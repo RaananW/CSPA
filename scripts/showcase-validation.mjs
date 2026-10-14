@@ -306,6 +306,110 @@ try {
       await settle();
       assert.match(await page.locator("#task-message").innerText(), /Saved/);
       if (lane === "native") await output.screenshot({ path: join(run, "native-tasks.png") });
+      // Fluent release board: stock Fluent UI v9 controls, springs and transition effects on live layers.
+      await page.locator('.example-card[href="#/fluent"]').click();
+      await page.getByRole("button", { name: "Add item", exact: true }).waitFor();
+      const springTo = (id, x, y) => page.waitForFunction(([id, x, y]) => {
+        const transform = window.showcase.state().layers.find(layer => layer.id === id)?.transform;
+        return transform && Math.abs((transform.x ?? 0) - x) < .5 && Math.abs((transform.y ?? 0) - y) < .5 && Math.abs(transform.rotation ?? 0) < .01;
+      }, [id, x, y], { timeout: 8000 });
+      const fluentMode = async label => {
+        const current = await state();
+        assert.equal(current.mode, lane === "native" ? "gpu" : "dom", `${label}: ${current.reason}`);
+        return current;
+      };
+      const quiet = () => page.waitForFunction(() => window.showcase.state().runtimeResources.transitionEffects === 0, null, { timeout: 8000 });
+      // The opening cascade settles every card in its slot.
+      await springTo("fluent-item-6", 0, 172);
+      await settle();
+      record.fluent = { initial: await fluentMode("opened") };
+      // Fluent's own styles win over the showcase's base control styles.
+      assert.equal(await page.getByRole("button", { name: "Add item", exact: true }).evaluate(node => getComputedStyle(node).borderTopLeftRadius), "4px");
+      // A new card materialises while it springs out of the panel, then is an ordinary interactive card.
+      await page.locator("#fluent-title").fill("Validation item");
+      await page.getByRole("button", { name: "Add item", exact: true }).click();
+      await springTo("fluent-item-7", 0, 258);
+      await quiet();
+      // Inertness is inherited from the layer's direct child, so test the effective state.
+      assert.equal(await page.locator("#fluent-item-7 .fui-Card").evaluate(node => node.matches("[inert], [inert] *")), false);
+      let board;
+      if (lane === "native") { await settle(); board = PNG.sync.read(await output.screenshot({ path: join(run, "native-fluent-board.png") })); }
+      // The editor grows out of its card; its content is inert only while it materialises.
+      await page.getByRole("button", { name: "Edit Release notes", exact: true }).click();
+      await page.locator("#fluent-editor").waitFor();
+      if (lane === "native") {
+        await page.waitForFunction(() => document.querySelector("#fluent-editor form")?.matches("[inert] *") && window.showcase.state().runtimeResources.transitionEffects === 1, null, { timeout: 2000 });
+        record.fluent.materialising = await fluentMode("editor materialising");
+      }
+      await page.waitForFunction(() => document.querySelector("#fluent-editor form")?.matches("[inert], [inert] *") === false, null, { timeout: 4000 });
+      await quiet();
+      await page.locator("#fluent-edit-title").fill("Validated release notes");
+      await page.locator("#fluent-item-6").filter({ hasText: "Validated release notes" }).waitFor();
+      if (lane === "native") {
+        await settle();
+        const edited = PNG.sync.read(await output.screenshot({ path: join(run, "native-fluent-editor.png") }));
+        let changed = 0;
+        for (let y = 196; y < 666; y++) for (let x = 470; x < 900; x++) {
+          const offset = (y * edited.width + x) * 4;
+          if (board.data.subarray(offset, offset + 4).some((v, i) => v !== edited.data[offset + i])) changed++;
+        }
+        assert.ok(changed > 20000, `Editor layer changed output pixels: ${changed}`);
+        record.changedFluentEditorPixels = changed;
+      }
+      await page.getByRole("button", { name: "Done", exact: true }).click();
+      await page.locator("#fluent-editor").waitFor({ state: "detached", timeout: 4000 });
+      // A Fluent menu opens in the adapter's overlay host, outside every layer.
+      await page.getByRole("button", { name: "Actions for Validated release notes", exact: true }).click();
+      await page.getByRole("menu").waitFor();
+      assert.equal(await page.evaluate(() => !!document.querySelector(".stage .overlay [data-portal-node] [role=menu]")), true);
+      await page.getByRole("menuitem", { name: "Move to Shipped" }).click();
+      await springTo("fluent-item-6", 456, 86);
+      // A pointer drag to the end of the next lane; pausing before release means no fling.
+      const grip = await page.getByRole("button", { name: "Move Keyboard moves between lanes", exact: true }).boundingBox();
+      assert.ok(grip);
+      await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+      await page.mouse.down();
+      for (let step = 1; step <= 12; step++) {
+        await page.mouse.move(grip.x + grip.width / 2 + step * 19, grip.y + grip.height / 2 + step * 172 / 12);
+        await page.waitForTimeout(16);
+      }
+      await page.waitForTimeout(200);
+      await page.mouse.up();
+      await springTo("fluent-item-4", 228, 172);
+      record.fluent.afterMoves = await fluentMode("after moves");
+      // Native hits follow the moved card: its original menu button is under its new position.
+      const menu = page.getByRole("button", { name: "Actions for Validated release notes", exact: true });
+      const menuBox = await menu.boundingBox();
+      assert.ok(menuBox);
+      assert.equal(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("button")?.getAttribute("aria-label"),
+        [menuBox.x + menuBox.width / 2, menuBox.y + menuBox.height / 2]), "Actions for Validated release notes");
+      await page.mouse.click(menuBox.x + menuBox.width / 2, menuBox.y + menuBox.height / 2);
+      await page.getByRole("menu").waitFor();
+      await page.keyboard.press("Escape");
+      // Archiving burns the live card; meanwhile its content is inert and its own box catches clicks.
+      const archived = page.locator("#fluent-item-5");
+      await page.getByRole("button", { name: "Actions for Reduced-motion audit", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Archive" }).click();
+      if (lane === "native") {
+        await page.waitForFunction(() => window.showcase.state().runtimeResources.transitionEffects === 1, null, { timeout: 2000 });
+        // Measured now, in view: opening the menu may have scrolled the page.
+        assert.equal(await archived.evaluate(node => {
+          node.scrollIntoView({ block: "center" });
+          const box = node.getBoundingClientRect();
+          return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)?.id;
+        }), "fluent-item-5");
+        record.fluent.burning = await fluentMode("burning");
+      }
+      await archived.waitFor({ state: "detached", timeout: 6000 });
+      // Releasing goes through a Fluent dialog in the overlay host; the shipped cards warp into the poster.
+      await page.getByRole("button", { name: "Release…", exact: true }).click();
+      await page.getByRole("dialog").waitFor();
+      assert.equal(await page.evaluate(() => !!document.querySelector(".stage .overlay [data-portal-node] [role=dialog]")), true);
+      await page.getByRole("button", { name: "Release", exact: true }).click();
+      await page.locator("#showcase-art").filter({ hasText: "2 released" }).first().waitFor({ timeout: 8000 });
+      await page.waitForFunction(() => !document.querySelector("[id='fluent-item-2'], [id='fluent-item-6']"));
+      await quiet();
+      record.fluent.released = await fluentMode("released");
       record.beforeDispose = await state();
       assert.equal(record.beforeDispose.mode, lane === "native" ? "gpu" : "dom", record.beforeDispose.reason);
       // Explicit dispose must retire every GPU and runtime resource.

@@ -16,10 +16,11 @@ import { CardDeck } from "./deck";
 import { ShaderLab } from "./lab";
 import { NotificationStack } from "./notices";
 import { WebcamPond } from "./pond";
+import { FluentBoard } from "./fluent";
 import "../../playground/src/apps/todo/todo.css";
 
 // Which backdrop scenery each example gets (see `Backdrop` in `shared.tsx`).
-const themes: Record<ExampleId, BackdropTheme> = { layers: "postcard", motion: "deck", effects: "lab", presence: "notices", tasks: "tasks", pond: "pond" };
+const themes: Record<ExampleId, BackdropTheme> = { layers: "postcard", motion: "deck", effects: "lab", presence: "notices", tasks: "tasks", pond: "pond", fluent: "fluent" };
 
 /**
  * One React root for every example. Switching examples swaps the enrolled
@@ -41,7 +42,8 @@ export function Demo({ id, onReady }: { id: ExampleId; onReady(change: (id: Exam
         : selected === "effects" ? <ShaderLab key="effects" />
           : selected === "presence" ? <NotificationStack key="presence" />
             : selected === "pond" ? <WebcamPond key="pond" />
-              : <Tasks key="tasks" />}
+              : selected === "fluent" ? <FluentBoard key="fluent" />
+                : <Tasks key="tasks" />}
   </SceneProvider>;
 }
 
@@ -62,7 +64,8 @@ function Tasks() {
   const controller = useGPUHost();
   // One helper per controller, stopped on unmount so no pulse outlives the example.
   const transitions = useMemo(() => taskTransitions(controller), [controller]);
-  useEffect(() => () => transitions.stop(), [transitions]);
+  // On unmount the decoration layer is already released, which ends its ripple; only the timer is left.
+  useEffect(() => () => transitions.stop(false), [transitions]);
   useSceneArt(() => ({ layout: { x: 770, y: 40, width: 246, height: 620, overflow: "hidden" },
     appearance: { background: "rgb(20,70,48)", radius: 26 },
     content: <div className="tasks-poster"><span>Real inputs.</span><span>Real focus.</span><span>Real dialog.</span></div> }), []);

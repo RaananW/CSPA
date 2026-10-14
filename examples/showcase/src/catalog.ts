@@ -92,6 +92,20 @@ export const examples = [
       ],
       css: "CSS can show a mirrored, semi-transparent video. It can't refract it: there is no way to displace the rendered pixels of video, text and animated elements together in a wave, or to light them with caustics. backdrop-filter offers blur and colour, not distortion.",
     } },
+  { id: "fluent", number: "07", title: "Fluent release board", category: "Applications",
+    summary: "Stock Fluent UI v9 components that burn away, materialise and take a hit on the GPU, and still work as real controls. Throw cards between lanes on spring physics.",
+    detail: "Every control is an unmodified Fluent UI v9 component. Archive a card and the live card burns away; add one and it materialises; open one and its editor, a full Fluent form, grows out of it. During each effect the layer's content is inert, so no click lands on displaced pixels; afterwards it is the same interactive component. Fluent's menus, dropdowns and dialog render in the adapter's overlay host.",
+    accent: "fluent", tags: ["Fluent UI", "Transition effects", "Springs"],
+    gpu: {
+      headline: "Per-pixel transitions on live components, not on pictures of them.",
+      points: [
+        "Archiving burns the real Fluent card away along a noise front with an ember rim (custom WGSL); adding one materialises it out of a cyan dissolve while it springs out of the panel.",
+        "Opening a card grows a full Fluent editor out of it under ripple, chromatic split and a dissolve. Once formed, its inputs, radio group, dropdown and slider work, and every edit updates the card underneath live.",
+        "Throw a card hard: it flies on a spring that keeps your release speed and lands with a shockwave through the card itself. Released cards warp into the poster.",
+        "While an effect runs, the layer's content is inert and its box still catches clicks, so input never reaches a control the pixels no longer show.",
+      ],
+      css: "CSS can fade, scale and move a component, and View Transitions can morph between snapshots, but nothing in CSS burns, refracts or splits the channels of live, rendered controls. An animated mask-image with a noise texture comes closest to a dissolve, without the glowing edge or displacement, and View Transition snapshots are frozen pictures. Here the effect runs on the real component's current pixels.",
+    } },
 ] as const satisfies readonly { id: string; gpu: GPUReason; [key: string]: unknown }[];
 
 /** The id of one catalog example, such as `"layers"` or `"pond"`. */
