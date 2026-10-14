@@ -1,0 +1,45 @@
+name: Bug report
+description: Something renders, reacts or recovers incorrectly.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. GPU mode depends on experimental Chrome Canary features, so the browser build matters a lot.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A minimal component or a showcase example and the actions that trigger it.
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Presentation mode
+      options: ["GPU (Chrome Canary)", "Ordinary DOM", "Both"]
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      description: From chrome://version, for example "Chrome Canary 157.0.8102.0, Windows 11".
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: Runtime status
+      description: The `reason` from `controller.state()` or the showcase's Status line, if GPU fell back to DOM.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Library version or commit
