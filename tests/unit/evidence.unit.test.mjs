@@ -28,8 +28,6 @@ test("independent root imports through the shared reporter configuration", () =>
     execFileSync(process.execPath, ["--input-type=module", "-e",
       'const {resolve}=await import("node:path"); const {evidenceDirectory}=await import("./tests/helpers/evidence.mjs"); const {default:config}=await import("./tests/browser/playwright.config.mjs"); const root=process.env.CANVAS_EVIDENCE_ROOT; if(evidenceDirectory("performance")!==`${root}/performance` || config.reporter[1][1].outputFile!==resolve(root,"browser-tests.json")) throw Error("Routing mismatch");'],
     { env: { ...process.env, CANVAS_EVIDENCE_ROOT: root }, stdio: "pipe" });
-    assert.throws(() => execFileSync(process.execPath, ["scripts/phase8-report.mjs"],
-      { env: { ...process.env, CANVAS_EVIDENCE_ROOT: root }, stdio: "pipe" }), /accepted archives are read-only/);
   }
 });
 

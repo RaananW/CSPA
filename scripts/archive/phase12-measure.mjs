@@ -4,9 +4,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
-import { evidenceDirectory } from "../tests/helpers/evidence.mjs";
-import { taskPixelLatency } from "./interaction-contract.mjs";
-import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
+import { evidenceDirectory } from "../../tests/helpers/evidence.mjs";
+import { taskPixelLatency } from "../interaction-contract.mjs";
+import { browserLaunchOptions } from "../../tests/helpers/browser.mjs";
 
 const build = resolve(process.env.CANVAS_MEASURE_BUILD ?? ".");
 const port = Number(process.env.CANVAS_MEASURE_PORT ?? 5297);
@@ -23,7 +23,7 @@ catch (error) { if (error.code !== "ENOENT") throw error; }
 const url = `http://127.0.0.1:${port}`;
 try { await fetch(url); throw new Error("Refusing to reuse an unknown preview"); }
 catch (error) { if (error.cause?.code !== "ECONNREFUSED") throw error; }
-const vite = new URL("../node_modules/vite/bin/vite.js", import.meta.url).pathname;
+const vite = new URL("../../node_modules/vite/bin/vite.js", import.meta.url).pathname;
 const server = spawn(process.execPath, [vite, "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
   cwd: build, stdio: ["ignore", "pipe", "pipe"],
 });
@@ -232,5 +232,5 @@ finally {
   if (server.exitCode === null && server.signalCode === null) server.kill("SIGTERM");
   await closed;
   await writeFile(`${directory}/preview.log`, serverOutput);
-  await import("./sanitize-evidence.mjs");
+  await import("../sanitize-evidence.mjs");
 }

@@ -101,8 +101,8 @@ original hashes and does not replace or rewrite their original findings.
 Run focused source tests or the documented serial matching-major/measurement
 runners with a fresh selected evidence root. Outputs are ignored. New results
 are reproductions, never reconstructed historical originals. Historical
-`scripts/phase8-report.mjs` refuses its archived destination;
-`scripts/phase9-report.mjs` requires the exact archived baseline/final input
+`scripts/archive/phase8-report.mjs` refuses its archived destination;
+`scripts/archive/phase9-report.mjs` requires the exact archived baseline/final input
 paths and protected bytes and is not runnable from the lean checkout alone.
 It is a historical report assembler, not part of routine tests; do not regenerate
 accepted reports. Restoring archival inputs temporarily for an approved audit

@@ -2,7 +2,7 @@ import { readFile, readdir, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
-import { validateEvidenceRoot } from "../tests/helpers/evidence.mjs";
+import { validateEvidenceRoot } from "../../tests/helpers/evidence.mjs";
 
 const root = "evidence/phase8";
 validateEvidenceRoot(root);
