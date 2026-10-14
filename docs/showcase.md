@@ -1,7 +1,7 @@
 # Example showcase and GitHub Pages preparation
 
 The private `examples/showcase` npm workspace is a React SPA using the public
-CanvasSPA package. Its catalog opens five live examples in the same app. The
+CanvasSPA package. Its catalog opens six live examples in the same app. The
 engineering playground remains separate; raw reports, probes, test evidence and
 private fixtures are not served.
 
@@ -12,6 +12,7 @@ private fixtures are not served.
 | `#/effects` Shader lab | Presets, toggles and range sliders build a 1..3 operation `setEffects` chain (ripple, chromatic, dissolve and the custom `defineEffect` WGSL "aurora") on the decorative `showcase-art` layer. |
 | `#/presence` Notification stack | Four stable toast surfaces use `Presence` enter/exit; Dismiss buttons are ordinary React buttons and `onComplete` results are logged. Each arrival ripples the phone wallpaper. |
 | `#/tasks` Small tasks | The maintained task component reused unchanged from `examples/playground`. |
+| `#/pond` Webcam pond (experimental) | An optional camera image is mirrored onto a koi pond. The pond floor, text typed into a native input, CSS-animated fish and the camera `<video>` are one decorative layer under a continuous ripple (refraction) and the custom `showcase-pond` WGSL water shader (caustics, depth, glints). A native, rotated lily-pad layer feeds the fish. |
 
 Under the stage, a **Why the GPU here** panel (from `src/catalog.ts`) states what the
 GPU path does in that example and, next to it, what CSS alone would do, including where
@@ -19,6 +20,12 @@ CSS would be just as good. Each example has at least one GPU-only part: a per-pi
 effect on decorative artwork (channel shift, ripple displacement, dissolve or custom
 WGSL), which CSS filters cannot apply to rendered HTML. Ripple pulses (`usePulse` in
 `src/scene.tsx`) only run on the GPU and respect reduced motion.
+
+**Camera privacy (pond).** The camera starts only when the visitor presses **Start
+camera** and the browser grants permission. Video only, no audio. Frames go from the
+`<video>` element into this page's GPU canvas; nothing is recorded, uploaded, stored
+or sent anywhere, and the site has no backend. **Stop camera**, leaving the example or
+closing the tab stops every track. The panel says this before the camera is started.
 
 All examples share a 1040x700 stage. A decorative backdrop and the decorative
 `showcase-art` layer persist across examples (only their layout/content change).

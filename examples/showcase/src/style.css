@@ -151,6 +151,12 @@ h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: .98; letter-spacing: -.04
 .accent-aurora .card-art { background: linear-gradient(160deg, #120f33, #2c1a5e 55%, #134e5e); }
 .accent-violet .card-art { background: linear-gradient(140deg, #7b5cff, #c86dd7); }
 .accent-meadow .card-art { background: linear-gradient(140deg, #d7f2d0, #a7dcc1); }
+.accent-pond .card-art { background: radial-gradient(120% 90% at 50% 40%, #2f8f8a, #0c3a3d 70%, #08241f); }
+.art-pond i { width: 34px; height: 14px; border-radius: 50% 40% 40% 50%; background: linear-gradient(90deg, #ff8a4c, #fff3e6 60%, #ff7a3d); box-shadow: 0 4px 10px #0006; }
+.art-pond i:nth-child(1) { left: 22%; top: 34%; transform: rotate(-18deg); }
+.art-pond i:nth-child(2) { left: 58%; top: 52%; transform: rotate(160deg); }
+.art-pond i:nth-child(3) { left: 40%; top: 70%; transform: rotate(12deg); }
+.art-pond i:nth-child(4) { left: 68%; top: 20%; width: 64px; height: 40px; border-radius: 50%; background: #4a9654; transform: rotate(-12deg); box-shadow: none; }
 .art-layers i:nth-child(1) { width: 150px; height: 100px; left: 22px; top: 26px; border-radius: 12px; background: #fff3e9; transform: rotate(-6deg); box-shadow: 0 12px 24px #b6553333; }
 .art-layers i:nth-child(2) { width: 34px; height: 40px; left: 126px; top: 30px; border: 2px dashed #e5604f; border-radius: 4px; transform: rotate(-6deg); background: radial-gradient(circle, #e5604f 0 6px, transparent 7px); }
 .art-layers i:nth-child(3) { width: 120px; height: 78px; right: 30px; top: 40px; border-radius: 12px; background: linear-gradient(#ff9a7a, #6e2350); transform: rotate(5deg); }
@@ -422,3 +428,35 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
   .example-card { transition: none; }
   .example-card:hover { transform: none; }
 }
+
+/* Webcam pond */
+.backdrop-pond .backdrop-glow { background: radial-gradient(700px 500px at 66% 50%, #1d5b4b, transparent 75%), radial-gradient(360px 260px at 8% 100%, #2c5a2e88, transparent 70%); }
+.backdrop-pond .backdrop-grain { background-image: radial-gradient(#ffffff0e 1px, transparent 1px); }
+.privacy { margin: 0; padding: 12px 14px; border-radius: 14px; background: #10303a; border: 1px solid #2b5d66; font-size: 12.5px; line-height: 1.55; color: #cfeff0; }
+.privacy strong { color: #8ff0d8; }
+.pond { position: absolute; inset: 0; overflow: hidden; }
+.pond-floor { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 45%, #3f8d84, #1d5a57 55%, #0e3536 100%); }
+.pond-floor i { position: absolute; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #c9c2a8, #7d7764 70%); opacity: .55; }
+.pond-floor i:nth-child(1) { left: 8%; top: 70%; width: 90px; height: 64px; }
+.pond-floor i:nth-child(2) { left: 22%; top: 78%; width: 54px; height: 40px; }
+.pond-floor i:nth-child(3) { left: 78%; top: 12%; width: 110px; height: 80px; }
+.pond-floor i:nth-child(4) { left: 64%; top: 82%; width: 70px; height: 50px; }
+.pond-floor i:nth-child(5) { left: 4%; top: 14%; width: 60px; height: 46px; }
+.pond-floor i:nth-child(6) { left: 46%; top: 6%; width: 40px; height: 30px; }
+.pond-floor i:nth-child(7) { left: 86%; top: 56%; width: 48px; height: 36px; }
+.pond-message { position: absolute; left: 40px; right: 40px; top: 46%; margin: 0; text-align: center; font: 600 38px/1.2 Georgia, "Times New Roman", serif; letter-spacing: .5px; color: #a7e3d6; opacity: .78; text-shadow: 0 2px 0 #0b3433, 0 0 18px #0b343399; }
+.koi { position: absolute; width: 0; height: 0; transition: left 1.6s ease-in-out, top 1.6s ease-in-out; }
+.koi i { position: absolute; left: -26px; top: -10px; width: 52px; height: 20px; border-radius: 55% 40% 40% 55%;
+  background: linear-gradient(90deg, hsl(var(--hue) 95% 58%), #fff7ee 55%, hsl(var(--hue) 90% 55%));
+  transform: rotate(var(--angle)) scale(var(--size)); transition: transform .5s ease; box-shadow: 0 6px 12px #021c1c88;
+  animation: koi-swim .9s ease-in-out infinite alternate; }
+.koi i::after { content: ""; position: absolute; left: -12px; top: 3px; width: 16px; height: 14px; background: hsl(var(--hue) 90% 60%); clip-path: polygon(100% 50%, 0 0, 0 100%); }
+@keyframes koi-swim { from { translate: 0 -1.5px; } to { translate: 0 1.5px; } }
+.pond-reflection { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); mix-blend-mode: screen; filter: saturate(.7) contrast(1.1);
+  mask-image: linear-gradient(#000 0%, #000c 55%, #0005 100%); transition: opacity .4s ease; }
+.pond-sky { position: absolute; inset: 0; background: radial-gradient(70px 70px at 72% 22%, #f6f1d8, #f6f1d800 70%), linear-gradient(#5f8fa4aa, #0000 60%); mix-blend-mode: screen; transition: opacity .4s ease; }
+/* No outer shadow: a layer captures only its own box, so ink outside it would be cut off. */
+.lily-pad { border: 2px solid #8fd08a; }
+.lily-pad .pad-label { font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; opacity: .85; }
+.lily-pad button { padding: 9px 14px; border-radius: 999px; border: 0; background: #f4ffe9; color: #1e4d26; font-weight: 800; font-size: 13px; }
+@media (prefers-reduced-motion: reduce) { .koi, .koi i { transition: none; animation: none; } }
