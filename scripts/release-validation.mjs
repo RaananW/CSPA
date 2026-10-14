@@ -7,7 +7,7 @@ import { createServer } from "node:net";
 import { arch, platform, release, cpus, totalmem } from "node:os";
 import { copyDependencies, assertPhysicalTree, prepareReleaseRoot, dependencyVersion } from "./release-policy.mjs";
 import { validatePackageContents, packageFiles } from "./package-policy.mjs";
-import { withPlatform, devNull } from "../tests/helpers/process.mjs";
+import { withPlatform, devNull, tarArgs } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
 const lane = process.argv[2];
@@ -15,7 +15,7 @@ assert.ok(["build-only", "dom", "native"].includes(lane), "Usage: node scripts/r
 const executable = process.env.CANVAS_BROWSER_EXECUTABLE;
 if (lane !== "build-only" && executable) await access(executable);
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
-const manifest = JSON.parse(await readFile("packages/canvas-spa/package.json", "utf8"));
+const manifest = JSON.parse(await readFile("packages/underglass/package.json", "utf8"));
 assert.equal(manifest.private, true); assert.equal(manifest.version, "0.1.0");
 const parent = join(root, "evidence/phase14");
 assert.equal(process.env.CANVAS_RELEASE_ROOT, undefined, "Release root overrides are refused; prior archives are read-only");
@@ -47,17 +47,17 @@ async function records(directory) {
   return entries;
 }
 async function sourceRecords() {
-  return [...await records(join(root, "packages/canvas-spa/src")), ...await records(join(root, "examples/playground/src"))];
+  return [...await records(join(root, "packages/underglass/src")), ...await records(join(root, "examples/playground/src"))];
 }
 const sourceBefore = await sourceRecords();
 const inputs = [...sourceBefore, ...await Promise.all(["package.json", "package-lock.json", "fixtures/react18/package.json",
-  "fixtures/react18/package-lock.json", "packages/canvas-spa/package.json", "packages/canvas-spa/README.md",
+  "fixtures/react18/package-lock.json", "packages/underglass/package.json", "packages/underglass/README.md",
   "examples/playground/package.json", "README.md", "docs/distribution.md", "docs/showcase.md", "examples/playground/todo.html",
-  "examples/playground/tsconfig.json", "packages/canvas-spa/tsconfig.json", "packages/canvas-spa/vite.config.ts",
+  "examples/playground/tsconfig.json", "packages/underglass/tsconfig.json", "packages/underglass/vite.config.ts",
   "examples/playground/vite.config.ts", "vite.config.ts", "tests/browser/playwright.config.mjs",
   "fixtures/package-consumer/todo-main.tsx", "fixtures/package-consumer/tsconfig.json", "fixtures/package-consumer/public-types.ts",
   "scripts/release-validation.mjs", "scripts/release-policy.mjs", "scripts/release-pilot.mjs",
-  "packages/canvas-spa/scripts/prepare-package.mjs", "tests/unit/release.unit.test.mjs", ".github/workflows/private-release.yml",
+  "packages/underglass/scripts/prepare-package.mjs", "tests/unit/release.unit.test.mjs", ".github/workflows/private-release.yml",
   ".github/workflows/showcase-pages.yml"].map(async path => ({ path, sha256: sha(await readFile(path)) })))];
 inputs.push(...await records(join(root, "examples/showcase/src")));
 for (const path of ["package.json", "tsconfig.json", "vite.config.ts", "site-policy.mjs", "index.html"]) {
@@ -149,11 +149,11 @@ try {
     const tsc = join(peer, "node_modules/typescript/bin/tsc");
     const vite = join(peer, "node_modules/vite/bin/vite.js");
     const playground = join(peer, "examples/playground");
-    const library = join(peer, "packages/canvas-spa");
+    const library = join(peer, "packages/underglass");
     const unitPaths = (await readdir(join(peer, "tests/unit"))).filter(path => path.endsWith(".unit.test.mjs")).map(path => `tests/unit/${path}`);
     await command(["--test", ...unitPaths], peer, `react${major}-units`);
     await writeFile(join(playground, "source-pilot.tsx"), (await readFile(join(peer, "fixtures/package-consumer/todo-main.tsx"), "utf8"))
-      .replace('"@canvas-spa/react"', '"../../packages/canvas-spa/src"').replaceAll('"./task/', '"./src/apps/todo/'));
+      .replace('"@underglass/react"', '"../../packages/underglass/src"').replaceAll('"./task/', '"./src/apps/todo/'));
     await writeFile(join(playground, "source-pilot.html"), (await readFile(join(playground, "todo.html"), "utf8")).replace("/src/demo/todo-demo.tsx", "/source-pilot.tsx"));
     await writeFile(join(peer, "source-pilot.config.mjs"), 'import config from "./examples/playground/vite.config.ts"; import {resolve} from "node:path"; export default {...config,cacheDir:resolve("owned-vite-cache"),build:{...config.build,target:"esnext",rollupOptions:{input:[...config.build.rollupOptions.input,resolve("examples/playground/source-pilot.html")]}}};');
     await command([tsc, "-p", "examples/playground/tsconfig.json"], peer, `react${major}-source-types`);
@@ -165,15 +165,15 @@ try {
     const packed = JSON.parse(output)[0];
     validatePackageContents(packed.files);
     const archive = join(peer, packed.filename);
-    const members = execFileSync("tar", ["-tzf", archive], { encoding: "utf8" }).trim().split(/\r?\n/);
+    const members = execFileSync("tar", tarArgs(["-tzf", archive]), { encoding: "utf8" }).trim().split(/\r?\n/);
     assert.deepEqual(members.map(path => path.replace(/^package\//, "")).sort(), packageFiles);
     const consumer = join(peer, "consumer");
     await mkdir(consumer);
     await copyDependencies(join(peer, "node_modules"), join(consumer, "node_modules"));
     const installed = join(consumer, "node_modules", manifest.name);
     await mkdir(installed);
-    execFileSync("tar", ["-xzf", archive, "--strip-components=1", "-C", installed]);
-    assert.equal(sha(await readFile(join(installed, "package.json"))), sha(await readFile(join(root, "packages/canvas-spa/package.json"))),
+    execFileSync("tar", tarArgs(["-xzf", archive, "--strip-components=1", "-C", installed]));
+    assert.equal(sha(await readFile(join(installed, "package.json"))), sha(await readFile(join(root, "packages/underglass/package.json"))),
       "Fresh public package must retain the exact current manifest, independent of the physical test peer");
     const installedRecords = [];
     for (const path of packageFiles) {
