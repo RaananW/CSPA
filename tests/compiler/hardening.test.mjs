@@ -1,12 +1,18 @@
+/**
+ * Regression tests for edge cases in the compiler's CSS analysis (selector overlap, shorthand reset order,
+ * CSS-wide keywords, vendor prefixes and easing canonicalization). No browser; run with `node --test`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compileStylesheet } from "../../packages/css-compiler/src/index.mjs";
 import { sameEasing } from "../../packages/underglass/src/compiled.ts";
 
+// Minimal keyframes (translate and fade) named `name`.
 const frames = (name = "float") => `@keyframes ${name} {
   from { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
   to { transform: translate(10px, 0px) rotate(0deg) scale(1); opacity: 0.5; }
 }`;
+// Helpers: `compile` returns the parsed animations; `refused` asserts a `CssSyntaxError` raised by the compiler.
 const entry = (name = "float") => ({ id: "card", stylesheet: "./card.css", selector: ".card", animations: [name] });
 const compile = (css, name = "float") => compileStylesheet(css, [entry(name)], { filename: "/p/card.css" });
 const refused = css => assert.throws(() => compile(css), error => error.name === "CssSyntaxError" && error.message.includes("Underglass:"));
