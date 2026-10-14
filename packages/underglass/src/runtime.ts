@@ -868,7 +868,18 @@ export class CanvasRuntime {
     this.relinquishedDeclarations.delete(id);
     layer.transform = { ...transform };
     this.checkPolicy();
-    if (this.core?.phase() !== "gpu") this.presentation("dom");
+    this.presentTransform();
+  }
+  /**
+   * Presents a changed transform or origin. During admission the GPU already owns the
+   * declarations and per-frame geometry updates would keep the native refresh from
+   * settling, so only the value is recorded; admission draws the latest one, as it does
+   * for declarative motion.
+   */
+  private presentTransform() {
+    const phase = this.core?.phase();
+    if (phase === "admitting") return;
+    if (phase !== "gpu") this.presentation("dom");
     else this.reconcile();
   }
   /**
@@ -888,8 +899,7 @@ export class CanvasRuntime {
     this.matrix(layer);
     this.invalidatePolicy();
     this.checkPolicy();
-    if (this.core?.phase() !== "gpu") this.presentation("dom");
-    else this.reconcile();
+    this.presentTransform();
   }
   /** Schedules one coalesced RAF `draw()` while GPU presents and the document is visible. */
   private requestDraw() {

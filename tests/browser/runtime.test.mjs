@@ -949,3 +949,59 @@ for (const offset of ["0.5px", "8.5px", "0.25px"]) test(`functional admission pa
   expect(state.metrics.admission.last.geometry.hits).toEqual([true, true, false]);
   zero(await page.evaluate(() => window.runtimeProbe.dispose()));
 });
+
+test("transforms set every frame through GPU admission keep GPU with fresh pixels and native hits", async ({ page }) => {
+  // Gesture- or physics-driven code calls setTransform on every frame and cannot know
+  // when admission starts; an update during admission must not revoke GPU.
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/runtime.html?dom");
+  await page.waitForFunction(() => window.runtimeProbe?.state().mode === "dom");
+  const run = await page.evaluate(async () => {
+    const probe = window.runtimeProbe;
+    let running = true, duringAdmission = 0, x = 0;
+    // Updates every frame until admission ends, so the last one lands mid-admission.
+    const tick = () => {
+      if (!running) return;
+      const admitting = probe.state().initializing;
+      if (!admitting && duringAdmission) { running = false; return; }
+      if (admitting) duringAdmission++;
+      x = 21 + (x + 7) % 35;
+      probe.transform("primary", { x });
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    const enabled = await probe.enable();
+    running = false;
+    await probe.settle();
+    const after = probe.state();
+    return { enabled: { mode: enabled.mode, reason: enabled.reason }, after: { mode: after.mode, reason: after.reason,
+      transform: after.layers.find(layer => layer.id === "primary").transform }, last: x, duringAdmission };
+  });
+  expect(run.duringAdmission, "the loop must overlap admission").toBeGreaterThan(0);
+  expect(run.enabled.mode, run.enabled.reason).toBe("gpu");
+  expect(run.after.mode, run.after.reason).toBe("gpu");
+  expect(run.after.transform).toEqual({ x: run.last });
+  // The transform last set during admission is the one presented: the layer starts at 40 + last.
+  const admitted = await snap(page, "transform-during-admission");
+  expect(admitted(45, 340)).not.toEqual([240, 30, 60, 255]);
+  expect(admitted(40 + run.last + 3, 340)).toEqual([240, 30, 60, 255]);
+  expect(admitted(40 + run.last - 3, 340)).not.toEqual([240, 30, 60, 255]);
+  await page.evaluate(async () => { window.runtimeProbe.transform("primary", { x: 70 }); await window.runtimeProbe.settle(); });
+  await page.waitForTimeout(100);
+  const state = await page.evaluate(() => window.runtimeProbe.state());
+  expect(state.mode, state.reason).toBe("gpu");
+  expect(state.layers.find(layer => layer.id === "primary").transform).toEqual({ x: 70 });
+  const pixels = await snap(page, "transform-through-admission");
+  expect(pixels(45, 340)).not.toEqual([240, 30, 60, 255]);
+  expect(pixels(115, 340)).toEqual([240, 30, 60, 255]);
+  const count = page.locator("#count");
+  const before = await count.innerText();
+  const box = await count.boundingBox();
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id, [box.x + box.width / 2, box.y + box.height / 2])).toBe("count");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(count).not.toHaveText(before);
+  expect((await page.evaluate(() => window.runtimeProbe.state())).mode).toBe("gpu");
+  zero(await page.evaluate(() => window.runtimeProbe.dispose()));
+  expect(errors).toEqual([]);
+});
