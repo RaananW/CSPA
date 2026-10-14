@@ -3,14 +3,14 @@ import { validateAppliedGeometry, type DrawableCanvas } from "./native.js";
 const colors = [[207, 37, 83, 255], [31, 179, 113, 255]];
 
 export function createAdmissionProbe(host: DrawableCanvas) {
-  const extent = Math.min(16, Math.floor(Math.min(host.width, host.height) / 4));
+  const extent = Math.min(32, Math.floor(Math.min(host.width, host.height) / 4));
   if (extent < 4) throw new Error("Functional admission requires a capture surface of at least 16 CSS pixels per axis");
   const element = host.ownerDocument.createElement("div");
   const half = host.ownerDocument.createElement("div");
   element.setAttribute("drawable", "");
   element.setAttribute("aria-hidden", "true");
   element.style.cssText = `all:initial;display:block;position:absolute;left:0;top:0;width:${extent}px;height:${extent}px;background:rgb(207,37,83);pointer-events:auto;`;
-  half.style.cssText = `all:initial;display:block;position:absolute;left:50%;top:0;width:50%;height:100%;background:rgb(31,179,113);`;
+  half.style.cssText = `all:initial;display:block;position:absolute;left:35%;top:0;width:35%;height:100%;background:rgb(31,179,113);`;
   element.append(half);
   host.append(element);
   // Hit verification needs the probe inside the viewport: place it in the visible
@@ -22,9 +22,14 @@ export function createAdmissionProbe(host: DrawableCanvas) {
   };
   const matrix = new DOMMatrix().translate(place(rect.x, rect.width, view.innerWidth), place(rect.y, rect.height, view.innerHeight))
     .rotate(11).scale(0.75);
-  const points = [{ x: extent / 4, y: extent / 2 }, { x: extent * 3 / 4, y: extent / 2 }];
-  return { element, extent, matrix, points,
-    clip: { x: 0, y: 0, width: extent * 0.8, height: extent } };
+  // Marker points sit well inside their colour band and the clip. Chromium clips hits on a
+  // rotated layer to the clip's canvas-space bounding box, not the rotated rectangle, so the
+  // clipped point lies beyond that box: top right, where the rotated clip edge leans inward.
+  // Every margin is several CSS pixels, so fractional canvas offsets cannot flip a result.
+  const points = [{ x: extent * 0.15, y: extent / 2 }, { x: extent * 0.52, y: extent / 2 }];
+  const clipped = { x: extent * 0.9, y: extent * 0.15 };
+  return { element, extent, matrix, points, clipped,
+    clip: { x: 0, y: 0, width: extent * 0.75, height: extent } };
 }
 
 export function verifyProbePixels(pixels: number[][], stage: "native" | "GPU"): void {
@@ -41,7 +46,7 @@ export function verifyProbeGeometry(host: DrawableCanvas, probe: ReturnType<type
   host.updateElementGeometry(probe.element, { canvasTransform: matrix, canvasClip: probe.clip });
   validateAppliedGeometry(host, probe.element, matrix);
   const rect = host.getBoundingClientRect();
-  const locations = [...probe.points, { x: probe.extent * 0.9, y: probe.extent / 2 }]
+  const locations = [...probe.points, probe.clipped]
     .map(point => matrix.transformPoint(point))
     .map(point => ({ x: rect.x + point.x, y: rect.y + point.y }));
   const doc = host.ownerDocument;
