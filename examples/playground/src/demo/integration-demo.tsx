@@ -89,6 +89,8 @@ function mount() {
     ordinaryHost: document.querySelector<HTMLElement>("#ordinary")!,
     overlayHost: document.querySelector<HTMLElement>("#overlay")!,
     createRoot, flushSync, strict: params.has("strict"),
+    // Explicit budget: the hardening suite exceeds it with extra layers to test enforcement.
+    budgets: { layers: 8, pixels: 2_000_000 },
     admissionPolicy: params.has("auto") ? "automatic" : "explicit",
     onStatus: message => { document.querySelector<HTMLElement>("#status")!.textContent = message; },
   }, <Profiler id="integration" onRender={profile}><App /></Profiler>);

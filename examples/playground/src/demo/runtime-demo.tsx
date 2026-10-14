@@ -83,6 +83,9 @@ function App() {
       </Box>
     </Surface>
     <Stationary />
+    {Array.from({ length: Number(params.get("many") ?? 0) }, (_, index) => <Surface key={index} id={`tile-${index}`}
+      layout={{ x: 20 + index * 50, y: 380, width: 40, height: 24 }} appearance={{ background: `hsl(${index * 30} 80% 45%)` }}
+      transform={index === 11 ? { x: -25, opacity: 0.5 } : undefined} />)}
     {third && <Surface id={params.get("thirdId") ?? "third-layer"} layout={{ x: 400, y: 210, width: 100, height: 50 }}
       appearance={{ background: "rgb(30,100,220)" }}><button id="third-control">Third</button></Surface>}
     <NativeOverlay><dialog ref={dialog} id="dialog">

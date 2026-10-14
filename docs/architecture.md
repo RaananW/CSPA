@@ -209,7 +209,7 @@ functional proof and benchmark interpretation.
 | `packages/canvas-spa/src/enrollment.ts` | Original-element ref enrollment options and typed pre-mutation refusal codes |
 | `packages/canvas-spa/src/runtime.ts` | Stable registry, per-layer controller motion, layout/environment policies and observer ownership |
 | `packages/canvas-spa/src/affine.ts`, `compiler.ts` | Canonical invertible transforms and narrow authoring-to-browser-style compilation |
-| `packages/canvas-spa/src/composition.ts` | Layer-count-generated shader bindings, inverse sampling and DOM-order alpha composition |
+| `packages/canvas-spa/src/composition.ts` | Per-layer pass shader (bounding-box vertex stage, inverse sampling, straight-alpha blend) and the worker's layer-count shader |
 | `packages/canvas-spa/src/mount-boundary.ts` | Destination validation, one mount callback, stable-container moves and final unmount |
 | `packages/canvas-spa/src/device-lifecycle.ts` | Public configured-device loss observation and bounded idle synchronization |
 | `packages/canvas-spa/src/renderer.ts` | Native capture, public texture/effect composition, independent dirty scheduling, serialized recovery and resource accounting |
@@ -231,9 +231,11 @@ functional proof and benchmark interpretation.
 | `examples/playground/src/probe.ts`, `backend-probe.ts`, `recovery-probe.tsx` | Historical native/backend/remount-versus-stable-container experiments; not production recovery code |
 | `tests/browser/runtime.test.mjs`, `tests/browser/surface.test.mjs` | Current runtime and preserved historical acceptance/fault fixtures |
 
-The renderer has no fixed specimen IDs, dimensions or shader slots. An
-admitted registry generates one shader for its current layer count. Membership
-changes prepare public bindings in the same engine and fence retired resources;
+The renderer has no fixed specimen IDs, dimensions or shader slots. Each layer
+is drawn as its own blended effect pass, ordered after a background clear on the
+one engine; its vertex stage emits one triangle covering the layer's canvas-space
+bounding box. Membership changes reuse the passes of unchanged layers, prepare
+passes for new ones in the same engine and fence retired resources;
 they do not restore DOM or create another root. Playground-level native/lifecycle/renderer files are compatibility
 re-exports for historical probes. `window.runtimeProbe`/`surfaceProbe` are
 diagnostic facades, not published APIs. No reusable module destroys a device.
@@ -326,7 +328,7 @@ registered fullscreen effect renderer:
 ```text
 Original drawable React layer under owning content="drawable" GPU output canvas
   -> synchronous native paint -> GPUQueue.drawElementImageToTexture
-  -> public per-layer DynamicTexture2D.texture -> shared GPU shader
+  -> public per-layer DynamicTexture2D.texture -> per-layer blended pass (shared engine)
 ```
 
 There is no owning 2D context, staging canvas, application flat texture or
@@ -346,9 +348,8 @@ grid and allocated texture dimensions remain distinct. Actual default grids use
 DPR without CSS downsampling; resize/growth prepares successors and preserves
 last output until complete. Queue fences retain superseded resources; unexpected
 errors are reported. Samples remain bounded, counts cumulative.
-Complete cached reorder/removal reuses the validated pipeline capacity
-synchronously: inactive lanes have zero extent, and already compiled custom
-functions are selected independently of lane order. Bound textures remain
+Complete cached reorder/removal re-presents the existing per-layer passes in the
+new order synchronously; passes of removed layers and their bound textures remain
 retained until that composition is fenced. Successor validation has a bounded
 deadline; healthy retirement waits do not block ordinary GPU motion, and
 explicit disable reports pending cleanup instead of awaiting a fence forever.
