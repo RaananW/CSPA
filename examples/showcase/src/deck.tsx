@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Surface, useGPUHost, type TransitionHandle } from "@canvas-spa/react";
+import { Surface, useGPUHost, type TransitionHandle } from "@underglass/react";
 import { Panel, describe, useReducedMotion } from "./shared";
 import { usePulse, useSceneArt } from "./scene";
 import { at, fromTransform, keepInside, path, type Pose, type Rect } from "./pose";

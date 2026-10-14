@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import postcss from "postcss";
 import { createCompiler, compileStylesheet, validateConfig } from "../../packages/css-compiler/src/index.mjs";
 import { generateModule } from "../../packages/css-compiler/src/generate.mjs";
-import { compileTimeline } from "../../packages/canvas-spa/src/timeline.ts";
-import { validateCompiledPrograms } from "../../packages/canvas-spa/src/compiled.ts";
+import { compileTimeline } from "../../packages/underglass/src/timeline.ts";
+import { validateCompiledPrograms } from "../../packages/underglass/src/compiled.ts";
 
 const entry = { id: "card", stylesheet: "./card.scss", selector: ".card", animations: ["float"] };
 const config = { version: 1, target: "webgpu", unsupported: "error", maxLayers: 2, entries: [entry] };
@@ -60,7 +60,7 @@ test("selected unsupported CSS fails with an available input location", () => {
     css + "\n@media (min-width:10px){ .card { opacity:0.4; } }",
   ]) {
     assert.throws(() => compileStylesheet(bad, [entry], { filename: "/project/card.scss" }),
-      error => error.name === "CssSyntaxError" && error.message.includes("CanvasSPA:") && error.line > 0);
+      error => error.name === "CssSyntaxError" && error.message.includes("Underglass:") && error.line > 0);
   }
 });
 test("CSS Modules mappings, untouched CSS and missing pipeline inputs are explicit", () => {

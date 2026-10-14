@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { capabilities, waitForPaint, validateGeometry, nativeEditingControl, nativeScrollKind } from "../../packages/canvas-spa/src/native.ts";
+import { capabilities, waitForPaint, validateGeometry, nativeEditingControl, nativeScrollKind } from "../../packages/underglass/src/native.ts";
 
 test("native editing eligibility distinguishes original text controls from viewport targets", () => {
   class Input { type = "text"; disabled = false; isConnected = true; }

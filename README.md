@@ -1,6 +1,6 @@
-# CanvasSPA
+# Underglass
 
-CanvasSPA is an experimental React layer that presents your **original React DOM
+Underglass is an experimental React layer that presents your **original React DOM
 controls** through Chrome's HTML-in-Canvas API and WebGPU (via `@babylonjs/lite`)
 while keeping native interaction: real inputs, focus, selection, forms and
 hit-testing keep working on the same elements React created. The GPU draws
@@ -46,7 +46,7 @@ In other browsers the showcase runs as ordinary DOM with the same controls.
 
 ## Status
 
-Experimental (`@canvas-spa/react@0.1.0`, still `private` in npm terms);
+Experimental (`@underglass/react@0.1.0`, still `private` in npm terms);
 not published to a registry and not production-ready. Licensed under the
 [Apache License 2.0](LICENSE); package publication remains a separate decision. It is for
 deliberately adopted small applications, not for loading arbitrary websites or
@@ -84,13 +84,13 @@ enabled for the repository.
 
 ## Minimal usage
 
-Give CanvasSPA a sized element **outside all React roots**; `createCanvasHosts`
+Give Underglass a sized element **outside all React roots**; `createCanvasHosts`
 adds the output canvas, the ordinary DOM host and the overlay host to it as
 empty siblings. Then mount:
 
 ```tsx
 import { useState } from "react";
-import { createCanvasHosts, mountCanvasApp, Surface, Box, useGPUHost } from "@canvas-spa/react";
+import { createCanvasHosts, mountCanvasApp, Surface, Box, useGPUHost } from "@underglass/react";
 
 function App() {
   const host = useGPUHost();
@@ -128,13 +128,13 @@ down. `captureHost` is optional and deprecated. Full API, including
 `useSurfaceRef`, `Presence`, `NativeScroll`, `NativeOverlay`, `createMotion`,
 `setEffects` and the Radix Dialog integration, is in [docs/api.md](docs/api.md); the
 [guide](docs/guide/getting-started.md) walks through it step by step.
-Public exports live in `packages/canvas-spa/src/index.ts`.
+Public exports live in `packages/underglass/src/index.ts`.
 
 ## Repository layout
 
 | Path | Contents |
 | --- | --- |
-| `packages/canvas-spa` | The library (private package `@canvas-spa/react`): source, ESM entry, declarations, prepack build |
+| `packages/underglass` | The library (private package `@underglass/react`): source, ESM entry, declarations, prepack build |
 | `packages/css-compiler` | Opt-in build-time CSS compiler with Vite/webpack adapters ([guide](packages/css-compiler/README.md)) |
 | `examples/playground` | Engineering HTML pages, demo apps and probes (Vite root) |
 | `examples/showcase` | Private public-facing React gallery |
@@ -212,4 +212,4 @@ All documentation is indexed in [docs/README.md](docs/README.md).
 
 ## License
 
-CanvasSPA is licensed under the [Apache License, Version 2.0](LICENSE).
+Underglass is licensed under the [Apache License, Version 2.0](LICENSE).

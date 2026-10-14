@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Surface, useGPUHost } from "@canvas-spa/react";
+import { Surface, useGPUHost } from "@underglass/react";
 import { TodoApp } from "../../playground/src/apps/todo/TodoApp";
 import { taskTransitions } from "../../playground/src/apps/todo/transition";
 import type { ExampleId } from "./catalog";

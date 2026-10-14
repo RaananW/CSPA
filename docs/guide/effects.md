@@ -38,7 +38,7 @@ ripple; `setRipple(id, null)` clears it.
 ## Your own WGSL
 
 ```ts
-import { defineEffect } from "@canvas-spa/react";
+import { defineEffect } from "@underglass/react";
 
 export const sepia = defineEffect({
   name: "sepia-glow",

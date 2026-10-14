@@ -15,21 +15,21 @@ import { interactionContract, dynamicContract } from "./interaction-contract.mjs
 import { todoContract } from "./todo-contract.mjs";
 import { copyDependencies } from "./release-policy.mjs";
 import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
-import { withPlatform, devNull } from "../tests/helpers/process.mjs";
+import { withPlatform, devNull, tarArgs } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
 const reuseDependencies = process.argv.includes("--reuse-dependencies");
 const todoCase = process.argv.includes("--todo-case");
 const primary = JSON.parse(await readFile("package.json", "utf8"));
 const playground = JSON.parse(await readFile("examples/playground/package.json", "utf8"));
-const library = resolve("packages/canvas-spa");
+const library = resolve("packages/underglass");
 const releasePackage = JSON.parse(await readFile(join(library, "package.json"), "utf8"));
 const react18 = JSON.parse(await readFile("fixtures/react18/package.json", "utf8"));
 const env = { ...process.env, npm_config_userconfig: devNull, npm_config_registry: "https://registry.npmjs.org" };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 async function fingerprints() {
-  const paths = ["package.json", "packages/canvas-spa/package.json", "packages/canvas-spa/README.md", "package-lock.json", "fixtures/react18/package.json", "fixtures/react18/package-lock.json",
-    "packages/canvas-spa/tsconfig.json", "packages/canvas-spa/vite.config.ts", ...curatedEvidence];
+  const paths = ["package.json", "packages/underglass/package.json", "packages/underglass/README.md", "package-lock.json", "fixtures/react18/package.json", "fixtures/react18/package-lock.json",
+    "packages/underglass/tsconfig.json", "packages/underglass/vite.config.ts", ...curatedEvidence];
   async function visit(directory) {
     for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       if (entry.name === "workspaces") continue;
@@ -38,7 +38,7 @@ async function fingerprints() {
       else paths.push(path);
     }
   }
-  await visit("packages/canvas-spa/src"); await visit("examples/playground/src");
+  await visit("packages/underglass/src"); await visit("examples/playground/src");
   await visit("fixtures/package-consumer");
   return Object.fromEntries(await Promise.all(paths.map(async path => [path, hash(await readFile(path))])));
 }
@@ -282,7 +282,7 @@ try {
   assert.deepEqual(dry.files, packed.files);
   assert.equal(dry.integrity, packed.integrity, "Repeated clean prepack builds must produce the same archive");
   const tarball = join(workspace, packed.filename);
-  const tarPaths = execFileSync("tar", ["-tzf", tarball], { encoding: "utf8" }).trim().split(/\r?\n/).map(path => path.replace(/^package\//, ""));
+  const tarPaths = execFileSync("tar", tarArgs(["-tzf", tarball]), { encoding: "utf8" }).trim().split(/\r?\n/).map(path => path.replace(/^package\//, ""));
   assert.deepEqual(tarPaths.sort(), packageFiles);
   results.package = { name: packed.name, version: packed.version, bytes: packed.size, unpackedBytes: packed.unpackedSize,
     sha256: hash(await readFile(tarball)), integrity: packed.integrity, files: packed.files, tarball: tarball.slice(root.length + 1) };
@@ -301,7 +301,7 @@ try {
       }
     }
     const versions = major === 18 ? react18 : { dependencies: primary.devDependencies, devDependencies: primary.devDependencies };
-    const manifest = { name: `canvas-spa-installed-react${major}-consumer`, version: "0.0.0", private: true, type: "module",
+    const manifest = { name: `underglass-installed-react${major}-consumer`, version: "0.0.0", private: true, type: "module",
       dependencies: { [releasePackage.name]: `file:${tarball}`, react: versions.dependencies.react, "react-dom": versions.dependencies["react-dom"],
         ...(todoCase ? { "@radix-ui/react-dialog": playground.dependencies["@radix-ui/react-dialog"] } : {}) },
       devDependencies: { "@types/react": versions.devDependencies["@types/react"], "@types/react-dom": versions.devDependencies["@types/react-dom"],
@@ -312,7 +312,7 @@ try {
       for (const directory of dependencyRoots) await copyDependencies(directory, join(cwd, "node_modules"));
       const unpacked = join(cwd, "node_modules", releasePackage.name);
       await mkdir(unpacked);
-      execFileSync("tar", ["-xzf", tarball, "--strip-components=1", "-C", unpacked]);
+      execFileSync("tar", tarArgs(["-xzf", tarball, "--strip-components=1", "-C", unpacked]));
       await writeFile(join(evidence, `react${major}-dependency-reuse.json`), JSON.stringify({
         mode: "No installation; independent physical dependencies without optimizer caches, physically extracted current child-package archive",
         dependencies: dependencyRoots.map(directory => directory.slice(root.length + 1)),

@@ -1,1 +1,1 @@
-export * from "../../../packages/canvas-spa/src/native";
+export * from "../../../packages/underglass/src/native";

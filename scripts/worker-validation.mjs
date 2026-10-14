@@ -10,7 +10,7 @@ import { PNG } from "pngjs";
 import { copyDependencies, assertPhysicalTree, assertPhysicalPath, assertBrowserIdentity, assertRuntimePeer } from "./release-policy.mjs";
 import { validatePackageContents } from "./package-policy.mjs";
 import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
-import { withPlatform, devNull } from "../tests/helpers/process.mjs";
+import { withPlatform, devNull, tarArgs } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
 const peer = process.argv.includes("--react18") ? "18.3.1" : "19.3.0";
@@ -48,9 +48,9 @@ async function inputs(directory) {
       else records.push({ path: child, sha256: hash(await readFile(join(directory, child))) });
     }
   }
-  for (const path of ["packages/canvas-spa/src", "fixtures/worker/app"]) await visit(path);
-  for (const path of ["packages/canvas-spa/package.json", "packages/canvas-spa/README.md",
-    "packages/canvas-spa/vite.config.ts", "docs/distribution.md", "scripts/worker-validation.mjs",
+  for (const path of ["packages/underglass/src", "fixtures/worker/app"]) await visit(path);
+  for (const path of ["packages/underglass/package.json", "packages/underglass/README.md",
+    "packages/underglass/vite.config.ts", "docs/distribution.md", "scripts/worker-validation.mjs",
     "package.json", "package-lock.json"]) records.push({ path, sha256: hash(await readFile(join(directory, path))) });
   return records;
 }
@@ -120,7 +120,7 @@ try {
   await assertPhysicalTree(tree);
   assert.deepEqual(await inputs(tree), report.inputs, "Physical worker source inputs differ");
   const node = process.execPath, vite = join(tree, "node_modules/vite/bin/vite.js"), tsc = join(tree, "node_modules/typescript/bin/tsc");
-  const library = join(tree, "packages/canvas-spa");
+  const library = join(tree, "packages/underglass");
   await command(node, [vite, "build"], library, "library-build");
   await command(node, [tsc, "-p", "tsconfig.json"], library, "library-types");
   const archiveDir = join(run, "archive"); await mkdir(archiveDir);
@@ -129,8 +129,8 @@ try {
   validatePackageContents(packed.files);
   const archive = join(archiveDir, packed.filename);
   report.archive = { sha256: hash(await readFile(archive)), bytes: packed.size, members: packed.files.length };
-  const installed = join(tree, "node_modules/@canvas-spa/react"); await mkdir(installed, { recursive: true });
-  await command("tar", ["-xzf", archive, "-C", installed, "--strip-components=1"], tree, "extract-package");
+  const installed = join(tree, "node_modules/@underglass/react"); await mkdir(installed, { recursive: true });
+  await command("tar", tarArgs(["-xzf", archive, "-C", installed, "--strip-components=1"], tree), tree, "extract-package");
   const app = join(tree, "fixtures/worker/app");
   await command(node, ["prepare.mjs"], app, "prebuild-shader");
   const literal = await readFile(join(app, "program.json"));

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type DependencyList, type ReactNode } from "react";
-import { defineEffect, useGPUHost, type Appearance, type EffectDescriptor, type EffectHandle, type Layout } from "@canvas-spa/react";
+import { defineEffect, useGPUHost, type Appearance, type EffectDescriptor, type EffectHandle, type Layout } from "@underglass/react";
 
 export const ART = "showcase-art";
 

@@ -53,8 +53,8 @@ export async function copyDependencies(source, destination) {
     recursive: true, force: true,
     filter: async path => {
       if (excludedDependencies.has(basename(path))) return false;
-      const workspace = { "@canvas-spa/react": "packages/canvas-spa", "@canvas-spa/playground": "examples/playground",
-        "@canvas-spa/showcase": "examples/showcase", "@canvas-spa/css-compiler": "packages/css-compiler" };
+      const workspace = { "@underglass/react": "packages/underglass", "@underglass/playground": "examples/playground",
+        "@underglass/showcase": "examples/showcase", "@underglass/css-compiler": "packages/css-compiler" };
       for (const [name, target] of Object.entries(workspace)) {
         if (path === join(source, name) && (await lstat(path)).isSymbolicLink()) {
           assert.equal(await realpath(path), join(dirname(source), target), `Unexpected workspace alias: ${path}`);

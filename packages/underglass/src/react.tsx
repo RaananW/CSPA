@@ -15,7 +15,7 @@ export function GPUHost({ runtime, children }: { runtime: CanvasRuntime; childre
 }
 function useRuntime() {
   const runtime = useContext(Context);
-  if (!runtime) throw new Error("CanvasSPA components require GPUHost and the explicit mount adapter");
+  if (!runtime) throw new Error("Underglass components require GPUHost and the explicit mount adapter");
   return runtime;
 }
 export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "setOrigin" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "ownCompiledAnimation" | "createMotion" | "advance" | "setRipple" | "setEffects">;
@@ -123,11 +123,11 @@ export interface BoxProps extends Omit<HTMLAttributes<HTMLDivElement>, "style"> 
   appearance?: Appearance;
 }
 export function Box({ layout, appearance, ...attributes }: BoxProps) {
-  return <div {...attributes} data-canvas-spa-clipped={layout?.overflow && layout.overflow !== "visible" ? "" : undefined}
+  return <div {...attributes} data-underglass-clipped={layout?.overflow && layout.overflow !== "visible" ? "" : undefined}
     style={compileStyle(layout, appearance)} />;
 }
 export function NativeScroll({ layout, ...attributes }: BoxProps) {
-  return <Box {...attributes} layout={{ ...layout, overflow: "scroll" }} data-canvas-spa-scroll="" />;
+  return <Box {...attributes} layout={{ ...layout, overflow: "scroll" }} data-underglass-scroll="" />;
 }
 export function NativeOverlay({ children }: { children: ReactNode }) {
   const runtime = useRuntime();

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Presence, Surface, type MotionDescriptor, type TransitionResult } from "@canvas-spa/react";
+import { Presence, Surface, type MotionDescriptor, type TransitionResult } from "@underglass/react";
 import { Panel, useReducedMotion } from "./shared";
 import { usePulse, useSceneArt } from "./scene";
 import { toTransform, type Rect } from "./pose";

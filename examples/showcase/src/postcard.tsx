@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Surface } from "@canvas-spa/react";
+import { Surface } from "@underglass/react";
 import { Panel } from "./shared";
 import { policy, residentChain, useScene, useSceneArt } from "./scene";
 
@@ -102,7 +102,7 @@ export function PostcardStudio() {
       <span className="postmark" style={{ borderColor: colors.ink, color: colors.ink }} aria-hidden="true">CANVAS<br />SPA</span>
       <strong id="saved-title" className={`postcard-title ${title.length > 20 ? "long" : ""}`}>{title || "Untitled"}</strong>
       <p className="postcard-message">{message}</p>
-      <span className="postcard-foot"><span>No. {String(serial).padStart(3, "0")}</span><span>React · CanvasSPA</span></span>
+      <span className="postcard-foot"><span>No. {String(serial).padStart(3, "0")}</span><span>React · Underglass</span></span>
     </Surface>
     <Surface id="showcase-outbox" className="outbox" aria-label="Outbox"
       layout={{ x: 750, y: 36, width: 270, height: 640, padding: 20, direction: "column", gap: 12, overflow: "hidden" }}

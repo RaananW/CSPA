@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { affine, inverse, pivot, point, cssMatrix } from "../../packages/canvas-spa/src/affine.ts";
+import { affine, inverse, pivot, point, cssMatrix } from "../../packages/underglass/src/affine.ts";
 
 test("canonical affine transform and inverse agree for rotation/scale/translation", () => {
   for (const transform of [{}, { x: 15, y: -2 }, { scaleX: 0.8, scaleY: 1.3, rotation: 27 }, { scaleX: -1, rotation: -75 }]) {

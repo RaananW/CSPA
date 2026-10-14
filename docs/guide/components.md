@@ -1,11 +1,11 @@
-# Building components for CanvasSPA
+# Building components for Underglass
 
 This is the standard for components, your own or a library's, that should work
-inside a CanvasSPA app. The goal: **the component is ordinary React DOM first**, and
+inside a Underglass app. The goal: **the component is ordinary React DOM first**, and
 GPU presentation is an optional layer on top that never changes how it behaves.
 
 A component that follows these rules works three ways without changes: in a plain
-React app, in a CanvasSPA app in ordinary DOM mode, and in GPU mode.
+React app, in a Underglass app in ordinary DOM mode, and in GPU mode.
 
 ## The rules
 
@@ -13,7 +13,7 @@ React app, in a CanvasSPA app in ordinary DOM mode, and in GPU mode.
 
 - Render real elements, keep state in React, and use native controls.
 - Never render a second "display copy" of an interactive element for the GPU to
-  draw. CanvasSPA draws the original element, and the original receives the input.
+  draw. Underglass draws the original element, and the original receives the input.
 - Do not read layout to fake positions (for example, absolutely positioning a
   duplicate where you think the GPU drew something).
 
@@ -30,12 +30,12 @@ one of two ways:
     return <article ref={ref} className="card" {...rest}><h3>{title}</h3>{children}</article>;
   });
 
-  // In a CanvasSPA app:
+  // In a Underglass app:
   const ref = useSurfaceRef<HTMLElement>({ id: "welcome-card", origin: "center" });
   <Card ref={ref} title="Welcome" />;
   ```
 
-  Enrolled elements must be **direct children of the CanvasSPA root**, so render the
+  Enrolled elements must be **direct children of the Underglass root**, so render the
   card at the top level of the app tree, positioned absolutely by its own CSS.
 
 - **Component-owned layers.** An app-level component can render `<Surface>`
@@ -44,7 +44,7 @@ one of two ways:
 
 Do not nest layers. A layer inside another layer falls back to DOM.
 
-### 3. Leave the boundary's transform to CanvasSPA
+### 3. Leave the boundary's transform to Underglass
 
 The boundary's `transform`, `translate`, `rotate`, `scale`, `opacity` and
 `transform-origin` belong to the runtime in GPU mode.
@@ -98,12 +98,12 @@ interactive content `aria-hidden` to make it eligible.
 
 GPU mode keeps the original elements in the accessibility tree; the output canvas
 is not `aria-hidden`. Label controls, keep focus order sensible and respect
-`prefers-reduced-motion` in your own CSS. CanvasSPA already respects it for its own
+`prefers-reduced-motion` in your own CSS. Underglass already respects it for its own
 motion and effects.
 
 ## Checklist before you ship a component
 
-- [ ] Works in a plain React app with no CanvasSPA.
+- [ ] Works in a plain React app with no Underglass.
 - [ ] Root element accepts a `ref` (or the component renders a `Surface`).
 - [ ] No transform or opacity animation on the root itself; descendants are free.
 - [ ] No shadow, outline or content painted outside the root's box.

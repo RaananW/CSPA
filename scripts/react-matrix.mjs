@@ -25,7 +25,7 @@ async function hashSource(directory) {
   }
 }
 await hashSource(resolve("examples/playground/src"));
-await hashSource(resolve("packages/canvas-spa/src"));
+await hashSource(resolve("packages/underglass/src"));
 const sourceSha256 = sourceHash.digest("hex");
 if (!isPrimary) {
   await mkdir(destination, { recursive: true });
@@ -85,7 +85,7 @@ try {
       development: JSON.parse(await readFile(resolve(destination, `${evidenceRoot}/runtime/independent-true.json`), "utf8")).initial.reactVersion,
     },
     resolvedIntegration: { name: dialogPackage.name, version: dialogPackage.version, license: dialogPackage.license, peerDependencies: dialogPackage.peerDependencies },
-    sourceRoot: "<workspace>/packages/canvas-spa/src + examples/playground/src", sourceSha256, primaryLockUnchanged: true, primaryLockSha256: lockAfter,
+    sourceRoot: "<workspace>/packages/underglass/src + examples/playground/src", sourceSha256, primaryLockUnchanged: true, primaryLockSha256: lockAfter,
   }, null, 2));
 } finally {
   process.chdir(root);

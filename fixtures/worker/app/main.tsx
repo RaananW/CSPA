@@ -1,7 +1,7 @@
 import { Profiler, useState, version } from "react";
 import { flushSync, version as domVersion } from "react-dom";
-import { mountCanvasApp, Surface, Box } from "@canvas-spa/react";
-import { mountWorkerCanvasApp, WorkerSurface, type WorkerProgram } from "@canvas-spa/react/experimental-worker";
+import { mountCanvasApp, Surface, Box } from "@underglass/react";
+import { mountWorkerCanvasApp, WorkerSurface, type WorkerProgram } from "@underglass/react/experimental-worker";
 import program from "./program.json";
 
 const params = new URLSearchParams(location.search);

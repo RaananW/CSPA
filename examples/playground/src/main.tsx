@@ -7,12 +7,12 @@ const capability = capabilities(document.createElement("canvas"));
 
 function App() {
   const [count, setCount] = useState(0);
-  const [name, setName] = useState("CanvasSPA");
+  const [name, setName] = useState("Underglass");
   const [submitted, setSubmitted] = useState("");
   const [fault, setFault] = useState("");
   return (
     <main>
-      <h1>CanvasSPA: Phase 1 feasibility</h1>
+      <h1>Underglass: Phase 1 feasibility</h1>
       <aside aria-label="Renderer diagnostics" role="status">
         <strong>Renderer: ordinary DOM</strong>
         <p>

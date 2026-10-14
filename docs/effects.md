@@ -92,7 +92,7 @@ because the pinned React18 types do not expose JSX `inert`; no types upgrade,
 duplicate element or CSS normalization is used.
 
 ```tsx
-import { defineEffect } from "../canvas-spa";
+import { defineEffect } from "../underglass";
 
 export const tint = defineEffect({
   name: "warm-tint",

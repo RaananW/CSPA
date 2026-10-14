@@ -11,7 +11,7 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "paths": { "@canvas-spa/react": ["../../packages/canvas-spa/src/index.ts"] }
+    "paths": { "@underglass/react": ["../../packages/underglass/src/index.ts"] }
   },
   "include": ["src"]
 }

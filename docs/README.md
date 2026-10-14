@@ -1,14 +1,14 @@
-# CanvasSPA documentation
+# Underglass documentation
 
 ## Guide
 
-Start here if you are using CanvasSPA or writing components for it.
+Start here if you are using Underglass or writing components for it.
 
 1. [Getting started](guide/getting-started.md): requirements, install, your first layer, enabling GPU.
 2. [Concepts](guide/concepts.md): the two modes, layers, admission, what the GPU adds over CSS.
 3. [Motion](guide/motion.md): transitions, groups, `Presence`, animation ownership.
 4. [Effects](guide/effects.md): built-in effects and your own WGSL.
-5. [Building components](guide/components.md): the standard for components that work in CanvasSPA.
+5. [Building components](guide/components.md): the standard for components that work in Underglass.
 6. [Troubleshooting](guide/troubleshooting.md): every fallback reason and its fix.
 
 ## Reference

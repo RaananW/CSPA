@@ -1,13 +1,13 @@
 import postcss from "postcss";
 import valueParser from "postcss-value-parser";
-import { affine, compileTimeline, parseTransform } from "@canvas-spa/react/build";
+import { affine, compileTimeline, parseTransform } from "@underglass/react/build";
 import { validateConfig, readConfig } from "./config.mjs";
 import { generateModule } from "./generate.mjs";
 
 export { validateConfig, readConfig };
 const animationProperties = ["animation-name", "animation-duration", "animation-delay", "animation-iteration-count",
   "animation-direction", "animation-fill-mode", "animation-timing-function", "animation-play-state"];
-function fail(node, message) { throw node.error(`CanvasSPA: ${message}`, { plugin: "canvas-spa-compiler" }); }
+function fail(node, message) { throw node.error(`Underglass: ${message}`, { plugin: "underglass-compiler" }); }
 function time(node, text) {
   if (!/^\d+(?:\.\d+)?(?:ms|s)$/.test(text)) fail(node, `Unsupported static time: ${text}`);
   return Number(text.slice(0, text.endsWith("ms") ? -2 : -1)) * (text.endsWith("ms") ? 1 : 1000);
@@ -136,12 +136,12 @@ export function createCompiler(config) {
       const animations = [...outputs.values()].flat();
       const expected = validated.entries.map(entry => `${entry.id}/${entry.animations[0]}`);
       if (animations.length !== expected.length || expected.some(id => !animations.some(animation => animation.id === id))) {
-        throw new Error("CanvasSPA: selected styles were not processed by the configured CSS pipeline");
+        throw new Error("Underglass: selected styles were not processed by the configured CSS pipeline");
       }
       return generateModule(animations.sort((a, b) => expected.indexOf(a.id) - expected.indexOf(b.id)));
     },
     postcss(select) {
-      return { postcssPlugin: "canvas-spa-compiler", OnceExit(root, { result }) {
+      return { postcssPlugin: "underglass-compiler", OnceExit(root, { result }) {
         const filename = result.opts.from;
         const entries = select(filename);
         if (!entries?.length) return;

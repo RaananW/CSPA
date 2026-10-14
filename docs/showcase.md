@@ -1,7 +1,7 @@
 # Example showcase and GitHub Pages preparation
 
 The private `examples/showcase` npm workspace is a React SPA using the public
-CanvasSPA package. Its catalog opens six live examples in the same app. The
+Underglass package. Its catalog opens six live examples in the same app. The
 engineering playground remains separate; raw reports, probes, test evidence and
 private fixtures are not served.
 
@@ -87,7 +87,7 @@ support:
 
 After opening the page in that configured Canary session, choose **Enable
 experimental GPU**. Flags alone do not guarantee support in every Canary build;
-CanvasSPA checks working capture and geometry and reports refusal reasons.
+Underglass checks working capture and geometry and reports refusal reasons.
 
 ## Deployment
 

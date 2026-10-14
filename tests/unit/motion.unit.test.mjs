@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compileMotion } from "../../packages/canvas-spa/src/motion.ts";
+import { compileMotion } from "../../packages/underglass/src/motion.ts";
 
 test("numeric motion snapshots channels/timing and shares bounded timeline sampling", () => {
   const descriptor = {

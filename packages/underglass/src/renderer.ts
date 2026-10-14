@@ -167,10 +167,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   function present(next: Pass[]) {
     unpresent();
     if (!background) {
-      const effect = createEffectWrapper(engine!, { name: "canvas-spa-background",
+      const effect = createEffectWrapper(engine!, { name: "underglass-background",
         fragmentWGSL: "@fragment fn effectFragment(input: EffectVertexOutput) -> @location(0) vec4f { return vec4f(1.0); }" });
       resources.effects++;
-      const renderer = createEffectRenderer(engine!.surfaces[0], effect, { name: "canvas-spa-background", clear: true, clearColor: { r: 1, g: 1, b: 1, a: 1 } });
+      const renderer = createEffectRenderer(engine!.surfaces[0], effect, { name: "underglass-background", clear: true, clearColor: { r: 1, g: 1, b: 1, a: 1 } });
       resources.renderers++;
       background = { effect, renderer };
     }
@@ -338,7 +338,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     try { options.presentation?.("dom"); }
     catch (error) {
       reason += ` DOM presentation restoration failed: ${String(error)}`;
-      console.error("CanvasSPA DOM presentation restoration failed", error);
+      console.error("Underglass DOM presentation restoration failed", error);
       status();
     }
     options.onRecovery?.(message);
@@ -526,7 +526,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     const lost = observer!.lost;
     const fence = Promise.race([queue.onSubmittedWorkDone(), lost.then(() => undefined)]).then(finish).catch(error => {
       // A rejected queue promise is not permission to destroy healthy resources.
-      console.error("CanvasSPA successor retirement fence failed; retaining resources", error);
+      console.error("Underglass successor retirement fence failed; retaining resources", error);
       return lost.then(finish);
     }).finally(() => { retirements.delete(fence); });
     retirements.add(fence);
@@ -1069,7 +1069,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     if (Array.isArray(changed)) sample(metrics.paintElements, changed.map(element => element instanceof Element ? element.id || element.tagName : String(element)));
     try { publishPaint(); }
     catch (error) {
-      console.error("CanvasSPA synchronous native publication failed", error);
+      console.error("Underglass synchronous native publication failed", error);
       void recover(`Native publication failed: ${String(error)}`).catch(reportFailure);
     }
   });

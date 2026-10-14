@@ -26,7 +26,7 @@ fixtures/react18/workspace/
 !/evidence/phase12-independent/acceptance-summary.json
 /playwright-report/
 /blob-report/
-/packages/canvas-spa/docs/
+/packages/underglass/docs/
 fixtures/worker/app/program.json
 
 # Agent and editor worktrees

@@ -1,19 +1,19 @@
-# CanvasSPA experimental private package
+# Underglass experimental private package
 
-`@canvas-spa/react@0.1.0` is a private ESM library with matching React18.3.1
+`@underglass/react@0.1.0` is a private ESM library with matching React18.3.1
 or React19 peers and public Babylon Lite. It is not published or release-qualified.
 
-Import supported runtime APIs from `@canvas-spa/react`. The separate
-`@canvas-spa/react/build` export is for build tooling, providing compositor
+Import supported runtime APIs from `@underglass/react`. The separate
+`@underglass/react/build` export is for build tooling, providing compositor
 generation and animation lowering; other internal subpaths are not exported.
-The private `@canvas-spa/css-compiler` package supplies opt-in JSON-configured
+The private `@underglass/css-compiler` package supplies opt-in JSON-configured
 Vite/webpack integration and generated `CompiledProgramSet` artifacts.
 Pass one to `mountCanvasApp` and explicitly call `ownCompiledAnimation` after
 original-element enrollment. Existing runtime CSS/WAAPI APIs remain available
 for noncompiled applications.
 
-The opt-in `@canvas-spa/react/experimental-worker` adapter and
-`@canvas-spa/react/experimental-worker/thread` entry move shared WebGPU
+The opt-in `@underglass/react/experimental-worker` adapter and
+`@underglass/react/experimental-worker/thread` entry move shared WebGPU
 composition/upload and decorative clocks to an app-owned module worker.
 Generate its literal program with `workerCompositorProgram` from `/build`.
 React/DOM/layout/capture remain on the main thread; essential controls have

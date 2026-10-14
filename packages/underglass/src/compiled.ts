@@ -41,7 +41,7 @@ export interface CompiledMotion {
 }
 
 export function validateCompiledPrograms(compiled: CompiledProgramSet) {
-  if ((compiled as { version?: unknown } | undefined)?.version === 1) throw new Error("Compiled program set version 1 predates per-layer drawing; rebuild it with the matching @canvas-spa/css-compiler");
+  if ((compiled as { version?: unknown } | undefined)?.version === 1) throw new Error("Compiled program set version 1 predates per-layer drawing; rebuild it with the matching @underglass/css-compiler");
   if (!compiled || compiled.version !== 2 || !Array.isArray(compiled.animations) || !Array.isArray(compiled.programs)
     || compiled.animations.length < 1 || compiled.animations.length > 32 || compiled.programs.length !== 1) {
     throw new Error("Invalid compiled program set");

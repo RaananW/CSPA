@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Box, Surface, Presence, NativeOverlay, NativeScroll, useNativeOverlayHost, type MotionDescriptor } from "@canvas-spa/react";
+import { Box, Surface, Presence, NativeOverlay, NativeScroll, useNativeOverlayHost, type MotionDescriptor } from "@underglass/react";
 import { initialTodos, reduceTodos, visibleTasks, TASK_LIMIT, NOTES_LIMIT, type Filter, type TaskEvent } from "./model";
 
 export const TODO_SURFACE = "todo-controls";

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { axisAligned, intersectViewport, localViewport, scrollOrigin, canvasContentOrigin, viewportContains } from "../../packages/canvas-spa/src/viewport.ts";
+import { axisAligned, intersectViewport, localViewport, scrollOrigin, canvasContentOrigin, viewportContains } from "../../packages/underglass/src/viewport.ts";
 
 test("owner native border-box origin is separate from GPU bitmap content coordinates", () => {
   assert.deepEqual(canvasContentOrigin({ clientLeft: 8, clientTop: 5 }, { paddingLeft: "4px", paddingTop: "6px" }),

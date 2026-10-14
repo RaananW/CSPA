@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Surface } from "@canvas-spa/react";
+import { Surface } from "@underglass/react";
 import { STAGE } from "./pose";
 
 export type BackdropTheme = "postcard" | "deck" | "lab" | "notices" | "tasks" | "pond";
