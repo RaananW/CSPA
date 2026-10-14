@@ -1,0 +1,20 @@
+name: Feature request
+description: A capability, API or example you would like to see.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to build?
+      description: The component or effect, and where the current API stops you.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help?
+  - type: textarea
+    id: css
+    attributes:
+      label: Why not plain CSS or DOM?
+      description: GPU presentation should add something CSS cannot do, or do well.

@@ -28,3 +28,7 @@ fixtures/react18/workspace/
 /blob-report/
 /packages/canvas-spa/docs/
 fixtures/worker/app/program.json
+
+# Agent and editor worktrees
+.claude/worktrees/
+.cache/

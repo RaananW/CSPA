@@ -1,0 +1,22 @@
+# Weekly dependency updates as pull requests; CI and the browser suite gate each one.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      build-tools:
+        patterns: ["vite", "typescript", "webpack", "sass", "*-loader", "postcss*"]
+  - package-ecosystem: npm
+    directory: /fixtures/react18
+    schedule:
+      interval: monthly
+  # Workflows pin actions to commit SHAs; Dependabot updates the SHA and its version comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
