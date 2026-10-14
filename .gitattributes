@@ -1,0 +1,15 @@
+# Store and check out text with LF on every platform, so a Windows checkout
+# (core.autocrlf) never turns a one-line change into a whole-file diff or conflict.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.tgz binary
+*.gz binary
+*.zip binary

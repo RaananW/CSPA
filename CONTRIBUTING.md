@@ -386,6 +386,34 @@ Stop a manually started preview when finished. The old probe's `BLOCKED`
 verdict is expected for its fixed-subtree recovery/direct cross-owner snapshot
 path; it does not supersede the new owning-canvas pixel-copy/stable-root path.
 
+## Pull requests
+
+Every change goes through a pull request to `main`; CI must pass. Keep each pull
+request to one concern, and keep it mergeable:
+
+- **Stack dependent work.** When a change builds on another open pull request,
+  branch from that branch and set it as the base. Say so in the description, and
+  merge the stack bottom-up.
+  - Branches are deleted on merge, so GitHub retargets the next pull request in
+    the stack to `main` automatically.
+  - Use **Create a merge commit** for a stacked pull request. With squash or
+    rebase merges the rest of the stack keeps the old commits, so rebase it onto
+    `main` after each merge.
+- **Write change notes as new files.** Add one file to [docs/changes](docs/changes/README.md)
+  instead of appending to a shared "Changes" list in the docs.
+- **Add tests in new files when practical.** Browser suites and playground pages
+  are discovered by glob (`tests/browser/*.test.mjs`, `examples/playground/*.html`),
+  so adding one touches no shared list. Appending to the end of a busy test file
+  is the most common source of conflicts.
+- **Merge renames and repo-wide mechanical changes last.** Rebase them onto
+  `main` after the feature work lands; redoing a mechanical rename is cheaper
+  than resolving it against every open branch.
+- **Line endings are LF everywhere** (`.gitattributes`), whatever `core.autocrlf`
+  is set to.
+- **Before opening or updating a pull request, check it against the other open
+  ones:** `git merge-tree --write-tree --name-only <your-branch> <other-branch>`
+  exits non-zero and lists the files when the two would conflict.
+
 ## Change boundaries
 
 Preserve one authoritative React control tree and one shared GPU engine.

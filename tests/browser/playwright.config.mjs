@@ -8,7 +8,8 @@ const isolated = !!process.env.CANVAS_TEST_DEV_URL;
 
 export default defineConfig({
   testDir: ".",
-  testMatch: ["browser.test.mjs", "recovery.test.mjs", "surface.test.mjs", "runtime.test.mjs", "animation.test.mjs", "todo.test.mjs", "performance.test.mjs", "integration.test.mjs", "effects.test.mjs", "hardening.test.mjs", "interaction.test.mjs", "dynamic.test.mjs", "native-editing.test.mjs", "viewport.test.mjs"],
+  // Every suite in this directory; a new suite needs no edit to a shared list.
+  testMatch: "*.test.mjs",
   workers: 1,
   outputDir: resolve(evidenceRoot, "test-results"),
   timeout: 60000,
