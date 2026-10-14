@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { randomUUID, createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { cp, mkdir, readFile, writeFile, readdir } from "node:fs/promises";
-import { join, resolve, basename, sep } from "node:path";
+import { join, resolve, basename, sep, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 import { createServer } from "node:http";
 import { createServer as createPortServer } from "node:net";
 import { chromium } from "@playwright/test";
@@ -46,7 +47,8 @@ async function command(executable, args, cwd, label, expectedFailure = false, ex
 async function installArchive(directory, archive, name) {
   const target = join(directory, "node_modules", name);
   await mkdir(target, { recursive: true });
-  await command("tar", ["-xzf", archive, "-C", target, "--strip-components=1"], directory, `extract-${name.replaceAll("/", "-")}-${basename(directory)}`);
+  // Relative paths: GNU tar (Git Bash) reads a Windows drive letter as a remote host.
+  await command("tar", ["-xzf", relative(directory, archive).split(sep).join("/"), "-C", relative(directory, target).split(sep).join("/"), "--strip-components=1"], directory, `extract-${name.replaceAll("/", "-")}-${basename(directory)}`);
 }
 async function serve(directory) {
   const server = createServer(async (request, response) => {
@@ -89,8 +91,8 @@ try {
   await installArchive(tree, archive("canvas-spa-phase-one"), "canvas-spa-phase-one");
   await installArchive(tree, archive("canvas-spa-css-compiler"), "@canvas-spa/css-compiler");
   await command(node, ["--test", "tests/compiler/compiler.test.mjs", "tests/compiler/conformance.test.mjs"], tree, "compiler-units");
-  const { compileStylesheet } = await import(join(tree, "packages/css-compiler/src/index.mjs"));
-  const { generateModule } = await import(join(tree, "packages/css-compiler/src/generate.mjs"));
+  const { compileStylesheet } = await import(pathToFileURL(join(tree, "packages/css-compiler/src/index.mjs")).href);
+  const { generateModule } = await import(pathToFileURL(join(tree, "packages/css-compiler/src/generate.mjs")).href);
   const corpus = acceptedCSS.map(fixture => {
     const animations = compileStylesheet(fixture.css, [fixture.entry], { modules: fixture.modules });
     return { ...fixture, animation: animations[0], source: generateModule(animations, 1), times: referenceTimes(animations[0]) };
@@ -139,8 +141,8 @@ try {
             {loader:"postcss-loader",options:{sourceMap:true,postcssOptions:{config:import.meta.dirname+"/postcss.config.mjs"}}},
             {loader:"sass-loader",options:{sourceMap:true}}
           ]}]}};`);
-      const webpack = await import(join(tree, "node_modules/webpack/lib/index.js"));
-      const configuration = (await import(join(app, "webpack.config.mjs"))).default;
+      const webpack = await import(pathToFileURL(join(tree, "node_modules/webpack/lib/index.js")).href);
+      const configuration = (await import(pathToFileURL(join(app, "webpack.config.mjs")).href)).default;
       const compiler = webpack.default(configuration);
       try {
         await new Promise((done, reject) => compiler.run((error, stats) => {
