@@ -21,10 +21,11 @@ test("showcase hash navigation and catalog filtering remain local and predictabl
   assert.deepEqual(searchExamples("layer", "Motion").map(example => example.id), ["motion"]);
   assert.equal(searchExamples("unfindable", "All").length, 0);
 });
-test("manual Pages workflow uses immutable pins and confines deployment permissions", async () => {
+test("Pages workflow deploys only main, uses immutable pins and confines deployment permissions", async () => {
   const workflow = (await readFile(".github/workflows/showcase-pages.yml", "utf8")).replaceAll(String.fromCharCode(13, 10), String.fromCharCode(10));
-  assert.match(workflow, /on:\n  workflow_dispatch:/);
-  assert.ok(!/\n  (push|pull_request|schedule):/.test(workflow));
+  assert.match(workflow, /on:\n  push:\n    branches: \[main\]\n/);
+  assert.match(workflow, /\n  workflow_dispatch:/);
+  assert.ok(!/\n  (pull_request|pull_request_target|schedule):/.test(workflow));
   for (const action of workflow.matchAll(/uses: (\S+)/g)) assert.match(action[1], /^[\w/-]+@[a-f0-9]{40}$/);
   assert.match(workflow, /persist-credentials: false/);
   assert.match(workflow, /path: examples\/showcase\/dist/);
