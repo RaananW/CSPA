@@ -45,4 +45,4 @@ jobs:
       - name: GPU browser suite
         if: always()
         shell: bash
-        run: echo "Browser/GPU tests need Chrome Canary with HTML-in-Canvas flags and a GPU; run 'npm run test:browser' locally."
+        run: echo "The GPU browser suite runs in the Browser workflow on a self-hosted GPU runner (docs/ci-gpu-runner.md), or locally with 'npm run test:browser'."

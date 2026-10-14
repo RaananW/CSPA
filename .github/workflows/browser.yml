@@ -1,0 +1,54 @@
+name: Browser
+
+# The GPU browser suite needs a real GPU and Chrome Canary with HTML-in-Canvas.
+# GitHub-hosted runners cannot provide that: Linux software WebGPU loses its device on
+# canvas presentation, and Windows runners expose no WebGPU adapter. This job runs on a
+# self-hosted GPU runner instead, once one is registered and the repository variable
+# GPU_RUNNER is "true" (see docs/ci-gpu-runner.md). It never runs code from fork PRs.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser:
+    name: GPU browser suite (Chrome Canary, self-hosted GPU)
+    if: >-
+      vars.GPU_RUNNER == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 40
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.19.0
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Probe WebGPU and HTML-in-Canvas
+        run: node scripts/ci-gpu-probe.mjs
+      - name: Build
+        run: npm run build
+      - name: Smoke test GPU admission
+        run: node scripts/ci-gpu-smoke.mjs
+      - name: Browser suite
+        run: node scripts/test-browser.mjs
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-evidence
+          path: evidence/regression/current/
+          retention-days: 7
