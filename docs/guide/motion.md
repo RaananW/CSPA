@@ -53,7 +53,9 @@ buttons the whole time.
 
 - `controller.animate(id, target, { duration })` interpolates toward a target
   transform on the GPU. It is meant for interactive, imperative motion.
-- `controller.setTransform(id, transform)` sets a transform immediately.
+- `controller.setTransform(id, transform)` sets a transform immediately. It is safe to
+  call every frame (drag, springs, physics), including while `enable()` is admitting;
+  admission presents the latest value.
 - A `Surface`'s `transform` prop is the resting transform. React updates to it during
   a transition become the end state when that transition finishes.
 
