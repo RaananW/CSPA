@@ -1,52 +1,53 @@
 # CanvasSPA agent instructions
 
-CanvasSPA is a **GPU-first framework**. Read [README.md](README.md),
+CanvasSPA is a **GPU-first** React framework. Read [README.md](README.md),
 [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [GPU-first contract](docs/architecture.md#gpu-first-contract) before changing it.
+User-facing behaviour is described in [docs/guide](docs/guide/getting-started.md).
 
-The root is private tooling, not the release package. Library source/manifest/
-build belong to `packages/canvas-spa`; engineering HTML/app/demo/probe sources
-belong to `examples/playground`, and the public-facing React gallery belongs to
-the private `examples/showcase` workspace. Tests are grouped under `tests/unit`, `tests/browser`
-and `tests/helpers`; exact React18 remains a separately locked fixture.
-Keep root scripts and canonical page URLs stable, and pack only the child
-library workspace. Historical accepted seals identify their original layouts,
-not newly built workspace artifacts.
+## Layout
 
-Before every capture, geometry or presentation change, ALWAYS check the latest
-[WICG HTML-in-Canvas proposal](https://github.com/WICG/html-in-canvas) and
-[Chromium feature/bug hotlist](https://issues.chromium.org/hotlists/6783002),
-including relevant ElementCanvasTransform issues. Record the proposal SHA/date,
-tracker access limits, landed fixes and actual queried browser build separately.
-Historical evidence and a fixed issue status do not qualify the installed
-browser. Verify current APIs with functional pixel/native-hit probes; do not
-silently substitute deprecated syntax or infer support from property presence.
+- `packages/canvas-spa`: the library, the only package that is packed.
+- `packages/css-compiler`: the opt-in build-time CSS compiler.
+- `examples/playground`: engineering pages and probes; `examples/showcase`: the public gallery.
+- `tests/unit`, `tests/browser`, `tests/compiler`, `tests/helpers`. The React 18 fixture is separately locked.
+- Keep root script names and page URLs stable. `docs/archive` and `evidence/` are history.
 
-Supported React layer, ref and content updates must remain GPU-presented with
-fresh pixels, current original native interaction geometry and no blank
-application frames. Permanent DOM fallback for normal supported updates is not
-a fix. Once GPU is enabled, only a GPU error or factual lack of required
-GPU/capture/geometry feature support justifies diagnosed fallback. Explicit
-disable/disposal remains caller-owned lifecycle. Normal structure/layout/DPR
-updates, visibility pauses and reduced motion must not themselves revoke GPU.
-Every implemented transition, component add/remove/change and undo/redo flow
-must use the continuous-GPU core. Do not relabel missing framework
-implementation as unsupported browser capability.
+## Before a capture, geometry or presentation change
 
-Preserve React's original control tree/state, adapter-owned root-container
-boundary, one shared renderer, public APIs and the typed no-handwritten-CSS
-authoring goal. Do not clone controls, cover updates with stale pixels, debounce
-diagnostics to mask flicker or weaken hit-geometry safety.
+- Check the latest [WICG HTML-in-Canvas proposal](https://github.com/WICG/html-in-canvas) and the
+  [Chromium hotlist](https://issues.chromium.org/hotlists/6783002) (including ElementCanvasTransform issues).
+- Record the proposal SHA and date, tracker access limits, and the browser build you actually tested, separately.
+- Prove the API you rely on with functional pixel and native-hit probes on the installed build. Never infer
+  support from property presence, substitute deprecated syntax, or assume a browser or React patch.
 
-The bounded structural/native viewport correction is independently accepted at
-`cfa9df73`, external axis-aligned scroll at `ab598c00`, and the selected Phase13
-task workspace/diagnostic repair at `12f13661`. Preserve those qualified
-contracts; [open issues](docs/open-issues.md) records broader and historical gates.
-For new capture/presentation changes, prove the needed public mechanism;
-do not assume a browser API or React patch is available or required. Acceptance must verify GPU
-remains active through supported updates, fresh rendered pixels and correct
-original native hits. Fallback-only tests cannot satisfy that gate.
-Components should layer GPU support and a small typed declarative CSS/JS
-fallback over their standard native React implementation, sharing the same
-original controls/state. Complex GPU visual apps with native HTML advantages
-are the target, not a currently certified capability or automatic library adapter.
+## Non-negotiable contract
+
+- Supported React layer, ref and content updates stay GPU-presented, with fresh pixels, correct native hit
+  geometry and no blank frames.
+- Once GPU is on, only a GPU error or a factual lack of required browser support justifies a diagnosed fallback.
+- Layout, DPR and structure changes, hidden tabs and reduced motion must not revoke GPU.
+- Permanent DOM fallback for a supported update is not a fix, and missing framework code is not a browser limitation.
+- Explicit `disable`/`dispose` is caller-owned.
+- Preserve the original React control tree and state, the adapter-owned root boundary, one shared engine, the
+  public API, and typed authoring.
+- Never clone controls, cover updates with stale pixels, debounce diagnostics to hide flicker, or weaken
+  hit-geometry safety.
+- Components layer GPU support over a standard native React implementation that shares the same controls and
+  state ([standard](docs/guide/components.md)).
+
+## Verifying a change
+
+- A change to GPU behaviour needs a browser test that shows GPU stays active, pixels are fresh and native hits
+  are correct. Fallback-only tests do not count.
+- Headless and a real window can differ (scrollbars put the canvas on fractional pixels). For capture,
+  geometry or admission changes, also check in a headful Canary window.
+- Run `npm run typecheck`, `npm run test:unit`, `node --test tests/compiler/*.test.mjs` and
+  `npm run test:browser`. Run `npm run test:showcase` when the showcase changes.
+
+## Pull requests
+
+- Work on a branch and open a PR to `main`. Keep one concern per PR, and stack dependent PRs on each other's
+  branches. Follow [CONTRIBUTING.md#pull-requests](CONTRIBUTING.md#pull-requests).
+- Add a change note in [docs/changes](docs/changes/README.md) for behaviour, API or tooling changes.
+- [Open issues](docs/open-issues.md) records known limits and unperformed validation.

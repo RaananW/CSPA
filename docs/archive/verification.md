@@ -51,7 +51,7 @@ verified in this readback.
 This is implemented experimental scope, **not independent technical acceptance**,
 a full browser-suite rerun, universal CSS/preprocessor equivalence, a speedup,
 manual accessibility/hardware qualification or publication.
-[Compiler contract and reproduction](../packages/css-compiler/README.md).
+[Compiler contract and reproduction](../../packages/css-compiler/README.md).
 
 ### Expanded CSS conformance proof
 
@@ -217,7 +217,7 @@ The WICG proposal was rechecked at
 2026-10-09T22:49:17Z. The Chromium hotlist still exposes its client shell;
 no new landed fix or current issue status was verified. Browser functional
 proof, not proposal/issue labels, supports this bounded experiment.
-[Setup, source boundaries and lifecycle](worker.md).
+[Setup, source boundaries and lifecycle](../worker.md).
 The owner authorized commit/push after documentation on 2026-10-12. Persistence
 does not confer independent acceptance. Manual accessibility/IME, physical
 displays/loss, WebGL2, production budgets, hosting/license/publication and
@@ -230,7 +230,7 @@ viewport/admission repair at `cfa9df73`, external axis-aligned scroll/native
 content-origin correction at `ab598c00`, and selected Phase13 task workspace/
 diagnostics at `12f13661`. These qualify the measured current Canary157 route,
 not historical154, physical display, arbitrary CSS or release readiness.
-The [open-issues register](open-issues.md) records remaining gates and exceptions.
+The [open-issues register](../open-issues.md) records remaining gates and exceptions.
 Historical phase results below retain their original source/browser scope.
 Current Phase13 no-flags/default DOM cases leave GPU disabled; they do not prove
 native methods absent on157. Intentional clip-dropping admission refusal is a
@@ -248,7 +248,7 @@ zero-GPU refusal, explicit visible reentry and disposal; it did not rerun every
 unchanged workflow. Exactly one generated adoption-v1 optimizer metadata file
 was damaged during an earlier retry; original bytes are unavailable and the
 old seal is not wholly intact. Fresh isolated proof retained this exception.
-See [INT-002](open-issues.md#int-002---one-phase13-generated-metadata-corruption).
+See [INT-002](../open-issues.md#int-002---one-phase13-generated-metadata-corruption).
 
 **Evidence storage:** historical raw paths named below refer to the verified
 external local archive, not files in this checkout. Only compact verdicts
@@ -267,7 +267,7 @@ verification is retained in `evidence/package-versions.json`.
 
 ## Phase9 hardening (accepted-with-limits on actual installed155)
 
-[Independent acceptance](../evidence/phase9-independent/acceptance-v1.json)
+[Independent acceptance](../../evidence/phase9-independent/acceptance-v1.json)
 reran React18:21 units/types/build/94 browsers and React19:21 units/types/build/
 140 browsers, with zero failures/skips/flaky results. It independently audited
 90/40 baseline and90/40 final measurements,20 exact300-GPU-frame effect windows,
@@ -355,12 +355,12 @@ closure is claimed; planned hardening remains [roadmap](roadmap.md) work.
 ## Phase8 bounded effects
 
 Independently accepted with explicit limits; see the
-[Phase8 acceptance summary](../evidence/phase8-acceptance-summary.json).
+[Phase8 acceptance summary](../../evidence/phase8-acceptance-summary.json).
 Final independent React19 passed21 units/types/build/124 browsers; retained
 source-identical React18 passed matching types/build/78 shared browsers.
 Direct decoded/native/policy/300-real-RAF proof and bounded smoke passed.
 Earlier P8-A1/A2 findings remain immutable. The
-[effect contract](effects.md) describes bounds/order/media/static fallback and
+[effect contract](../effects.md) describes bounds/order/media/static fallback and
 trusted authoring. Ten effect cases extend the matching shared suite to78
 browser cases and the full primary suite to124, with21 current units (18 in the
 recorded implementation gate plus three subsequent P8-A1 routing units). Selected
@@ -378,7 +378,7 @@ scope, delayed healthy fence and visibility are explicitly synthetic fixtures.
 Configured-device destruction is actual loss delivery, not physical reset.
 Twenty retired StrictMode lifetimes and actual HMR end with zero ledgers.
 
-Matching-major metadata and reports are linked in [effects](effects.md).
+Matching-major metadata and reports are linked in [effects](../effects.md).
 All955 versioned baseline evidence bytes are protected against new writers,
 including the five already-regenerated Phase6 files; that is preservation of
 the accepted Git bytes, **not** restoration of their lost original provenance.

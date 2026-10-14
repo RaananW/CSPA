@@ -2,9 +2,9 @@
 
 This page holds the phase-acceptance narrative, historical browser-gate notes,
 evidence/integrity exceptions and user observations that previously made up most
-of the [README](../README.md). The wording is preserved from that README. It is
+of the [README](../../README.md). The wording is preserved from that README. It is
 provenance, not a usage guide. Current open items live in the
-[open-issues register](open-issues.md); test and evidence detail is in
+[open-issues register](../open-issues.md); test and evidence detail is in
 [verification](verification.md) and the [archive catalog](archive-catalog.md).
 
 ## Phases 1-9
@@ -12,7 +12,7 @@ provenance, not a usage guide. Current open items live in the
 **Phases1-9 are independently accepted within bounded prototype scope, not
 production-ready or an unchanged-app loader.** Phase9 acceptance covers actual
 installed Chrome155.0.8059.40, React18.3.1/19.3.0 and the declared examples.
-The [independent verdict](../evidence/phase9-independent/acceptance-v1.json),
+The [independent verdict](../../evidence/phase9-independent/acceptance-v1.json),
 [verification matrix](verification.md) and [roadmap](roadmap.md)
 describe the scope and remaining gates.
 
@@ -23,10 +23,10 @@ Both major gates include production profiling and real development StrictMode.
 ## Phase 10 - private distribution
 
 Phase10 adds an installable private ESM tarball and declarations, **independently
-accepted with limits** ([verdict](../evidence/phase10-independent/acceptance-summary.json)). It is prepared, not published or production-ready;
+accepted with limits** ([verdict](../../evidence/phase10-independent/acceptance-summary.json)). It is prepared, not published or production-ready;
 the existing `canvas-spa-phase-one@0.0.0` name/private status and unresolved
 license remain. See the standalone [distribution/bootstrap/browser
-contract](distribution.md) for local packing, exact contents, matching
+contract](../distribution.md) for local packing, exact contents, matching
 React18/19 peers, host CSS and actual installed-consumer verification.
 That standalone contract ships in the tarball; other links describe the
 repository checkout and its historical evidence.
@@ -38,7 +38,7 @@ evidence keep the name used at the time.
 ## Phase 11 - native editing hardening
 
 **Phase11 engineering is independently accepted with limits; human/physical
-validation is pending** ([verdict](../evidence/phase11-independent/acceptance-summary.json)).
+validation is pending** ([verdict](../../evidence/phase11-independent/acceptance-summary.json)).
 Native editing-boundary admission is hardened and installed React18/19
 interaction checks pass. Full Phase11 is incomplete: automated AX, synthetic
 composition, emulated media and public-device loss do not certify human/device
@@ -50,9 +50,9 @@ The independently accepted current-spec correction at `cfa9df73` keeps supported
 DPR changes in one GPU renderer and synchronously reconciles original native
 geometry. Complete cached frames may recompose; new or extent-grown capture
 slots retain last complete output until fresh owning native paint. Default
-initial admission remains explicit. [Publication and cancellation](api.md#opt-in-settled-readmission-phase12-engineering).
+initial admission remains explicit. [Publication and cancellation](../api.md#opt-in-settled-readmission-phase12-engineering).
 Phase12 **engineering is independently accepted with limits**
-([verdict](../evidence/phase12-independent/acceptance-summary.json)); full Phase12
+([verdict](../../evidence/phase12-independent/acceptance-summary.json)); full Phase12
 production application/hardware and numeric budgets remain open.
 That historical acceptance did not establish seamless structural presentation.
 
@@ -112,7 +112,7 @@ Earlier test-harness notes: browser tests then used only the installed macOS
 Google Chrome executable, with clean temporary automation profiles and
 explicit `CanvasDrawElement`, `ElementCanvasTransform` and
 experimental-web-platform flags. Current launch behavior is described in
-[CONTRIBUTING](../CONTRIBUTING.md#setup).
+[CONTRIBUTING](../../CONTRIBUTING.md#setup).
 
 ## Evidence integrity exceptions
 
@@ -122,7 +122,7 @@ and no explicit user supersession approval exists.
 Exactly one Phase13 generated optimizer metadata file was subsequently damaged;
 its old seal is not wholly intact and the original bytes are unavailable.
 The fresh diagnostic repair was accepted with this explicit exception.
-See [permanent integrity exceptions](open-issues.md#permanent-evidence-integrity-exceptions).
+See [permanent integrity exceptions](../open-issues.md#permanent-evidence-integrity-exceptions).
 
 ## User observations, 2026-10-10
 
@@ -175,7 +175,7 @@ node scripts/check-evidence.mjs   # validate exact staged evidence before commit
 
 ## Experiments recorded 2026-10-12
 
-The opt-in [build-time CSS compiler](../packages/css-compiler/README.md) and
-[experimental worker compositor](worker.md) are implementer-verified, not
+The opt-in [build-time CSS compiler](../../packages/css-compiler/README.md) and
+[experimental worker compositor](../worker.md) are implementer-verified, not
 independently accepted, and not a measured CSS speedup. Details are in
-[open-issues](open-issues.md) and [verification](verification.md#experimental-worker-compositor).
+[open-issues](../open-issues.md) and [verification](verification.md#experimental-worker-compositor).

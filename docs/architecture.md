@@ -2,13 +2,13 @@
 
 **Evidence storage:** historical raw paths named below refer to the verified
 external local archive, not files in this checkout. Only compact verdicts
-remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+remain tracked; [archive access, hashes and reproduction](archive/archive-catalog.md).
 
 This describes the supported **bounded Phase 2/3 runtime plus Phase 4/5
 ownership/module/decorative additions, the bounded Phase 6 matrix and implemented
 Phase7 integration and Phase8 effects independently accepted with explicit limits**, not a released
 library or arbitrary React application compatibility. The package remains
-private. Historical alternatives and evidence are in [feasibility.md](feasibility.md);
+private. Historical alternatives and evidence are in [feasibility.md](archive/feasibility.md);
 contributor commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Repository boundaries
@@ -126,7 +126,7 @@ unqualified. Future changes must repeat current proposal/tracker review and
 distinguish it from actual browser functional qualification.
 
 The current local validation target is pinned installed
-Canary157.0.8100.0 and its exact revision in the [private release runner contract](private-release.md).
+Canary157.0.8100.0 and its exact revision in the [private release runner contract](archive/private-release.md).
 It receives fresh native/source/public-package and ordinary-DOM checks; it does
 not reinterpret8098/8099 acceptance or establish physical/universal qualification.
 
@@ -240,13 +240,13 @@ they do not restore DOM or create another root. Playground-level native/lifecycl
 re-exports for historical probes. `window.runtimeProbe`/`surfaceProbe` are
 diagnostic facades, not published APIs. No reusable module destroys a device.
 
-The [TODO pilot](todo-pilot.md) keeps two stable enrolled surfaces as task rows
+The [TODO pilot](archive/todo-pilot.md) keeps two stable enrolled surfaces as task rows
 change inside React. Task membership is not renderer enrollment membership:
 there are no per-task engines/textures. Controls remain undistorted; only the
 inert artwork has an action-driven sampled-pixel effect. The ordinary host is
 the initial topology and GPU admission/reentry are deliberate user actions.
 
-The [Phase7 pilot](integration.md) enrolls original direct-root elements using
+The [Phase7 pilot](archive/integration.md) enrolls original direct-root elements using
 `useSurfaceRef` without a typed wrapper or CSS normalization. Null/replacement,
 effect/ref StrictMode replay and unmount release registration and restore only
 still-owned presentation/attributes. Radix Dialog mounts through its public
@@ -272,7 +272,7 @@ destroy those retained resources. That historical barrier is not the current
 healthy-update route. Native `paint.changedElements` in that browser reported the root
 for native edits; malformed/absent attribution captures all enrolled layers.
 React/MutationObserver information is not used to suppress native paint.
-See [API](api.md), [adoption](adoption.md) and [roadmap](roadmap.md).
+See [API](api.md), [adoption](archive/adoption.md) and [roadmap](archive/roadmap.md).
 
 [Phase8 effects](effects.md) reuse the same clock, compositor, native capture
 and owned-resource lifecycle. The one shared pass supports three unique
@@ -648,7 +648,7 @@ counts or ordinary production Profiler callbacks.
 The injected root and `flushSync` must be a matching public renderer pair;
 React18's standard and profiling entries have independent batching state.
 Actual development uses the ordinary client pair, with real StrictMode.
-The bounded [React18/19 matrix and measured costs](measurements.md) retain
+The bounded [React18/19 matrix and measured costs](archive/measurements.md) retain
 normal invalidation and main dependency pins.
 
 Twenty StrictMode mount/GPU/unmount cycles persist **every retired controller
@@ -662,7 +662,7 @@ lifetime; it deliberately resets demo state, unlike state-preserving runtime
 fallback. A retained healthy cleanup prevents replacement rather than forcing
 unsafe teardown.
 
-See the [verification matrix](verification.md) for precise evidence and fixture
+See the [verification matrix](archive/verification.md) for precise evidence and fixture
 boundaries. Bounded headful TODO/native keyboard/pixels and original control
 AX-tree evidence are recorded separately in the parent-owned Phase 6 report;
 they do not establish screen-reader or OS IME behavior.

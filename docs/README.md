@@ -1,0 +1,27 @@
+# CanvasSPA documentation
+
+## Guide
+
+Start here if you are using CanvasSPA or writing components for it.
+
+1. [Getting started](guide/getting-started.md): requirements, install, your first layer, enabling GPU.
+2. [Concepts](guide/concepts.md): the two modes, layers, admission, what the GPU adds over CSS.
+3. [Motion](guide/motion.md): transitions, groups, `Presence`, animation ownership.
+4. [Effects](guide/effects.md): built-in effects and your own WGSL.
+5. [Building components](guide/components.md): the standard for components that work in CanvasSPA.
+6. [Troubleshooting](guide/troubleshooting.md): every fallback reason and its fix.
+
+## Reference
+
+- [API reference](api.md): every export, option and contract.
+- [Effects contract](effects.md): effect validation, time and fallback rules in detail.
+- [Worker compositor](worker.md): the experimental worker path.
+- [Distribution](distribution.md): packing and installing the library.
+- [Showcase](showcase.md): the example gallery and its deployment.
+
+## Contributing
+
+- [Architecture](architecture.md) and the GPU-first contract.
+- [Open issues](open-issues.md): known limits and unperformed validation.
+- [Change notes](changes/README.md): one file per pull request.
+- [Archive](archive/): the phase-by-phase engineering history, measurements and verification records.

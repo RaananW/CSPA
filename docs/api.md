@@ -2,7 +2,7 @@
 
 **Evidence storage:** historical raw paths named below refer to the verified
 external local archive, not files in this checkout. Only compact verdicts
-remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+remain tracked; [archive access, hashes and reproduction](archive/archive-catalog.md).
 
 The intentional source entry point is `packages/canvas-spa/src/index.ts`. This private
 experimental package has no published package name or stability promise.
@@ -13,10 +13,10 @@ limits. See [distribution](distribution.md) for actual install commands,
 host CSS, public dependency/type boundaries and the bounded browser contract.
 
 For an actual bounded application using these exports, see the
-[TODO pilot](todo-pilot.md) and `examples/playground/src/apps/todo/`. Its numeric layout/appearance
+[TODO pilot](archive/todo-pilot.md) and `examples/playground/src/apps/todo/`. Its numeric layout/appearance
 compile to browser CSS; real task events invoke public `setRipple` on a separate
 decorative surface. No additional TODO-specific renderer API is introduced.
-The [Phase13 task workspace](task-workspace.md) extends that original application
+The [Phase13 task workspace](archive/task-workspace.md) extends that original application
 to list/detail and native overlays without new core exports or a second tree;
 its bounded source and exact-package engineering is qualified-accepted at
 `12f13661`, including the three-file diagnostic repair and explicit generated
@@ -51,7 +51,7 @@ handling, not forced DOM restoration before worker acknowledgement.
 
 See the [compiler configuration/enrollment/subset guide](../packages/css-compiler/README.md),
 [worker setup/lifecycle guide](worker.md) and
-[current evidence and measurement limits](verification.md#experimental-worker-compositor).
+[current evidence and measurement limits](archive/verification.md#experimental-worker-compositor).
 Chrome Canary with HTML-in-Canvas enabled is required for GPU operation;
 ordinary DOM remains the initial/fallback presentation.
 
@@ -270,7 +270,7 @@ The demos pair public `react-dom/profiling` exports in production and ordinary
 client/flush exports in actual development. The default adapter remains
 ordinary `react-dom/client` plus standard flush, without demo profiling.
 Matching React18/19 types/builds and actual mounted behavior are recorded in
-[the compatibility matrix](measurements.md#actual-react-major-behavior-and-types).
+[the compatibility matrix](archive/measurements.md#actual-react-major-behavior-and-types).
 
 ## Authoring and controller
 
@@ -429,7 +429,7 @@ transform/opacity and existing stacking/clipping/bounds restrictions apply
 at GPU admission; arbitrary CSS/animation-library roots are not certified.
 Use the library's **public** container API before its portal mounts; never
 move existing library DOM. Only Radix Dialog1.2.0 Root/Trigger/Portal/Overlay/
-Content/Title/Description/Close in this pilot are verified. See [integration](integration.md).
+Content/Title/Description/Close in this pilot are verified. See [integration](archive/integration.md).
 
 ### Declarative numeric motion and presence
 
@@ -528,7 +528,7 @@ path. Callback/profiling overhead can perturb timing. Capture timing excludes
 the native paint wait; readback plus comparison is measured separately;
 upload/frame timing is synchronous public CPU work, not completion/GPU
 execution. `phase` separates admission work from content work.
-See [measurement definitions and raw evidence](measurements.md).
+See [measurement definitions and raw evidence](archive/measurements.md).
 
 ## Supported boundary, budgets and failure
 
@@ -588,7 +588,7 @@ not falsely cancel an outstanding SDK request. `state()` exposes
 exclude probe captures, copies, uploads and frames. A never-settling readback
 can keep reentry/final disposal blocked; no unsafe forced cleanup is exposed.
 See [architecture.md](architecture.md) for ordering and
-[verification.md](verification.md) for tested versus untested behavior.
+[verification.md](archive/verification.md) for tested versus untested behavior.
 
 ## Transactional animation ownership (Phase 4)
 

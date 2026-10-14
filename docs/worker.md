@@ -210,6 +210,6 @@ CSS speedup. Main/worker rAF intervals are not displayed frames; CSS animations
 may already run on the browser compositor independently of main rAF.
 CPU submission work is not GPU execution and no input-to-photon latency was
 measured. Current run identities/results are in the
-[verification matrix](verification.md#experimental-worker-compositor).
+[verification matrix](archive/verification.md#experimental-worker-compositor).
 Independent acceptance, production budgets, hardware/accessibility and
 publication remain separate gates.

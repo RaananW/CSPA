@@ -69,7 +69,7 @@ transitions = taskTransitions(controller);
 All four empty connected hosts are siblings under one sized positioned frame,
 outside the React root; only capture/output/ordinary fill that frame. The
 overlay host is their sibling, not a descendant of the owning output canvas.
-See [distribution](distribution.md) for host CSS and actual archive extraction.
+See [distribution](../distribution.md) for host CSS and actual archive extraction.
 No startup auto-enable, retry-on-commit or app-specific core abstraction is
 introduced. Mounting a preexisting hydrated root is not part of this bootstrap.
 
@@ -113,7 +113,7 @@ actual React peers and native refusal/reentry/disposal; it does not requalify
 every inherited workflow or 300-frame measurement. Exactly one old generated
 optimizer metadata file remains damaged, with original bytes unavailable and
 the old adoption seal not wholly intact; the exception was explicitly retained
-in acceptance. See the [current register](open-issues.md).
+in acceptance. See the [current register](../open-issues.md).
 Automated browser
 accessibility semantics are bounded checks, not an OS screen-reader/IME audit.
 Human physical continuity, universal text/DPR2 fidelity, transformed/mixed CSS,

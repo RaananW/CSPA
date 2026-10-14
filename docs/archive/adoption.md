@@ -4,17 +4,17 @@
 external local archive, not files in this checkout. Only compact verdicts
 remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
 
-Phase9 is [independently accepted-with-limits](../evidence/phase9-independent/acceptance-v1.json)
+Phase9 is [independently accepted-with-limits](../../evidence/phase9-independent/acceptance-v1.json)
 for bounded actual155 specimens; exact154 remains unverified.
 This is private experimental software, not a release-ready unchanged
 website loader. Existing React18/19 and the single Radix Dialog integration
 are bounded examples, not arbitrary library/SSR/hydration compatibility.
-The Phase10 [private tarball/distribution contract](distribution.md) is
+The Phase10 [private tarball/distribution contract](../distribution.md) is
 independently accepted with limits; start from an actual tarball install,
 not demo facades or a source alias. Publication/licensing remain separate.
 
 **Phase11 engineering is independently accepted with limits; human/physical
-validation is pending** ([verdict](../evidence/phase11-independent/acceptance-summary.json)).
+validation is pending** ([verdict](../../evidence/phase11-independent/acceptance-summary.json)).
 Full Phase11 remains incomplete; the human/device checklist below is open.
 
 ## Integrate incrementally
@@ -27,7 +27,7 @@ disposal remain caller lifecycle. Normal layout/DPR updates, visibility pauses
 and reduced motion are not failure classifications. The persisted bounded
 correction implements same-owner successors (`cfa9df73`, `ab598c00`,
 independently accepted with limits); the Phase13 application still requires
-fresh independent acceptance. See the [capability matrix](architecture.md#capability-versus-implementation-matrix).
+fresh independent acceptance. See the [capability matrix](../architecture.md#capability-versus-implementation-matrix).
 Component GPU support should layer over the standard native React implementation
 with a small typed declarative CSS/JS fallback and the same controls/state,
 not a second tree or an automatic arbitrary-library/CSS adapter.
@@ -85,7 +85,7 @@ independent155 checks, not explicit user155 approval; the original exact154
 requirement remains unverified. No installation/download/switch/profile change
 is authorized by these results. Later bounded core/external-scroll and selected
 Phase13 task-workspace acceptance uses actual Canary157; it does not supersede
-the historical154 gate. See the [current register](open-issues.md).
+the historical154 gate. See the [current register](../open-issues.md).
 
 ## Human/device checklist
 
@@ -98,7 +98,7 @@ destroyed-device proxies do not close these gates. Do not change a user's
 profile, global settings or hardware solely to manufacture a passing result.
 
 For a reusable local operator specimen, run the Phase11 installed-consumer
-command in [distribution](distribution.md), then serve either generated
+command in [distribution](../distribution.md), then serve either generated
 React18/19 consumer with its installed Vite (`node node_modules/vite/bin/vite.js
 preview --host 127.0.0.1 --port <free-port> --strictPort`). Use only an already
 installed, authorized browser. The page starts in DOM and has **Request GPU**,
@@ -187,7 +187,7 @@ The current unaccepted correction reconciles supported layout/membership/DPR
 changes within the same GPU renderer/root and preserves the last complete output
 while fresh capture coverage is pending. Healthy changes do not require explicit
 reentry. The historical Phase12 settled-readmission verdict
-([verdict](../evidence/phase12-independent/acceptance-summary.json)) does not accept
+([verdict](../../evidence/phase12-independent/acceptance-summary.json)) does not accept
 this correction, waive viewport framework gaps or certify physical recovery.
 Automated original-state checks do not substitute for retained values and
 continuous presentation during the reported physical display move.
