@@ -1,15 +1,12 @@
-import { relative, resolve, isAbsolute } from "node:path";
+import { relative, resolve, sep } from "node:path";
 
 export const evidenceRoot = process.env.CANVAS_EVIDENCE_ROOT || "evidence/regression/current";
-function isInside(parent, child) {
-  const rel = relative(parent, child);
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-}
+// Writable evidence roots: the rolling regression root and the current numbered phase roots (phase9 onward).
+const allowedRoot = /^evidence\/(regression\/current|phase(9|1[0-3])(-independent)?)(\/|$)/;
 export function validateEvidenceRoot(value) {
-  const root = resolve(value);
-  const allowed = ["evidence/regression/current", "evidence/phase9", "evidence/phase9-independent", "evidence/phase10", "evidence/phase10-independent", "evidence/phase11", "evidence/phase11-independent", "evidence/phase12", "evidence/phase12-independent", "evidence/phase13", "evidence/phase13-independent"].map(path => resolve(path));
-  if (!allowed.some(path => isInside(path, root))) {
-    throw new Error("Evidence writers require a named current regression/phase9/phase10/phase11/phase12/phase13 root; accepted archives are read-only");
+  const rel = relative(resolve("."), resolve(value)).split(sep).join("/");
+  if (!allowedRoot.test(rel)) {
+    throw new Error("Evidence writers require a named current regression/phase9-phase13 root; accepted archives are read-only");
   }
   return value;
 }

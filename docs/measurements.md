@@ -87,7 +87,7 @@ Every tested completed lifetime retired to zero; unconfirmed healthy fences
 still deliberately retain resources rather than force destruction.
 
 Reproduce serially with `npm run build`, then
-`CANVAS_EVIDENCE_ROOT=evidence/phase12/<fresh-run> node scripts/phase12-measure.mjs`.
+`CANVAS_EVIDENCE_ROOT=evidence/phase12/<fresh-run> node scripts/archive/phase12-measure.mjs`.
 For the genuine archived baseline build also set `CANVAS_MEASURE_BUILD` and
 `CANVAS_MEASURE_LABEL=baseline`; for the additional final experiment set
 `CANVAS_MEASURE_POLICY=automatic`. Private proof retains the baseline,

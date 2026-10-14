@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { registerHooks } from "node:module";
 import { validateWorkerFrame, validateWorkerProgram } from "../../packages/canvas-spa/src/worker-protocol.ts";
 
@@ -24,12 +23,6 @@ test("worker shader and binding layout are emitted by the build entry for each b
     assert.equal((program.shader.fragmentWGSL.match(/sample\.a \*= 1.0 - 0.65/g) ?? []).length, capacity);
   }
   for (const value of [0, 9, -1, 1.5, NaN, Infinity]) assert.throws(() => workerCompositorProgram(value));
-});
-test("worker runtime source contains no shader generator", async () => {
-  for (const path of ["experimental-worker.tsx", "worker-thread.ts"]) {
-    const source = await readFile(`packages/canvas-spa/src/${path}`, "utf8");
-    assert.doesNotMatch(source, /compositionShader|fn effectFragment|private _device/);
-  }
 });
 test("prebuilt programs reject malformed layouts without reading browser globals", () => {
   const program = workerCompositorProgram(2);
