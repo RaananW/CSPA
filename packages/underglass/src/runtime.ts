@@ -327,6 +327,11 @@ export class CanvasRuntime {
     this.ownerContentSize = { width: owner.clientWidth - parseFloat(ownerStyle.paddingLeft) - parseFloat(ownerStyle.paddingRight),
       height: owner.clientHeight - parseFloat(ownerStyle.paddingTop) - parseFloat(ownerStyle.paddingBottom) };
     let externalError: string | undefined;
+    // Overflow on the root element, and the body's when it propagates, applies to the viewport,
+    // which always clips; it is no clip of an ancestor box. Modal scroll locks set it on one axis.
+    const root = owner.ownerDocument.documentElement, rootStyle = getComputedStyle(root);
+    const viewportOverflow = (node: HTMLElement) => node === root
+      || node === owner.ownerDocument.body && rootStyle.overflowX === "visible" && rootStyle.overflowY === "visible";
     for (let node: HTMLElement | null = owner; node; node = node.parentElement) {
       ancestors.add(node);
       if (node !== owner) external.add(node);
@@ -337,7 +342,7 @@ export class CanvasRuntime {
       if (style.direction !== "ltr" || style.writingMode !== "horizontal-tb" || Number(style.zoom) !== 1) {
         externalError = "RTL, writing mode or zoom is outside the bounded external viewport contract";
       }
-      if ((style.overflowX === "visible") !== (style.overflowY === "visible")) {
+      if (!viewportOverflow(node) && (style.overflowX === "visible") !== (style.overflowY === "visible")) {
         externalError = "Single-axis visible/clip external overflow is outside the bounded rectangular viewport contract";
       }
     }
