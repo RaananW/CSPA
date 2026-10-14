@@ -24,4 +24,5 @@ Start here if you are using CanvasSPA or writing components for it.
 - [Architecture](architecture.md) and the GPU-first contract.
 - [Open issues](open-issues.md): known limits and unperformed validation.
 - [Change notes](changes/README.md): one file per pull request.
+- [GPU browser tests in CI](ci-gpu-runner.md): the self-hosted GPU runner.
 - [Archive](archive/): the phase-by-phase engineering history, measurements and verification records.
