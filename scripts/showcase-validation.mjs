@@ -1,3 +1,16 @@
+/**
+ * End-to-end validation of the public showcase (`examples/showcase`) as it would be published: builds it in
+ * an isolated copy of the repository, checks the output files, serves the build under the `/underglass/`
+ * base path and drives the gallery in a real browser in a DOM lane and a native (GPU) lane.
+ *
+ * Invoked as `npm run test:showcase`. Environment: `CANVAS_BROWSER_EXECUTABLE` (default Chrome Canary) and
+ * `CANVAS_REQUIRE_BROWSER_PIN=1` (see `release-policy.mjs`). The native lane requires GPU admission to
+ * succeed; the DOM lane requires that the examples stay usable without it, including with WebGPU hidden.
+ *
+ * Output: a new git-ignored `evidence/showcase/run-<uuid>/` directory with input hashes, command logs,
+ * screenshots, `preview.log` and `result.json`. Prints one summary line and exits non-zero on any failure or
+ * if an input file changed during the run.
+ */
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -12,6 +25,7 @@ import { devNull } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
 const sha = data => createHash("sha256").update(data).digest("hex");
+// Run output goes under a git-ignored root and must not be reached through a symlink.
 const parent = join(root, "evidence/showcase");
 execFileSync("git", ["check-ignore", parent]);
 await assertPhysicalPath(root);
@@ -25,7 +39,10 @@ const tree = join(run, "workspace");
 await mkdir(tree);
 const result = { status: "running", head: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
   qualifiedBrowser, commands: [], browsers: [], hosted: "NOT EXECUTED", directory: run };
+// Every repository input (sources, scripts, tests, manifests, docs, workflow) is hashed up front and
+// re-checked at the end, to prove the run did not modify what it validated.
 const inputs = [];
+// Hashes every file below the repository-relative `path`, skipping dependency and build folders.
 async function inventory(path) {
   for (const entry of (await readdir(join(root, path), { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
     if (["node_modules", "dist"].includes(entry.name)) continue;
@@ -39,6 +56,8 @@ for (const path of ["package.json", "package-lock.json", "docs/distribution.md",
   inputs.push({ path, sha256: sha(await readFile(join(root, path))) });
 }
 await writeFile(join(run, "inputs.json"), JSON.stringify(inputs, null, 2), { flag: "wx" });
+// Runs a Node script in `cwd` with no user npm config and no browser download, saves its output as
+// `<label>.log` and throws, with the output tail, when it exits non-zero.
 async function command(args, cwd, label) {
   const child = spawn(process.execPath, args, { cwd, env: { ...process.env, npm_config_userconfig: devNull,
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" }, stdio: ["ignore", "pipe", "pipe"] });
@@ -53,6 +72,7 @@ let server;
 let serverClosed;
 let serverOutput = "";
 try {
+  // Build in a copy of the repository so the checkout is never written to.
   for (const path of ["packages", "examples", "scripts", "tests", "package.json", "package-lock.json", "docs/distribution.md", "docs/showcase.md",
     ".github/workflows/showcase-pages.yml"]) {
     await cp(join(root, path), join(tree, path), { recursive: true,
@@ -69,6 +89,8 @@ try {
   await command(["--test", "tests/unit/showcase.unit.test.mjs", "tests/unit/workspace.unit.test.mjs", "tests/unit/release.unit.test.mjs"], tree, "focused-units");
   await command([vite, "build"], library, "library-build");
   await command([tsc, "-p", "tsconfig.json"], library, "library-declarations");
+  // Install the freshly built library into the copy's `node_modules` under its public package name, so the
+  // showcase resolves it as a published package rather than a workspace link.
   const publicLibrary = join(tree, "node_modules/@underglass/react");
   await mkdir(publicLibrary, { recursive: true });
   await cp(join(library, "package.json"), join(publicLibrary, "package.json"));
@@ -77,6 +99,8 @@ try {
   await command([vite, "build"], site, "showcase-project-build");
   await command([join(tree, "scripts/check-showcase-assets.mjs")], site, "showcase-output-guard");
   const dist = join(site, "dist");
+  // Re-check the published file set independently of the build-time guard (`check-showcase-assets.mjs`),
+  // recording each file's size and hash.
   const assets = [];
   async function checkAssets(directory, prefix = "") {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -95,7 +119,9 @@ try {
   await checkAssets(dist);
   result.assets = assets;
   const html = await readFile(join(dist, "index.html"), "utf8");
+  // The build must use the `/underglass/` Pages base path.
   assert.match(html, /\/underglass\/assets\//);
+  // Find a free port by binding port 0 and releasing it, then serve the build with `vite preview`.
   const socket = createServer();
   await new Promise(done => socket.listen(0, "127.0.0.1", done));
   const port = socket.address().port;
@@ -109,9 +135,12 @@ try {
     try { assert.equal((await fetch(url)).status, 200); break; }
     catch (error) { if (attempt === 99 || server.exitCode !== null) throw error; await new Promise(done => setTimeout(done, 100)); }
   }
+  // Every script and stylesheet the page references must be served.
   for (const asset of html.matchAll(/(?:src|href)="(\/underglass\/assets\/[^"]+)"/g)) {
     assert.equal((await fetch(`http://127.0.0.1:${port}${asset[1]}`)).status, 200);
   }
+  // The same scenario runs twice: `dom` (no HTML-in-Canvas flags; the examples must stay on DOM) and
+  // `native` (flags on; GPU must be admitted and the pixels must change as the examples run).
   for (const lane of ["dom", "native"]) {
     const executablePath = process.env.CANVAS_BROWSER_EXECUTABLE;
     result.executable = executablePath ? { path: executablePath, sha256: sha(await readFile(executablePath)) } : { channel: "chrome-canary" };
@@ -128,6 +157,7 @@ try {
       assertBrowserIdentity(record.actual);
       const errors = [];
       page.on("pageerror", error => errors.push(String(error)));
+      // The page exposes a `window.showcase` test hook (state, controller, React versions).
       await page.goto(`${url}#/layers`);
       await page.waitForFunction(() => window.showcase);
       record.peer = await page.evaluate(() => ({ react: window.showcase.react, reactDOM: window.showcase.reactDOM }));
@@ -138,6 +168,8 @@ try {
       await page.getByLabel("Category", { exact: true }).selectOption("Motion");
       assert.equal(await page.locator(".example-card").count(), 1);
       await page.getByLabel("Category", { exact: true }).selectOption("All");
+      // Helpers: the example's reported state, a button inside the stage by exact label, and a settle that
+      // flushes the controller then waits briefly for pending paints.
       const state = () => page.evaluate(() => window.showcase.state());
       const studioButton = name => page.locator(".stage button").filter({ hasText: new RegExp(`^${name}$`) });
       const settle = async () => { await page.evaluate(() => window.showcase.controller.settle()); await page.waitForTimeout(250); };
@@ -148,6 +180,8 @@ try {
       record.initial = await state();
       assert.equal(record.initial.mode, lane === "native" ? "gpu" : "dom", record.initial.reason);
       assert.ok(record.initial.reason.length > 0);
+      // Save a wide title, then a narrow one. In the native lane the owning canvas pixels in the title area must
+      // differ between the two screenshots, so a stale presented image cannot pass.
       const wideTitle = "W".repeat(32), narrowTitle = "I".repeat(32);
       await page.locator("#studio-title").fill(wideTitle);
       await studioButton("Save postcard").click();
@@ -173,6 +207,7 @@ try {
       }
       assert.equal(await page.locator("#saved-title").innerText(), narrowTitle);
       assert.equal((await state()).mode, lane === "native" ? "gpu" : "dom");
+      // disable() must keep the same original input element, its focus and its selection; then GPU is re-enabled.
       const title = page.locator("#studio-title");
       await title.focus();
       await title.evaluate(node => { window.showcaseOriginal = node; node.setSelectionRange(1, 3); });
@@ -184,6 +219,8 @@ try {
       await page.locator('.example-card[href="#/motion"]').click();
       await studioButton("Play layer journey").waitFor();
       await settle();
+      // Motion: compare the canvas before and after starting the journey, then over a 250 ms window require
+      // presented GPU frames and an advancing layer transform with no new captures or uploads.
       let staticMotion;
       if (lane === "native") staticMotion = PNG.sync.read(await output.screenshot({ path: join(run, "native-motion-start.png") }));
       await studioButton("Play layer journey").click();
@@ -219,10 +256,13 @@ try {
           assert.equal(after.metrics[metric], before.metrics[metric], `Settled GPU-only motion must reuse ${metric}`);
         }
       }
+      // Let the journey finish before moving to the next example.
       await page.waitForTimeout(1700);
       await page.locator('.example-card[href="#/effects"]').click();
       await studioButton("Apply chromatic effect").waitFor();
       await settle();
+      // Effects: the decorative layer must be inert and hidden from assistive tech, the original title input
+      // must still be what a click at its centre hits, and the effect must change the canvas pixels.
       let staticArt;
       if (lane === "native") staticArt = PNG.sync.read(await output.screenshot({ path: join(run, "native-static-art.png") }));
       await studioButton("Apply chromatic effect").click();
@@ -372,11 +412,13 @@ try {
       record.fluent.released = await fluentMode("released");
       record.beforeDispose = await state();
       assert.equal(record.beforeDispose.mode, lane === "native" ? "gpu" : "dom", record.beforeDispose.reason);
+      // Explicit dispose must retire every GPU and runtime resource.
       await page.getByRole("button", { name: "Dispose example", exact: true }).click();
       await page.getByText("The example is disposed. Reload this page to start a fresh session.").waitFor();
       record.disposed = await state();
       assert.ok(Object.values(record.disposed.resources).every(value => value === 0));
       assert.ok(Object.values(record.disposed.runtimeResources).every(value => value === 0));
+      // Deep links: opening `#/effects` and reloading must show that example in DOM mode (GPU is opt-in).
       await page.goto("about:blank");
       await page.goto(`${url}#/effects`);
       await studioButton("Apply chromatic effect").waitFor();
@@ -390,6 +432,7 @@ try {
       await studioButton("Play layer journey").waitFor();
       await page.evaluate(() => scrollTo(0, 0));
       await page.screenshot({ path: join(run, `${lane}-desktop.png`) });
+      // Mobile viewport: no horizontal overflow and a single site header.
       const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const mobile = await mobileContext.newPage();
       await mobile.goto(`${url}#/motion`);
@@ -404,6 +447,7 @@ try {
       await mobile.waitForTimeout(300);
       await mobile.screenshot({ path: join(run, `${lane}-mobile-studio.png`) });
       await mobileContext.close();
+      // With `navigator.gpu` hidden, enabling GPU must fall back to DOM with a GPU reason and keep the user's input.
       if (lane === "dom") {
         const unsupported = await browser.newContext({ viewport: { width: 1280, height: 1100 } });
         await unsupported.addInitScript(() => Object.defineProperty(navigator, "gpu", { get: () => undefined }));
@@ -423,6 +467,7 @@ try {
       record.status = "passed";
     } finally { await browser.close(); record.closed = true; }
   }
+  // The showcase must also build with a root base path; only the built asset URLs are checked.
   await command([vite, "build", "--base", "/", "--outDir", "root-dist"], site, "showcase-root-build");
   assert.match(await readFile(join(site, "root-dist/index.html"), "utf8"), /"\/assets\//);
   result.status = "passed";
@@ -430,6 +475,7 @@ try {
   result.status = "failed"; result.error = String(error); process.exitCode = 1;
   console.error(error);
 } finally {
+  // Always stop the preview server and save its log; then re-hash the inputs.
   if (server) { server.kill("SIGTERM"); await serverClosed; result.preview.closed = true; }
   await writeFile(join(run, "preview.log"), serverOutput, { flag: "wx" });
   result.inputsUnchanged = true;

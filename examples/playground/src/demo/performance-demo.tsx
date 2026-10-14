@@ -1,16 +1,28 @@
+/**
+ * Entry for `performance.html`: a bounded measurement fixture comparing DOM and GPU presentation. The query string
+ * picks `?layers=2|4|8` and `?variant=` one of `dom-static`, `gpu-static`, `dom-affine`, `gpu-affine` (looping
+ * `createMotion` animations, GPU-owned in the gpu variant) or `gpu-ripple` (decorative layers with a playing ripple).
+ * `window.measurement` (used by `tests/browser/performance.test.mjs`) records frame intervals and the runtime's
+ * `onMeasure` samples over a bounded window. The page imposes no pass/fail threshold itself.
+ */
 import { Profiler, version, useState } from "react";
 import { createRoot, flushSync } from "./react-root";
 import { mountCanvasApp, Surface, Box, type MountCanvasOptions, type MotionHandle } from "@underglass/react";
 
+// One `onMeasure` sample as the runtime reports it.
 type Sample = Parameters<NonNullable<MountCanvasOptions["onMeasure"]>>[0];
 const parameters = new URLSearchParams(location.search);
 const count = Number(parameters.get("layers") ?? 2);
 const variant = parameters.get("variant") ?? "dom-static";
+// Reject unknown parameters up front so a run cannot silently measure a different configuration.
 if (![2, 4, 8].includes(count) || !["dom-static", "gpu-static", "dom-affine", "gpu-affine", "gpu-ripple"].includes(variant)) {
   throw new Error("Invalid bounded performance fixture");
 }
+// `samples` only fills while `collecting` is true, i.e. during a `collect` window.
 let commits = 0, collecting = false;
 let samples: Sample[] = [];
+// `count` cards of the same size: the first is interactive (a native input); the rest are decorative and hold an
+// SVG of white stripes.
 function Cards() {
   const [value, setValue] = useState("");
   return <>{Array.from({ length: count }, (_, index) => <Surface key={index} id={`card-${index}`}
@@ -25,6 +37,7 @@ function Cards() {
         <rect key={stripe} x={stripe * 10} width="5" height="60" fill="white" />)}</svg>}
   </Surface>)}</>;
 }
+// Budgets match the largest variant (8 layers). No overlay host: the fixture has no native overlays.
 const controller = mountCanvasApp({
   captureHost: document.querySelector<HTMLCanvasElement>("#capture")!,
   outputCanvas: document.querySelector<HTMLCanvasElement>("#output")!,
@@ -38,7 +51,10 @@ const controller = mountCanvasApp({
   },
 }, <Profiler id="measurement" onRender={() => { commits++; }}><Cards /></Profiler>);
 const motions: MotionHandle[] = [];
+// Startup time covers motion creation, GPU admission and the first settle.
 const startup = performance.now();
+// Affine variants animate every card with a looping transform/opacity motion; the gpu variants hand each
+// animation to the GPU with `own()` before admission. Playback starts after admission.
 if (variant.endsWith("affine")) {
   for (let index = 0; index < count; index++) {
     const motion = controller.createMotion(`card-${index}`, {
@@ -50,6 +66,7 @@ if (variant.endsWith("affine")) {
     if (variant.startsWith("gpu")) motion.own();
   }
 }
+// GPU variants must actually reach GPU mode, otherwise the measurement would be of the DOM fallback.
 if (variant.startsWith("gpu")) {
   const admitted = await controller.enable();
   if (admitted.mode !== "gpu") throw new Error(`Measurement admission failed: ${admitted.reason}`);
@@ -65,6 +82,8 @@ window.measurement = {
   state: () => ({ ...controller.state(), commits }),
   settle: () => controller.settle(),
   disable: () => controller.disable(),
+  // Samples frame intervals with `requestAnimationFrame` for `milliseconds` (500 to 5000, one window at a time) and
+  // returns the state before and after plus the runtime samples recorded in the window.
   async collect(milliseconds: number) {
     if (!Number.isFinite(milliseconds) || milliseconds < 500 || milliseconds > 5000 || collecting) throw new Error("Invalid finite measurement window");
     const before = this.state(), intervals: number[] = [];

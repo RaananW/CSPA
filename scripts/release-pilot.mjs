@@ -1,3 +1,14 @@
+/**
+ * Browser pilot for the todo app served by a release validation preview: starts in DOM, optionally enables
+ * GPU, edits through real native input, checks the owning canvas pixels and native title glyphs, then
+ * proves `disable()` keeps the original DOM and selection and that `dispose()` leaves no resources.
+ *
+ * Spawned by `release-validation.mjs` once per React peer, source/package mode and DPR. It can also be run
+ * by hand: `node scripts/release-pilot.mjs <url> <react-version> <native|dom> <1|2> <executable> <evidence-dir>`
+ * (the executable argument is accepted but not used; the browser comes from `browserLaunchOptions`). The evidence
+ * directory must be new: JSON snapshots are written there with the `wx` flag, and PNGs for the `native`
+ * lane. Prints the result as one JSON line and exits 1 on any failure.
+ */
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
@@ -7,11 +18,18 @@ import { pathToFileURL } from "node:url";
 import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
 import { assertRuntimePeer, assertRequestedLane, assertBrowserIdentity, qualifiedBrowser } from "./release-policy.mjs";
 
+/**
+ * Runs the pilot for one lane (`native` expects GPU admission, `dom` expects the app to stay on DOM) and
+ * returns the result record. `version` is the expected React peer and `dpr` the device scale factor.
+ * Snapshots are numbered files in `evidence`; throws after recording a `failed` snapshot on any failure.
+ */
 export async function releasePilot({ url, version, lane, dpr, executable, evidence }) {
   const started = performance.now();
   const result = { lane, dpr, expectedReact: version, snapshots: [], status: "running" };
   result.expectedBrowser = qualifiedBrowser;
   let sequence = 0;
+  // Writes the current result as the next numbered snapshot. `wx` makes an existing file an error, so a
+  // reused evidence directory cannot be silently overwritten.
   const record = async label => writeFile(join(evidence, `${sequence++}-${label}.json`), JSON.stringify(result, null, 2), { flag: "wx" });
   let browser;
   try {
@@ -27,12 +45,15 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
     page.on("pageerror", error => errors.push(String(error)));
     await page.goto(url);
     await page.waitForFunction(() => window.packageTask && document.getElementById("new-task"));
+    // The app's own state report (mode, resources, counters), read through its test hook `window.packageTask`.
     const state = () => page.evaluate(() => window.packageTask.state());
     const snapshot = async label => { result.snapshots.push({ label, elapsedMs: performance.now() - started, state: await state() }); await record(label); };
     result.runtime = await page.evaluate(() => ({ react: window.packageTask.state().version, reactDOM: window.packageTask.state().reactDOMVersion }));
     await record("actual-runtime-before-assert");
     assertRuntimePeer(result.runtime, version);
     await page.evaluate(() => {
+      // Remember the original input and root, and record every trusted click, input and key event with the
+      // mode it arrived in, so the end of the run can prove native events reached the originals.
       window.releaseOriginal = { input: document.getElementById("new-task"), root: window.packageTask.controller.container };
       window.releaseEvents = [];
       for (const type of ["click", "input", "keydown"]) document.addEventListener(type, event => {
@@ -48,6 +69,8 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
 
     assertRequestedLane(lane, await state());
     if (lane === "native") {
+      // The admission record must show the geometry probe's two interior points hit natively and its clipped
+      // point did not, and that two GPU pixel samples were taken.
       result.admission = (await state()).metrics.admission.last;
       assert.deepEqual(result.admission.geometry.hits, [true, true, false]);
       assert.equal(result.admission.gpuPixels.length, 2);
@@ -65,11 +88,16 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
     await page.evaluate(() => window.packageTask.controller.settle());
     assertRequestedLane(lane, await state());
     if (lane === "native") {
+      // Sample one pixel of the owning canvas at (720, 440) in the 760px-wide layout (scaled to the screenshot).
+      // That point lies inside the task detail panel, whose background is rgb(224,244,232).
       const png = PNG.sync.read(await page.locator("#output").screenshot({ path: join(evidence, "owning-output.png") }));
       const scale = png.width / 760;
       const offset = (Math.floor(440 * scale) * png.width + Math.floor(720 * scale)) * 4;
       result.owningPixel = [...png.data.subarray(offset, offset + 4)];
       assert.deepEqual(result.owningPixel, [224, 244, 232, 255]);
+      // Type a wide title (W repeated) and a narrow one (I repeated) into the native title input, crop the owning
+      // canvas to the input's box and count differing and dark pixels. Both must come from the same geometry,
+      // differ substantially and show wider ink for the W title, which a stale or cached image would not.
       const glyphs = [];
       for (const letter of ["W", "I"]) {
         const title = letter.repeat(24);
@@ -120,6 +148,8 @@ export async function releasePilot({ url, version, lane, dpr, executable, eviden
       assert.ok(differing > 100 && glyphs[1].dark > 0 && glyphs[0].dark > glyphs[1].dark * 1.5,
         "Saved W/I title must show changed owning pixels and substantially wider native W ink, not a cached sentinel");
     }
+    // Put a one-character selection in the notes field before disabling GPU, to check that the kill switch
+    // preserves the focused native control and its selection.
     await page.locator("#detail-notes").focus();
     await page.keyboard.press("Home");
     await page.keyboard.press("Shift+ArrowRight");

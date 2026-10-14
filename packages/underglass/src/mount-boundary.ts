@@ -1,14 +1,33 @@
+/**
+ * The mount boundary: owns the single persistent React root container and moves it between the
+ * ordinary DOM host and the GPU output canvas without remounting. Created by the renderer in
+ * `renderer.ts` so GPU admission and recovery keep the original controls and React state.
+ */
+
+/** Hosts and mount callback for `createMountBoundary`. */
 export interface MountBoundaryOptions {
   /** @deprecated Unused: native capture happens on `outputCanvas`. Accepted for compatibility and removed on dispose. */
   captureHost?: HTMLCanvasElement;
+  /** Owning output canvas; in GPU mode the root container lives inside it. */
   outputCanvas: HTMLCanvasElement;
+  /** Holds the root container in ordinary DOM mode. */
   ordinaryHost: HTMLElement;
+  /** Creates the persistent React root in `container` and returns its synchronous unmount callback. */
   mount(container: HTMLDivElement): () => void;
 }
 
+/**
+ * Creates the adapter-owned root container inside `ordinaryHost`, calls `mount` once to create the
+ * persistent React root there, and returns controls to move that same container between the
+ * ordinary host and the output canvas with `moveBefore`, which preserves DOM state so the original
+ * controls and React state survive the move. Throws if the hosts are not distinct, connected,
+ * same-document siblings, or are not empty. `dispose` unmounts and requires the container to be back
+ * in the ordinary host.
+ */
 export function createMountBoundary(options: MountBoundaryOptions) {
   const { captureHost, outputCanvas, ordinaryHost } = options;
   const document = ordinaryHost.ownerDocument;
+  // Checked at creation and again by `assertMovable`, in case the hosts were detached or moved since.
   function validateDestinations() {
     if (captureHost === outputCanvas || ordinaryHost === captureHost || ordinaryHost === outputCanvas
       || [captureHost ?? outputCanvas, outputCanvas, ordinaryHost].some(node => node.ownerDocument !== document || !node.isConnected)
@@ -28,6 +47,7 @@ export function createMountBoundary(options: MountBoundaryOptions) {
   try { unmount = options.mount(container); }
   catch (error) { container.remove(); throw error; }
   let disposed = false;
+  // Throws unless a state-preserving move is possible right now; moves nothing.
   function assertMovable() {
     if (disposed) throw new Error("Mount boundary is disposed");
     validateDestinations();
@@ -48,6 +68,7 @@ export function createMountBoundary(options: MountBoundaryOptions) {
   return {
     container,
     assertMovable,
+    // Both return true when the container moved and false when it was already at the destination.
     moveToCapture: () => moveTo(outputCanvas),
     moveToDOM: () => moveTo(ordinaryHost),
     dispose() {

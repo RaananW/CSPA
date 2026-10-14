@@ -1,8 +1,19 @@
+/**
+ * Stylesheet corpus for the CSS compiler: `acceptedCSS` (must compile), `refusedCSS` (must be refused) and
+ * `referenceTimes` (animation times at which samplers are compared). Used by `conformance.test.mjs` and by
+ * `scripts/compiler-validation.mjs`, which feeds the accepted cases to the browser comparisons in
+ * `native-css-reference.mjs` and `gpu-parity.mjs`.
+ */
 const identity = "translate(0px, 0px) rotate(0deg) scale(1)";
 const finish = "translate(80px, -20px) rotate(140deg) scale(1.4, 0.6)";
 const frames = `from { transform: ${identity}; opacity: 0.2; }
   to { transform: ${finish}; opacity: 0.85; }`;
 
+/**
+ * Builds one corpus case: a single `.fixture` (or `selector`) rule animating `motion`, plus its
+ * `@keyframes`. `options` overrides the selector, animation shorthand (`rule`), keyframe body (`frames`) or
+ * individual shorthand parts. Returns `{ label, entry, css }`.
+ */
 function fixture(label, options = {}) {
   const selector = options.selector ?? ".fixture";
   const rule = options.rule ?? `animation: motion ${options.duration ?? "1s"} ${options.delay ?? "0s"}
@@ -15,6 +26,7 @@ function fixture(label, options = {}) {
   };
 }
 
+// Stylesheets the compiler must accept.
 export const acceptedCSS = [
   fixture("default timing values", { rule: "animation: motion 1s both;" }),
   fixture("ID selector", { selector: "#fixture" }),
@@ -48,24 +60,30 @@ export const acceptedCSS = [
   fixture("many finite iterations", { duration: "1234.5ms", iterations: "10000" }),
 ];
 
+// Every supported easing keyword, plus cubic-bezier curves including sharp-endpoint ones.
 for (const easing of ["linear", "ease", "ease-in", "ease-out", "ease-in-out",
   "cubic-bezier(0, 0, 1, 1)", "cubic-bezier(.1, .8, .7, 1)",
   "cubic-bezier(0, 1, 0, 1)", "cubic-bezier(1, 0, 1, 0)"]) {
   acceptedCSS.push(fixture(`easing ${easing}`, { easing }));
 }
+// Every combination of direction, iteration count and delay.
 for (const direction of ["normal", "alternate"]) for (const iterations of ["1", "2", "3", "infinite"]) {
   for (const delay of ["0ms", "250ms"]) {
     acceptedCSS.push(fixture(`${direction} ${iterations} iterations delay ${delay}`, { direction, iterations, delay }));
   }
 }
+// CSS Modules: the source names are rewritten to hashed names and `modules` supplies the mapping.
 const mapped = fixture("CSS Modules mapped class and animation");
 acceptedCSS.push({ ...mapped, css: mapped.css.replaceAll(".fixture", "._fixture_hash").replaceAll("motion", "_motion_hash"),
   modules: { fixture: "_fixture_hash", motion: "_motion_hash" } });
+// Unselected CSS (including a transition on another rule) must not disturb compilation.
 const unrelated = fixture("unselected CSS preserved");
 acceptedCSS.push({ ...unrelated, css: `${unrelated.css}\n.unrelated:hover { transition: color 1s; color: red; }` });
 
+// `replace` derives a refused case from the base fixture by editing its CSS.
 const base = fixture("base");
 const replace = (label, from, to) => ({ ...base, label, css: base.css.replace(from, to) });
+// Stylesheets the compiler must refuse with a source-located error.
 export const refusedCSS = [
   replace("missing transform", `transform: ${finish};`, ""),
   replace("missing opacity", "opacity: 0.85;", ""),
@@ -113,8 +131,14 @@ export const refusedCSS = [
     50.0000001% { transform: ${identity}; opacity: 1; } to {`),
 ];
 
+/**
+ * Times (in ms, ascending) at which to compare samplers for a parsed animation: the start, the largest
+ * accepted time, neighborhoods of the delay, each keyframe offset and the end of the animation, and 15
+ * interior points per cycle. The first three cycles and the last finite cycle are covered.
+ */
 export function referenceTimes(animation) {
   const { duration, delay, iterations } = animation.timing;
+  // 1e12 is the largest time the generated `normalizeTime` accepts.
   const times = new Set([0, 1e12]);
   // Keep CSS reference seeks above Chromium's observed one-microsecond timing snap.
   const delta = Math.min(0.01, duration / 100);

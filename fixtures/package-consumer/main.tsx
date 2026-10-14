@@ -1,3 +1,8 @@
+/**
+ * Installed-package consumer app. `scripts/package-consumer.mjs` copies it into a scratch project that
+ * installs the packed `@underglass/react` tarball with React 18 and 19, builds it with Vite, and drives it
+ * from browser tests through `window.packageConsumer`. It must import only the public package entry points.
+ */
 import { useEffect, useRef, useState, version } from "react";
 import { flushSync } from "react-dom";
 import {
@@ -5,11 +10,13 @@ import {
   type CanvasController, type Transform,
 } from "@underglass/react";
 
+// Counters and setters captured from the component so `window.packageConsumer` can drive and observe it.
 let mounts = 0, cleanups = 0;
 let layout!: (value: { x: number; width: number }) => void;
 let extra!: (count: number) => void;
 let reorder!: () => void;
 let scroll!: (active: boolean) => void;
+// Covers the supported authoring paths: a Surface with native controls, an adopted element, dynamic layers and a native overlay.
 function App() {
   const [name, setName] = useState("original");
   const [saved, setSaved] = useState("");
@@ -69,17 +76,20 @@ function App() {
   </>;
 }
 
+// Looks up a host element from the fixture's index.html or throws, so a missing id fails loudly.
 function host<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
   if (!element) throw new Error(`Missing consumer host ${id}`);
   return element as T;
 }
+// `auto` in the page URL selects automatic admission; otherwise GPU stays off until `enable()` is called.
 const controller = mountCanvasApp({
   captureHost: host<HTMLCanvasElement>("capture"), outputCanvas: host<HTMLCanvasElement>("output"),
   ordinaryHost: host("ordinary"), overlayHost: host("overlay"), strict: true,
   admissionPolicy: new URLSearchParams(location.search).has("auto") ? "automatic" : "explicit",
   onStatus: message => { host("status").textContent = message; },
 }, <App />);
+// Identity of the original input and root, compared later to show React state and DOM were preserved.
 const originalInput = host<HTMLInputElement>("name");
 const originalRoot = controller.container;
 const actions: (() => void)[] = [];
@@ -87,6 +97,7 @@ async function dispose() {
   await controller.dispose();
   for (const remove of actions.splice(0)) remove();
 }
+// The test-facing API; the layout/extra/reorder/scroll helpers use `flushSync` so React commits before they return.
 const contract = {
   controller, dispose,
   state: () => ({
@@ -118,6 +129,7 @@ declare global {
   }
 }
 window.packageConsumer = contract;
+// Wire the page's enable, disable and dispose buttons to the controller; errors are shown in the status element.
 for (const [id, operation] of [
   ["enable", () => controller.enable()], ["disable", () => controller.disable()], ["dispose", dispose],
 ] as const) {

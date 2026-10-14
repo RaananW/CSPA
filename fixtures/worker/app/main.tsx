@@ -1,9 +1,16 @@
+/**
+ * Fixture app for the worker compositor validation (`scripts/worker-validation.mjs`). One page serves
+ * several variants chosen by `?variant=`: `css` (plain CSS animation), `main` and `main-ripple` (main-thread
+ * GPU), `worker` and `worker-ripple` (experimental worker). Tests use `window.workerFixture`; `?fault=`
+ * injects a worker construction failure (`factory`) or a delayed shutdown reply (`stop-delay`).
+ */
 import { Profiler, useState, version } from "react";
 import { flushSync, version as domVersion } from "react-dom";
 import { mountCanvasApp, Surface, Box } from "@underglass/react";
 import { mountWorkerCanvasApp, WorkerSurface, type WorkerProgram } from "@underglass/react/experimental-worker";
 import program from "./program.json";
 
+// Variant and fault are read from the page URL so one build covers every case.
 const params = new URLSearchParams(location.search);
 const variant = params.get("variant") ?? "css";
 if (!["css", "main", "worker", "main-ripple", "worker-ripple"].includes(variant)) throw new Error("Unknown worker fixture variant");
@@ -19,7 +26,9 @@ function App() {
   const [busy, setBusy] = useState(0);
   changeStructure = () => setPresent(previous => !previous);
   changeLayout = () => setOffset(previous => previous ? 0 : 8);
+  // Eight similar layers; layer 0 holds the native controls, the others are decorative.
   const Layer = isWorker ? WorkerSurface : Surface;
+  // Lets `collect` trigger React commits from outside to create main-thread contention.
   (window as unknown as { updateBusy: () => void }).updateBusy = () => setBusy(previous => previous + 1);
   return <>{Array.from({ length: 8 }, (_, index) => index === 7 && !present ? null : <Layer key={index}
     id={`layer-${index}`} decorative={index > 0}
@@ -38,12 +47,15 @@ function App() {
 }
 const status = (message: string) => { document.getElementById("status")!.textContent = message; };
 const originalHost = document.getElementById("ordinary")!;
+// Worker variants mount through the experimental worker entry; the others use the regular main-thread mount.
 const controller = isWorker ? mountWorkerCanvasApp({
   ordinaryHost: originalHost, canvasHost: document.getElementById("worker-host")!,
   width: 640, height: 320, program: program as WorkerProgram, strict: true, onStatus: status,
   createWorker: () => {
     if (params.get("fault") === "factory") throw new Error("Injected worker construction failure");
     const worker = new Worker(new URL("./thread.ts", import.meta.url), { type: "module" });
+    // Fault injection: hold back the first `stop` message for 11 seconds, longer than the controller's 10 second
+    // reply timeout (`request` in `experimental-worker.tsx`), so the first disable() fails with a timeout.
     if (params.get("fault") === "stop-delay") {
       const post = worker.postMessage.bind(worker);
       let delayed = false;
@@ -64,6 +76,7 @@ const controller = isWorker ? mountWorkerCanvasApp({
     if (operations.length < 100_000) operations.push({ kind: sample.kind, durationMs: sample.durationMs });
   },
 }, <Profiler id="main" onRender={() => commits++}><App /></Profiler>);
+// Only the main-thread controller has `createMotion`; it starts the decorative layers' ripple or opacity motion.
 if ("createMotion" in controller) for (let slot = 1; slot < 8; slot++) {
   if (ripple) controller.setRipple(`layer-${slot}`, { amplitude: 6, seconds: 0, playing: true });
   else {
@@ -75,6 +88,7 @@ if ("createMotion" in controller) for (let slot = 1; slot < 8; slot++) {
     motion.play();
   }
 }
+// Worker controllers report `statistics()` asynchronously; the main-thread controller reports `state()`.
 const getState = async () => ({ ...("statistics" in controller ? await controller.statistics() : controller.state()), commits, renders,
   focused: document.activeElement?.id });
 const api = {
@@ -86,6 +100,7 @@ const api = {
   structure: () => flushSync(() => changeStructure()),
   layout: () => flushSync(() => changeLayout()),
   settle: () => controller.settle(),
+  // Asks the controller to validate a moved surface and returns the error text plus layout before and after, to show nothing moved.
   fixedGeometryGuard() {
     if (!("validateSurface" in controller)) throw new Error("Worker fixture required");
     const before = document.getElementById("layer-0")!.getBoundingClientRect().toJSON();
@@ -94,6 +109,7 @@ const api = {
     catch (error) { reason = String(error); }
     return { reason, before, after: document.getElementById("layer-0")!.getBoundingClientRect().toJSON() };
   },
+  // Injects content the worker path must refuse (running animation, new control, picker, shifted geometry or unenrolled node).
   sourceFault(kind: string) {
     const decoration = document.getElementById("layer-1")!;
     if (kind === "animation") decoration.firstElementChild!.animate([{ opacity: 1 }, { opacity: 0.4 }], { duration: 1000, iterations: Infinity });
@@ -106,11 +122,13 @@ const api = {
     else throw new Error("Unknown synthetic worker source fault");
     controller.invalidate();
   },
+  // Simulates a tab becoming hidden or visible by overriding `document.hidden` and firing `visibilitychange`.
   visibility(hidden: boolean) {
     if (hidden) Object.defineProperty(document, "hidden", { configurable: true, value: true });
     else Reflect.deleteProperty(document, "hidden");
     document.dispatchEvent(new Event("visibilitychange"));
   },
+  // Measures frame intervals, long tasks and controller operations for a fixed window; `contention` adds busy React commits.
   async collect(milliseconds: number, contention: boolean) {
     if (!Number.isFinite(milliseconds) || milliseconds < 500 || milliseconds > 5000) throw new Error("Invalid benchmark duration");
     const before = await getState(), intervals: number[] = [];
@@ -120,6 +138,7 @@ const api = {
     operations.length = 0;
     let previous: number | undefined, timer: ReturnType<typeof setInterval> | undefined;
     const start = performance.now();
+    // Every 80 ms commit a React update and block the main thread for 45 ms.
     if (contention) timer = setInterval(() => {
       flushSync(() => (window as unknown as { updateBusy(): void }).updateBusy());
       const until = performance.now() + 45;
@@ -138,6 +157,7 @@ const api = {
   },
 };
 (window as unknown as { workerFixture: typeof api }).workerFixture = api;
+// Wire the page's buttons to the same operations the tests call.
 for (const key of ["enable", "disable", "dispose", "structure", "layout"] as const) {
   document.getElementById(key)!.onclick = () => { void api[key](); };
 }

@@ -1,3 +1,8 @@
+/**
+ * Unit tests for evidence routing: which roots `tests/helpers/evidence.mjs` accepts, how the Playwright
+ * config follows `CANVAS_EVIDENCE_ROOT`, and that `scripts/sanitize-evidence.mjs` only rewrites the selected
+ * root. Spawns child Node processes and uses temp directories. Run with `npm run test:unit`.
+ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -23,6 +28,7 @@ test("evidence routing admits only named current roots and their descendants", (
   }
 });
 
+// Runs a fresh Node process per root because the helper validates `CANVAS_EVIDENCE_ROOT` when it is imported.
 test("independent root imports through the shared reporter configuration", () => {
   for (const root of ["evidence/phase9", "evidence/phase9-independent", "evidence/phase10", "evidence/phase10-independent", "evidence/phase11", "evidence/phase11-independent", "evidence/phase12", "evidence/phase12-independent"]) {
     execFileSync(process.execPath, ["--input-type=module", "-e",
@@ -31,6 +37,7 @@ test("independent root imports through the shared reporter configuration", () =>
   }
 });
 
+// The archive and verdict files hold a local path and must stay unchanged; only the selected root's report.json is redacted.
 test("sanitizer selects independent output without touching adjacent archives", async () => {
   const directory = await mkdtemp(join(tmpdir(), "cspa-evidence-routing-"));
   try {

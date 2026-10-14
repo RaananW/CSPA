@@ -1,3 +1,20 @@
+/**
+ * Release validation of the `@underglass/react` package for both supported React peers (18.3.1 and 19.3.0).
+ * For each peer it copies the repository into a clean workspace and runs the unit tests, typechecks, builds
+ * the library and the playground, packs the library, checks the archive against the exact allowlist, installs
+ * the archive into a fresh consumer app, typechecks and builds that app, and (for the `dom` and `native`
+ * lanes) drives the todo pilot in a browser through `release-pilot.mjs`.
+ *
+ * Invoked as `npm run validate:release -- <lane>` or `node scripts/release-validation.mjs <lane>`, where
+ * lane is `build-only` (no browser; used by `.github/workflows/private-release.yml`), `dom` or `native`
+ * (GPU must be admitted). Environment: `CANVAS_BROWSER_EXECUTABLE` (browser to use for `dom` and
+ * `native`; default Chrome Canary), `CANVAS_REQUIRE_BROWSER_PIN=1` (enforce the pinned browser build, see
+ * `release-policy.mjs`). `CANVAS_RELEASE_ROOT` must be unset.
+ *
+ * Output: a new `evidence/phase14/run-<uuid>/` directory (git-ignored) with input hashes, command logs,
+ * per-peer results and `result.json`. Prints one summary line and exits non-zero if any step failed or if any
+ * input or source file changed while the run was in progress.
+ */
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
@@ -10,6 +27,7 @@ import { validatePackageContents, packageFiles } from "./package-policy.mjs";
 import { withPlatform, devNull, tarArgs } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
+// The first argument selects what runs: `build-only` skips every browser step.
 const lane = process.argv[2];
 assert.ok(["build-only", "dom", "native"].includes(lane), "Usage: node scripts/release-validation.mjs build-only|dom|native");
 const executable = process.env.CANVAS_BROWSER_EXECUTABLE;
@@ -17,6 +35,7 @@ if (lane !== "build-only" && executable) await access(executable);
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const manifest = JSON.parse(await readFile("packages/underglass/package.json", "utf8"));
 assert.equal(manifest.private, true); assert.equal(manifest.version, "0.1.0");
+// Release evidence lives in a git-ignored root; the run refuses to start if that root is not ignored.
 const parent = join(root, "evidence/phase14");
 assert.equal(process.env.CANVAS_RELEASE_ROOT, undefined, "Release root overrides are refused; prior archives are read-only");
 execFileSync("git", ["check-ignore", parent], { stdio: "pipe" });
@@ -24,8 +43,10 @@ await prepareReleaseRoot(root);
 const directory = join(parent, `run-${randomUUID()}`);
 await mkdir(directory);
 await assertPhysicalTree(directory);
+// Child processes run with no user npm config and no browser download.
 const env = { ...process.env, npm_config_userconfig: devNull, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1" };
 let commandSequence = 0;
+// The result record is built up during the run and written to `result.json` at the end, pass or fail.
 const result = { schema: 1, lane, status: "running", directory, head: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
   startedAt: new Date().toISOString(), host: { arch: arch(), platform: platform(), release: release(), cpu: cpus()[0]?.model, totalmem: totalmem() },
   nodeExecutable: process.execPath,
@@ -34,6 +55,7 @@ const result = { schema: 1, lane, status: "running", directory, head: execFileSy
   hosted: "NOT EXECUTED; workflow definition build-only, no hosted GPU qualification",
   gpu: lane === "native" ? "REQUESTED; admission failure is failure" : "NOT EXECUTED; not a passed GPU gate" };
 if (lane !== "build-only") result.browserExecutable = executable ? { path: executable, sha256: sha(await readFile(executable)) } : { channel: "chrome-canary" };
+// Lists every file under `directory` (sorted, recursive) with its size and SHA-256, for the evidence.
 async function records(directory) {
   const entries = [];
   async function walk(path) {
@@ -49,7 +71,10 @@ async function records(directory) {
 async function sourceRecords() {
   return [...await records(join(root, "packages/underglass/src")), ...await records(join(root, "examples/playground/src"))];
 }
+// Source hashes taken now and compared at the end, to prove the run did not change the code it validated.
 const sourceBefore = await sourceRecords();
+// Every file that defines the run (sources, manifests, configs, fixtures, scripts, tests, workflows) is
+// hashed up front and re-hashed in the `finally` block; any change fails the run.
 const inputs = [...sourceBefore, ...await Promise.all(["package.json", "package-lock.json", "fixtures/react18/package.json",
   "fixtures/react18/package-lock.json", "packages/underglass/package.json", "packages/underglass/README.md",
   "examples/playground/package.json", "README.md", "docs/distribution.md", "docs/showcase.md", "examples/playground/todo.html",
@@ -72,6 +97,9 @@ await writeFile(join(directory, "inventory.json"), JSON.stringify({
   manifest, lock: JSON.parse(await readFile("package-lock.json", "utf8")),
   disposition: "Local workspace dependency inventory only; prior security assessments belong to their dated source. No registry audit/update/install in this runner.",
 }, null, 2), { flag: "wx" });
+// Runs one child process in `cwd`, saving its argv, combined output and exit record under numbered
+// names in the evidence directory, and throws with the tail of the output when it exits non-zero.
+// `executable` defaults to this Node binary; pass `"npm"` for npm.
 async function command(args, cwd, label, executable = process.execPath) {
   const record = { executable, args, cwd, label };
   const name = `${commandSequence++}-${label}`;
@@ -90,6 +118,8 @@ async function command(args, cwd, label, executable = process.execPath) {
   assert.equal(code, 0, `${label} failed: ${output.slice(-5000)}`);
   return output;
 }
+// Starts `vite preview` on a free port (found by briefly binding port 0), waits up to 10 s for
+// `readinessPath` to answer 200, and returns its URL and a `stop` function that also saves the server log.
 async function preview(cwd, vite, label, readinessPath = "/") {
   const socket = createServer();
   await new Promise((done, reject) => { socket.once("error", reject); socket.listen(0, "127.0.0.1", done); });
@@ -119,9 +149,12 @@ async function preview(cwd, vite, label, readinessPath = "/") {
   } catch (error) { await stop(); throw error; }
 }
 try {
+  // Each peer is validated in its own physical copy, so one peer's installs and builds cannot affect the
+  // other or the checkout.
   for (const major of [18, 19]) {
     const peer = join(directory, `react${major}`);
     await mkdir(peer);
+    // Sources and configuration for the copy; `node_modules`, `dist` and Vite caches are not copied.
     const copied = ["packages", "examples", "tests", "scripts", "vite.config.ts", "package-lock.json",
       "README.md", "docs/distribution.md", "docs/showcase.md", ".github/workflows/showcase-pages.yml"];
     for (const path of copied) await cp(join(root, path), join(peer, path), {
@@ -137,11 +170,13 @@ try {
     }
     const version = major === 18 ? "18.3.1" : "19.3.0";
     await cp(join(root, "package.json"), join(peer, "package.json"));
+    // Root tools first; for React 18 the fixture's React 18 packages are then copied over them.
     await copyDependencies(join(root, "node_modules"), join(peer, "node_modules"));
     if (major === 18) await copyDependencies(join(root, "fixtures/react18/node_modules"), join(peer, "node_modules"));
     await assertPhysicalTree(join(peer, "node_modules"));
     assert.equal(await dependencyVersion(peer, "react"), version);
     assert.equal(await dependencyVersion(peer, "react-dom"), version);
+    // Record the version and location of every tool that resolves in this peer.
     await writeFile(join(peer, "resolved-tools.json"), JSON.stringify(await Promise.all(
       ["react", "react-dom", "@types/react", "@types/react-dom", "typescript", "vite", "playwright"].map(async name => ({
         name, version: await dependencyVersion(peer, name), path: join(peer, "node_modules", name),
@@ -152,6 +187,7 @@ try {
     const library = join(peer, "packages/underglass");
     const unitPaths = (await readdir(join(peer, "tests/unit"))).filter(path => path.endsWith(".unit.test.mjs")).map(path => `tests/unit/${path}`);
     await command(["--test", ...unitPaths], peer, `react${major}-units`);
+    // Build a source-mode pilot: the packaged todo entry rewritten to import the library from source.
     await writeFile(join(playground, "source-pilot.tsx"), (await readFile(join(peer, "fixtures/package-consumer/todo-main.tsx"), "utf8"))
       .replace('"@underglass/react"', '"../../packages/underglass/src"').replaceAll('"./task/', '"./src/apps/todo/'));
     await writeFile(join(playground, "source-pilot.html"), (await readFile(join(playground, "todo.html"), "utf8")).replace("/src/demo/todo-demo.tsx", "/source-pilot.tsx"));
@@ -161,12 +197,14 @@ try {
     await command([vite, "build"], library, `react${major}-library`);
     await command([tsc, "-p", "tsconfig.json"], library, `react${major}-declarations`);
     await command([join(library, "scripts/prepare-package.mjs")], library, `react${major}-package-docs`);
+    // Pack the library without lifecycle scripts, and require the file list to match the allowlist exactly.
     const output = await command(["pack", "--ignore-scripts", "--json", "--pack-destination", peer], library, `react${major}-pack`, "npm");
     const packed = JSON.parse(output)[0];
     validatePackageContents(packed.files);
     const archive = join(peer, packed.filename);
     const members = execFileSync("tar", tarArgs(["-tzf", archive]), { encoding: "utf8" }).trim().split(/\r?\n/);
     assert.deepEqual(members.map(path => path.replace(/^package\//, "")).sort(), packageFiles);
+    // The consumer app installs the packed archive as a dependency, as a downstream project would.
     const consumer = join(peer, "consumer");
     await mkdir(consumer);
     await copyDependencies(join(peer, "node_modules"), join(consumer, "node_modules"));
@@ -176,6 +214,8 @@ try {
     assert.equal(sha(await readFile(join(installed, "package.json"))), sha(await readFile(join(root, "packages/underglass/package.json"))),
       "Fresh public package must retain the exact current manifest, independent of the physical test peer");
     const installedRecords = [];
+    // Every packed file must match the file built in the library directory byte for byte, and must not
+    // contain local paths or probe/test hooks.
     for (const path of packageFiles) {
       const bytes = await readFile(join(installed, path));
       assert.equal(sha(bytes), sha(await readFile(join(library, path))), `Exact archive member differs: ${path}`);
@@ -193,6 +233,8 @@ try {
       await writeFile(join(consumer, "task", path), text.replaceAll('"./model"', '"./model.js"').replaceAll('"./TodoApp"', '"./TodoApp.js"'));
     }
     await writeFile(join(consumer, "vite.config.ts"), 'import {defineConfig} from "vite"; import {resolve} from "node:path"; export default defineConfig({cacheDir:resolve("owned-vite-cache"),resolve:{dedupe:["react","react-dom"]},build:{target:"esnext"}});');
+    // Typecheck the consumer under bundler resolution and under NodeNext, then import the package in Node
+    // (its runtime export names must match the expected list exactly) and build it.
     await command([tsc, "-p", "tsconfig.json"], consumer, `react${major}-consumer-bundler`);
     await command([tsc, "-p", "tsconfig.json", "--module", "NodeNext", "--moduleResolution", "NodeNext"], consumer, `react${major}-consumer-nodenext`);
     await command(["--input-type=module", "-e",
@@ -202,6 +244,8 @@ try {
     const peerResult = { major, version, sourceMode: "physical workspace library/playground copy; all ten production pages and task pilot", dependencyMode: "physical independent writable copy; optimizer caches excluded",
       archive: { sha256: sha(await readFile(archive)), bytes: (await readFile(archive)).length, members: installedRecords }, browsers: [] };
     result.peers.push(peerResult);
+    // Browser lanes: serve the source-mode pilot (from the peer copy) and the packaged consumer app, and run
+    // the pilot against each at DPR 1 and 2 with a fresh evidence directory.
     if (lane !== "build-only") {
       peerResult.previews = [];
       for (const [mode, cwd, path] of [["source", peer, "/source-pilot.html"], ["package", consumer, "/"]]) {
@@ -225,6 +269,7 @@ try {
   result.status = "failed"; result.error = String(error); process.exitCode = 1;
   console.error(error);
 } finally {
+  // Re-hash every input and the source trees; any difference fails the run even if every step passed.
   result.inputsUnchanged = true;
   for (const input of inputs) {
     if (sha(await readFile(join(root, input.path))) !== input.sha256) {

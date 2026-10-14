@@ -1,11 +1,31 @@
+/**
+ * Browser scenarios shared by the installed-package validation and the measurement script.
+ * `taskPixelLatency` runs in an already-open todo page (`window.todoProbe`); `dynamicContract` and
+ * `interactionContract` open their own page on a built consumer app (`window.packageConsumer`).
+ *
+ * Not run directly. `package-consumer.mjs` calls `interactionContract` and `dynamicContract` when
+ * `CANVAS_INTERACTION_AUDIT=1` / `CANVAS_DYNAMIC_AUDIT=1` (neither runs by default), and `measure.mjs` calls
+ * `taskPixelLatency`. The caller supplies the Playwright page or context (and, for the two contracts, the
+ * evidence directory); each scenario throws on the first failed assertion.
+ */
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { PNG } from "pngjs";
 
+/**
+ * Measures how long a real checkbox click takes to change the pixels of the task row, for `trials`
+ * trials. `dpr` and `gpu` are only recorded in the results; the caller sets the device pixel ratio and mode. Each trial clicks "Complete task 1", then
+ * repeatedly screenshots the frame until more than `100 * dpr * dpr` pixels of the row differ from the
+ * baseline. Because screenshots take time, each result is an interval: `lowerMs` (start of the last
+ * screenshot that still showed no change) to `upperMs` (end of the screenshot that showed it), measured
+ * from the page's own `change` event time. Returns one record per trial; throws if no change appears in
+ * 20 polls. The `change` listener it installs is removed afterwards.
+ */
 export async function taskPixelLatency(page, dpr, gpu, trials) {
   const results = [];
   await page.evaluate(() => {
+    // Capture-phase listener on the controls container timestamps each native change event.
     window.inputTimes = [];
     window.latencyListener = () => window.inputTimes.push(performance.now());
     document.getElementById("todo-controls").addEventListener("change", window.latencyListener, { capture: true });
@@ -20,6 +40,7 @@ export async function taskPixelLatency(page, dpr, gpu, trials) {
       assert.equal(await page.getByLabel("Complete task 1", { exact: true }).isChecked(), !checked);
       const eventAt = await page.evaluate(() => window.inputTimes.at(-1));
       assert.equal(typeof eventAt, "number");
+      // Poll until the row's pixels (area scaled by DPR from CSS pixels) differ from the baseline.
       let lowerMs = 0, detected;
       for (let poll = 0; poll < 20; poll++) {
         const captureStart = await page.evaluate(() => performance.now());
@@ -51,11 +72,21 @@ export async function taskPixelLatency(page, dpr, gpu, trials) {
   }
 }
 
+/**
+ * Opens a new page on the consumer app with automatic admission (`?auto`) and checks how the runtime
+ * reacts to dynamic changes while keeping the original controls: layer membership, order and size changes,
+ * a resized frame, a held paint, a device pixel ratio change, a scroll policy refusal, and disposal during
+ * a pending admission. With `flags` GPU must be admitted and stay on; without them the app must stay on
+ * DOM and make no admission attempts. Writes `<name>-dynamic.json` (or `-dynamic-failed.json` with the
+ * failure) into `directory` and returns the result.
+ */
 export async function dynamicContract(context, url, { directory, name, flags, dpr }) {
   const page = await context.newPage(), observations = [], errors = [], diagnostics = [];
   page.on("pageerror", error => errors.push(String(error)));
   page.on("console", message => { if (message.type() === "error") diagnostics.push(message.text()); });
   const state = () => page.evaluate(() => window.packageConsumer.state());
+  // Waits for the app to report `mode` with no initialization or transition pending (and, for DOM, no
+  // engine left), then flushes the controller.
   async function settled(mode) {
     await page.waitForFunction(mode => {
       const s = window.packageConsumer.state();
@@ -64,6 +95,8 @@ export async function dynamicContract(context, url, { directory, name, flags, dp
     }, mode);
     await page.evaluate(() => window.packageConsumer.controller.settle());
   }
+  // The original controls must be untouched: same input and root elements, value, selection and focus,
+  // and the separate uncontrolled input and checkbox keep what the user entered.
   async function continuity() {
     const s = await state();
     assert.ok(s.sameInput && s.sameRoot);
@@ -76,6 +109,7 @@ export async function dynamicContract(context, url, { directory, name, flags, dp
     await page.locator("#name").focus();
     await page.keyboard.press("Home"); await page.keyboard.press("Shift+ArrowRight");
   }
+  // A fixed point of the frame (55, 245 in CSS pixels, scaled by DPR) must show the expected red marker.
   async function pixels() {
     const png = PNG.sync.read(await page.locator("#frame").screenshot());
     const offset = (Math.floor(245 * dpr) * png.width + Math.floor(55 * dpr)) * 4;
@@ -92,6 +126,9 @@ export async function dynamicContract(context, url, { directory, name, flags, dp
     observations.push({ operation: "enable", state: admitted });
     if (flags) {
       await settled("gpu"); await continuity();
+      // Each operation starts a long-running transition and then changes the layers. For the first two operations the
+      // output canvas must be hidden immediately after the change; in all three the transition must end as
+      // cancelled, the canvas must return to GPU at the new size, and the original controls must be intact.
       for (const operation of ["membership-order-position", "size", "frame"]) {
         const barrier = await page.evaluate(operation => {
           const p = window.packageConsumer;
@@ -117,6 +154,8 @@ export async function dynamicContract(context, url, { directory, name, flags, dp
       await page.evaluate(() => {
         const host = document.querySelector("#capture"), original = host.requestPaint.bind(host);
         const hold = event => event.stopImmediatePropagation();
+        // Hold paint delivery: while the capture is pending the canvas must stay hidden and nothing may be
+        // uploaded, even if layers change meanwhile.
         host.requestPaint = () => {}; host.addEventListener("paint", hold, true);
         window.restoreDynamicPaint = () => { host.requestPaint = original; host.removeEventListener("paint", hold, true); };
         window.packageConsumer.controller.invalidate();
@@ -128,6 +167,7 @@ export async function dynamicContract(context, url, { directory, name, flags, dp
       assert.equal((await state()).metrics.uploads, pending.metrics.uploads);
       await page.evaluate(() => window.restoreDynamicPaint()); await settled("gpu"); await continuity(); await pixels();
       observations.push({ operation: "pending-capture", fixture: "Held public paint delivery", pending, after: await state() });
+      // Change the device pixel ratio live; the output canvas must be resized to the new ratio and stay on GPU.
       const cdp = await context.newCDPSession(page), next = dpr === 1 ? 2 : 1;
       await cdp.send("Emulation.setDeviceMetricsOverride", { width: 900, height: 750, deviceScaleFactor: next, mobile: false });
       await page.evaluate(() => window.packageConsumer.controller.setTransform("editor", { x: 1 }));
@@ -139,6 +179,8 @@ export async function dynamicContract(context, url, { directory, name, flags, dp
       await page.evaluate(() => window.packageConsumer.controller.setTransform("editor", {}));
       await page.waitForFunction(dpr => window.packageConsumer.state().mode === "gpu" && document.querySelector("#output").width === 660 * dpr, dpr);
       await settled("gpu"); await cdp.detach();
+      // A scroll policy the runtime refuses must leave GPU with a `blocked` admission intent, and removing the
+      // scroller must not retry on its own; only an explicit enable() does.
       await page.evaluate(() => window.packageConsumer.scroll(true)); await settled("dom");
       await page.waitForFunction(() => window.packageConsumer.state().admission.intent === "blocked");
       const refusal = await state(); assert.equal(refusal.admission.intent, "blocked");
@@ -154,6 +196,7 @@ export async function dynamicContract(context, url, { directory, name, flags, dp
       await page.waitForTimeout(150); assert.equal((await state()).admission.attempts, 0); await continuity(); await pixels();
     }
     await page.evaluate(() => window.packageConsumer.controller.disable());
+    // After an explicit disable(), later layer changes must not trigger new admission attempts.
     const disabled = await state();
     await page.evaluate(() => window.packageConsumer.extra(0)); await page.waitForTimeout(150);
     assert.equal((await state()).metrics.admission.attempts, disabled.metrics.admission.attempts);
@@ -161,6 +204,8 @@ export async function dynamicContract(context, url, { directory, name, flags, dp
     await continuity();
     if (flags) {
       await page.evaluate(() => {
+        // Hold `requestAdapter` so enable() stays pending, then dispose: the canvas must be hidden at once and
+        // both promises must settle after the adapter is released.
         const gpu = navigator.gpu, original = gpu.requestAdapter.bind(gpu);
         gpu.requestAdapter = async options => {
           window.packageAdapterWaiting = true;
@@ -192,12 +237,23 @@ export async function dynamicContract(context, url, { directory, name, flags, dp
 }
 
 // Run against an actual installed consumer, not a source alias.
+/**
+ * Keyboard, accessibility and recovery scenarios against an installed consumer app, run in the given
+ * Playwright `context`. It checks tab order, typing, selection and focus across enable() / disable(),
+ * the accessibility tree (GPU presentation must not duplicate or replace native controls), native dialog
+ * and popover overlays, emulated reduced-motion and forced-colors media, trusted native scrolling inside an
+ * input, WebGPU device destruction, a synthetic IME composition start, and a table of editable-content
+ * boundaries that GPU admission must refuse or accept. Without `flags` the same flows must work on DOM
+ * after a diagnosed refusal. Returns the observations; progress is also written to
+ * `<name>-interaction-progress.json` in `directory`, even on failure.
+ */
 export async function interactionContract(context, url, { directory, name, flags }) {
   const page = await context.newPage();
   const errors = [], diagnostics = [], observations = [];
   page.on("pageerror", error => errors.push(String(error)));
   page.on("console", message => { if (message.type() === "error") diagnostics.push(message.text()); });
   const state = () => page.evaluate(() => window.packageConsumer.state());
+  // Same wait as in `dynamicContract`.
   async function settled(mode) {
     await page.waitForFunction(mode => {
       const value = window.packageConsumer.state();
@@ -206,11 +262,13 @@ export async function interactionContract(context, url, { directory, name, flags
     }, mode);
     await page.evaluate(() => window.packageConsumer.controller.settle());
   }
+  // Fresh page load, waiting for the consumer to settle in DOM mode.
   async function load() {
     await page.goto(url);
     await page.waitForFunction(() => !!window.packageConsumer);
     await settled("dom");
   }
+  // enable() must end in the expected mode; returns the state so the reason can be checked.
   async function admission(mode) {
     const value = await page.evaluate(() => window.packageConsumer.controller.enable());
     assert.equal(value.mode, mode, value.reason);
@@ -220,6 +278,7 @@ export async function interactionContract(context, url, { directory, name, flags
   async function focus(id) {
     assert.equal(await page.evaluate(() => document.activeElement?.id), id);
   }
+  // The original input and root must be the same elements, and the output canvas hidden unless on GPU.
   async function original() {
     const value = await state();
     assert.ok(value.sameInput && value.sameRoot);
@@ -238,6 +297,8 @@ export async function interactionContract(context, url, { directory, name, flags
     return value;
   }
   const cdp = await context.newCDPSession(page);
+  // Reads the browser accessibility tree and returns its textbox, button and checkbox nodes; asserts exactly one
+  // "Name" textbox, "Uncontrolled value" textbox and "Checked" checkbox, so duplicates would be caught.
   async function semantics() {
     const tree = await cdp.send("Accessibility.getFullAXTree");
     const controls = tree.nodes.filter(node => !node.ignored
@@ -254,6 +315,7 @@ export async function interactionContract(context, url, { directory, name, flags
     const identity = await cdp.send("Browser.getVersion");
     const launch = await cdp.send("Browser.getBrowserCommandLine");
     if (flags) await page.evaluate(() => {
+      // Remember the WebGPU device the runtime configures, so the device-loss step can destroy it.
       const configure = GPUCanvasContext.prototype.configure;
       GPUCanvasContext.prototype.configure = function(options) {
         window.interactionDevice = options.device;
@@ -261,6 +323,7 @@ export async function interactionContract(context, url, { directory, name, flags
       };
     });
     await page.locator("#count").focus();
+    // Sequential keyboard focus order of the controls, forwards then one step back.
     const order = ["name", "save", "native", "adopted-button", "checked", "dialog-open", "popover-open"];
     for (const id of order) { await page.keyboard.press("Tab"); await focus(id); }
     await page.keyboard.press("Shift+Tab");
@@ -308,6 +371,8 @@ export async function interactionContract(context, url, { directory, name, flags
     assert.equal(await page.locator("#checked").isChecked(), true);
     await admission(flags ? "gpu" : "dom");
 
+    // Native modal dialog: GPU admission must be refused while it is open (the native geometry probe is
+    // occluded), and focus, value and tab order inside it must be unaffected.
     await page.locator("#dialog-open").focus();
     await page.keyboard.press("Space");
     await page.locator("#dialog").waitFor({ state: "visible" });
@@ -337,6 +402,7 @@ export async function interactionContract(context, url, { directory, name, flags
     await page.locator("#dialog").waitFor({ state: "hidden" });
     await focus("dialog-open");
     await admission(flags ? "gpu" : "dom");
+    // Native popover: editing inside it must work after GPU is re-admitted.
     await page.locator("#popover-open").focus();
     await page.keyboard.press("Space");
     await page.locator("#popover").waitFor({ state: "visible" });
@@ -348,6 +414,8 @@ export async function interactionContract(context, url, { directory, name, flags
     await focus("popover-open");
     observations.push({ kind: "keyboard-editing-native-overlays", order, domAX, activeAX, hit, selected, modalTabGap, modalReverseGap, overlayAdmission, state: await original() });
 
+    // Emulated media: reduced motion must not revoke GPU, but forced colors must fall back to DOM with a
+    // reason, keeping the input usable.
     await page.emulateMedia({ reducedMotion: "reduce" });
     assert.equal(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches), true);
     await page.locator("#checked").focus();
@@ -368,6 +436,7 @@ export async function interactionContract(context, url, { directory, name, flags
 
     if (flags) {
       await page.evaluate(() => {
+        // A trusted native scroll inside a text input must fall back to DOM and keep the input usable.
         window.nativeScrolls = [];
         document.querySelector("#name").addEventListener("scroll", event => {
           window.nativeScrolls.push({ trusted: event.isTrusted, left: event.target.scrollLeft });
@@ -384,6 +453,8 @@ export async function interactionContract(context, url, { directory, name, flags
       assert.equal(await page.locator("#saved").textContent(), "scroll recovered");
       observations.push({ kind: "trusted-native-input-scroll", events: await page.evaluate(() => window.nativeScrolls), state: await original() });
       await admission("gpu");
+      // Destroy the WebGPU device the runtime uses. This is the public `destroy()` path, not a physical GPU
+      // reset. The runtime must fall back to DOM and the input must keep working.
       const loss = await page.evaluate(async () => {
         const device = window.interactionDevice;
         device.destroy();
@@ -408,6 +479,10 @@ export async function interactionContract(context, url, { directory, name, flags
     }
     observations.push({ kind: "initial-lifetime-disposed", state: await dispose() });
 
+    // Editable-content boundaries: a `contenteditable` value (including mixed-case and inherited ones), a
+    // popover on the root, or an enrolled dialog. The read-only values must be admitted on GPU
+    // (when flags are on); every editable or top-layer boundary must be refused with a DOM fallback, in which
+    // the original editable content stays usable.
     const readonlyCases = ["readonly-false", "root-FALSE", "root-False", "child-FALSE", "child-False", "inherited-false", "override-FALSE", "override-False"];
     for (const boundary of ["root-plaintext", "root-empty", "root-true", "child-plaintext", "child-empty", "child-true",
       "inherited-true", "inherited-plaintext", "root-popover", "root-dialog", ...readonlyCases]) {

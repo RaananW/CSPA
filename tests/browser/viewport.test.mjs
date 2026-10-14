@@ -1,14 +1,26 @@
+/**
+ * Browser suite for GPU presentation when the canvas sits inside external scroll containers, a scrolled
+ * document or its own scrollable owner box, on `runtime.html` (`window.runtimeProbe`) and
+ * `integration.html` (`window.integrationProbe`). The runtime must follow the viewport ancestors' clip
+ * and scroll offsets: GPU stays active without readmission, pixels are clipped where ancestors clip,
+ * and native hit-testing and trusted events agree with the pixels. Admission must refuse (and later
+ * allow) cases where clipping cannot be proven. Reports, screenshots and JSON go to the `viewport`
+ * evidence directory.
+ */
 import { test, expect } from "../helpers/current-browser.mjs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 import { PNG } from "pngjs";
 const directory = evidenceDirectory("viewport");
+// Whole-page screenshot sample at a viewport CSS point; `point` is multiplied by the DPR and floored.
 async function viewportPixel(page, point) {
   const bytes = await page.screenshot(), image = PNG.sync.read(bytes);
   const dpr = await page.evaluate(() => window.devicePixelRatio);
   const offset = (Math.floor(point.y * dpr) * image.width + Math.floor(point.x * dpr)) * 4;
   return { pixel: [...image.data.subarray(offset, offset + 4)], bytes };
 }
+// Gives the document a scrolled, offset canvas: oversized body, frame moved 200 px right, document
+// scrolled to (40,20). Asserts GPU stayed active. `probe` names the page's probe global.
 async function externalDocumentOffset(page, probe = "runtimeProbe") {
   await page.evaluate(async probe => {
     document.body.style.minHeight = "1800px"; document.body.style.minWidth = "1800px";
@@ -19,6 +31,11 @@ async function externalDocumentOffset(page, probe = "runtimeProbe") {
   expect(await page.evaluate(() => [window.scrollX, window.scrollY])).toEqual([40, 20]);
   expect((await page.evaluate(probe => window[probe].state(), probe)).mode).toBe("gpu");
 }
+// `levels` nests one or two bordered scrolling containers around the frame (borders 7 px and 5 px, so
+// content offsets are not zero). While the containers scroll and a numeric motion runs, the GPU pixels
+// must follow the ancestors' clip, the clipped region must be white and unhittable, trusted pointer
+// events must reach the native control at its current position (and not at its old position), and an
+// unrelated scroller must not cause GPU frames.
 for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered viewport chain live projection DPR${dpr} levels=${levels}`, async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 1000, height: 850 }, deviceScaleFactor: dpr });
   try {
@@ -63,6 +80,7 @@ for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered v
         const outer = document.querySelector("#external-outer").getBoundingClientRect();
         const badge = document.querySelector("#badge").getBoundingClientRect();
         const primary = document.querySelector("#primary").getBoundingClientRect();
+        // A point on the green layer, kept 12 px inside the outer container's right edge so it is not clipped.
         const green = { x: Math.min(output.x + 510, outer.right - 12), y: output.y + 145 };
         window.externalEvents = [];
         for (const type of ["pointerdown", "pointerup", "click"]) document.addEventListener(type, event =>
@@ -83,6 +101,8 @@ for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered v
       expect(pixels.pixel).toEqual([20, 200, 90, 255]);
       const movingPixel = (await viewportPixel(page, current.movingPixel)).pixel;
       expect(movingPixel).toEqual([240, 30, 60, 255]);
+      // `clipped` is 20 px beyond the outer container's right edge: the layers must not be hit, the pixel
+      // must be white, and a trusted click there must not reach `badge` or `stationary`.
       const clippedHits = await page.evaluate(point => document.elementsFromPoint(point.x, point.y).map(node => node.id), current.clipped);
       expect(clippedHits).not.toContain("stationary");
       expect(clippedHits).not.toContain("badge");
@@ -103,6 +123,8 @@ for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered v
       const currentEvents = await page.evaluate(() => window.externalCurrentEvents);
       expect(currentEvents).toHaveLength(3);
       expect(currentEvents.every(event => event.trusted && event.target === "badge" && event.path.includes("stationary"))).toBe(true);
+      // After scrolling, the pre-scroll position of the count button must no longer hit it: native geometry
+      // follows the pixels, not the old layout.
       if (index === 2) {
         expect(await page.evaluate(point => document.elementsFromPoint(point.x, point.y).map(node => node.id), oldCount)).not.toContain("count");
         await page.evaluate(() => {
@@ -125,6 +147,8 @@ for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered v
     const live = await page.evaluate(() => window.externalLive);
     expect(live.after.mode).toBe("gpu");
     const attempts = live.after.metrics.admission.attempts;
+    // Resize the outer container and exercise it natively (clicks, typing, PageDown, wheel) to check that
+    // native scrolling of the external viewport and fresh native state keep GPU active.
     await page.locator("#external-outer").evaluate(node => { node.style.width = "680px"; node.style.height = "510px"; node.scrollLeft = 120; node.scrollTop = 40; });
     await page.evaluate(() => window.runtimeProbe.settle());
     await page.locator("#count").click();
@@ -138,10 +162,12 @@ for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered v
     await page.keyboard.press("PageDown");
     await expect.poll(() => page.locator("#external-outer").evaluate(node => node.scrollTop)).toBeGreaterThan(0);
     await page.keyboard.press("Home");
+    // A wheel over the container scrolls it natively; wait for the scroll to finish before sampling.
     await page.locator("#external-outer").hover(); await page.mouse.wheel(50, -120);
     await page.waitForTimeout(350);
     await page.evaluate(() => window.runtimeProbe.settle());
     const unrelatedBefore = await page.evaluate(() => window.runtimeProbe.state());
+    // Scrolling an unrelated element must not cost a GPU frame.
     await page.locator("#external-unrelated").evaluate(node => { node.scrollTop = 70; });
     await page.waitForTimeout(30);
     const unrelatedAfter = await page.evaluate(() => window.runtimeProbe.state());
@@ -165,6 +191,9 @@ for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered v
     await page.locator("#count").click();
     await expect(page.locator("#count")).toHaveText("Count 2");
     expect((await page.evaluate(() => window.runtimeProbe.enable())).mode).toBe("gpu");
+    // Move the frame back out of the containers. Transforming the old container no longer matters, but
+    // transforming the frame itself is diagnosed and falls back to DOM; clearing it and scrolling the
+    // frame into view allows re-admission.
     await page.evaluate(async () => {
       const frame = document.querySelector("#frame");
       window.externalOriginalParent.append(frame);
@@ -187,6 +216,11 @@ for (const dpr of [1, 2]) for (const levels of [1, 2]) test(`external bordered v
     expect(Object.values((await page.evaluate(() => window.runtimeProbe.dispose())).resources).every(value => value === 0)).toBe(true);
   } finally { await page.close(); }
 });
+// Document-level scrolling and the owner canvas as a clip box. The frame starts off-screen (left 1100 px
+// in a 900 px viewport) so admission stays in DOM; a wider viewport admits. Then: the root scrolls
+// internally, the owner canvas gets overflow/border/padding, hits and pixels outside its content box
+// must be clipped, and the document scrolls on both axes (wheel, keys, programmatic) with GPU kept
+// and no readmission.
 for (const dpr of [1, 2]) test(`external document locator scroll and replaced owner clip DPR${dpr}`, async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 900, height: 750 }, deviceScaleFactor: dpr });
   try {
@@ -200,6 +234,7 @@ for (const dpr of [1, 2]) test(`external document locator scroll and replaced ow
       document.querySelector("#frame").style.left = "1100px";
     });
     expect((await page.evaluate(() => window.runtimeProbe.enable())).mode).toBe("dom");
+    // Widen the viewport so the 1100 px offset frame becomes visible and admission can prove clipping.
     await page.setViewportSize({ width: 2000, height: 750 });
     expect((await page.evaluate(() => window.runtimeProbe.enable())).mode).toBe("gpu");
     await page.evaluate(async () => {
@@ -259,6 +294,8 @@ for (const dpr of [1, 2]) test(`external document locator scroll and replaced ow
     await mkdir(directory, { recursive: true });
     await writeFile(`${directory}/external-owner-${dpr}.json`, JSON.stringify({ original, motion, owner }, null, 2));
     await writeFile(`${directory}/external-owner-${dpr}.png`, await page.locator("#output").screenshot());
+    // Content box is 640 wide, so the owner has nothing to scroll. `raw[12]` is the native x translation of
+    // `#primary` (40 px layout x plus the x: 5 transform the motion above ended on).
     expect(owner.scroll).toBe(0);
     expect(owner.dimensions).toMatchObject({ width: 640, scrollWidth: 640, rootWidth: 900, overflow: "auto", content: "drawable" });
     expect(owner.state.mode).toBe("gpu");
@@ -267,6 +304,8 @@ for (const dpr of [1, 2]) test(`external document locator scroll and replaced ow
     expect(owner.hit).toBe("count");
     await page.mouse.click(owner.count.x, owner.count.y);
     await expect(page.locator("#count")).toHaveText("Count 2");
+    // Add border and padding to the owner. The content origin is then border + padding, `stationary` is
+    // moved to straddle the 640 px content edge, and 630 is inside while 665 is beyond it.
     await page.evaluate(async () => {
       const output = document.querySelector("#output");
       output.style.border = "8px solid rgb(30,100,220)";
@@ -356,6 +395,9 @@ for (const dpr of [1, 2]) test(`external document locator scroll and replaced ow
     expect(Object.values((await page.evaluate(() => window.runtimeProbe.dispose())).resources).every(value => value === 0)).toBe(true);
   } finally { await page.close(); }
 });
+// `runtime.html?strict` with `NativeScroll` (`#scroller`, toggled by `#scroll-toggle`) and a narrowed,
+// scrolling root. Wheel and keyboard scrolling, retained focus/selection, clipped hit-testing and clipped
+// pixels (white where the root hides content) must all hold at both DPRs with GPU active.
 for (const dpr of [1, 2]) test(`bounded root and enrolled NativeScroll retain GPU clip DPR${dpr}`, async ({ browser }) => {
   const page = await browser.newPage({ deviceScaleFactor: dpr });
   try {
@@ -384,6 +426,7 @@ for (const dpr of [1, 2]) test(`bounded root and enrolled NativeScroll retain GP
     expect(await page.evaluate(() => window.runtimeProbe.state().mode)).toBe("gpu");
     const wheelState = await page.evaluate(() => window.runtimeProbe.state());
     expect(wheelState.metrics.uploads).toBeGreaterThan(beforeWheel.metrics.uploads);
+    // A point 75% across and down the tail control of the native scroller, in output pixels.
     const nativePoint = await page.locator("#scroll-tail").evaluate(node => {
       const r = node.getBoundingClientRect(), output = document.querySelector("#output").getBoundingClientRect();
       return { x: r.x - output.x + r.width * 0.75, y: r.y - output.y + r.height * 0.75 };
@@ -391,6 +434,7 @@ for (const dpr of [1, 2]) test(`bounded root and enrolled NativeScroll retain GP
     const tailBytes = await page.locator("#output").screenshot(), tailImage = PNG.sync.read(tailBytes);
     await mkdir(directory, { recursive: true });
     await writeFile(`${directory}/native-tail-${dpr}.json`, JSON.stringify({ nativePoint, width: tailImage.width, height: tailImage.height }));
+    // The scrolled-in tail control must be drawn (green) after a wheel scroll that uploaded new pixels.
     const tailOffset = (Math.floor(nativePoint.y * dpr) * tailImage.width + Math.floor(nativePoint.x * dpr)) * 4;
     expect([...tailImage.data.subarray(tailOffset, tailOffset + 4)]).toEqual([20, 200, 90, 255]);
     await writeFile(`${directory}/native-tail-${dpr}.png`, tailBytes);
@@ -427,6 +471,7 @@ for (const dpr of [1, 2]) test(`bounded root and enrolled NativeScroll retain GP
     await page.evaluate(async () => { document.querySelector(".app-container").scrollLeft = 80; await window.runtimeProbe.settle(); });
     await mkdir(directory, { recursive: true });
     const bytes = await page.locator("#output").screenshot(), image = PNG.sync.read(bytes);
+    // (390,70) lies in `stationary` when unclipped, but the narrowed root hides it, so GPU must draw white.
     const offset = (Math.floor(70 * dpr) * image.width + Math.floor(390 * dpr)) * 4;
     expect([...image.data.subarray(offset, offset + 4)]).toEqual([255, 255, 255, 255]);
     await writeFile(`${directory}/root-${dpr}.png`, bytes);
@@ -443,6 +488,7 @@ for (const dpr of [1, 2]) test(`bounded root and enrolled NativeScroll retain GP
     expect(motion.after.commits.count).toBe(motion.before.commits.count);
     for (const key of ["captures", "uploads", "pixelReadbacks"]) expect(motion.after.metrics[key]).toBe(motion.before.metrics[key]);
     const motionBytes = await page.locator("#output").screenshot(), motionImage = PNG.sync.read(motionBytes);
+    // (260,70) lies in `primary` (x 40-300) when unclipped; the 250 px root hides it even during motion.
     const outsideOffset = (Math.floor(70 * dpr) * motionImage.width + Math.floor(260 * dpr)) * 4;
     expect([...motionImage.data.subarray(outsideOffset, outsideOffset + 4)]).toEqual([255, 255, 255, 255]);
     await writeFile(`${directory}/motion-clip-${dpr}.png`, motionBytes);
@@ -463,6 +509,9 @@ for (const dpr of [1, 2]) test(`bounded root and enrolled NativeScroll retain GP
   } finally { await page.close(); }
 });
 
+// `integration.html`: replacing an element behind an original ref must retire the old element and keep
+// GPU admitted once while the document is scrolled and the DPR is flipped by CDP emulation; every capture
+// must have been taken for the slot it is published in.
 for (const dpr of [1, 2]) test(`scrolled viewport preserves original ref membership and DPR preparation DPR${dpr}`, async ({ browser }) => {
   const page = await browser.newPage({ deviceScaleFactor: dpr });
   try {
@@ -479,6 +528,7 @@ for (const dpr of [1, 2]) test(`scrolled viewport preserves original ref members
     await expect(page.locator("#replacement")).toHaveText("Original ref 1");
     await page.evaluate(() => window.integrationProbe.settle());
     const cdp = await page.context().newCDPSession(page);
+    // Flip the DPR (1 <-> 2) with CDP device-metrics emulation and dispatch `resize` by hand.
     await cdp.send("Emulation.setDeviceMetricsOverride", { width: 900, height: 700,
       deviceScaleFactor: dpr === 1 ? 2 : 1, mobile: false });
     await page.evaluate(() => { window.dispatchEvent(new Event("resize")); });
@@ -502,6 +552,8 @@ for (const dpr of [1, 2]) test(`scrolled viewport preserves original ref members
   } finally { await page.close(); }
 });
 
+// The native canvas clip option is ignored here (the wrapper forwards only transform and hit order);
+// admission must diagnose that the clip did not apply instead of admitting.
 test("functional canvasClip ignored by native geometry is diagnosed before GPU admission", async ({ page }) => {
   await page.goto("/runtime.html?dom");
   await page.waitForFunction(() => window.runtimeProbe);
@@ -518,6 +570,8 @@ test("functional canvasClip ignored by native geometry is diagnosed before GPU a
   await page.evaluate(() => window.runtimeProbe.dispose());
 });
 
+// Axis-aligned overflow clipping on the root (`clip`) and on a child (`childclip`) is supported and
+// must admit.
 test("typed axis-aligned clipping admits without structural DOM policy", async ({ page }) => {
   for (const query of ["clip", "childclip"]) {
     await page.goto(`/runtime.html?${query}`);
@@ -530,6 +584,11 @@ test("typed axis-aligned clipping admits without structural DOM policy", async (
   }
 });
 
+// A canvas that is not visible cannot prove clipping. `noop` additionally ignores the clip option.
+// Admission is deferred while off-screen, still refused with a hit-testing diagnosis when the clip is
+// ignored, and succeeds when the clip works. After admission the clipped badge location must be white
+// and clicks there must land on the canvas, not the badge. Ordinary offscreen movement must not revoke
+// an admitted renderer.
 for (const dpr of [1, 2]) for (const fault of [false, true]) test(`offscreen clipping stays unproven until visible admission DPR${dpr} noop=${fault}`, async ({ browser }) => {
   const page = await browser.newPage({ viewport: { width: 900, height: 750 }, deviceScaleFactor: dpr });
   try {
@@ -605,6 +664,8 @@ for (const dpr of [1, 2]) for (const fault of [false, true]) test(`offscreen cli
   } finally { await page.close(); }
 });
 
+// A full-viewport occluder over the page makes the clipping witness unprovable: admission refuses and
+// leaves a usable DOM, then admits once the occluder is removed.
 test("occluded initial native clipping witness refuses useful DOM and allows unobstructed reentry", async ({ page }) => {
   await page.goto("/runtime.html?dom");
   await page.waitForFunction(() => window.runtimeProbe);
@@ -626,6 +687,9 @@ test("occluded initial native clipping witness refuses useful DOM and allows uno
   expect(Object.values(disposed.resources).every(value => value === 0)).toBe(true);
 });
 
+// Add and remove the third layer repeatedly while the root is scrolled horizontally: each fresh capture
+// must be taken for its published slot, the slot must change between additions, and the layer's pixels
+// (blue at layer x 495, shifted by the scroll) and native control must be correct.
 for (const dpr of [1, 2]) test(`scrolled root additions retain complete current native slots DPR${dpr}`, async ({ browser }) => {
   const page = await browser.newPage({ deviceScaleFactor: dpr });
   try {

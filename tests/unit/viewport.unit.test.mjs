@@ -1,3 +1,7 @@
+/**
+ * Unit tests for the viewport and clip geometry helpers in `packages/underglass/src/viewport.ts`. Matrices
+ * are `{ a, b, c, d, e, f }` DOMMatrix-style 2D affines. Run with `npm run test:unit`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { axisAligned, intersectViewport, localViewport, scrollOrigin, canvasContentOrigin, viewportContains } from "../../packages/underglass/src/viewport.ts";
@@ -23,6 +27,7 @@ test("axis-aligned viewport intersection maps CSS clip to native local coordinat
 });
 
 test("viewport origin includes offset-parent borders and ancestor scroll, not capture's own scroll", () => {
+  // `scrollOrigin` checks against `HTMLElement`; Node has none, so install a stand-in and restore it afterwards.
   const before = globalThis.HTMLElement;
   globalThis.HTMLElement = class {};
   try {

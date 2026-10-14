@@ -1,37 +1,59 @@
+/**
+ * The TODO pilot UI (`todo.html`, mounted by `demo/todo-demo.tsx`). It shows how an ordinary React app uses the
+ * public API: `Surface`/`Box` for layout-described layers, `NativeScroll` for a native scroll viewport,
+ * `Presence` for an animated detail panel, a decorative `Surface`, and `NativeOverlay` plus
+ * `useNativeOverlayHost` so a Radix dialog and a popover stay real native overlays outside the captured layers.
+ * All controls are normal React inputs and buttons; state lives in the reducer from `model.ts`.
+ */
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Box, Surface, Presence, NativeOverlay, NativeScroll, useNativeOverlayHost, type MotionDescriptor } from "@underglass/react";
 import { initialTodos, reduceTodos, visibleTasks, TASK_LIMIT, NOTES_LIMIT, type Filter, type TaskEvent } from "./model";
 
+/** Layer ids of the list, the decorative banner and the detail panel. */
 export const TODO_SURFACE = "todo-controls";
 export const TODO_DECORATION = "todo-decoration";
 export const TODO_DETAIL = "todo-detail";
+// Detail panel enter/exit motions: slide 12 px horizontally while fading, 180 ms.
 const enter: MotionDescriptor = { keyframes: [{ offset: 0, x: 12, opacity: 0 }, { offset: 1 }], timing: { duration: 180 } };
 const exit: MotionDescriptor = { keyframes: [{ offset: 0 }, { offset: 1, x: 12, opacity: 0 }], timing: { duration: 180 } };
+/**
+ * The whole task application. `onTransition` receives each `TaskEvent` the reducer emits (after commit, from an
+ * effect), which the page uses to pulse the decorative layer.
+ */
 export function TodoApp({ onTransition }: { onTransition(event: TaskEvent): void }) {
   const [state, dispatch] = useReducer(reduceTodos, undefined, initialTodos);
   const input = useRef<HTMLInputElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const title = useRef<HTMLInputElement | null>(null);
   const popover = useRef<HTMLDivElement>(null);
+  // previousSelection tracks the last selection seen by the focus effect; returnId is the task whose "Details"
+  // button (`open-task-<id>`) gets focus back when the detail panel or dialog closes. Selecting a task or
+  // requesting its deletion sets it.
   const previousSelection = useRef<number | null>(null);
   const returnId = useRef<number | null>(null);
   const overlay = useNativeOverlayHost();
   const selected = state.tasks.find(task => task.id === state.selectedId);
+  // Keep the last selected task while the detail panel plays its exit motion, so the content does not blank out.
   const retained = useRef(selected);
   if (selected) retained.current = selected;
   const detail = selected ?? retained.current;
   const deletion = state.tasks.find(task => task.id === state.deleteId);
+  // Focus the detail title as soon as it mounts for a selected task.
   const titleRef = useCallback((element: HTMLInputElement | null) => {
     title.current = element;
     if (element && state.selectedId !== null) element.focus();
   }, [state.selectedId]);
+  // Focus order after closing: the detail title if a task is still selected, else the originating button
+  // (unless it sits in an inert subtree), else the search box.
   function returnFocus() {
     const target = document.getElementById(`open-task-${returnId.current}`);
     if (selected && title.current) title.current.focus();
     else if (target instanceof HTMLButtonElement && !target.closest("[inert]")) target.focus();
     else search.current?.focus();
   }
+  // When the selection changes: close the information popover, then move focus into the detail title (new
+  // selection) or back to the list (selection cleared).
   useEffect(() => {
     if (state.selectedId !== previousSelection.current) {
       popover.current?.hidePopover();
@@ -40,8 +62,11 @@ export function TodoApp({ onTransition }: { onTransition(event: TaskEvent): void
       previousSelection.current = state.selectedId;
     }
   }, [state.selectedId]);
+  // Report each reducer event to the host after commit.
   useEffect(() => { if (state.event) onTransition(state.event); }, [state.event, onTransition]);
   const tasks = visibleTasks(state);
+  // Layout: the list layer, the detail layer (inert while nothing is selected) and the decorative banner are
+  // sibling `Surface`s. The delete confirmation is a Radix dialog portalled into the native overlay host.
   return <Dialog.Root open={!!deletion} onOpenChange={open => { if (!open) dispatch({ type: "cancel-delete" }); }}>
     <Surface id={TODO_SURFACE} aria-label="Task application"
       layout={{ x: 20, y: 20, width: 420, height: 660, padding: 16, direction: "column", gap: 8 }}

@@ -1,14 +1,25 @@
+/**
+ * Entry for `surface.html` (native capture / Lite WebGPU integration gate): exercises the library's surface renderer
+ * (`createSurfaceRenderer`, re-exported by `surface-renderer.ts`) directly, without the `CanvasController` API.
+ * A small React app with two `drawable` layers is mounted through the renderer's `mount` hook. The page shows
+ * the renderer's diagnostics and offers enable/disable, a tint effect, motion and dispose. `window.surfaceProbe`
+ * is the browser-test hook; `?dom` skips automatic enabling and `?strict` uses StrictMode.
+ */
 import { Profiler, StrictMode, useEffect, useLayoutEffect, useState, type ProfilerOnRenderCallback } from "react";
 import { createRoot } from "./demo/react-root";
 import { createSurfaceRenderer } from "./surface-renderer";
 
+// React commit counters, filled from a `Profiler` and merged into the probe's metrics.
 const commits = { reactCommits: 0, commitEvents: [] as { phase: "mount" | "update" | "nested-update"; commitTime: number }[], mounts: 0, cleanups: 0 };
 const actionRemovers: (() => void)[] = [];
+// Pending startup `requestAnimationFrame` id, tracked so `dispose` can cancel it.
 let startupFrame = 0;
 const recordCommit: ProfilerOnRenderCallback = (_id, phase, _actual, _base, _start, commitTime) => {
   commits.reactCommits++;
   commits.commitEvents.push({ phase, commitTime });
 };
+// Layers re-capture only when the renderer is told to: every commit that can change pixels calls
+// `renderer.invalidate()` from a layout effect.
 function NestedCounter() {
   const [count, setCount] = useState(0);
   useLayoutEffect(() => renderer.invalidate());
@@ -36,6 +47,8 @@ function App() {
     <aside id="badge-layer" className="badge" {...{ drawable: "" }}><button id="badge" onClick={() => setCount(count + 1)}>Badge {count}</button></aside>
   </div>;
 }
+// Layer matrices place the two layers at fixed canvas positions (CSS px). `mount` receives the container that the
+// renderer moves between the ordinary host and the canvas.
 const renderer = createSurfaceRenderer({
   captureHost: document.querySelector<HTMLCanvasElement>("#capture-host")!,
   outputCanvas: document.querySelector<HTMLCanvasElement>("#gpu-output")!,
@@ -55,6 +68,7 @@ const renderer = createSurfaceRenderer({
   },
   onStatus(message) { document.querySelector<HTMLElement>("#diagnostics")!.textContent = message; },
 });
+// Renderer state plus React commit metrics and a snapshot of the control values and focus.
 function state() {
   const input = renderer.container.querySelector<HTMLInputElement>("#controlled");
   const result = renderer.state();
@@ -70,6 +84,7 @@ function state() {
     selection: input ? [input.selectionStart, input.selectionEnd] : null,
   };
 }
+// Settles, then runs the renderer's diagnostic frame loop; returns before/after states with React commit counts.
 async function frames(count?: number, shift?: number, shade?: number) {
   await renderer.settle();
   const reactCommits = commits.reactCommits;
@@ -84,6 +99,7 @@ async function dispose() {
   for (const remove of actionRemovers.splice(0)) remove();
   return state();
 }
+// Test hook.
 window.surfaceProbe = { enable, disable, frames, settle: renderer.settle, state, dispose };
 for (const [id, operation] of [
   ["enable", enable], ["disable", disable], ["effect", renderer.toggleTint],
@@ -96,6 +112,7 @@ for (const [id, operation] of [
   button.addEventListener("click", listener);
   actionRemovers.push(() => button.removeEventListener("click", listener));
 }
+// Enable GPU one frame after load unless `?dom` is set.
 startupFrame = requestAnimationFrame(() => {
   startupFrame = 0;
   if (!new URLSearchParams(location.search).has("dom")) {

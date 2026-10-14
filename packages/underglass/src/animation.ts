@@ -1,13 +1,30 @@
+/**
+ * Takes over a running CSS/WAAPI animation so the GPU presents it. `prepareAnimation` validates that
+ * the source animation is simple enough to replay (one direct-target replace effect on transform and
+ * opacity), then returns a lease that detaches the source, steps it with the runtime's clock and
+ * restores it on release. `DeclarationOwnership` tracks the inline styles Underglass writes to the
+ * element. Timing and keyframe maths live in `timeline.ts`; the runtime drives the lease.
+ */
 import { compileTimeline, parseTransform, type TimelineFrame } from "./timeline.js";
 import { affine, type Transform } from "./affine.js";
 import { verifyCompiledAnimation, type CompiledAnimation } from "./compiled.js";
 
+/** Inline style properties Underglass may own on an animated element. */
 const properties = ["transform", "opacity", "transform-origin"] as const;
+/** Snapshot of the owned inline declarations (value and priority) currently on `element`. */
 export function declarations(element: HTMLElement, includeAnimationName = false) {
   const names: readonly (typeof properties[number] | "animation-name")[] = includeAnimationName ? [...properties, "animation-name"] : properties;
   return names.map(name => ({ name, value: element.style.getPropertyValue(name), priority: element.style.getPropertyPriority(name) }));
 }
+/** Name of an inline declaration that `DeclarationOwnership` can write. */
 type PresentationProperty = ReturnType<typeof declarations>[number]["name"];
+/**
+ * Records the element's inline presentation declarations before Underglass writes them, and puts
+ * them back afterwards. If page code changes a declaration Underglass wrote, ownership of that
+ * property is relinquished: it is no longer written or restored, and `check` throws so the caller
+ * can return to ordinary DOM. A successor lease inherits its predecessor's saved values, so
+ * `restore` returns the element to its state before the first lease.
+ */
 export class DeclarationOwnership {
   private readonly saved: ReturnType<typeof declarations>;
   private readonly initial;
@@ -19,16 +36,19 @@ export class DeclarationOwnership {
     this.initial = declarations(element, includeAnimationName);
     this.saved = predecessor?.saved ?? this.initial;
   }
+  // Marks any written property whose live value no longer matches what was written as relinquished.
   private inspect() {
     for (const [name, expected] of this.written) {
       if (this.element.style.getPropertyValue(name) !== expected.value
         || this.element.style.getPropertyPriority(name) !== expected.priority) this.relinquished.add(name);
     }
   }
+  /** Throws if any written declaration was changed by someone else. */
   check() {
     this.inspect();
     if (this.relinquished.size) throw new Error(`Presentation declaration ownership changed: ${[...this.relinquished].join(", ")}`);
   }
+  /** Sets an owned declaration (skipped if relinquished) and remembers the value to detect outside changes. */
   write(name: PresentationProperty, value: string, priority = "") {
     this.inspect();
     if (this.relinquished.has(name)) return;
@@ -37,9 +57,11 @@ export class DeclarationOwnership {
     }
     this.written.set(name, { value: this.element.style.getPropertyValue(name), priority: this.element.style.getPropertyPriority(name) });
   }
+  /** Restores the saved declarations for every property written; returns the relinquished set. */
   restore() {
     return this.restoreDeclarations(this.saved);
   }
+  /** Like `restore`, but to the state at construction, and removes the `style` attribute if it was absent. */
   rollback() {
     const lost = this.restoreDeclarations(this.initial);
     if (this.initialAttribute === null && !this.element.style.length) {
@@ -60,12 +82,14 @@ export class DeclarationOwnership {
     return this.relinquished;
   }
 }
+/** Callbacks the runtime supplies so an animation lease can drive and validate its layer. */
 interface OwnershipHost {
   apply(transform: Transform): void;
   validate(transform: Transform): void;
   changed(): void;
   release(options?: ReleaseOptions): Promise<unknown>;
 }
+/** Options for releasing an animation back to the browser. */
 export interface ReleaseOptions {
   /**
    * End ownership of this layer only and keep the current presentation: the layer
@@ -75,6 +99,10 @@ export interface ReleaseOptions {
    */
   freeze?: boolean;
 }
+/**
+ * Playback controls for a GPU-owned animation. `seek` takes milliseconds on the animation's own
+ * timeline; `state().detached` is true while the source animation is detached from its element.
+ */
 export interface AnimationPlayback {
   play(): void;
   pause(): void;
@@ -93,7 +121,9 @@ export interface AnimationPlayback {
 export function rejectImportantPresentation(element: HTMLElement, includeOrigin = false) {
   let visited = 0;
   const names = includeOrigin ? properties : ["transform", "opacity"] as const;
+  // Selectors the element cannot be matched against (for example invalid ones) are ignored.
   const matches = (selector: string) => { try { return element.matches(selector); } catch { return false; } };
+  // Bounded walk (depth 8, 8192 rules) so a huge stylesheet cannot stall enrollment.
   const inspect = (rules: CSSRuleList, depth: number, nested: boolean) => {
     if (depth > 8) return;
     for (const rule of rules) {
@@ -121,6 +151,14 @@ function readable(sheet: CSSStyleSheet | null) {
   try { return sheet?.cssRules ?? undefined; } catch { return undefined; } // Cross-origin sheets are not inspectable.
 }
 
+/**
+ * Validates `source` for GPU ownership and returns a lease for it. Throws when the animation is not
+ * a single live replace-composite effect on `element` with document timing, rate 1, a top-left
+ * origin, neutral inline transform/opacity and complete transform/opacity keyframes. With
+ * `compiled`, the keyframes are instead checked against the build-time compiled description and
+ * the CSS animation is suppressed through `animation-name` while owned. The lease's `acquire`
+ * detaches the source and applies the first sample; `tick` advances time; `restore` reattaches it.
+ */
 export function prepareAnimation(element: HTMLElement, source: Animation, host: OwnershipHost, compiled?: CompiledAnimation) {
   if (!(source.effect instanceof KeyframeEffect) || source.effect.target !== element || source.effect.pseudoElement
     || source.playbackRate !== 1 || source.effect.composite !== "replace" || source.effect.iterationComposite !== "replace"
@@ -132,6 +170,7 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
   if (computed.transformOrigin !== "0px 0px" || computed.translate !== "none" || computed.rotate !== "none" || computed.scale !== "none") {
     throw new Error("Animation requires top-left origin and no individual transform dependencies");
   }
+  // The inline values Underglass will write must start neutral so the first sample is the only change.
   const neutral = element.style.transform === "none" || /^matrix\(1,\s*0,\s*0,\s*1,\s*0,\s*0\)$/.test(element.style.transform);
   if (!neutral || element.style.opacity !== "1" || element.style.getPropertyPriority("transform") || element.style.getPropertyPriority("opacity")) {
     throw new Error("Animation requires explicit neutral inline transform/opacity without important overrides");
@@ -155,10 +194,12 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
     sample: (time: number) => compiled.sample(time),
   } : compileTimeline(frames, { duration: timing.duration, delay: timing.delay, iterations: timing.iterations,
     direction: timing.direction, easing: timing.easing, fill: timing.fill });
+  // Check every keyframe now so an unsupported transform is rejected before the GPU takes over.
   for (const frame of frames) host.validate(timeline.sample(frame.offset * timeline.duration + timeline.delay));
   let milliseconds = source.currentTime;
   host.validate(timeline.sample(milliseconds));
   const expected = affine(timeline.sample(milliseconds));
+  // The browser's own rendering of the source must already match our sample, or the GPU would diverge from it.
   const applied = new DOMMatrix(computed.transform === "none" ? undefined : computed.transform);
   if (![applied.a, applied.b, applied.c, applied.d, applied.e, applied.f].every((value, index) =>
     Math.abs(value - expected[index]!) <= 1e-4 * Math.max(1, Math.abs(value)))
@@ -168,6 +209,7 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
   let playing = source.playState === "running";
   let released = false;
   const presentation = new DeclarationOwnership(element, undefined, !!compiled);
+  // Fingerprint of the keyframes (transforms normalized) used to detect edits to the source effect.
   const signature = (frames: ComputedKeyframe[]) => JSON.stringify(frames.map(frame => ({
     ...frame, transform: typeof frame.transform !== "string" ? frame.transform
       : !compiled ? parseTransform(frame.transform) : (() => {
@@ -178,6 +220,7 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
   const frameSignature = signature(originalFrames), timingSignature = JSON.stringify(timing);
   let expectedSourceTime: CSSNumberish | null = source.currentTime;
   const assertLive = () => { if (released) throw new Error("Animation ownership is released"); };
+  // Throws if the source or the element's style was changed while the GPU owns the animation.
   const check = () => {
     presentation.check();
     const current = getComputedStyle(element);
@@ -202,6 +245,7 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
     host.apply(timeline.sample(milliseconds));
   };
   let suppressed = false;
+  // Gives the animation back to the browser at the current time and play state.
   const restoreSource = () => {
     if (compiled && suppressed) {
       source.cancel();
