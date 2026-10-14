@@ -69,8 +69,8 @@ try {
   await command(["--test", "tests/unit/showcase.unit.test.mjs", "tests/unit/workspace.unit.test.mjs", "tests/unit/release.unit.test.mjs"], tree, "focused-units");
   await command([vite, "build"], library, "library-build");
   await command([tsc, "-p", "tsconfig.json"], library, "library-declarations");
-  const publicLibrary = join(tree, "node_modules/canvas-spa-phase-one");
-  await mkdir(publicLibrary);
+  const publicLibrary = join(tree, "node_modules/@canvas-spa/react");
+  await mkdir(publicLibrary, { recursive: true });
   await cp(join(library, "package.json"), join(publicLibrary, "package.json"));
   await cp(join(library, "dist"), join(publicLibrary, "dist"), { recursive: true });
   await command([tsc, "--noEmit"], site, "showcase-types");

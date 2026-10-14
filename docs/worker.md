@@ -24,21 +24,21 @@ equivalent to `fixtures/worker/app/prepare.mjs`:
 ```js
 // prepare.mjs; run in Node before the application build.
 import { writeFile } from "node:fs/promises";
-import { workerCompositorProgram } from "canvas-spa-phase-one/build";
+import { workerCompositorProgram } from "@canvas-spa/react/build";
 await writeFile(new URL("./program.json", import.meta.url),
   JSON.stringify(workerCompositorProgram(8)));
 ```
 
 ```ts
 // thread.ts; the application's worker entry.
-import { startWorkerCompositor } from "canvas-spa-phase-one/experimental-worker/thread";
+import { startWorkerCompositor } from "@canvas-spa/react/experimental-worker/thread";
 startWorkerCompositor(self);
 ```
 
 ```tsx
 import { useState } from "react";
-import { Box } from "canvas-spa-phase-one";
-import { mountWorkerCanvasApp, WorkerSurface, type WorkerProgram } from "canvas-spa-phase-one/experimental-worker";
+import { Box } from "@canvas-spa/react";
+import { mountWorkerCanvasApp, WorkerSurface, type WorkerProgram } from "@canvas-spa/react/experimental-worker";
 import program from "./program.json";
 
 function App() {

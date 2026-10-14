@@ -86,7 +86,7 @@ try {
   }
   const archiveNames = await readdir(archives);
   const archive = prefix => join(archives, archiveNames.find(name => name.startsWith(prefix)));
-  await installArchive(tree, archive("canvas-spa-phase-one"), "canvas-spa-phase-one");
+  await installArchive(tree, archive("canvas-spa-react"), "@canvas-spa/react");
   await installArchive(tree, archive("canvas-spa-css-compiler"), "@canvas-spa/css-compiler");
   await command(node, ["--test", "tests/compiler/compiler.test.mjs", "tests/compiler/conformance.test.mjs"], tree, "compiler-units");
   const { compileStylesheet } = await import(join(tree, "packages/css-compiler/src/index.mjs"));
@@ -107,7 +107,7 @@ try {
     clockLimit: "One-microsecond native CSS seeks are retained as clock diagnostics, not interpolation-equivalence assertions." };
   await writeFile(join(tree, "compiler-types.ts"), `import {createCompiler,compileStylesheet,type CompilerConfig} from "@canvas-spa/css-compiler";
     import {canvasSPA} from "@canvas-spa/css-compiler/vite";import {CanvasSPAPlugin} from "@canvas-spa/css-compiler/webpack";
-    import type {CompiledProgramSet} from "canvas-spa-phase-one";import "@canvas-spa/css-compiler/client";
+    import type {CompiledProgramSet} from "@canvas-spa/react";import "@canvas-spa/css-compiler/client";
     import compiled from "virtual:canvas-spa/compiled";const valid:CompiledProgramSet=compiled;
     const config:CompilerConfig={version:1,target:"webgpu",unsupported:"error",entries:[]};
     createCompiler(config);compileStylesheet("",config.entries);canvasSPA();new CanvasSPAPlugin();void valid;`);

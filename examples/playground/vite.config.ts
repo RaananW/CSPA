@@ -7,7 +7,7 @@ export default defineConfig({
   root,
   cacheDir: resolve(root, "../../node_modules/.vite/playground"),
   resolve: {
-    alias: { "canvas-spa-phase-one": resolve(root, "../../packages/canvas-spa/src/index.ts") },
+    alias: { "@canvas-spa/react": resolve(root, "../../packages/canvas-spa/src/index.ts") },
     dedupe: ["react", "react-dom"],
   },
   build: {

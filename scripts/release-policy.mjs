@@ -53,7 +53,7 @@ export async function copyDependencies(source, destination) {
     recursive: true, force: true,
     filter: async path => {
       if (excludedDependencies.has(basename(path))) return false;
-      const workspace = { "canvas-spa-phase-one": "packages/canvas-spa", "@canvas-spa/playground": "examples/playground",
+      const workspace = { "@canvas-spa/react": "packages/canvas-spa", "@canvas-spa/playground": "examples/playground",
         "@canvas-spa/showcase": "examples/showcase", "@canvas-spa/css-compiler": "packages/css-compiler" };
       for (const [name, target] of Object.entries(workspace)) {
         if (path === join(source, name) && (await lstat(path)).isSymbolicLink()) {

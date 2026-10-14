@@ -1,6 +1,6 @@
 import { Profiler, StrictMode, useState, useEffect, type ReactNode } from "react";
 import { createRoot, flushSync } from "./react-root";
-import { mountApplicationModule, mountCanvasApp, Surface, type CanvasController, type AnimationPlayback, type MotionHandle } from "canvas-spa-phase-one";
+import { mountApplicationModule, mountCanvasApp, Surface, type CanvasController, type AnimationPlayback, type MotionHandle } from "@canvas-spa/react";
 
 const parameters = new URLSearchParams(location.search);
 const existing = parameters.get("example") === "css";

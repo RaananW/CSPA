@@ -3,7 +3,7 @@ import { flushSync } from "react-dom";
 import {
   mountCanvasApp, Box, Surface, NativeOverlay, NativeScroll, useSurfaceRef,
   type CanvasController, type Transform,
-} from "canvas-spa-phase-one";
+} from "@canvas-spa/react";
 
 let mounts = 0, cleanups = 0;
 let layout!: (value: { x: number; width: number }) => void;

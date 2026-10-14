@@ -7,16 +7,16 @@ import {
   type Ripple, type ApplicationEffect, type ParameterRange, type EffectDescriptor,
   type EffectTime, type EffectHandle, type EffectResult, type MotionKeyframe, type MotionTiming,
   type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult, type CoordinatedMotion,
-} from "canvas-spa-phase-one";
-import { workerCompositorProgram } from "canvas-spa-phase-one/build";
+} from "@canvas-spa/react";
+import { workerCompositorProgram } from "@canvas-spa/react/build";
 import { mountWorkerCanvasApp, WorkerSurface,
   type WorkerMountOptions, type WorkerSurfaceProps, type WorkerProgram, type WorkerAnimation, type WorkerStats,
-} from "canvas-spa-phase-one/experimental-worker";
-import { startWorkerCompositor } from "canvas-spa-phase-one/experimental-worker/thread";
+} from "@canvas-spa/react/experimental-worker";
+import { startWorkerCompositor } from "@canvas-spa/react/experimental-worker/thread";
 
 // Internal implementations are deliberately not package entry points.
 // @ts-expect-error Internal implementation files are not public subpaths.
-import type { CanvasRuntime } from "canvas-spa-phase-one/dist/library/runtime.js";
+import type { CanvasRuntime } from "@canvas-spa/react/dist/library/runtime.js";
 export type PublicTypes = [
   AdmissionPolicy, MountCanvasOptions, CanvasController, RuntimeOptions, LocalApplicationModule, LayerDefinition,
   SurfaceProps, BoxProps, PresenceProps, Transform, Affine, Point, Layout, Appearance,

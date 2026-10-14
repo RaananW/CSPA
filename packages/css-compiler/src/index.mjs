@@ -1,6 +1,6 @@
 import postcss from "postcss";
 import valueParser from "postcss-value-parser";
-import { affine, compileTimeline, parseTransform } from "canvas-spa-phase-one/build";
+import { affine, compileTimeline, parseTransform } from "@canvas-spa/react/build";
 import { validateConfig, readConfig } from "./config.mjs";
 import { generateModule } from "./generate.mjs";
 

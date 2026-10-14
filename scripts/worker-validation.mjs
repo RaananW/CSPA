@@ -129,7 +129,7 @@ try {
   validatePackageContents(packed.files);
   const archive = join(archiveDir, packed.filename);
   report.archive = { sha256: hash(await readFile(archive)), bytes: packed.size, members: packed.files.length };
-  const installed = join(tree, "node_modules/canvas-spa-phase-one"); await mkdir(installed);
+  const installed = join(tree, "node_modules/@canvas-spa/react"); await mkdir(installed, { recursive: true });
   await command("tar", ["-xzf", archive, "-C", installed, "--strip-components=1"], tree, "extract-package");
   const app = join(tree, "fixtures/worker/app");
   await command(node, ["prepare.mjs"], app, "prebuild-shader");
