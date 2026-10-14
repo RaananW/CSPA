@@ -83,6 +83,17 @@ or after a hidden-document pause); unchanged layers are not re-uploaded.
   and small layers only shade their own pixels. `resources.effects`/`renderers`
   count these passes (layers + 1). Compiled CSS program sets are now version 2 with
   one per-layer program; version 1 modules are refused with a rebuild message.
+- **Ownership while GPU presents:** `ownAnimation`, `ownCSSAnimation`,
+  `ownCompiledAnimation` and `createMotion` (and its `own()`) now also work while
+  GPU is active, with no DOM round-trip or readmission. The runtime lifts the
+  layer's GPU declarations only for the synchronous source verification and
+  writes them back before any rendering opportunity; a refused acquisition
+  restores them atomically.
+- **`release({ freeze: true })`:** ends one layer's ownership and keeps GPU
+  active. The layer keeps its last sampled transform and the source animation is
+  handed back and cancelled (a `createMotion` source is disposed). Supported for
+  WAAPI (`ownAnimation`) and typed-motion sources; CSS-provenance ownership still
+  uses `release()`, which returns the whole surface to ordinary DOM.
 - **Transform origin:** new static per-layer pivot, `origin?: TransformOrigin` on
   `Surface`, `useSurfaceRef`/`enroll` options and `LayerDefinition`, plus
   `setOrigin(id, origin)`. `TransformOrigin` is `"top-left"` (default), `"center"` or
@@ -124,7 +135,7 @@ Implementer-verified, not independently accepted.
 - **Admission:** probe sits in the visible part of the output canvas; fully offscreen is still refused.
 - **Status:** new `onStatusChange(status: CanvasStatus)`; `onStatus` (JSON string) is optional and kept for compatibility.
 - **Options:** `captureHost` optional and deprecated; `admissionPolicy: "automatic"` is compatibility-only (same as `"explicit"`).
-- **Unchanged:** `playback.release()` returns the shared surface to DOM.
+- **Unchanged:** `playback.release()` without options returns the shared surface to DOM (see 2026-10-14 for `{ freeze: true }`).
 - **CSS compiler:** numeric easing comparison, selector-boundary overlap check,
   shorthand resets longhands, whole-token CSS-wide keyword guards, `-webkit-`
   animation aliases rejected clearly, inline PostCSS plugins no longer duplicated in Vite.
@@ -283,7 +294,7 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | `setOrigin(id, origin)` | Replaces a layer's static rotation/scale pivot (`Surface` and `useSurfaceRef` call it when their `origin` changes); applies immediately, including to a running transition |
 | `animate(id, target, length)` | Interpolation of specified fields; unspecified fields stay at their starting values. A number is a fixed count of displayed frames (1..10000, refresh-rate dependent); `{ duration }` is time-based in milliseconds. Default 300 |
 | `requestReconcile()` (`CanvasRuntime`) | Public request to reconcile membership/geometry. React commits call it through layout effects and it coalesces into one microtask |
-| `createMotion(id, descriptor)` | Numeric keyframes/timing for new applications; creates one managed native source in idle DOM and returns explicit ownership/playback/disposal controls |
+| `createMotion(id, descriptor)` | Numeric keyframes/timing for new applications; creates one managed native source in idle DOM or active GPU and returns explicit ownership/playback/disposal controls |
 | `invalidate(id?)` | Explicit dirty enrollment(s), with normal native paint/input/mutation invalidation still enabled |
 | `settle()` | Bounded completion of already scheduled capture/draw work; not a promise that future browser paint cannot occur |
 | `state()` | Current capability/mode/reason, registry matrices, bounded telemetry and owned-resource ledgers |
@@ -581,7 +592,10 @@ See [architecture.md](architecture.md) for ordering and
 
 ## Transactional animation ownership (Phase 4)
 
-Prepare ownership in **idle DOM**, before fresh admission. A layer must have
+Prepare ownership in **idle DOM** or while **GPU is active** (not while admitting,
+recovering or with pending cleanup). In GPU mode the layer's GPU declarations are
+lifted only for the synchronous verification below and restored before any
+rendering opportunity. A layer must have
 neutral controller transform/opacity and explicit inline `transform: none`,
 `opacity: 1`, with a computed top-left origin. The adapter rejects important
 transform/opacity overrides, individual translate/rotate/scale, overlapping
@@ -620,6 +634,8 @@ motion.play();
 motion.pause();
 motion.seek(600);
 await motion.release(); // Same-phase native DOM source remains available.
+// Or keep GPU: freeze this layer at its current pose and dispose the source.
+// await motion.release({ freeze: true });
 await motion.dispose(); // Cancels this managed source, not a later replacement.
 ```
 
@@ -633,7 +649,7 @@ transform-string authoring is required in the application.
 
 `MotionHandle` delegates play/pause/seek to the GPU owner while owned and the
 native source otherwise. `own()` acquires or returns the current ownership;
-after release it may acquire again through idle-DOM validation. Its
+after release it may acquire again through the same validation, in DOM or GPU. Its
 `state().released` means ownership is inactive, not that the source is canceled.
 `release()` restores DOM without deleting the source; `dispose()` cancels the
 specific managed source. Enrollment removal/runtime disposal also cancel it,
@@ -658,7 +674,8 @@ await controller.enable();
 playback.play();
 playback.pause();
 playback.seek(600);
-await playback.release(); // Unchanged: the entire shared surface returns to DOM.
+await playback.release(); // The entire shared surface returns to DOM.
+// Or: await playback.release({ freeze: true }); // this layer only; GPU stays active.
 ```
 
 `AnimationPlayback.state()` exposes logical milliseconds/playing/released and

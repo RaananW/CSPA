@@ -692,3 +692,75 @@ test("effect-only reduced motion immediately renders decorative identity", async
   zero(disposed);
   await save("effect-only-reduced-motion", { active, disposed });
 });
+
+test("typed motion is created, owned and freeze-released while GPU stays active", async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => window.pairedProbe.motion().dispose());
+  // The page helper would own its demo motion; enable the controller directly.
+  expect((await page.evaluate(() => window.pairedProbe.controller().enable())).mode).toBe("gpu");
+  const owned = await page.evaluate(async () => {
+    const controller = window.pairedProbe.controller(), id = window.pairedProbe.state().id;
+    const element = document.getElementById(id);
+    window.liveMotion = controller.createMotion(id, {
+      keyframes: [{ offset: 0 }, { offset: 1, x: 70, y: 20, rotation: 10, scaleX: 0.85, scaleY: 0.85, opacity: 0.5 }],
+      timing: { duration: 1000, delay: 100, direction: "alternate", iterations: Infinity, fill: "both" },
+    });
+    window.liveMotion.own();
+    window.liveMotion.seek(600);
+    await controller.settle();
+    const style = element.style;
+    return { state: controller.state(), declarations: [style.getPropertyValue("transform"), style.getPropertyPriority("transform"), style.getPropertyValue("opacity")] };
+  });
+  // No DOM round-trip: GPU admission is unchanged and the layer keeps GPU-owned declarations.
+  expect(owned.state.mode).toBe("gpu");
+  expect(owned.state.metrics.admission.passes).toBe(1);
+  expect(owned.state.runtimeResources.animationOwners).toBe(1);
+  expect(owned.declarations).toEqual(["none", "important", "1"]);
+  // Same descriptor and phase as the DOM-acquired oracle above.
+  const live = (await pixels(page, "live-ownership-gpu")).at(190, 220);
+  [244, 86, 109].forEach((value, index) => expect(Math.abs(live[index] - value)).toBeLessThanOrEqual(2));
+  await page.locator("#counter").click();
+  await expect(page.locator("#counter")).toHaveText("Count 1");
+  const frozen = await page.evaluate(async () => {
+    const controller = window.pairedProbe.controller();
+    const before = controller.state().layers.find(layer => layer.id === window.pairedProbe.state().id).transform;
+    await window.liveMotion.release({ freeze: true });
+    await controller.settle();
+    const state = controller.state();
+    return { before, after: state.layers.find(layer => layer.id === window.pairedProbe.state().id).transform, state,
+      playback: window.liveMotion.nativeAnimation.playState };
+  });
+  expect(frozen.state.mode).toBe("gpu");
+  expect(frozen.state.runtimeResources.animationOwners).toBe(0);
+  expect(frozen.state.runtimeResources.nativeMotions).toBe(0);
+  expect(frozen.playback).toBe("idle");
+  expect(frozen.after).toEqual(frozen.before);
+  expect((await pixels(page, "live-ownership-frozen")).at(190, 220)).toEqual(live);
+  // A React commit with unchanged props keeps the frozen pose.
+  await page.locator("#counter").click();
+  await expect(page.locator("#counter")).toHaveText("Count 2");
+  await page.evaluate(() => window.pairedProbe.controller().settle());
+  expect((await pixels(page, "live-ownership-after-commit")).at(190, 220)).toEqual(live);
+  // A refused live acquisition restores GPU presentation atomically.
+  const refused = await page.evaluate(async () => {
+    const controller = window.pairedProbe.controller(), id = window.pairedProbe.state().id;
+    const element = document.getElementById(id);
+    controller.setTransform(id, {});
+    await controller.settle();
+    const rogue = new Animation(new KeyframeEffect(element, [{ transform: "none", opacity: 1, color: "red" }, { transform: "none", opacity: 0.5, color: "blue" }], 1000), document.timeline);
+    rogue.pause();
+    let error;
+    try { controller.ownAnimation(id, rogue); } catch (failure) { error = String(failure); }
+    rogue.cancel();
+    await controller.settle();
+    const style = element.style;
+    return { error, state: controller.state(), declarations: [style.getPropertyValue("transform"), style.getPropertyPriority("transform"), style.getPropertyValue("opacity"), style.getPropertyPriority("opacity")] };
+  });
+  expect(refused.error).toMatch(/complete transform\/opacity/);
+  expect(refused.state.mode).toBe("gpu");
+  expect(refused.state.runtimeResources.animationOwners).toBe(0);
+  expect(refused.declarations).toEqual(["none", "important", "1", "important"]);
+  const disposed = await page.evaluate(() => window.pairedProbe.dispose());
+  zero(disposed);
+  await save("live-ownership", { owned, live, frozen, refused, disposed });
+});
