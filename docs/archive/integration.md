@@ -33,7 +33,7 @@ Structural child removal dirties capture. Current corrected enrollment changes
 reconcile native geometry and prepared complete-frame successors without DOM
 readmission; fresh independent acceptance is pending. This section records the historical Phase7
 gate; Phase8 is accepted separately and Phase9 hardening is
-[accepted-with-limits on actual155](../evidence/phase9-independent/acceptance-v1.json),
+[accepted-with-limits on actual155](../../evidence/phase9-independent/acceptance-v1.json),
 not exact154 certification.
 
 ## Runnable integration and contracts
@@ -53,7 +53,7 @@ value/focus/selection and Dialog state are retained. No React descendants move
 outside their original subtree. [Adoption](adoption.md) describes migration.
 
 Application integration imports only `packages/canvas-spa/src/index.ts`. See the
-[API examples](api.md#original-element-refs-and-library-overlays) for
+[API examples](../api.md#original-element-refs-and-library-overlays) for
 `useSurfaceRef`, `useNativeOverlayHost`, `Presence` and controller
 `transition`/`transitionGroup`. Ref IDs/options and Presence's ID/runtime stay
 stable for a lifetime; changing descriptor props alone does not restart.
@@ -86,7 +86,7 @@ still invalidate/capture normally. Membership/bounds/DPR/unsupported clipping
 use complete-frame native successors; unsupported clipping remains diagnosed DOM.
 `/integration.html?auto` retains the compatibility policy option but does not
 run a healthy structural readmission loop. Its existing disable control cancels desired GPU intent;
-refusal/errors/loss remain latched DOM. See [API policy](api.md#opt-in-settled-readmission-phase12-engineering).
+refusal/errors/loss remain latched DOM. See [API policy](../api.md#opt-in-settled-readmission-phase12-engineering).
 
 ## Implementer validation (engineering independently accepted with limits)
 

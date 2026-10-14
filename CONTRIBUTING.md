@@ -88,33 +88,33 @@ Phase10 private distribution preparation is independently accepted with limits;
 Keep the existing package name/private decisions and the Apache-2.0 license. No npm publication
 is authorized here. A bounded private build-only CI definition and
 local Phase14 pilot are authorized engineering, not hosted success or release
-qualification; see [private release lanes](docs/private-release.md).
+qualification; see [private release lanes](docs/archive/private-release.md).
 Historical Phase12 engineering covered opted-in settled
 structural readmission and a measured engineering envelope, independently
 accepted with limits ([verdict](evidence/phase12-independent/acceptance-summary.json));
 full Phase12 production budgets remain open. The later bounded continuous-GPU
-correction and selected [Phase13 task workspace](docs/task-workspace.md) are
+correction and selected [Phase13 task workspace](docs/archive/task-workspace.md) are
 qualified-accepted; this does not close manual/historical gates. Phase14
 private engineering is started; release qualification, licensing and publication
 remain open or undecided.
 
 Start with [README.md](README.md), the maintained
 [architecture/lifecycle/mount contract](docs/architecture.md), and the
-[typed API](docs/api.md), [verification matrix](docs/verification.md), and
-[feasibility/evidence report](docs/feasibility.md). Current supported behavior
+[typed API](docs/api.md), [verification matrix](docs/archive/verification.md), and
+[feasibility/evidence report](docs/archive/feasibility.md). Current supported behavior
 is the bounded `/runtime.html` typed runtime and `/paired.html?example=css`
 or `?example=typed` ownership/refraction examples; `/probe.html`, `/surface.html` and `/recovery.html`
 retain historical experiments, not alternative production implementations.
-The [TODO pilot](docs/todo-pilot.md), `/todo.html`, integrates the same public
+The [TODO pilot](docs/archive/todo-pilot.md), `/todo.html`, integrates the same public
 API into a bounded application rather than another counter fixture.
-The [Phase 6 report](docs/measurements.md) documents actual React18/19 behavior,
+The [Phase 6 report](docs/archive/measurements.md) documents actual React18/19 behavior,
 production comparisons, raw samples and still-unperformed manual gates.
-The [Phase7 integration](docs/integration.md), `/integration.html`, adds
+The [Phase7 integration](docs/archive/integration.md), `/integration.html`, adds
 original-element refs, Radix Dialog and bounded motion/presence; the
-[public roadmap](docs/roadmap.md) records
+[public roadmap](docs/archive/roadmap.md) records
 Phase9 bounded hardening accepted-with-limits on actual installed155; exact154
 remains unverified, not waived; see [independent proof](evidence/phase9-independent/acceptance-v1.json).
-The [adoption checklist](docs/adoption.md) covers migration and manual/device
+The [adoption checklist](docs/archive/adoption.md) covers migration and manual/device
 gates. The [Phase8 effects](docs/effects.md), `/effects.html`, use the same
 shared compositor and add a trusted application color-function extension.
 Phase8 is independently accepted with explicit limits; the
@@ -144,7 +144,7 @@ waive phase-acceptance gates or qualify production/manual work; the experiments
 remain explicitly labelled as implementer-verified.
 
 Raw reports, screenshots, reruns and full performance dumps must stay outside
-tracked history. The [archive catalog](docs/archive-catalog.md) records preserved
+tracked history. The [archive catalog](docs/archive/archive-catalog.md) records preserved
 local bytes and access/reproduction limits. Stage source/docs/tests and curated
 verdicts explicitly, then run `node scripts/check-evidence.mjs`; it checks staged
 paths, JSON validity and a64 KiB per-verdict budget (8 KiB for the exact
@@ -176,8 +176,8 @@ executable (see `tests/helpers/browser.mjs`, the single launch source). The
 exact historical browser pin is enforced only when `CANVAS_REQUIRE_BROWSER_PIN=1`;
 otherwise the actual queried build is recorded. Keyboard shortcuts in tests use
 `ControlOrMeta`. Historical accepted phases used Chrome154.0.8037.98 and Phase9
-used155.0.8059.40 on macOS; see [history](docs/history.md) and
-[verification](docs/verification.md).
+used155.0.8059.40 on macOS; see [history](docs/archive/history.md) and
+[verification](docs/archive/verification.md).
 **Do not install/download a Playwright browser or switch builds
 to make tests pass.** Tests launch clean temporary profiles with explicit
 `CanvasDrawElement,ElementCanvasTransform` and experimental-web-platform flags.
@@ -336,7 +336,7 @@ flagged/unflagged production native/GPU pixel checks. Prepack builds only
 Curated versioned verdicts are read-only. Raw historical evidence is externally
 archived, not available in the current checkout; never reconstruct or regenerate
 it as though it were the original. The permanent
-five-original-fixture gap disclosed in [measurements](docs/measurements.md)
+five-original-fixture gap disclosed in [measurements](docs/archive/measurements.md)
 is not repaired or waived by this routing.
 Inspect generated artifacts before sharing: this path redactor is **not** a
 general secret detector. Do not publish raw user profiles, local absolute
@@ -354,7 +354,7 @@ native/GPU marker samples, geometry/hit checks and temporary probe ledgers,
 as well as content counters. Readback holds are synthetic timing; diagnostic
 device destruction delivers genuine WebGPU loss, not a physical GPU reset.
 Pending SDK readbacks must not be relabeled completed after loss just to make
-cleanup zero. See [verification.md](docs/verification.md) for
+cleanup zero. See [verification.md](docs/archive/verification.md) for
 which fixtures are synthetic. HMR tests touch/restore only the demo source
 timestamp; they verify actual module replacement rather than a full reload.
 HMR deliberately starts a new root lifetime and resets demo state.

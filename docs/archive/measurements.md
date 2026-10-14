@@ -29,7 +29,7 @@ Browser/matrix reruns also now default to `evidence/regression/current` (or expl
 `CANVAS_EVIDENCE_ROOT=evidence/phase9/<distinct-run>`); every old runtime/animation/TODO/
 integration/surface/recovery writer follows this root. Phase8 incremental
 effect CPU samples and resource budgets are reported separately in
-[effects](effects.md), not as a replacement full Phase6 benchmark or a speedup.
+[effects](../effects.md), not as a replacement full Phase6 benchmark or a speedup.
 
 Current writers accept only `evidence/regression/current`, the Phase9/10/11/12
 writer and matching `-independent` roots, and separator-aware resolved descendants.
@@ -40,7 +40,7 @@ before writing. Never rerun a completed measurement into the same root.
 ## Phase12 bounded engineering envelope
 
 **Engineering independently accepted with limits**
-([verdict](../evidence/phase12-independent/acceptance-summary.json)); full Phase12
+([verdict](../../evidence/phase12-independent/acceptance-summary.json)); full Phase12
 production budgets remain open. **No speedup or capture optimization is established.** The explicit default
 is compared with a genuine isolated build of accepted commit
 `a6b038ce9a854eae9aed1d035c3dd4a2290aead6`, built before implementation.
@@ -127,7 +127,7 @@ background return and physical display/device-loss certification remain open.
 
 ## Phase9 investigation (accepted-with-limits on actual installed155)
 
-[Independent acceptance](../evidence/phase9-independent/acceptance-v1.json)
+[Independent acceptance](../../evidence/phase9-independent/acceptance-v1.json)
 recomputed all90/40 baseline and90/40 final coverage/counts/distributions/
 per-layer sums and retirements, and reran bounded native smoke and final-source
 raster/attribution proof. No safe selective capture optimization or speedup
@@ -458,7 +458,7 @@ owning-canvas pixel-copy contract.
 
 The coordinator independently repeated the React19 full regression and
 React18 shared behavior/type/build matrix, then ran the abbreviated measurement
-harness. [Acceptance evidence](../evidence/phase6-parent-acceptance.json)
+harness. [Acceptance evidence](../../evidence/phase6-parent-acceptance.json)
 records the matching source/lock hashes, recomputed statistics and checks of
 all 90 settled/input windows, 40 pixel-latency trials and 94 retired lifetimes.
 Every recorded capture, readback, upload and frame-work sample count agrees

@@ -2,7 +2,7 @@
 
 **Evidence storage:** historical raw paths named below refer to the verified
 external local archive, not files in this checkout. Only compact verdicts
-remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
+remain tracked; [archive access, hashes and reproduction](archive/archive-catalog.md).
 
 This gate uses the existing public Lite1.33.0 fullscreen compositor, not a
 second renderer. No dependency changes are needed. Parameter-only updates use
@@ -15,7 +15,7 @@ preserves this API and budget; exact154 remains unverified. Active
 effects do not authorize unsafe structural output: changes to membership,
 order/origin/size/DPR hide GPU presentation and require fresh admission.
 Native capture stays neutral and root-attributed paint remains conservative.
-See [adoption](adoption.md) for lifecycle/manual constraints.
+See [adoption](archive/adoption.md) for lifecycle/manual constraints.
 
 The chosen extension is deliberately a **trusted application color function**,
 not a shader graph, sandbox, remote loader, geometry/sampling extension or
@@ -143,27 +143,27 @@ builds. Three routing-only units were added afterward for P8-A1; independent
 final independent acceptance passed21 units/types/build/124 browsers and
 retained source-identical React18 types/build/78 browsers. Actual mounted
 React18.3.1/19.3.0 and Dialog resolution are in the
-[React18 matrix (archived raw)](archive-catalog.md) and
-[React19 matrix (archived raw)](archive-catalog.md).
+[React18 matrix (archived raw)](archive/archive-catalog.md) and
+[React19 matrix (archived raw)](archive/archive-catalog.md).
 
 | Proof | Current Phase8 evidence |
 | --- | --- |
-| Decoded identity/time/alpha/bounds, sampling and color order; essential native equality | [Production pixels (archived raw)](archive-catalog.md), [development StrictMode pixels (archived raw)](archive-catalog.md), matching named PNGs |
-|300-frame effects and motion/effects, normal invalidation, content update| [Production independence (archived raw)](archive-catalog.md), [development independence (archived raw)](archive-catalog.md) |
-| Atomic chain refusal/snapshots/stale cancellation | [Handles (archived raw)](archive-catalog.md) |
-| Media and usable fallback | [Media (archived raw)](archive-catalog.md) |
-| Genuine compiler rejection, hidden failure and reentry | [Compiler (archived raw)](archive-catalog.md) |
-| Synthetic capability/pipeline failure and late mutation, final active-handle disposal | [Failure paths (archived raw)](archive-catalog.md) |
-| Actual diagnostic loss, twenty StrictMode retirements and real HMR | [Retirement (archived raw)](archive-catalog.md) |
-| Healthy pending fence retains resources until genuine queue completion | [Healthy fence (archived raw)](archive-catalog.md) |
-| Byte preservation, matched hashes and CPU/resource costs | [Implementation report (archived raw)](archive-catalog.md) |
+| Decoded identity/time/alpha/bounds, sampling and color order; essential native equality | [Production pixels (archived raw)](archive/archive-catalog.md), [development StrictMode pixels (archived raw)](archive/archive-catalog.md), matching named PNGs |
+|300-frame effects and motion/effects, normal invalidation, content update| [Production independence (archived raw)](archive/archive-catalog.md), [development independence (archived raw)](archive/archive-catalog.md) |
+| Atomic chain refusal/snapshots/stale cancellation | [Handles (archived raw)](archive/archive-catalog.md) |
+| Media and usable fallback | [Media (archived raw)](archive/archive-catalog.md) |
+| Genuine compiler rejection, hidden failure and reentry | [Compiler (archived raw)](archive/archive-catalog.md) |
+| Synthetic capability/pipeline failure and late mutation, final active-handle disposal | [Failure paths (archived raw)](archive/archive-catalog.md) |
+| Actual diagnostic loss, twenty StrictMode retirements and real HMR | [Retirement (archived raw)](archive/archive-catalog.md) |
+| Healthy pending fence retains resources until genuine queue completion | [Healthy fence (archived raw)](archive/archive-catalog.md) |
+| Byte preservation, matched hashes and CPU/resource costs | [Implementation report (archived raw)](archive/archive-catalog.md) |
 
 React18 executes the same cases and retains independent outputs under
 `evidence/phase8/react18/reports/effects/`. Existing Phase7 integration and
 P7-1 transaction checks are rerun, not replaced. The report compares every
 versioned baseline evidence file to commit
 `3c508a848b9673fd1d691e76fa26b651dccf2ab9` (rewritten Phase7; original ID is
-archived in the [catalog](archive-catalog.md)); the private byte backup was made
+archived in the [catalog](archive/archive-catalog.md)); the private byte backup was made
 before tests.955/955 preserved Git bytes do not restore the five lost
 Phase6 originals or change the permanent disclosure.
 

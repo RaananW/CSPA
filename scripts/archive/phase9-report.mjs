@@ -113,7 +113,7 @@ const report = {
     harnessDifference: "New blur/settle/static raster comparisons and declared uniform estimates run outside timed windows. Five-edit timing/workload unchanged. Baseline runtime genuinely unchanged before measurement; new-final uses final corrected admission code. Earlier completed new comparison remains immutable and is not represented as final source.",
   },
   matchingMajors: { react18, react19 },
-  manual: "Screen reader, OS IME, everyday profile, real background throttling, physical devices/displays/resets unverified; exact steps/results fields in docs/adoption.md.",
+  manual: "Screen reader, OS IME, everyday profile, real background throttling, physical devices/displays/resets unverified; exact steps/results fields in docs/archive/adoption.md.",
   evidenceHashes,
 };
 await mkdir(evidenceRoot, { recursive: true });

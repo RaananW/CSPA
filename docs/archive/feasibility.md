@@ -9,7 +9,7 @@ remain tracked; [archive access, hashes and reproduction](archive-catalog.md).
 **Current review gate: bounded Phase 6 compatibility/comparison evidence,
 following the accepted typed runtime, animation/effect and TODO pilot.**
 The shared runtime lives in `packages/canvas-spa/src/`; `/runtime.html` demonstrates the
-intentional API. See [API usage](api.md) and the [current verification matrix](verification.md).
+intentional API. See [API usage](../api.md) and the [current verification matrix](verification.md).
 One persistent external root container and the public owning-canvas pixel-copy
 bridge remain the adopted path. Clipping/scrolling and unsupported boundaries
 use diagnosed DOM policies, not simulated interaction or private GPU APIs.
@@ -31,8 +31,8 @@ broad application compatibility.
 The public configured-device loss observer now also passes genuine
 explicit-destruction loss recovery to ordinary DOM. Physical GPU resets and
 driver crashes remain untested. Maintained implementation contracts are in
-[architecture.md](architecture.md); setup and validation are in
-[CONTRIBUTING.md](../CONTRIBUTING.md).
+[architecture.md](../architecture.md); setup and validation are in
+[CONTRIBUTING.md](../../CONTRIBUTING.md).
 Historical statements that React18, portals or all headful behavior were
 untested describe those earlier gates; only the specific current
 [verification matrix](verification.md) supersedes them.
@@ -630,7 +630,7 @@ No reusable module destroys a device; only diagnostic fixtures induce loss.
 The installed Lite public scene/sprite/text recovery enablers require each
 registered context kind to have a strategy; its force-loss helper requires
 registration. The shipped declarations and source-map entries are identified
-in [the architecture/public-contract section](architecture.md#public-gpu-contracts-and-loss-mechanism).
+in [the architecture/public-contract section](../architecture.md#public-gpu-contracts-and-loss-mechanism).
 There is no public effect-only enabler in this release. Browser observation
 provides DOM recovery without claiming automatic in-engine restoration.
 Explicit reentry admits a fresh engine and regenerates textures/geometry.
@@ -713,7 +713,7 @@ The focused suite has twenty-five cases; the full regression has three unit
 tests, TypeScript/production build and forty-one serial browser cases. Evidence
 JSON/logs redact private workspace/home/temporary profile paths. This is not a
 general secret detector or a release-readiness audit. Commands and review
-guidance are maintained in [CONTRIBUTING.md](../CONTRIBUTING.md).
+guidance are maintained in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 **Review gate:** public loss-to-DOM recovery and the narrow explicit mount
 boundary are demonstrated. Broader React/framework/hydration, IME,

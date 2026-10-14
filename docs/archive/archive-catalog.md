@@ -30,7 +30,7 @@ and the scope of each historical acceptance.
 
 The archive totals and digests below describe the historical pre-rewrite
 snapshot, not all later engineering artifacts. The dated
-[current register](open-issues.md#permanent-evidence-integrity-exceptions)
+[current register](../open-issues.md#permanent-evidence-integrity-exceptions)
 separately records five lost Phase6 originals and exactly one Phase13 generated
 optimizer metadata corruption. Original expected Phase13 bytes are unavailable;
 the damaged file/ledger archive remain as-is and the old adoption-v1 seal is
@@ -85,12 +85,12 @@ output from source. The initial and corrected verdicts are retained separately.
 
 | Verdict | Bytes | Original SHA256 |
 | --- | ---: | --- |
-| [phase6-parent-acceptance.json](../evidence/phase6-parent-acceptance.json) | 6330 | `e0bd0ff413f9e328016ff523e43191d54884cca7c7046e9ae6da029908ef55ce` |
-| [phase7-independent-acceptance.json](../evidence/phase7-independent-acceptance.json) | 4937 | `782c89dad6cd37a2d4a298f854c1388b64fad0f954fb41c633d9d5263cb7de06` |
-| [phase7-independent-corrected-acceptance.json](../evidence/phase7-independent-corrected-acceptance.json) | 6944 | `92dbee887aae3830bc6735d0322cdc97bdcedf2837e512d6e8eeacf99f26cf6a` |
-| [phase8-independent-acceptance.json](../evidence/phase8-independent-acceptance.json) | 3269 | `ad2e299cd35bf4aae882698f047743c601d2e55b4076fff74619e94659fbc7da` |
-| [phase9-independent/acceptance-v1.json](../evidence/phase9-independent/acceptance-v1.json) | 12650 | `bed3b96fdbc466ab0daa0b64b0fc46ff64890c519d6596dad73b4631bb57cf1a` |
-| [Derived Phase8 acceptance summary](../evidence/phase8-acceptance-summary.json) | 2105 | `915a0d505fb38989105e251b0f5df085d77bddb652c17db9f18a6659aa8a5c30` |
+| [phase6-parent-acceptance.json](../../evidence/phase6-parent-acceptance.json) | 6330 | `e0bd0ff413f9e328016ff523e43191d54884cca7c7046e9ae6da029908ef55ce` |
+| [phase7-independent-acceptance.json](../../evidence/phase7-independent-acceptance.json) | 4937 | `782c89dad6cd37a2d4a298f854c1388b64fad0f954fb41c633d9d5263cb7de06` |
+| [phase7-independent-corrected-acceptance.json](../../evidence/phase7-independent-corrected-acceptance.json) | 6944 | `92dbee887aae3830bc6735d0322cdc97bdcedf2837e512d6e8eeacf99f26cf6a` |
+| [phase8-independent-acceptance.json](../../evidence/phase8-independent-acceptance.json) | 3269 | `ad2e299cd35bf4aae882698f047743c601d2e55b4076fff74619e94659fbc7da` |
+| [phase9-independent/acceptance-v1.json](../../evidence/phase9-independent/acceptance-v1.json) | 12650 | `bed3b96fdbc466ab0daa0b64b0fc46ff64890c519d6596dad73b4631bb57cf1a` |
+| [Derived Phase8 acceptance summary](../../evidence/phase8-acceptance-summary.json) | 2105 | `915a0d505fb38989105e251b0f5df085d77bddb652c17db9f18a6659aa8a5c30` |
 
 The larger Phase8 v2/v3 verdicts (mostly per-file hash bookkeeping) remain
 immutable in the external archive. The compact derived summary cites their

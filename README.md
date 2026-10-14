@@ -52,7 +52,7 @@ not published to a registry and not production-ready. Licensed under the
 deliberately adopted small applications, not for loading arbitrary websites or
 libraries unchanged. GPU mode needs Chrome Canary with experimental flags; plain
 DOM mode works in any browser. History and acceptance records are in
-[docs/history.md](docs/history.md).
+[docs/history.md](docs/archive/history.md).
 
 ## Requirements
 
@@ -126,7 +126,8 @@ The app starts in usable plain DOM. `enable()` runs functional admission and
 only then reveals GPU output. `disable()` returns to DOM; `dispose()` tears
 down. `captureHost` is optional and deprecated. Full API, including
 `useSurfaceRef`, `Presence`, `NativeScroll`, `NativeOverlay`, `createMotion`,
-`setEffects` and the Radix Dialog integration, is in [docs/api.md](docs/api.md).
+`setEffects` and the Radix Dialog integration, is in [docs/api.md](docs/api.md); the
+[guide](docs/guide/getting-started.md) walks through it step by step.
 Public exports live in `packages/canvas-spa/src/index.ts`.
 
 ## Repository layout
@@ -199,12 +200,15 @@ Not qualified (see [open issues](docs/open-issues.md), SCOPE entries):
 
 ## Documentation
 
-- [API](docs/api.md) and [architecture](docs/architecture.md)
-- [Adoption checklist](docs/adoption.md), [integration](docs/integration.md),
-  [effects](docs/effects.md), [TODO pilot](docs/todo-pilot.md)
-- [Open issues](docs/open-issues.md) and [verification](docs/verification.md)
-- [History and provenance](docs/history.md), [archive catalog](docs/archive-catalog.md)
-- [Contributing](CONTRIBUTING.md)
+- **Guide:** [getting started](docs/guide/getting-started.md), [concepts](docs/guide/concepts.md),
+  [motion](docs/guide/motion.md), [effects](docs/guide/effects.md),
+  [building components](docs/guide/components.md) and [troubleshooting](docs/guide/troubleshooting.md).
+- **Reference:** [API](docs/api.md), [effects contract](docs/effects.md), [worker](docs/worker.md),
+  [distribution](docs/distribution.md).
+- **Contributing:** [CONTRIBUTING](CONTRIBUTING.md), [architecture](docs/architecture.md),
+  [open issues](docs/open-issues.md), and the [engineering archive](docs/archive/).
+
+All documentation is indexed in [docs/README.md](docs/README.md).
 
 ## License
 

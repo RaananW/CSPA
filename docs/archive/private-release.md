@@ -4,7 +4,7 @@
 task workspace, locally production-built on the qualified Mac/Canary157 route.
 No external deployment, registry publication, license decision or real-user
 profile is part of this engineering subset. Package identity stays private
-`@canvas-spa/react@0.1.0`. [Open gates](open-issues.md) remain authoritative.
+`@canvas-spa/react@0.1.0`. [Open gates](../open-issues.md) remain authoritative.
 
 ## Reproducible lanes
 
