@@ -64,13 +64,22 @@ interface OwnershipHost {
   apply(transform: Transform): void;
   validate(transform: Transform): void;
   changed(): void;
-  release(): Promise<unknown>;
+  release(options?: ReleaseOptions): Promise<unknown>;
+}
+export interface ReleaseOptions {
+  /**
+   * End ownership of this layer only and keep the current presentation: the layer
+   * keeps its last sampled transform and the source animation is cancelled. GPU
+   * presentation stays active. Without it, release returns the whole surface to
+   * ordinary DOM and hands every owned source back to the browser.
+   */
+  freeze?: boolean;
 }
 export interface AnimationPlayback {
   play(): void;
   pause(): void;
   seek(milliseconds: number): void;
-  release(): Promise<void>;
+  release(options?: ReleaseOptions): Promise<void>;
   state(): { milliseconds: number; playing: boolean; released: boolean; sourceTime: CSSNumberish | null; sourceState: AnimationPlayState; detached: boolean };
 }
 
@@ -253,7 +262,7 @@ export function prepareAnimation(element: HTMLElement, source: Animation, host: 
       play() { assertLive(); playing = true; host.changed(); },
       pause() { assertLive(); playing = false; host.changed(); },
       seek(time: number) { assertLive(); const transform = timeline.sample(time); host.validate(transform); check(); milliseconds = time; apply(); host.changed(); },
-      async release() { if (!released) await host.release(); },
+      async release(options?: ReleaseOptions) { if (!released) await host.release(options); },
       state() { return { milliseconds, playing, released, sourceTime: source.currentTime, sourceState: source.playState, detached: effect.target === null }; },
     } satisfies AnimationPlayback,
   };
