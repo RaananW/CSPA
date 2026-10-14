@@ -15,6 +15,16 @@ updates:
     directory: /fixtures/react18
     schedule:
       interval: monthly
+    # This fixture exists to test React 18: take its patches and minors, never React 19.
+    ignore:
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
   # Workflows pin actions to commit SHAs; Dependabot updates the SHA and its version comment.
   - package-ecosystem: github-actions
     directory: /
