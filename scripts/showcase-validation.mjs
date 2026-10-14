@@ -290,17 +290,18 @@ try {
       await page.getByRole("button", { name: "Add item", exact: true }).click();
       await springTo("fluent-item-7", 0, 258);
       await quiet();
-      assert.equal(await page.locator("#fluent-item-7 .fui-Card").evaluate(node => node.inert), false);
+      // Inertness is inherited from the layer's direct child, so test the effective state.
+      assert.equal(await page.locator("#fluent-item-7 .fui-Card").evaluate(node => node.matches("[inert], [inert] *")), false);
       let board;
       if (lane === "native") { await settle(); board = PNG.sync.read(await output.screenshot({ path: join(run, "native-fluent-board.png") })); }
       // The editor grows out of its card; its content is inert only while it materialises.
       await page.getByRole("button", { name: "Edit Release notes", exact: true }).click();
       await page.locator("#fluent-editor").waitFor();
       if (lane === "native") {
-        await page.waitForFunction(() => document.querySelector("#fluent-editor form")?.inert === true && window.showcase.state().runtimeResources.transitionEffects === 1, null, { timeout: 2000 });
+        await page.waitForFunction(() => document.querySelector("#fluent-editor form")?.matches("[inert] *") && window.showcase.state().runtimeResources.transitionEffects === 1, null, { timeout: 2000 });
         record.fluent.materialising = await fluentMode("editor materialising");
       }
-      await page.waitForFunction(() => document.querySelector("#fluent-editor form")?.inert === false, null, { timeout: 4000 });
+      await page.waitForFunction(() => document.querySelector("#fluent-editor form")?.matches("[inert], [inert] *") === false, null, { timeout: 4000 });
       await quiet();
       await page.locator("#fluent-edit-title").fill("Validated release notes");
       await page.locator("#fluent-item-6").filter({ hasText: "Validated release notes" }).waitFor();
@@ -347,14 +348,16 @@ try {
       await page.keyboard.press("Escape");
       // Archiving burns the live card; meanwhile its content is inert and its own box catches clicks.
       const archived = page.locator("#fluent-item-5");
-      const archivedBox = await archived.boundingBox();
-      assert.ok(archivedBox);
       await page.getByRole("button", { name: "Actions for Reduced-motion audit", exact: true }).click();
       await page.getByRole("menuitem", { name: "Archive" }).click();
       if (lane === "native") {
         await page.waitForFunction(() => window.showcase.state().runtimeResources.transitionEffects === 1, null, { timeout: 2000 });
-        assert.equal(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id,
-          [archivedBox.x + archivedBox.width / 2, archivedBox.y + archivedBox.height / 2]), "fluent-item-5");
+        // Measured now, in view: opening the menu may have scrolled the page.
+        assert.equal(await archived.evaluate(node => {
+          node.scrollIntoView({ block: "center" });
+          const box = node.getBoundingClientRect();
+          return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)?.id;
+        }), "fluent-item-5");
         record.fluent.burning = await fluentMode("burning");
       }
       await archived.waitFor({ state: "detached", timeout: 6000 });

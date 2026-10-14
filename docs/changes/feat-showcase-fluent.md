@@ -11,3 +11,5 @@
   keep a throw's velocity. `test:showcase` drives it in DOM and GPU lanes: GPU stays on,
   pixels change, native hits follow moved cards, content is inert only during effects,
   and menus and the dialog render in the overlay host.
+- Fixes leaving the task example while GPU is on: its cleanup cleared a ripple on a
+  layer that had already been released, which threw and unmounted the showcase tree.

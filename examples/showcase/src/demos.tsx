@@ -46,7 +46,8 @@ function SceneArt() {
 function Tasks() {
   const controller = useGPUHost();
   const transitions = useMemo(() => taskTransitions(controller), [controller]);
-  useEffect(() => () => transitions.stop(), [transitions]);
+  // On unmount the decoration layer is already released, which ends its ripple; only the timer is left.
+  useEffect(() => () => transitions.stop(false), [transitions]);
   useSceneArt(() => ({ layout: { x: 770, y: 40, width: 246, height: 620, overflow: "hidden" },
     appearance: { background: "rgb(20,70,48)", radius: 26 },
     content: <div className="tasks-poster"><span>Real inputs.</span><span>Real focus.</span><span>Real dialog.</span></div> }), []);
