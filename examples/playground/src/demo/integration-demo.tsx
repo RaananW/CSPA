@@ -1,3 +1,11 @@
+/**
+ * Entry for `integration.html` (external components and declarative presence): shows that third-party React UI
+ * (a Radix dialog and app-owned CSS) keeps working as the original DOM while the runtime presents it on the GPU. It
+ * uses `useSurfaceRef` to enrol existing elements, `Presence` for an enter/exit subtree, `Surface` for extra
+ * layers, `useNativeOverlayHost` for the dialog portal, and imperative `transition`/`transitionGroup`/`enroll`.
+ * `window.integrationProbe` drives the page from the browser tests. Query flags: `?dom` (start without GPU),
+ * `?strict` (StrictMode), `?auto` (admission policy "automatic").
+ */
 import { Profiler, version, useState, useEffect, type ProfilerOnRenderCallback, type CSSProperties } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { createRoot, flushSync } from "./react-root";
@@ -5,11 +13,15 @@ import { mountCanvasApp, Surface, Presence, useSurfaceRef, useNativeOverlayHost,
 import "./integration.css";
 
 const params = new URLSearchParams(location.search);
+// Counters read by `state()`: Profiler commits plus effect mounts and cleanups of `App`.
 const commits = { count: 0, mounts: 0, cleanups: 0 };
 const profile: ProfilerOnRenderCallback = () => { commits.count++; };
 const results: TransitionResult[] = [];
+// Presence motions for the card: slide 60 px in from the side while fading, 800 ms.
 const enter: MotionDescriptor = { keyframes: [{ offset: 0, x: 60, opacity: 0 }, { offset: 1 }], timing: { duration: 800 } };
 const exit: MotionDescriptor = { keyframes: [{ offset: 0 }, { offset: 1, x: 60, opacity: 0 }], timing: { duration: 800 } };
+// `controller` is set by `mount`. The functions after it are React setters captured from `App` on render, so the
+// probe can drive React state from outside (always wrapped in `flushSync`).
 let controller!: CanvasController;
 let show!: (present: boolean) => void;
 let replace!: () => void;
@@ -21,6 +33,8 @@ let extra!: (count: number) => void;
 let refs: unknown[] = [];
 const listeners: (() => void)[] = [];
 
+// `panel`, `stage` and `replacement` are `useSurfaceRef` layers enrolled by id; the rest of the markup is ordinary
+// React plus Radix. The probe changes them to test ref replacement, reordering, layout changes and unmounting.
 function App() {
   const panel = useSurfaceRef<HTMLElement>({ id: "library" });
   const stage = useSurfaceRef<HTMLElement>({ id: "stage" });
@@ -82,6 +96,8 @@ function App() {
       layout={{ x: 570, y: 10 + index * 30, width: 50, height: 25 }} appearance={{ background: "rgb(38,104,215)" }}>Extra</Surface>)}
   </>;
 }
+// `budgets` caps layers and pixels; `admissionPolicy: "automatic"` is compatibility-only and behaves as
+// "explicit" (see docs/api.md).
 function mount() {
   controller = mountCanvasApp({
     captureHost: document.querySelector<HTMLCanvasElement>("#capture")!,
@@ -101,6 +117,7 @@ async function dispose() {
   for (const remove of listeners.splice(0)) remove();
   return state();
 }
+// After a dispose the capture/output canvases are gone; recreate them so a new mount can run.
 function restoreCanvases() {
   for (const id of ["capture", "output"]) if (!document.getElementById(id)) {
     const canvas = document.createElement("canvas");
@@ -108,9 +125,12 @@ function restoreCanvases() {
     document.querySelector("#frame")!.insertBefore(canvas, document.querySelector("#ordinary"));
   }
 }
+// HMR: wait for the previous module's disposal before mounting again.
 const prior: unknown = import.meta.hot?.data.disposal;
 if (prior instanceof Promise) { await prior; restoreCanvases(); }
 mount();
+// Wire the page buttons: enable/disable/dispose plus reorder and layout moves that change the React tree under
+// an active controller.
 function install() {
   for (const [id, operation] of [["enable", () => controller.enable()], ["disable", () => controller.disable()], ["dispose", dispose],
     ["reorder", () => { flushSync(reorder); }], ["layout-move", () => { flushSync(() => layout({ left: 50 })); }],
@@ -122,6 +142,8 @@ function install() {
   }
 }
 install();
+// Test hook. Each React-state change runs in `flushSync` so the commit is complete when the call returns; `cycle`
+// disposes and remounts the page.
 window.integrationProbe = {
   state, dispose, show: value => flushSync(() => show(value)), replace: () => flushSync(replace), render: () => flushSync(render),
   refs: () => refs, enable: () => controller.enable(), disable: () => controller.disable(), settle: () => controller.settle(),
@@ -133,6 +155,7 @@ window.integrationProbe = {
   enroll: (element: HTMLElement, id: string) => controller.enroll(element, { id }),
   async cycle() { const retired = await dispose(); restoreCanvases(); mount(); install(); await controller.enable(); return { retired, active: state() }; },
 };
+// GPU is on by default; `?dom` leaves the ordinary DOM.
 if (!params.has("dom")) void controller.enable().catch(error => { document.querySelector("#status")!.textContent = String(error); console.error(error); });
 if (import.meta.hot) {
   import.meta.hot.accept();
