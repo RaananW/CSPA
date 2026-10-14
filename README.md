@@ -21,6 +21,29 @@ Principles (the [GPU-first contract](docs/architecture.md#gpu-first-contract)):
 - **Typed authoring.** Layout and appearance are typed props compiled to browser
   CSS, not a custom layout engine.
 
+## Gallery
+
+Screenshots from the [live showcase](https://raananw.github.io/CSPA/), taken in Chrome
+Canary with GPU presentation on. Every button, input and like counter in them is the
+original React element; the GPU only draws it.
+
+[![Webcam pond: plain HTML koi refracted by a WGSL water shader](docs/images/webcam-pond.jpg)](https://raananw.github.io/CSPA/#/pond)
+
+**Webcam pond.** The koi are plain `<span>`s, the text on the pond floor is a `<p>` you
+type into, and the optional camera image is a `<video>`. A ripple refracts all of it and
+a custom WGSL shader adds caustics. X-ray (shown) labels the HTML under the water.
+The camera image never leaves the page.
+
+| | |
+| --- | --- |
+| [![Postcard studio](docs/images/postcard-studio.jpg)](https://raananw.github.io/CSPA/#/layers) | [![Card deck](docs/images/card-deck.jpg)](https://raananw.github.io/CSPA/#/motion) |
+| **Postcard studio.** A native form edits a GPU-presented card; *Riso print* shifts the artwork's colour channels apart, which no CSS filter can do to rendered HTML. | **Card deck.** Cards with native Like buttons fan, stack and shuffle as GPU layers, and the felt table ripples when they land. |
+| [![Shader lab](docs/images/shader-lab.jpg)](https://raananw.github.io/CSPA/#/effects) | [![Notification stack](docs/images/notification-stack.jpg)](https://raananw.github.io/CSPA/#/presence) |
+| **Shader lab.** Ripple, chromatic split, noise dissolve and application-written WGSL chained on live DOM artwork. | **Notification stack.** `Presence` keeps each toast's React subtree, with its real Dismiss button, through its exit. |
+
+GPU mode needs Chrome Canary with HTML-in-Canvas enabled (see [Requirements](#requirements)).
+In other browsers the showcase runs as ordinary DOM with the same controls.
+
 ## Status
 
 Experimental (`@canvas-spa/react@0.1.0`, still `private` in npm terms);
