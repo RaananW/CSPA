@@ -728,3 +728,50 @@ for (const dpr of [1, 2]) test(`scrolled root additions retain complete current 
     await page.evaluate(() => window.runtimeProbe.dispose());
   } finally { await page.close(); }
 });
+
+test("a modal scroll lock on the root element keeps GPU; a single-axis clip on a real ancestor still does not", async ({ page }) => {
+  // Dialog libraries lock page scrolling with single-axis overflow on <html>/<body> (Fluent UI:
+  // html overflow-y: clip, body overflow-y: hidden). Root overflow applies to the viewport, which
+  // always clips; it is not a clip of an ancestor box.
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/runtime.html?dom");
+  await page.waitForFunction(() => window.runtimeProbe);
+  expect((await page.evaluate(() => window.runtimeProbe.enable())).mode).toBe("gpu");
+  const lock = locked => page.evaluate(async locked => {
+    document.documentElement.style.overflowY = locked ? "clip" : "";
+    document.documentElement.style.scrollbarGutter = locked ? "stable" : "";
+    document.body.style.overflowY = locked ? "hidden" : "";
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await window.runtimeProbe.settle();
+    const state = window.runtimeProbe.state();
+    return { mode: state.mode, reason: state.reason, html: getComputedStyle(document.documentElement).overflowX + "/" + getComputedStyle(document.documentElement).overflowY };
+  }, locked);
+  const during = await lock(true);
+  expect(during.html).toBe("visible/clip");
+  expect(during.mode, during.reason).toBe("gpu");
+  // Fresh pixels and native hits while locked.
+  const count = page.locator("#count");
+  const before = await count.innerText();
+  const box = await count.boundingBox();
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.id, [box.x + box.width / 2, box.y + box.height / 2])).toBe("count");
+  const unchanged = await page.locator("#frame").screenshot();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(count).not.toHaveText(before);
+  await page.evaluate(() => window.runtimeProbe.settle());
+  expect(await page.locator("#frame").screenshot()).not.toEqual(unchanged);
+  expect((await lock(false)).mode).toBe("gpu");
+  // The exemption is the viewport only: the same declaration on a wrapper around the canvas is a real single-axis clip.
+  const clipped = await page.evaluate(async () => {
+    const frame = document.querySelector("#frame"), wrapper = document.createElement("div");
+    frame.before(wrapper); wrapper.append(frame); wrapper.style.overflowY = "clip";
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await window.runtimeProbe.settle();
+    return window.runtimeProbe.state();
+  });
+  expect(clipped.mode).toBe("dom");
+  expect(clipped.reason).toMatch(/Single-axis visible\/clip external overflow/);
+  const disposed = await page.evaluate(() => window.runtimeProbe.dispose());
+  expect(Object.values(disposed.resources).every(value => value === 0)).toBe(true);
+  expect(errors).toEqual([]);
+});
