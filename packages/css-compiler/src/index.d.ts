@@ -10,6 +10,7 @@ export interface CompilerConfig {
   version: 1;
   target: "webgpu";
   unsupported: "error";
+  /** Accepted for compatibility; has no effect since one per-layer program serves any layer count. */
   maxLayers?: number;
   entries: CompilerEntry[];
 }

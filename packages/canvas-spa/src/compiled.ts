@@ -24,10 +24,14 @@ export interface CompiledAnimation {
   sample(milliseconds: number): Transform;
 }
 
+/** Floats in one per-layer pass uniform buffer: header (12), layer block (44), compiled slot (4). */
+export const LAYER_PASS_FLOATS = 60;
+
 export interface CompiledProgramSet {
-  version: 1;
+  /** 2: one per-layer program drawn once per layer (version 1 held one program per layer count). */
+  version: 2;
   animations: readonly CompiledAnimation[];
-  programs: readonly Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL">[];
+  programs: readonly Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL" | "vertexWGSL">[];
 }
 
 export interface CompiledMotion {
@@ -37,8 +41,9 @@ export interface CompiledMotion {
 }
 
 export function validateCompiledPrograms(compiled: CompiledProgramSet) {
-  if (!compiled || compiled.version !== 1 || !Array.isArray(compiled.animations) || !Array.isArray(compiled.programs)
-    || compiled.animations.length < 1 || compiled.animations.length > 32 || compiled.programs.length < 1 || compiled.programs.length > 8) {
+  if ((compiled as { version?: unknown } | undefined)?.version === 1) throw new Error("Compiled program set version 1 predates per-layer drawing; rebuild it with the matching @canvas-spa/css-compiler");
+  if (!compiled || compiled.version !== 2 || !Array.isArray(compiled.animations) || !Array.isArray(compiled.programs)
+    || compiled.animations.length < 1 || compiled.animations.length > 32 || compiled.programs.length !== 1) {
     throw new Error("Invalid compiled program set");
   }
   const ids = new Set<string>();
@@ -68,21 +73,16 @@ export function validateCompiledPrograms(compiled: CompiledProgramSet) {
       }
     }
   }
-  for (const [index, program] of compiled.programs.entries()) {
-    const count = index + 1;
-    if (!program || typeof program.fragmentWGSL !== "string" || !program.fragmentWGSL.length
-      || !Array.isArray(program.bindings) || program.bindings.length !== count * 2 + 1) throw new Error("Invalid compiled compositor program");
-    for (let layer = 0; layer < count; layer++) {
-      const texture = program.bindings[layer * 2]!, sampler = program.bindings[layer * 2 + 1]!;
-      if (texture.kind !== "texture" || texture.binding !== layer * 2 || texture.name !== `layer${layer}`
-        || sampler.kind !== "sampler" || sampler.binding !== layer * 2 + 1 || sampler.textureBinding !== `layer${layer}`) {
-        throw new Error("Invalid compiled texture bindings");
-      }
-    }
-    const uniform = program.bindings.at(-1)!;
-    if (uniform.kind !== "uniform" || uniform.binding !== count * 2 || uniform.uniformByteLength !== (4 + count * 48) * 4) {
-      throw new Error("Invalid compiled uniform layout");
-    }
+  const program = compiled.programs[0];
+  if (!program || typeof program.fragmentWGSL !== "string" || !program.fragmentWGSL.length || typeof program.vertexWGSL !== "string"
+    || !Array.isArray(program.bindings) || program.bindings.length !== 3) throw new Error("Invalid compiled compositor program");
+  const [texture, sampler, uniform] = program.bindings as NonNullable<EffectWrapperOptions["bindings"]>;
+  if (texture!.kind !== "texture" || texture!.binding !== 0 || texture!.name !== "layer0"
+    || sampler!.kind !== "sampler" || sampler!.binding !== 1 || sampler!.textureBinding !== "layer0") {
+    throw new Error("Invalid compiled texture bindings");
+  }
+  if (uniform!.kind !== "uniform" || uniform!.binding !== 2 || uniform!.uniformByteLength !== LAYER_PASS_FLOATS * 4) {
+    throw new Error("Invalid compiled uniform layout");
   }
 }
 

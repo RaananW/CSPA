@@ -1,4 +1,4 @@
-import { compositionShader } from "canvas-spa-phase-one/build";
+import { layerShader } from "canvas-spa-phase-one/build";
 
 const literal = value => Number.isInteger(value) ? `${value}.0` : String(value);
 const vec = values => `vec${values.length}f(${values.map(literal).join(",")})`;
@@ -68,14 +68,15 @@ export function samplerCode(animation, gpu) {
   if (gpu) code += "return CompiledTransform(vec2f(0.0),vec2f(1.0),0.0,1.0);";
   return code;
 }
-export function generateModule(animations, maxLayers) {
+export function generateModule(animations) {
   const wgsl = `${gpuEase}\n${animations.map((animation, i) =>
     `fn compiled_${i}(ms:f32)->CompiledTransform {${samplerCode(animation, true)}}`).join("\n")}
     fn compiled_sample(index:u32,ms:f32)->CompiledTransform {
       ${animations.map((_, i) => `if(index==${i + 1}u){return compiled_${i}(ms);}`).join("\n")}
       return CompiledTransform(vec2f(0.0),vec2f(1.0),0.0,1.0);
     }`;
-  const programs = Array.from({ length: maxLayers }, (_, i) => compositionShader(i + 1, [], wgsl));
+  // One per-layer program; the runtime draws it once per layer, so layer count needs no capacity.
+  const programs = [layerShader(undefined, wgsl)];
   const entries = animations.map(animation => {
     const { values, ...publicAnimation } = animation;
     const timing = JSON.stringify(publicAnimation.timing).replace('"iterations":null', '"iterations":Infinity');
@@ -89,5 +90,5 @@ export function generateModule(animations, maxLayers) {
       return Math.fround((elapsed%${period})/${duration});`;
     return `{...${JSON.stringify({ ...publicAnimation, timing: undefined })},timing:${timing},normalizeTime(ms){${normalize}},sample(ms){${samplerCode(animation, false)}}}`;
   });
-  return `${jsEase}\nconst compiled={version:1,animations:[${entries.join(",")}],programs:${JSON.stringify(programs)}};\nexport default compiled;\n`;
+  return `${jsEase}\nconst compiled={version:2,animations:[${entries.join(",")}],programs:${JSON.stringify(programs)}};\nexport default compiled;\n`;
 }
