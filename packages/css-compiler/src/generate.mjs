@@ -1,4 +1,4 @@
-import { layerShader } from "canvas-spa-phase-one/build";
+import { layerShader } from "@canvas-spa/react/build";
 
 const literal = value => Number.isInteger(value) ? `${value}.0` : String(value);
 const vec = values => `vec${values.length}f(${values.map(literal).join(",")})`;

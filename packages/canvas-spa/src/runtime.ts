@@ -399,6 +399,17 @@ export class CanvasRuntime {
     return !!this.core?.frameBounded() && Math.abs(this.ownerContentSize.width - width) < 0.5
       && Math.abs(this.ownerContentSize.height - height) < 0.5;
   }
+  /** GPU presentation owns the layer's transform/opacity/origin with important declarations. */
+  private presentLayerGPU(layer: LayerDefinition) {
+    let lease = this.gpuDeclarations.get(layer.id);
+    if (!lease) {
+      lease = this.ownership.get(layer.id)?.lease.presentation ?? new DeclarationOwnership(layer.element);
+      this.gpuDeclarations.set(layer.id, lease);
+    }
+    lease.write("transform-origin", "0 0", "important");
+    lease.write("transform", "none", "important");
+    lease.write("opacity", "1", "important");
+  }
   private presentation(mode: "dom" | "gpu", releaseOwnership = false) {
     this.invalidatePolicy();
     const restored = new Map<string, ReturnType<DeclarationOwnership["restore"]>>();
@@ -414,14 +425,7 @@ export class CanvasRuntime {
     }
     for (const layer of this.registry.values()) {
       if (mode === "gpu") {
-        let lease = this.gpuDeclarations.get(layer.id);
-        if (!lease) {
-          lease = this.ownership.get(layer.id)?.lease.presentation ?? new DeclarationOwnership(layer.element);
-          this.gpuDeclarations.set(layer.id, lease);
-        }
-        lease.write("transform-origin", "0 0", "important");
-        lease.write("transform", "none", "important");
-        lease.write("opacity", "1", "important");
+        this.presentLayerGPU(layer);
       } else if (layer.preserveStyles || owned.has(layer.id)) {
         continue;
       } else {
@@ -880,8 +884,8 @@ export class CanvasRuntime {
   createMotion(id: string, descriptor: MotionDescriptor): MotionHandle {
     this.assertLive();
     const state = this.renderer().state();
-    if (state.mode !== "dom" || state.initializing || state.transitioning || state.resources.pendingEngines
-      || state.resources.pendingCleanups || state.resources.probeReadbacks) throw new Error("Create typed motion in idle ordinary DOM");
+    if (state.mode !== "dom" && state.mode !== "gpu" || state.initializing || state.transitioning || state.resources.pendingEngines
+      || state.resources.pendingCleanups || state.resources.probeReadbacks) throw new Error("Create typed motion in idle ordinary DOM or active GPU");
     const layer = this.registry.get(id);
     if (!layer || this.motions.has(id) || this.ownership.has(id) || this.transitions.has(id) || layer.element.getAnimations({ subtree: true }).length) {
       throw new Error("Typed motion requires one enrolled layer without overlapping sources");
@@ -912,7 +916,7 @@ export class CanvasRuntime {
         const playback = owned();
         if (playback) playback.seek(time); else source.currentTime = time;
       },
-      release: async () => { await owned()?.release(); },
+      release: async options => { await owned()?.release(options); },
       dispose: async () => {
         if (this.motions.get(id)?.source !== source) return;
         await owned()?.release();
@@ -1116,16 +1120,27 @@ export class CanvasRuntime {
   private acquireAnimation(id: string, source: Animation, check?: () => void, restore?: () => void, resources?: () => number, compiled?: CompiledAnimation): AnimationPlayback {
     this.assertLive();
     const state = this.renderer().state();
-    if (state.mode !== "dom" || state.initializing || state.transitioning || state.resources.pendingEngines
+    if (state.mode !== "dom" && state.mode !== "gpu" || state.initializing || state.transitioning || state.resources.pendingEngines
       || state.resources.pendingCleanups || state.resources.probeReadbacks) {
-      throw new Error("Prepare ownership in idle ordinary DOM before fresh GPU admission");
+      throw new Error("Prepare ownership in idle ordinary DOM or active GPU");
     }
+    const live = state.mode === "gpu";
     const layer = this.registry.get(id);
     if (!layer || this.ownership.has(id) || this.transitions.has(id)) throw new Error("Unknown or already animation-owned layer");
     if (JSON.stringify(affine(layer.transform)) !== JSON.stringify(affine()) || (layer.transform.opacity ?? 1) !== 1) throw new Error("Animation requires neutral controller transform/opacity");
     if (layer.origin && layer.origin !== "top-left") throw new Error("Animation ownership uses the source animation's top-left origin; remove the layer origin first");
     const base = { ...layer.transform };
-    const lease = prepareAnimation(layer.element, source, {
+    // GPU presentation hides the source behind important declarations. Lift them for
+    // the synchronous verification below: no rendering opportunity occurs before
+    // presentLayerGPU writes them again, so nothing visible changes.
+    if (live) {
+      const lost = this.gpuDeclarations.get(id)?.restore();
+      this.gpuDeclarations.delete(id);
+      if (lost?.size) { this.presentLayerGPU(layer); throw new Error("GPU presentation declarations were changed; ordinary DOM required"); }
+    }
+    let lease: ReturnType<typeof prepareAnimation>;
+    try {
+      lease = prepareAnimation(layer.element, source, {
       validate: transform => { this.matrix(layer, transform); },
       apply: transform => {
         check?.();
@@ -1136,13 +1151,52 @@ export class CanvasRuntime {
         }
       },
       changed: () => { this.stopClock(); this.requestDraw(); this.startClock(); },
-      release: () => this.disable(),
+      release: options => options?.freeze ? this.freezeOwnership(id, lease) : this.disable(),
     }, compiled);
-    lease.acquire();
+      lease.acquire();
+    } catch (error) {
+      if (live) this.presentLayerGPU(layer);
+      throw error;
+    }
     this.ownership.set(id, { lease, base, check, restore, resources, compiled });
     this.invalidatePolicy();
     this.resources.animationOwners++;
+    if (live) {
+      this.presentLayerGPU(layer);
+      this.requestDraw();
+      this.startClock();
+    }
     return lease.playback;
+  }
+  /**
+   * Ends one layer's ownership without leaving GPU: the layer keeps its last sampled
+   * transform and the source is handed back and cancelled, so no unowned boundary
+   * animation remains. CSS-provenance sources cannot be cancelled without changing
+   * their stylesheet association, so they keep the surface-wide release.
+   */
+  private async freezeOwnership(id: string, lease: ReturnType<typeof prepareAnimation>) {
+    this.assertLive();
+    const owner = this.ownership.get(id);
+    if (owner?.lease !== lease) return;
+    if (owner.restore || owner.compiled) throw new Error("Freeze release supports WAAPI and typed-motion sources; CSS-provenance ownership uses release()");
+    const layer = this.registry.get(id);
+    const frozen = layer ? { ...layer.transform } : undefined;
+    const live = this.core?.phase() === "gpu";
+    this.stopClock();
+    if (this.gpuDeclarations.get(id) === lease.presentation) this.gpuDeclarations.delete(id);
+    lease.restore();
+    lease.source.cancel();
+    this.ownership.delete(id);
+    this.resources.animationOwners--;
+    if (this.motions.get(id)?.source === lease.source) this.cancelNativeMotion(id);
+    this.invalidatePolicy();
+    if (layer && frozen) {
+      layer.transform = frozen;
+      if (live) this.presentLayerGPU(layer);
+      else this.presentation("dom");
+    }
+    this.requestDraw();
+    this.startClock();
   }
   private stopClock() {
     if (this.clockFrame) { cancelAnimationFrame(this.clockFrame); this.clockFrame = 0; this.resources.controllerFrames--; }

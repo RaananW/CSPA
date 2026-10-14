@@ -1,5 +1,5 @@
 import type { Root, Plugin, ProcessOptions } from "postcss";
-import type { CompiledAnimation } from "canvas-spa-phase-one";
+import type { CompiledAnimation } from "@canvas-spa/react";
 export interface CompilerEntry {
   id: string;
   stylesheet: string;

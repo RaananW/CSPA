@@ -5,7 +5,7 @@ Phase11 engineering is **independently accepted with limits; human/physical
 validation pending**. Full Phase11 remains incomplete; the repository's compact
 Phase11 verdict and adoption checklist preserve the open gates.
 The package is **not published, not production-ready**. The existing
-`canvas-spa-phase-one@0.0.0` identity and `private: true` are retained;
+`@canvas-spa/react@0.1.0` identity and `private: true` are retained;
 the project is licensed under Apache-2.0 (the tarball includes `LICENSE`).
 Do not publish, create a registry package or change visibility from this build.
 
@@ -44,16 +44,16 @@ is added. Earlier installed-consumer records below remain historical.
 
 ```sh
 npm run build:library
-npm pack --workspace canvas-spa-phase-one --dry-run --json
+npm pack --workspace @canvas-spa/react --dry-run --json
 # Choose an ignored directory for the actual archive:
 npm run pack:library -- --pack-destination fixtures/package-consumer/workspaces
 # In a separate React application, install the actual generated .tgz:
-npm install /path/to/canvas-spa-phase-one-0.0.0.tgz
+npm install /path/to/canvas-spa-react-0.1.0.tgz
 ```
 
 Create the pack destination first. `prepack` rebuilds the intentional
 library entries with existing Vite and emits TypeScript declarations. The
-unchanged runtime root is ESM `canvas-spa-phase-one`; additional explicit
+unchanged runtime root is ESM `@canvas-spa/react`; additional explicit
 exports are `/build`, `/experimental-worker` and `/experimental-worker/thread`.
 CommonJS and internal subpath imports are unsupported. The current allowlist
 contains33 members: manifest, README, this contract, four JS entries and their
@@ -121,7 +121,7 @@ export or automatic global CSS injection.
 
 ```tsx
 import { useState } from "react";
-import { mountCanvasApp, Surface, Box, type MountCanvasOptions } from "canvas-spa-phase-one";
+import { mountCanvasApp, Surface, Box, type MountCanvasOptions } from "@canvas-spa/react";
 
 function App() {
   const [name, setName] = useState("");

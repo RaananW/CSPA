@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, version } from "react";
 import { createRoot } from "react-dom/client";
 import { version as reactDOMVersion } from "react-dom";
-import { createCanvasHosts, mountCanvasApp, type CanvasController } from "canvas-spa-phase-one";
+import { createCanvasHosts, mountCanvasApp, type CanvasController } from "@canvas-spa/react";
 import { Demo } from "./demos";
 import { examples, route, searchExamples, type ExampleId } from "./catalog";
 import "./style.css";

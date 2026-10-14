@@ -11,7 +11,7 @@ export { mountApplicationModule } from "./module.js";
 export type { LocalApplicationModule } from "./module.js";
 export type { AdmissionPolicy, LayerDefinition, RuntimeOptions } from "./runtime.js";
 export type { RendererStatus as CanvasStatus } from "./renderer.js";
-export type { AnimationPlayback } from "./animation.js";
+export type { AnimationPlayback, ReleaseOptions } from "./animation.js";
 export type { CSSAnimationSource } from "./css-animation.js";
 export type { CompiledAnimation, CompiledProgramSet } from "./compiled.js";
 export type { Ripple } from "./ripple.js";

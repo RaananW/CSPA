@@ -93,15 +93,15 @@ test("only verified current workspace links are excluded from physical execution
     await mkdir(join(root, "examples/playground"), { recursive: true });
     await mkdir(join(root, "examples/showcase"), { recursive: true });
     await mkdir(join(root, "node_modules/@canvas-spa"), { recursive: true });
-    if (!await symlinkOrSkip(t, join(root, "packages/canvas-spa"), join(root, "node_modules/canvas-spa-phase-one"), "junction")) return;
+    if (!await symlinkOrSkip(t, join(root, "packages/canvas-spa"), join(root, "node_modules/@canvas-spa/react"), "junction")) return;
     await symlinkOrSkip(t, join(root, "examples/playground"), join(root, "node_modules/@canvas-spa/playground"), "junction");
     await symlinkOrSkip(t, join(root, "examples/showcase"), join(root, "node_modules/@canvas-spa/showcase"), "junction");
     await copyDependencies(join(root, "node_modules"), join(root, "copied"));
     await assertPhysicalTree(join(root, "copied"));
-    await assert.rejects(readFile(join(root, "copied/canvas-spa-phase-one/package.json")), { code: "ENOENT" });
+    await assert.rejects(readFile(join(root, "copied/@canvas-spa/react/package.json")), { code: "ENOENT" });
     await assert.rejects(readFile(join(root, "copied/@canvas-spa/showcase/package.json")), { code: "ENOENT" });
-    await rm(join(root, "node_modules/canvas-spa-phase-one"));
-    await symlinkOrSkip(t, join(root, "examples/playground"), join(root, "node_modules/canvas-spa-phase-one"), "junction");
+    await rm(join(root, "node_modules/@canvas-spa/react"));
+    await symlinkOrSkip(t, join(root, "examples/playground"), join(root, "node_modules/@canvas-spa/react"), "junction");
     await assert.rejects(copyDependencies(join(root, "node_modules"), join(root, "rejected")), /Unexpected workspace alias/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

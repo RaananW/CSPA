@@ -1,6 +1,6 @@
 import { Profiler, version, useState } from "react";
 import { createRoot, flushSync } from "./react-root";
-import { mountCanvasApp, Surface, Box, type MountCanvasOptions, type MotionHandle } from "canvas-spa-phase-one";
+import { mountCanvasApp, Surface, Box, type MountCanvasOptions, type MotionHandle } from "@canvas-spa/react";
 
 type Sample = Parameters<NonNullable<MountCanvasOptions["onMeasure"]>>[0];
 const parameters = new URLSearchParams(location.search);

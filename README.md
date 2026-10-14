@@ -23,7 +23,7 @@ Principles (the [GPU-first contract](docs/architecture.md#gpu-first-contract)):
 
 ## Status
 
-Experimental (`canvas-spa-phase-one@0.0.0`, still `private` in npm terms);
+Experimental (`@canvas-spa/react@0.1.0`, still `private` in npm terms);
 not published to a registry and not production-ready. Licensed under the
 [Apache License 2.0](LICENSE); package publication remains a separate decision. It is for
 deliberately adopted small applications, not for loading arbitrary websites or
@@ -67,7 +67,7 @@ empty siblings. Then mount:
 
 ```tsx
 import { useState } from "react";
-import { createCanvasHosts, mountCanvasApp, Surface, Box, useGPUHost } from "canvas-spa-phase-one";
+import { createCanvasHosts, mountCanvasApp, Surface, Box, useGPUHost } from "@canvas-spa/react";
 
 function App() {
   const host = useGPUHost();
@@ -110,7 +110,7 @@ Public exports live in `packages/canvas-spa/src/index.ts`.
 
 | Path | Contents |
 | --- | --- |
-| `packages/canvas-spa` | The library (private package `canvas-spa-phase-one`): source, ESM entry, declarations, prepack build |
+| `packages/canvas-spa` | The library (private package `@canvas-spa/react`): source, ESM entry, declarations, prepack build |
 | `packages/css-compiler` | Opt-in build-time CSS compiler with Vite/webpack adapters ([guide](packages/css-compiler/README.md)) |
 | `examples/playground` | Engineering HTML pages, demo apps and probes (Vite root) |
 | `examples/showcase` | Private public-facing React gallery |
