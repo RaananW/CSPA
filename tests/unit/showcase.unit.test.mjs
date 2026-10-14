@@ -9,9 +9,9 @@ import { showcaseBase } from "../../examples/showcase/site-policy.mjs";
 import { route, searchExamples, examples } from "../../examples/showcase/src/catalog.ts";
 
 test("showcase project base is deterministic and rejects unsafe URL shapes", () => {
-  assert.equal(showcaseBase(), "/CSPA/");
+  assert.equal(showcaseBase(), "/underglass/");
   for (const base of ["/", "/project-name/", "/nested/project/"]) assert.equal(showcaseBase(base), base);
-  for (const base of ["https://host/", "//host/", "/CSPA", "/../", "/x?y/", "/x#y/", ""]) {
+  for (const base of ["https://host/", "//host/", "/underglass", "/../", "/x?y/", "/x#y/", ""]) {
     assert.throws(() => showcaseBase(base), /CANVAS_SHOWCASE_BASE/);
   }
 });

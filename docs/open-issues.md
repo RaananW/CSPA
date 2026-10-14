@@ -7,7 +7,7 @@ Historical paths in accepted records below identify their original layouts;
 they are not rewritten or requalified by this migration.
 
 **Showcase preparation:** the separate private `examples/showcase` React gallery
-uses public CSPA examples, default DOM and explicit experimental GPU admission.
+uses public Underglass examples, default DOM and explicit experimental GPU admission.
 [Pages preparation](showcase.md) is not hosted deployment, production,
 accessibility, licensing or publication qualification; all existing gates below
 retain their scope.
@@ -35,7 +35,7 @@ Chromium hotlist 6783002 not accessible (sign-in), Chrome Canary 157.0.8102.0 on
 Windows 11. Details: [api.md](api.md#changes-2026-10-13).
 
 **As of 2026-10-11; accepted source checkpoint:**
-[`12f13661`](https://github.com/RaananW/CSPA/commit/12f13661978a9329331bf881af6aca526402d4d0).
+[`12f13661`](https://github.com/RaananW/underglass/commit/12f13661978a9329331bf881af6aca526402d4d0).
 This is a documentation register, not GitHub tickets, assigned work, release
 approval or a new test verdict. IDs remain stable when status changes. No owners,
 deadlines or severity rankings have been assigned.
@@ -50,8 +50,8 @@ different from currently failing supported code.
 
 | ID | Current disposition and evidence | Closure boundary |
 | --- | --- | --- |
-| FIX-001 | Structural Layer/Replace-ref blank-frame readmission, native editor caret/composition recovery, root/enrolled clipping and unavailable initial admission proof were corrected in [cfa9df73](https://github.com/RaananW/CSPA/commit/cfa9df73f98e075de0559a18fe42e9fb75c13a79), independently accepted with limits. Same-root complete publication and fresh owning paint replace healthy structural readmission. | Closed for the measured current-API subset, not physical-display continuity, every CSS layout or universal text fidelity. Historical Phase12 verdicts and four v7 frames remain unchanged. See [architecture](architecture.md#gpu-first-contract) and HIST-001. |
-| FIX-002 | Ordinary document/external axis-aligned scroll projection and native border/padding origin were independently accepted and persisted in [ab598c00](https://github.com/RaananW/CSPA/commit/ab598c00c320dec383377b78b29a328a82e26d84). Original focus/locator/editing workflow and pixel/native-hit checks passed. | Not arbitrary transformed ancestors, RTL/zoom/writing modes or future browser qualification. Actual157 replaced owning canvas observed scroll0; nonzero owner-canvas scrolling is inapplicable to that qualified case, not a missing capture feature or simulated success. |
+| FIX-001 | Structural Layer/Replace-ref blank-frame readmission, native editor caret/composition recovery, root/enrolled clipping and unavailable initial admission proof were corrected in [cfa9df73](https://github.com/RaananW/underglass/commit/cfa9df73f98e075de0559a18fe42e9fb75c13a79), independently accepted with limits. Same-root complete publication and fresh owning paint replace healthy structural readmission. | Closed for the measured current-API subset, not physical-display continuity, every CSS layout or universal text fidelity. Historical Phase12 verdicts and four v7 frames remain unchanged. See [architecture](architecture.md#gpu-first-contract) and HIST-001. |
+| FIX-002 | Ordinary document/external axis-aligned scroll projection and native border/padding origin were independently accepted and persisted in [ab598c00](https://github.com/RaananW/underglass/commit/ab598c00c320dec383377b78b29a328a82e26d84). Original focus/locator/editing workflow and pixel/native-hit checks passed. | Not arbitrary transformed ancestors, RTL/zoom/writing modes or future browser qualification. Actual157 replaced owning canvas observed scroll0; nonzero owner-canvas scrolling is inapplicable to that qualified case, not a missing capture feature or simulated success. |
 | FIX-003 | Phase13 selected task workspace and actionable diagnostics are qualified-accepted at `12f13661`. Three-file diagnostic repair: `src/apps/todo/diagnostics.ts`, `tests/todo.test.mjs`, `tests/todo.unit.test.mjs`. Actual offscreen reason containing "explicitly enable again" now reports admission, not lifecycle; explicit disable still reports lifecycle. | Native workflow proof is inherited from the unchanged bounded application checks; fresh repair proof covers classification, actual peer-qualified status/native state/refusal/reentry/disposal, not a rerun of every workflow or 300-frame interval. INT-002 remains a permanent exception. See [task workspace](archive/task-workspace.md). |
 | VAL-007 | **Closed 2026-10-14 as superseded: historical exact browser gate.** Some Phase6/7/8 evidence used Chrome154.0.8037.98; qualification is now made against the installed Canary build (157.0.8102.0 at time of writing) via functional probes, so the exact154 gate is no longer pursued. | Closed by explicit superseding browser decision, not by qualifying154: a configured label, upstream Fixed status or current157 pass does not retroactively qualify154. |
 

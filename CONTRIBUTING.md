@@ -124,8 +124,8 @@ routing findings and does not close manual/device or release gates.
 ## Private phase history
 
 The user-authorized history remote is private
-[`RaananW/CSPA`](https://github.com/RaananW/CSPA), `origin`
-`https://github.com/RaananW/CSPA.git`, on `main`. Commit and normally push each
+[`RaananW/underglass`](https://github.com/RaananW/underglass), `origin`
+`https://github.com/RaananW/underglass.git`, on `main`. Commit and normally push each
 phase **after separate technical acceptance**, not during an unfinished phase.
 The first accepted commit
 includes the preexisting accepted Phases1-6 baseline plus Phase7; do not

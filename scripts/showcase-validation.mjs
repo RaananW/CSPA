@@ -95,7 +95,7 @@ try {
   await checkAssets(dist);
   result.assets = assets;
   const html = await readFile(join(dist, "index.html"), "utf8");
-  assert.match(html, /\/CSPA\/assets\//);
+  assert.match(html, /\/underglass\/assets\//);
   const socket = createServer();
   await new Promise(done => socket.listen(0, "127.0.0.1", done));
   const port = socket.address().port;
@@ -104,12 +104,12 @@ try {
   serverClosed = new Promise(done => server.once("close", done));
   for (const stream of [server.stdout, server.stderr]) stream.on("data", data => { serverOutput += data; });
   result.preview = { pid: server.pid, port };
-  const url = `http://127.0.0.1:${port}/CSPA/`;
+  const url = `http://127.0.0.1:${port}/underglass/`;
   for (let attempt = 0;; attempt++) {
     try { assert.equal((await fetch(url)).status, 200); break; }
     catch (error) { if (attempt === 99 || server.exitCode !== null) throw error; await new Promise(done => setTimeout(done, 100)); }
   }
-  for (const asset of html.matchAll(/(?:src|href)="(\/CSPA\/assets\/[^"]+)"/g)) {
+  for (const asset of html.matchAll(/(?:src|href)="(\/underglass\/assets\/[^"]+)"/g)) {
     assert.equal((await fetch(`http://127.0.0.1:${port}${asset[1]}`)).status, 200);
   }
   for (const lane of ["dom", "native"]) {
