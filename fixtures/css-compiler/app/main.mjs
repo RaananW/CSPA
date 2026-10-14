@@ -1,8 +1,8 @@
 import { createElement, useLayoutEffect, useRef } from "react";
-import { Card } from "@canvas-spa/fixture-card";
-import styles from "@canvas-spa/fixture-card/styles.scss";
-import { mountCanvasApp, useSurfaceRef } from "@canvas-spa/react";
-import compiled from "virtual:canvas-spa/compiled";
+import { Card } from "@underglass/fixture-card";
+import styles from "@underglass/fixture-card/styles.scss";
+import { mountCanvasApp, useSurfaceRef } from "@underglass/react";
+import compiled from "virtual:underglass/compiled";
 
 if (Array.isArray(styles)) {
   const sheet = document.createElement("style");

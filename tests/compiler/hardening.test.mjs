@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compileStylesheet } from "../../packages/css-compiler/src/index.mjs";
-import { sameEasing } from "../../packages/canvas-spa/src/compiled.ts";
+import { sameEasing } from "../../packages/underglass/src/compiled.ts";
 
 const frames = (name = "float") => `@keyframes ${name} {
   from { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
@@ -9,7 +9,7 @@ const frames = (name = "float") => `@keyframes ${name} {
 }`;
 const entry = (name = "float") => ({ id: "card", stylesheet: "./card.css", selector: ".card", animations: [name] });
 const compile = (css, name = "float") => compileStylesheet(css, [entry(name)], { filename: "/p/card.css" });
-const refused = css => assert.throws(() => compile(css), error => error.name === "CssSyntaxError" && error.message.includes("CanvasSPA:"));
+const refused = css => assert.throws(() => compile(css), error => error.name === "CssSyntaxError" && error.message.includes("Underglass:"));
 
 test("overlap check compares selector boundaries, not substrings", () => {
   const base = `.card { animation: float 1s linear both; }\n${frames()}`;

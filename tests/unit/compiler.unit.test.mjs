@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compileStyle } from "../../packages/canvas-spa/src/compiler.ts";
+import { compileStyle } from "../../packages/underglass/src/compiler.ts";
 
 test("narrow authoring compiles browser layout and rejects invalid numeric values", () => {
   const style = compileStyle({ x: -2, width: 120, padding: 4, direction: "column", gap: 3 }, {}, true);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, version } from "react";
 import { createRoot } from "react-dom/client";
 import { version as reactDOMVersion } from "react-dom";
-import { createCanvasHosts, mountCanvasApp, type CanvasController } from "@canvas-spa/react";
+import { createCanvasHosts, mountCanvasApp, type CanvasController } from "@underglass/react";
 import { Demo } from "./demos";
 import { examples, route, searchExamples, type ExampleId } from "./catalog";
 import { detectSupport, explain, flags, type Support } from "./support";
@@ -82,13 +82,13 @@ function App() {
   return <>
     <a className="skip-link" href="#studio">Skip to live example</a>
     <div className="hero-shell">
-      <header className="site-header"><a className="brand" href="#/layers"><span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>CanvasSPA<span className="tag">EXPERIMENTAL</span></a>
+      <header className="site-header"><a className="brand" href="#/layers"><span className="brand-mark" aria-hidden="true"><i /><i /><i /></span>Underglass<span className="tag">EXPERIMENTAL</span></a>
         <nav aria-label="Site"><a href="#examples">Examples</a><a href="#about">About the experiment <span aria-hidden="true">&#8599;</span></a></nav></header>
       <section className="hero" aria-labelledby="hero-title">
         <div className="hero-text">
           <p className="hero-badge"><span className="pulse" aria-hidden="true" />HTML-in-Canvas · WebGPU · React</p>
           <h1 id="hero-title">Real React controls.<br /><span className="hero-gradient">Painted by the GPU.</span></h1>
-          <p className="hero-copy">CanvasSPA draws your <em>original</em> React DOM into one shared WebGPU compositor through Chrome's
+          <p className="hero-copy">Underglass draws your <em>original</em> React DOM into one shared WebGPU compositor through Chrome's
             HTML-in-Canvas API. Layers fly, spin and shimmer on the GPU, while typing, focus and clicks stay with the native controls.</p>
           <div className="hero-cta"><a className="cta primary" href="#studio">Open the live studio</a><a className="cta ghost" href="#how-it-works">How it works</a></div>
           <ul className="hero-notes" aria-label="Highlights"><li>Original React state</li><li>Native inputs and hits</li><li>One shared compositor</li><li>DOM by default</li></ul>
@@ -163,13 +163,13 @@ function App() {
       </section>
       <section className="about" id="about"><p className="eyebrow">AN HONEST EXPERIMENT</p><h2>Progressive presentation, not pretend compatibility.</h2>
         <div className="about-grid">
-          <div><h3>What it is</h3><p>CanvasSPA layers GPU presentation over React's original controls. The examples use the public Surface, Box, Presence, motion and effect APIs. Typed layout and appearance compile to browser CSS; the browser still owns layout and editing.</p></div>
+          <div><h3>What it is</h3><p>Underglass layers GPU presentation over React's original controls. The examples use the public Surface, Box, Presence, motion and effect APIs. Typed layout and appearance compile to browser CSS; the browser still owns layout and editing.</p></div>
           <div><h3>What it needs</h3><p>Ordinary DOM works by default. Experimental GPU needs a compatible browser with HTML-in-Canvas and native geometry support. Missing capabilities are diagnosed, not disguised. Decorative shaders never replace essential controls.</p></div>
           <div><h3>What it is not</h3><p>This is a prepared showcase, not a production certification or a published library. Accessibility, physical-device and broader browser qualification remain open. Your reduced-motion preference is respected.</p></div>
         </div>
       </section>
     </main>
-    <footer><span><span className="brand-mark small" aria-hidden="true"><i /><i /><i /></span>CanvasSPA / Example studio</span><span>Built with React. Still an experiment.</span></footer>
+    <footer><span><span className="brand-mark small" aria-hidden="true"><i /><i /><i /></span>Underglass / Example studio</span><span>Built with React. Still an experiment.</span></footer>
   </>;
 }
 

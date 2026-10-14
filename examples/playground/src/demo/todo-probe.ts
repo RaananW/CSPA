@@ -1,4 +1,4 @@
-import type { CanvasController } from "@canvas-spa/react";
+import type { CanvasController } from "@underglass/react";
 import type { taskTransitions } from "../apps/todo/transition";
 import { TODO_DECORATION } from "../apps/todo/TodoApp";
 

@@ -1,1 +1,1 @@
-export { createMountBoundary, type MountBoundaryOptions } from "../../../packages/canvas-spa/src/mount-boundary";
+export { createMountBoundary, type MountBoundaryOptions } from "../../../packages/underglass/src/mount-boundary";

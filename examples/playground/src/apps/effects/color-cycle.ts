@@ -1,4 +1,4 @@
-import { defineEffect } from "@canvas-spa/react";
+import { defineEffect } from "@underglass/react";
 
 export const colorCycle = defineEffect({
   name: "poster-color-cycle",

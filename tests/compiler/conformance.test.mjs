@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { compileStylesheet } from "../../packages/css-compiler/src/index.mjs";
 import { generateModule } from "../../packages/css-compiler/src/generate.mjs";
-import { validateCompiledPrograms } from "../../packages/canvas-spa/src/compiled.ts";
+import { validateCompiledPrograms } from "../../packages/underglass/src/compiled.ts";
 import { acceptedCSS, refusedCSS, referenceTimes } from "./css-corpus.mjs";
 
 for (const fixture of acceptedCSS) {
@@ -24,6 +24,6 @@ for (const fixture of refusedCSS) {
   test(`refused CSS: ${fixture.label}`, () => {
     assert.throws(() => compileStylesheet(fixture.css, [fixture.entry], {
       filename: "/fixture/corpus.css", modules: fixture.modules,
-    }), error => error.name === "CssSyntaxError" && error.message.includes("CanvasSPA:") && error.line > 0);
+    }), error => error.name === "CssSyntaxError" && error.message.includes("Underglass:") && error.line > 0);
   });
 }

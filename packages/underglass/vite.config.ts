@@ -4,7 +4,7 @@ export default defineConfig({
   publicDir: false,
   root: import.meta.dirname,
   plugins: [{
-    name: "canvas-spa-build-entry",
+    name: "underglass-build-entry",
     async closeBundle() {
       await build({
         configFile: false, root: import.meta.dirname, publicDir: false, logLevel: "warn",

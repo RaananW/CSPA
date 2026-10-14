@@ -3,14 +3,14 @@ import loadPostCSS from "postcss-load-config";
 import MagicString from "magic-string";
 import { createCompiler, readConfig } from "./index.mjs";
 
-const request = "virtual:canvas-spa/compiled";
-const virtual = "\0canvas-spa-compiled";
-const marker = "__CANVAS_SPA_BUILD_PROGRAMS__";
-export function canvasSPA({ configFile = "canvas-spa.config.json" } = {}) {
+const request = "virtual:underglass/compiled";
+const virtual = "\0underglass-compiled";
+const marker = "__UNDERGLASS_BUILD_PROGRAMS__";
+export function underglass({ configFile = "underglass.config.json" } = {}) {
   let root, loaded, compiler;
   const selected = new Map();
   return {
-    name: "canvas-spa-css-compiler",
+    name: "underglass-css-compiler",
     async config(config, environment) {
       if (environment.command !== "build") return;
       root = resolve(config.root ?? ".");
@@ -35,9 +35,9 @@ export function canvasSPA({ configFile = "canvas-spa.config.json" } = {}) {
       selected.clear();
       for (const entry of loaded.config.entries) {
         const specifier = entry.stylesheet.startsWith(".") ? resolve(root, entry.stylesheet) : entry.stylesheet;
-        const importer = resolve(root, "__canvas_spa_entry.js");
+        const importer = resolve(root, "__underglass_entry.js");
         const resolved = await this.resolve(specifier, importer) ?? await this.resolve(resolve(root, entry.stylesheet), importer);
-        if (!resolved || resolved.external) throw new Error(`CanvasSPA: stylesheet export is unavailable: ${entry.stylesheet}`);
+        if (!resolved || resolved.external) throw new Error(`Underglass: stylesheet export is unavailable: ${entry.stylesheet}`);
         const path = normalize(resolved.id.split("?")[0]);
         selected.set(path, [...(selected.get(path) ?? []), entry]);
       }
@@ -48,8 +48,8 @@ export function canvasSPA({ configFile = "canvas-spa.config.json" } = {}) {
     },
     load(id) {
       if (id !== virtual) return;
-      if (!compiler) throw new Error("CanvasSPA Vite adapter currently requires a production build; dev/HMR is not qualified");
-      if (this.meta.watchMode) throw new Error("CanvasSPA Vite watch builds are not yet supported");
+      if (!compiler) throw new Error("Underglass Vite adapter currently requires a production build; dev/HMR is not qualified");
+      if (this.meta.watchMode) throw new Error("Underglass Vite watch builds are not yet supported");
       return `${[...selected.keys()].map(path => `import ${JSON.stringify(path)};`).join("\n")}
         const compiled=${JSON.stringify(marker)}; export default compiled;`;
     },

@@ -1,4 +1,4 @@
-import type { CanvasController } from "@canvas-spa/react";
+import type { CanvasController } from "@underglass/react";
 import type { TaskEvent } from "./model";
 import { TODO_DECORATION } from "./TodoApp";
 

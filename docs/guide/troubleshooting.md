@@ -1,6 +1,6 @@
 # Troubleshooting
 
-When GPU mode is refused or ends, CanvasSPA keeps the app usable in ordinary DOM and
+When GPU mode is refused or ends, Underglass keeps the app usable in ordinary DOM and
 says why. Read it from `controller.state().reason`, from `onStatusChange`, or from
 the showcase's **Status** line. Then call `enable()` again once the cause is gone.
 

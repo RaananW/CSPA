@@ -1,6 +1,6 @@
 import { Profiler } from "react";
 import { createRoot, flushSync } from "./react-root";
-import { mountCanvasApp, type CanvasController } from "@canvas-spa/react";
+import { mountCanvasApp, type CanvasController } from "@underglass/react";
 import { TodoApp } from "../apps/todo/TodoApp";
 import { taskTransitions } from "../apps/todo/transition";
 import { todoProbe } from "./todo-probe";

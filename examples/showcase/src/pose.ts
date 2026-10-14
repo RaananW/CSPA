@@ -1,4 +1,4 @@
-import type { MotionDescriptor, MotionKeyframe, Transform } from "@canvas-spa/react";
+import type { MotionDescriptor, MotionKeyframe, Transform } from "@underglass/react";
 
 /** Stage size shared by every studio example (the output canvas frame). */
 export const STAGE = { width: 1040, height: 700 } as const;

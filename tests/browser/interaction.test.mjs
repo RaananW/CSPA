@@ -87,7 +87,7 @@ test("headful clean-profile real background tab pauses effects without hidden-ti
     const { targetInfo } = await cdp.send("Target.getTargetInfo");
     const [other] = await test.step("Open same-window synthetic tab", () => Promise.all([
       context.waitForEvent("page"),
-      cdp.send("Target.createTarget", { url: "data:text/html,<title>CanvasSPA synthetic background target</title><p>No user content</p>",
+      cdp.send("Target.createTarget", { url: "data:text/html,<title>Underglass synthetic background target</title><p>No user content</p>",
         browserContextId: targetInfo.browserContextId, newWindow: false }),
     ]), { timeout: 8000 });
     await test.step("Activate synthetic target", () => other.bringToFront(), { timeout: 8000 });

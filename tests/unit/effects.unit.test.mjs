@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defineEffect, validateEffects, effectUniforms } from "../../packages/canvas-spa/src/effects.ts";
+import { defineEffect, validateEffects, effectUniforms } from "../../packages/underglass/src/effects.ts";
 import { evidenceDirectory, validateEvidenceRoot } from "../helpers/evidence.mjs";
 
 const common = { bounds: "layer", interaction: "decorative", media: "identity", fallback: "static", time: { seconds: 0 } };

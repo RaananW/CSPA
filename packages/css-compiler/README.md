@@ -1,6 +1,6 @@
-# CanvasSPA build-time CSS compiler
+# Underglass build-time CSS compiler
 
-Private, experimental `@canvas-spa/css-compiler@0.0.0`. Explicitly selected
+Private, experimental `@underglass/css-compiler@0.0.0`. Explicitly selected
 animations compile to literal WebGPU compositor programs and matching numeric
 native-geometry samplers during the application build. Ordinary CSS, browser
 layout, React state and the original controls are retained. This is not a
@@ -8,7 +8,7 @@ general CSS translator or a custom React renderer.
 
 ## Configuration
 
-Place `canvas-spa.config.json` in the application root:
+Place `underglass.config.json` in the application root:
 
 ```json
 {
@@ -39,10 +39,10 @@ count; `maxLayers` is still accepted for compatibility and has no effect.
 
 ```js
 import { defineConfig } from "vite";
-import { canvasSPA } from "@canvas-spa/css-compiler/vite";
+import { underglass } from "@underglass/css-compiler/vite";
 
 export default defineConfig({
-  plugins: [canvasSPA({ configFile: "canvas-spa.config.json" })],
+  plugins: [underglass({ configFile: "underglass.config.json" })],
 });
 ```
 
@@ -55,10 +55,10 @@ module is requested.
 ## webpack
 
 ```js
-import { CanvasSPAPlugin } from "@canvas-spa/css-compiler/webpack";
+import { UnderglassPlugin } from "@underglass/css-compiler/webpack";
 
 export default {
-  plugins: [new CanvasSPAPlugin({ configFile: "canvas-spa.config.json" })],
+  plugins: [new UnderglassPlugin({ configFile: "underglass.config.json" })],
   module: {
     rules: [{
       test: /\.scss$/,
@@ -96,9 +96,9 @@ preprocessors/loader chains require separate qualification.
 ## Runtime enrollment
 
 ```tsx
-/// <reference types="@canvas-spa/css-compiler/client" />
-import compiled from "virtual:canvas-spa/compiled";
-import { mountCanvasApp, useSurfaceRef } from "@canvas-spa/react";
+/// <reference types="@underglass/css-compiler/client" />
+import compiled from "virtual:underglass/compiled";
+import { mountCanvasApp, useSurfaceRef } from "@underglass/react";
 
 function App() {
   const ref = useSurfaceRef({ id: "card" });
@@ -127,7 +127,7 @@ geometry. Playback supports `play`, `pause`, `seek` and `release`. Disable,
 failure or disposal restores ordinary CSS behavior and the current time/play
 state without replacing React's original controls. The browser may recreate
 the CSSAnimation object; Animation-object identity is not guaranteed.
-Later authored declarations that differ from CanvasSPA's owned values are
+Later authored declarations that differ from Underglass's owned values are
 preserved on restoration. Reassigning an identical value/priority is not
 distinguishable from the ownership lease's existing write.
 

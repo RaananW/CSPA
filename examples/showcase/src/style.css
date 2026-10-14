@@ -221,7 +221,7 @@ h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: .98; letter-spacing: -.04
 .stage .output { pointer-events: none; }
 .stage .overlay { position: relative; z-index: 2; }
 
-/* ---------- Content inside surfaces (no CSS transitions/animations: motion is owned by CanvasSPA) ---------- */
+/* ---------- Content inside surfaces (no CSS transitions/animations: motion is owned by Underglass) ---------- */
 .stage input, .stage textarea { max-width: 100%; }
 .stage button { border: 1px solid #c9c2d6; border-radius: 9px; padding: 6px 10px; background: white; color: #292437; font-weight: 650; }
 .stage button:not(:disabled):hover { background: #f4f0fb; }

@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import { Profiler, version } from "react";
 import { version as reactDOMVersion } from "react-dom";
-import { mountCanvasApp, type CanvasController } from "@canvas-spa/react";
+import { mountCanvasApp, type CanvasController } from "@underglass/react";
 import { TodoApp } from "./task/TodoApp.js";
 import { taskTransitions } from "./task/transition.js";
 import { rendererDiagnostic } from "./task/diagnostics.js";

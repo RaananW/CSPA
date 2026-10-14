@@ -1,8 +1,8 @@
-# Contributing to CanvasSPA
+# Contributing to Underglass
 
 ## Workspace ownership
 
-`packages/canvas-spa/package.json` is the only release manifest; keep library
+`packages/underglass/package.json` is the only release manifest; keep library
 source independent of playground/tests. The private root owns tools and stable
 scripts, while `examples/playground` owns app dependencies, HTML and Vite/TS
 configuration. Use root `npm run build:library`, `npm run build`,
@@ -45,7 +45,7 @@ Always await worker disposal acknowledgement before restoring original DOM.
 
 ## GPU-first requirement
 
-Every human and agent working on CanvasSPA must follow the
+Every human and agent working on Underglass must follow the
 [GPU-first contract](docs/architecture.md#gpu-first-contract).
 Supported React layer/ref/content updates require continuous GPU presentation,
 fresh pixels, current original native hit geometry and no blank application
@@ -77,7 +77,7 @@ status and historical tests are not installed-browser qualification. Current
 syntax/API support requires functional pixel and original native-hit evidence,
 not silent legacy compatibility or property detection alone.
 
-CanvasSPA is open-source software under the [Apache License 2.0](LICENSE)
+Underglass is open-source software under the [Apache License 2.0](LICENSE)
 (selected 2026-10-14). Contributions are accepted under the same license.
 The package is still an experimental private package, not a published
 library; registry publication and release policy are unresolved. No maintainer or
@@ -331,7 +331,7 @@ closes its own randomly allocated strict-port previews and browser profiles.
 Its actual npm-installed tarball consumers have no workspace/source aliases,
 matching declared React/types, strict Bundler/NodeNext declarations and
 flagged/unflagged production native/GPU pixel checks. Prepack builds only
-`packages/canvas-spa/dist/library`; playground builds use
+`packages/underglass/dist/library`; playground builds use
 `examples/playground/dist/` and cannot replace library output. No generated output belongs in Git.
 Curated versioned verdicts are read-only. Raw historical evidence is externally
 archived, not available in the current checkout; never reconstruct or regenerate

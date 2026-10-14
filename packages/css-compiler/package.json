@@ -1,5 +1,5 @@
 {
-  "name": "@canvas-spa/css-compiler",
+  "name": "@underglass/css-compiler",
   "version": "0.0.0",
   "private": true,
   "license": "Apache-2.0",
@@ -14,7 +14,7 @@
   },
   "files": ["src", "schema.json", "README.md"],
   "dependencies": {
-    "@canvas-spa/react": "0.1.0",
+    "@underglass/react": "0.1.0",
     "magic-string": "1.4.3",
     "postcss": "8.5.29",
     "postcss-load-config": "6.0.1",

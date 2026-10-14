@@ -28,7 +28,7 @@ async function sourceHash() {
     }
   }
   await walk(resolve("examples/playground/src"));
-  await walk(resolve("packages/canvas-spa/src"));
+  await walk(resolve("packages/underglass/src"));
   return digest.digest("hex");
 }
 function distribution(values) {

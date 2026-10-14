@@ -4,11 +4,11 @@
 external local archive, not files in this checkout. Only compact verdicts
 remain tracked; [archive access, hashes and reproduction](archive/archive-catalog.md).
 
-The intentional source entry point is `packages/canvas-spa/src/index.ts`. This private
+The intentional source entry point is `packages/underglass/src/index.ts`. This private
 experimental package has no published package name or stability promise.
 Do not import demo facades or internal renderer classes into application code.
 The private prepared tarball now exports the same API at
-`@canvas-spa/react` with declarations, independently accepted with Phase10
+`@underglass/react` with declarations, independently accepted with Phase10
 limits. See [distribution](distribution.md) for actual install commands,
 host CSS, public dependency/type boundaries and the bounded browser contract.
 
@@ -35,12 +35,12 @@ worker backend.
 
 | Public entry or API | Contract |
 | --- | --- |
-| `@canvas-spa/css-compiler/vite` and `/webpack` | Production-build adapters configured by `canvas-spa.config.json`; selected local/package styles use the application's verified preprocessing pipeline. |
-| `virtual:canvas-spa/compiled` | Generated `CompiledProgramSet`: literal WGSL/bindings and matching numeric native-geometry samplers. Pass it as `compiled` to `mountCanvasApp`. |
+| `@underglass/css-compiler/vite` and `/webpack` | Production-build adapters configured by `underglass.config.json`; selected local/package styles use the application's verified preprocessing pipeline. |
+| `virtual:underglass/compiled` | Generated `CompiledProgramSet`: literal WGSL/bindings and matching numeric native-geometry samplers. Pass it as `compiled` to `mountCanvasApp`. |
 | `controller.ownCompiledAnimation(id, animationId)` | Explicit ownership of an enrolled original element's matching CSS animation. Returns the existing playback interface; disable/release/disposal restores native behavior. |
-| `@canvas-spa/react/build` | Build-only compositor/animation generators, including `workerCompositorProgram(1..8)`. Do not import this entry into the compiled browser runtime. |
-| `@canvas-spa/react/experimental-worker` | `mountWorkerCanvasApp`, `WorkerSurface` and public worker types. Essential/native-control geometry is fixed; only inert decoration animates. |
-| `@canvas-spa/react/experimental-worker/thread` | `startWorkerCompositor(self)` for an application-owned module worker. React, DOM/layout and native capture remain main-thread. |
+| `@underglass/react/build` | Build-only compositor/animation generators, including `workerCompositorProgram(1..8)`. Do not import this entry into the compiled browser runtime. |
+| `@underglass/react/experimental-worker` | `mountWorkerCanvasApp`, `WorkerSurface` and public worker types. Essential/native-control geometry is fixed; only inert decoration animates. |
+| `@underglass/react/experimental-worker/thread` | `startWorkerCompositor(self)` for an application-owned module worker. React, DOM/layout and native capture remain main-thread. |
 
 Compiled and worker runtime routes consume prebuilt shaders; the default
 noncompiled route still generates WGSL internally. Device-specific pipeline
@@ -171,8 +171,8 @@ Those styles are host integration, not layer authoring.
 
 ```tsx
 import { useState } from "react";
-import { mountCanvasApp, Surface, Box, NativeOverlay } from "@canvas-spa/react";
-import type { CanvasStatus } from "@canvas-spa/react";
+import { mountCanvasApp, Surface, Box, NativeOverlay } from "@underglass/react";
+import type { CanvasStatus } from "@underglass/react";
 
 function App() {
   const [name, setName] = useState("");
@@ -401,7 +401,7 @@ are diagnosed and retained instead of overwritten on release/recovery.
 
 ```tsx
 import * as Dialog from "@radix-ui/react-dialog";
-import { useSurfaceRef, useNativeOverlayHost } from "../canvas-spa";
+import { useSurfaceRef, useNativeOverlayHost } from "../underglass";
 
 function App() {
   const panel = useSurfaceRef<HTMLElement>({ id: "panel" });
@@ -616,7 +616,7 @@ pretending precedence is proven.
 ### Numeric motion for new applications
 
 ```ts
-import type { MotionDescriptor } from "../canvas-spa";
+import type { MotionDescriptor } from "../underglass";
 
 const descriptor: MotionDescriptor = {
   keyframes: [

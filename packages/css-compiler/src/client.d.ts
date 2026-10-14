@@ -1,4 +1,4 @@
-declare module "virtual:canvas-spa/compiled" {
-  const compiled: import("@canvas-spa/react").CompiledProgramSet;
+declare module "virtual:underglass/compiled" {
+  const compiled: import("@underglass/react").CompiledProgramSet;
   export default compiled;
 }

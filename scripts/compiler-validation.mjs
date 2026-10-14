@@ -75,7 +75,7 @@ try {
   await copyDependencies(join(root, "node_modules"), join(tree, "node_modules"));
   await assertPhysicalTree(tree);
   const node = process.execPath, vite = join(tree, "node_modules/vite/bin/vite.js"), tsc = join(tree, "node_modules/typescript/bin/tsc");
-  const library = join(tree, "packages/canvas-spa");
+  const library = join(tree, "packages/underglass");
   await command(node, [vite, "build"], library, "library-build");
   await command(node, [tsc, "-p", "tsconfig.json"], library, "library-types");
   const archives = join(run, "archives");
@@ -88,8 +88,8 @@ try {
   }
   const archiveNames = await readdir(archives);
   const archive = prefix => join(archives, archiveNames.find(name => name.startsWith(prefix)));
-  await installArchive(tree, archive("canvas-spa-react"), "@canvas-spa/react");
-  await installArchive(tree, archive("canvas-spa-css-compiler"), "@canvas-spa/css-compiler");
+  await installArchive(tree, archive("underglass-react"), "@underglass/react");
+  await installArchive(tree, archive("underglass-css-compiler"), "@underglass/css-compiler");
   await command(node, ["--test", "tests/compiler/compiler.test.mjs", "tests/compiler/conformance.test.mjs"], tree, "compiler-units");
   const { compileStylesheet } = await import(pathToFileURL(join(tree, "packages/css-compiler/src/index.mjs")).href);
   const { generateModule } = await import(pathToFileURL(join(tree, "packages/css-compiler/src/generate.mjs")).href);
@@ -107,20 +107,20 @@ try {
   report.corpus = { accepted: acceptedCSS.map(fixture => fixture.label), refused: refusedCSS.map(fixture => fixture.label),
     nativeBoundaryOffsetMilliseconds: 0.01, matrixOpacityTolerance: 0.0005, translationTolerancePixels: 0.02,
     clockLimit: "One-microsecond native CSS seeks are retained as clock diagnostics, not interpolation-equivalence assertions." };
-  await writeFile(join(tree, "compiler-types.ts"), `import {createCompiler,compileStylesheet,type CompilerConfig} from "@canvas-spa/css-compiler";
-    import {canvasSPA} from "@canvas-spa/css-compiler/vite";import {CanvasSPAPlugin} from "@canvas-spa/css-compiler/webpack";
-    import type {CompiledProgramSet} from "@canvas-spa/react";import "@canvas-spa/css-compiler/client";
-    import compiled from "virtual:canvas-spa/compiled";const valid:CompiledProgramSet=compiled;
+  await writeFile(join(tree, "compiler-types.ts"), `import {createCompiler,compileStylesheet,type CompilerConfig} from "@underglass/css-compiler";
+    import {underglass} from "@underglass/css-compiler/vite";import {UnderglassPlugin} from "@underglass/css-compiler/webpack";
+    import type {CompiledProgramSet} from "@underglass/react";import "@underglass/css-compiler/client";
+    import compiled from "virtual:underglass/compiled";const valid:CompiledProgramSet=compiled;
     const config:CompilerConfig={version:1,target:"webgpu",unsupported:"error",entries:[]};
-    createCompiler(config);compileStylesheet("",config.entries);canvasSPA();new CanvasSPAPlugin();void valid;`);
+    createCompiler(config);compileStylesheet("",config.entries);underglass();new UnderglassPlugin();void valid;`);
   await command(node, [tsc, "--noEmit", "--strict", "--skipLibCheck", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2022", "compiler-types.ts"], tree, "compiler-public-types");
   const applications = [];
   for (const bundler of ["vite", "webpack"]) {
     const app = join(tree, bundler);
     await cp(join(tree, "fixtures/css-compiler/app"), app, { recursive: true });
     await writeFile(join(app, "package.json"), '{"private":true,"type":"module"}\n');
-    await installArchive(app, archive("canvas-spa-fixture-card"), "@canvas-spa/fixture-card");
-    const packageBefore = hash(await readFile(join(app, "node_modules/@canvas-spa/fixture-card/card.module.scss")));
+    await installArchive(app, archive("underglass-fixture-card"), "@underglass/fixture-card");
+    const packageBefore = hash(await readFile(join(app, "node_modules/@underglass/fixture-card/card.module.scss")));
     if (bundler === "vite") {
       await command(node, [vite, "build"], app, "vite-package-scss");
       const maps = (await readdir(join(app, "dist/assets"))).filter(name => name.endsWith(".js.map"));
@@ -133,10 +133,10 @@ try {
       }
       assert.ok(sources.some(source => source.endsWith("main.mjs")));
     } else {
-      await writeFile(join(app, "webpack.config.mjs"), `import {CanvasSPAPlugin} from "@canvas-spa/css-compiler/webpack";
+      await writeFile(join(app, "webpack.config.mjs"), `import {UnderglassPlugin} from "@underglass/css-compiler/webpack";
         export default {mode:"production",context:import.meta.dirname,entry:"./main.mjs",
           output:{path:import.meta.dirname+"/dist",filename:"main.js"},
-          plugins:[new CanvasSPAPlugin()],module:{rules:[{test:/\\.scss$/,use:[
+          plugins:[new UnderglassPlugin()],module:{rules:[{test:/\\.scss$/,use:[
             {loader:"css-loader",options:{sourceMap:true,modules:{namedExport:false}}},
             {loader:"postcss-loader",options:{sourceMap:true,postcssOptions:{config:import.meta.dirname+"/postcss.config.mjs"}}},
             {loader:"sass-loader",options:{sourceMap:true}}
@@ -151,7 +151,7 @@ try {
       } finally { await new Promise((done, reject) => compiler.close(error => error ? reject(error) : done())); }
       await writeFile(join(app, "dist/index.html"), (await readFile(join(app, "index.html"), "utf8")).replace('type="module" src="./main.mjs"', 'src="./main.js"'));
     }
-    assert.equal(hash(await readFile(join(app, "node_modules/@canvas-spa/fixture-card/card.module.scss"))), packageBefore);
+    assert.equal(hash(await readFile(join(app, "node_modules/@underglass/fixture-card/card.module.scss"))), packageBefore);
     applications.push({ bundler, app, dist: join(app, "dist") });
     report.builds.push({ bundler, packageScssUnchanged: true });
   }
@@ -161,13 +161,13 @@ try {
   const diagnostic = await command(node, [vite, "build"], negative, "unsupported-source-location", true);
   assert.match(diagnostic, /local\.scss/);
   assert.match(diagnostic, /Only complete transform\/opacity/);
-  const badConfig = JSON.parse(await readFile(join(negative, "canvas-spa.config.json"), "utf8"));
-  badConfig.entries[0].stylesheet = "@canvas-spa/fixture-card/not-exported.scss";
-  await writeFile(join(negative, "canvas-spa.config.json"), JSON.stringify(badConfig));
+  const badConfig = JSON.parse(await readFile(join(negative, "underglass.config.json"), "utf8"));
+  badConfig.entries[0].stylesheet = "@underglass/fixture-card/not-exported.scss";
+  await writeFile(join(negative, "underglass.config.json"), JSON.stringify(badConfig));
   const unavailable = await command(node, [vite, "build"], negative, "unavailable-package-export", true);
   assert.match(unavailable, /not-exported|unavailable/);
   await cp(join(applications[1].app, "webpack.config.mjs"), join(negative, "webpack.config.mjs"));
-  await cp(join(applications[1].app, "canvas-spa.config.json"), join(negative, "canvas-spa.config.json"));
+  await cp(join(applications[1].app, "underglass.config.json"), join(negative, "underglass.config.json"));
   const unsupportedLoader = await command(node, ["--input-type=module", "-e", `import webpack from "webpack";import config from "./webpack.config.mjs";
     config.module={rules:[{test:/\\.scss$/,type:"asset/source"}]};
     const compiler=webpack(config);compiler.run((error,stats)=>compiler.close(()=>{if(error)throw error;if(stats.hasErrors())throw new Error(stats.toString({all:false,errors:true}));}));`],

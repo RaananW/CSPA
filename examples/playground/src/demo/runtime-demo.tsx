@@ -1,6 +1,6 @@
 import { Profiler, version, useState, useEffect, useRef, type ProfilerOnRenderCallback } from "react";
 import { createRoot, flushSync } from "./react-root";
-import { mountCanvasApp, Surface, Box, NativeOverlay, NativeScroll, type CanvasController, type Transform, type TransformOrigin } from "@canvas-spa/react";
+import { mountCanvasApp, Surface, Box, NativeOverlay, NativeScroll, type CanvasController, type Transform, type TransformOrigin } from "@underglass/react";
 
 const params = new URLSearchParams(location.search);
 const commits = { count: 0, mounts: 0, cleanups: 0 };

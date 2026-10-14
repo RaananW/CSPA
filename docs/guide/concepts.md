@@ -2,7 +2,7 @@
 
 ## One React tree, two ways to present it
 
-Your app is one React tree with real DOM elements. CanvasSPA presents that tree in
+Your app is one React tree with real DOM elements. Underglass presents that tree in
 one of two modes:
 
 | Mode | What draws it | When |
@@ -23,7 +23,7 @@ captured into a texture and drawn by its own GPU pass, in DOM order.
   it. Use it for layers you author.
 - `useSurfaceRef({ id })` (or `controller.enroll(element, { id })`) enrolls an
   element you already render, for example a third-party component's root. The
-  element must be a **direct child** of the CanvasSPA root.
+  element must be a **direct child** of the Underglass root.
 - `<Box>` is ordinary flow layout inside a layer. It is not a layer.
 
 Everything inside a layer is regular DOM. Text, inputs, CSS animations and even
@@ -58,7 +58,7 @@ you need something CSS cannot do to rendered HTML:
 - **Camera or video frames treated like any other pixels**: refract, reflect and
   light them together with your HTML.
 
-If a component only needs transforms and fades, CSS is fine. CanvasSPA keeps working
+If a component only needs transforms and fades, CSS is fine. Underglass keeps working
 the same in DOM mode either way.
 
 ## Admission and fallback
@@ -69,7 +69,7 @@ testing are correct on this browser, in this window. Only then does it reveal GP
 output.
 
 Once GPU is on, ordinary updates (React renders, layout changes, resizing, device
-pixel ratio changes, hidden tabs, reduced motion) **keep** it on. CanvasSPA returns
+pixel ratio changes, hidden tabs, reduced motion) **keep** it on. Underglass returns
 to DOM only for a real GPU error or a construct GPU mode cannot present correctly,
 and it always reports why: `controller.state().reason` and `onStatusChange`. See
 [Troubleshooting](troubleshooting.md).

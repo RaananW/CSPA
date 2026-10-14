@@ -1,2 +1,2 @@
-import { startWorkerCompositor } from "@canvas-spa/react/experimental-worker/thread";
+import { startWorkerCompositor } from "@underglass/react/experimental-worker/thread";
 startWorkerCompositor(self);

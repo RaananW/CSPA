@@ -41,7 +41,7 @@ test("unavailable capture and no-GPU configurations keep initial original DOM us
     await page.getByLabel("Name", { exact: true }).click();
     await page.keyboard.press("End");
     await page.keyboard.type("-still-DOM");
-    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("CanvasSPA-still-DOM");
+    await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Underglass-still-DOM");
   } finally { await page.close(); }
 });
 

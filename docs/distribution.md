@@ -5,7 +5,7 @@ Phase11 engineering is **independently accepted with limits; human/physical
 validation pending**. Full Phase11 remains incomplete; the repository's compact
 Phase11 verdict and adoption checklist preserve the open gates.
 The package is **not published, not production-ready**. The existing
-`@canvas-spa/react@0.1.0` identity and `private: true` are retained;
+`@underglass/react@0.1.0` identity and `private: true` are retained;
 the project is licensed under Apache-2.0 (the tarball includes `LICENSE`).
 Do not publish, create a registry package or change visibility from this build.
 
@@ -44,16 +44,16 @@ is added. Earlier installed-consumer records below remain historical.
 
 ```sh
 npm run build:library
-npm pack --workspace @canvas-spa/react --dry-run --json
+npm pack --workspace @underglass/react --dry-run --json
 # Choose an ignored directory for the actual archive:
 npm run pack:library -- --pack-destination fixtures/package-consumer/workspaces
 # In a separate React application, install the actual generated .tgz:
-npm install /path/to/canvas-spa-react-0.1.0.tgz
+npm install /path/to/underglass-react-0.1.0.tgz
 ```
 
 Create the pack destination first. `prepack` rebuilds the intentional
 library entries with existing Vite and emits TypeScript declarations. The
-unchanged runtime root is ESM `@canvas-spa/react`; additional explicit
+unchanged runtime root is ESM `@underglass/react`; additional explicit
 exports are `/build`, `/experimental-worker` and `/experimental-worker/thread`.
 CommonJS and internal subpath imports are unsupported. The current allowlist
 contains33 members: manifest, README, this contract, four JS entries and their
@@ -66,7 +66,7 @@ bundling and program generation are explicit integration work, not injected
 assets or automatic adoption. Historical archive identities below do not
 qualify this changed package.
 
-The separate private `@canvas-spa/css-compiler` workspace supplies JSON-configured
+The separate private `@underglass/css-compiler` workspace supplies JSON-configured
 Vite/webpack adapters for a bounded CSS/Sass/PostCSS/Modules subset; it is not
 shipped inside this library. Worker bundling is verified with Vite's ES module
 worker output, not webpack or automatic compiler/worker interoperability.
@@ -89,7 +89,7 @@ not bundled duplicate roots. Actual tested pairs are18.3.1 and19.3.0;
 the peer range is not certification of every version. Public Lite1.33.0
 is an exact runtime dependency, not vendored, and its unrelated WebXR
 declaration names require the exact `@types/webxr`0.5.24 dependency/reference.
-CanvasSPA does not expose a WebXR feature. Radix, Lite GL, profiling and demo
+Underglass does not expose a WebXR feature. Radix, Lite GL, profiling and demo
 dependencies are development-only. TypeScript7.0.2 is the tested compiler;
 older compiler/DOM-library compatibility is unverified. Declaration references
 resolve under Bundler and NodeNext with `skipLibCheck: false` and no implicit
@@ -121,7 +121,7 @@ export or automatic global CSS injection.
 
 ```tsx
 import { useState } from "react";
-import { mountCanvasApp, Surface, Box, type MountCanvasOptions } from "@canvas-spa/react";
+import { mountCanvasApp, Surface, Box, type MountCanvasOptions } from "@underglass/react";
 
 function App() {
   const [name, setName] = useState("");

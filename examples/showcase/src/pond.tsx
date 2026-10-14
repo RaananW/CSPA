@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Surface, defineEffect, type EffectDescriptor } from "@canvas-spa/react";
+import { Surface, defineEffect, type EffectDescriptor } from "@underglass/react";
 import { Panel, describe, useReducedMotion } from "./shared";
 import { policy, residentChain, useScene, useSceneArt } from "./scene";
 

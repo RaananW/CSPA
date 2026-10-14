@@ -18,7 +18,7 @@ async function hashSource(directory) {
   }
 }
 await hashSource(resolve("examples/playground/src"));
-await hashSource(resolve("packages/canvas-spa/src"));
+await hashSource(resolve("packages/underglass/src"));
 const sourceSha256 = source.digest("hex");
 const lockSha256 = digest(await readFile("package-lock.json"));
 const paths = execFileSync("git", ["ls-tree", "-r", "--name-only", baseline, "evidence"], { encoding: "utf8" }).trim().split("\n");

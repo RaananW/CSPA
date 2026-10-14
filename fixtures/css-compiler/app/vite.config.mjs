@@ -1,5 +1,5 @@
-import { canvasSPA } from "@canvas-spa/css-compiler/vite";
+import { underglass } from "@underglass/css-compiler/vite";
 export default {
-  plugins: [canvasSPA()],
+  plugins: [underglass()],
   build: { sourcemap: true },
 };

@@ -1,13 +1,13 @@
-# CanvasSPA agent instructions
+# Underglass agent instructions
 
-CanvasSPA is a **GPU-first** React framework. Read [README.md](README.md),
+Underglass is a **GPU-first** React framework. Read [README.md](README.md),
 [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [GPU-first contract](docs/architecture.md#gpu-first-contract) before changing it.
 User-facing behaviour is described in [docs/guide](docs/guide/getting-started.md).
 
 ## Layout
 
-- `packages/canvas-spa`: the library, the only package that is packed.
+- `packages/underglass`: the library, the only package that is packed.
 - `packages/css-compiler`: the opt-in build-time CSS compiler.
 - `examples/playground`: engineering pages and probes; `examples/showcase`: the public gallery.
 - `tests/unit`, `tests/browser`, `tests/compiler`, `tests/helpers`. The React 18 fixture is separately locked.

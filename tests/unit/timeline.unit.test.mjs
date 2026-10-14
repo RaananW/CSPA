@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compileTimeline, parseTransform } from "../../packages/canvas-spa/src/timeline.ts";
+import { compileTimeline, parseTransform } from "../../packages/underglass/src/timeline.ts";
 
 const frames = [
   { offset: 0, transform: "translate(0px, 0px) rotate(0deg) scale(1)", opacity: 1 },

@@ -14,7 +14,7 @@ contributor commands are in [CONTRIBUTING.md](../CONTRIBUTING.md).
 ## Repository boundaries
 
 The private root npm workspace is tooling, not a second library package.
-`packages/canvas-spa` owns library source/manifest/build, the public runtime
+`packages/underglass` owns library source/manifest/build, the public runtime
 root and separate build/experimental-worker exports; it must not depend on
 playground or tests. The private `packages/css-compiler` workspace owns the
 build-only JSON analyzer and Vite/webpack integration, not another UI runtime.
@@ -35,7 +35,7 @@ See [showcase preparation](showcase.md); no hosting is implied.
 
 ## GPU-first contract
 
-CanvasSPA is a GPU-first framework. Supported React layer, ref and content
+Underglass is a GPU-first framework. Supported React layer, ref and content
 updates must remain GPU-presented with fresh pixels, current original native
 interaction geometry and no blank application frames. DOM fallback is reserved
 for GPU errors or factual lack of required GPU/capture/geometry feature support,
@@ -205,27 +205,27 @@ functional proof and benchmark interpretation.
 
 | Module | Responsibility |
 | --- | --- |
-| `packages/canvas-spa/src/index.ts`, `react.tsx` | Intentional typed API, explicit root bootstrap, context, enrollment and fixed native overlay portal |
-| `packages/canvas-spa/src/enrollment.ts` | Original-element ref enrollment options and typed pre-mutation refusal codes |
-| `packages/canvas-spa/src/runtime.ts` | Stable registry, per-layer controller motion, layout/environment policies and observer ownership |
-| `packages/canvas-spa/src/affine.ts`, `compiler.ts` | Canonical invertible transforms and narrow authoring-to-browser-style compilation |
-| `packages/canvas-spa/src/composition.ts` | Per-layer pass shader (bounding-box vertex stage, inverse sampling, straight-alpha blend) and the worker's layer-count shader |
-| `packages/canvas-spa/src/mount-boundary.ts` | Destination validation, one mount callback, stable-container moves and final unmount |
-| `packages/canvas-spa/src/device-lifecycle.ts` | Public configured-device loss observation and bounded idle synchronization |
-| `packages/canvas-spa/src/renderer.ts` | Native capture, public texture/effect composition, independent dirty scheduling, serialized recovery and resource accounting |
-| `packages/canvas-spa/src/admission.ts` | Independent known-color probe DOM, pixel checks, applied geometry and native interior/clipped-exterior hit validation |
-| `packages/canvas-spa/src/motion.ts`, `timeline.ts`, `animation.ts`, `css-animation.ts` | Public numeric descriptor contracts, shared whole-effect compilation, per-property presentation ownership, separate CSS/WAAPI compatibility and bounded replacement tracking |
-| `packages/canvas-spa/src/module.ts`, `ripple.ts` | Trusted local mounting contract and decorative-only effect validation |
-| `packages/canvas-spa/src/effects.ts` | Whole-chain descriptor/schema validation, trusted application definitions and shared uniform packing |
+| `packages/underglass/src/index.ts`, `react.tsx` | Intentional typed API, explicit root bootstrap, context, enrollment and fixed native overlay portal |
+| `packages/underglass/src/enrollment.ts` | Original-element ref enrollment options and typed pre-mutation refusal codes |
+| `packages/underglass/src/runtime.ts` | Stable registry, per-layer controller motion, layout/environment policies and observer ownership |
+| `packages/underglass/src/affine.ts`, `compiler.ts` | Canonical invertible transforms and narrow authoring-to-browser-style compilation |
+| `packages/underglass/src/composition.ts` | Per-layer pass shader (bounding-box vertex stage, inverse sampling, straight-alpha blend) and the worker's layer-count shader |
+| `packages/underglass/src/mount-boundary.ts` | Destination validation, one mount callback, stable-container moves and final unmount |
+| `packages/underglass/src/device-lifecycle.ts` | Public configured-device loss observation and bounded idle synchronization |
+| `packages/underglass/src/renderer.ts` | Native capture, public texture/effect composition, independent dirty scheduling, serialized recovery and resource accounting |
+| `packages/underglass/src/admission.ts` | Independent known-color probe DOM, pixel checks, applied geometry and native interior/clipped-exterior hit validation |
+| `packages/underglass/src/motion.ts`, `timeline.ts`, `animation.ts`, `css-animation.ts` | Public numeric descriptor contracts, shared whole-effect compilation, per-property presentation ownership, separate CSS/WAAPI compatibility and bounded replacement tracking |
+| `packages/underglass/src/module.ts`, `ripple.ts` | Trusted local mounting contract and decorative-only effect validation |
+| `packages/underglass/src/effects.ts` | Whole-chain descriptor/schema validation, trusted application definitions and shared uniform packing |
 | `examples/playground/src/apps/effects/color-cycle.ts`, `examples/playground/src/demo/effects-demo.tsx`, `examples/playground/effects.html` | Public-API custom effect outside runtime, native poster composer and external measurement/HMR fixture |
 | `examples/playground/src/demo/paired-demo.tsx`, `examples/playground/paired.html` | Shared React behavior in existing-CSS and compiled typed examples; public source/pixel/profiling diagnostic fixture |
-| `examples/playground/src/apps/todo/` | Reusable bounded TODO reducer, typed native-control UI and one replaceable action-transition timer; public CanvasSPA imports only |
+| `examples/playground/src/apps/todo/` | Reusable bounded TODO reducer, typed native-control UI and one replaceable action-transition timer; public Underglass imports only |
 | `examples/playground/src/demo/todo-demo.tsx`, `todo-probe.ts`, `examples/playground/todo.html` | External host/shell, profiling, deterministic/fault test facade and serialized HMR retirement |
 | `examples/playground/src/demo/integration-demo.tsx`, `integration.css`, `examples/playground/integration.html` | App-owned CSS, original-element enrollment, public Radix Dialog portal and single-subtree Presence; external shell/profiling/HMR fixture |
 | `examples/playground/src/demo/react-root.ts` | Matching public production profiling root/flush versus actual development client root/flush |
 | `examples/playground/src/demo/performance-demo.tsx`, `scripts/measure.mjs` | Public-API 2/4/8-layer fixture, finite full-window collector and serial production measurement; not application/runtime policy |
 | `fixtures/react18/`, `scripts/react-matrix.mjs` | Explicit independent dependency/type resolution, unchanged shared sources and actual React18/19 production/development behavior |
-| `packages/canvas-spa/src/native.ts` | Structural native capability guards, finite/applied geometry validation and abortable paint wait |
+| `packages/underglass/src/native.ts` | Structural native capability guards, finite/applied geometry validation and abortable paint wait |
 | `examples/playground/src/demo/runtime-demo.tsx` | Sample UI, production profiling, action/diagnostic fixture and HMR lifetime cleanup |
 | `examples/playground/src/main.tsx` | Independent ordinary-DOM landing-page baseline |
 | `examples/playground/src/probe.ts`, `backend-probe.ts`, `recovery-probe.tsx` | Historical native/backend/remount-versus-stable-container experiments; not production recovery code |

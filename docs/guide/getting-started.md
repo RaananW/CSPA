@@ -1,7 +1,7 @@
 # Getting started
 
-CanvasSPA lets a React app keep its ordinary DOM controls while Chrome draws them
-through WebGPU. You write normal React: inputs, buttons, forms, text. CanvasSPA
+Underglass lets a React app keep its ordinary DOM controls while Chrome draws them
+through WebGPU. You write normal React: inputs, buttons, forms, text. Underglass
 places parts of that tree in **layers** that the GPU can move, rotate, fade and run
 shader effects on, while every click, keystroke and focus change still goes to the
 original elements.
@@ -28,13 +28,13 @@ The package is not on npm yet. Build a tarball from this repository and install 
 
 ```sh
 npm ci --ignore-scripts
-npm run pack:library            # writes canvas-spa-react-<version>.tgz
-cd ../your-app && npm install ../CSPA/canvas-spa-react-*.tgz
+npm run pack:library            # writes underglass-react-<version>.tgz
+cd ../your-app && npm install ../CSPA/underglass-react-*.tgz
 ```
 
 ## Your first layer
 
-CanvasSPA needs one sized element **outside every React root**. It adds three hosts
+Underglass needs one sized element **outside every React root**. It adds three hosts
 inside it: the output canvas, the host for ordinary DOM, and an overlay host for
 dialogs and popovers.
 
@@ -44,7 +44,7 @@ dialogs and popovers.
 
 ```tsx
 import { useState } from "react";
-import { createCanvasHosts, mountCanvasApp, Surface, useGPUHost } from "@canvas-spa/react";
+import { createCanvasHosts, mountCanvasApp, Surface, useGPUHost } from "@underglass/react";
 
 function Profile() {
   const gpu = useGPUHost();

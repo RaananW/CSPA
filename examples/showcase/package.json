@@ -1,5 +1,5 @@
 {
-  "name": "@canvas-spa/showcase",
+  "name": "@underglass/showcase",
   "version": "0.0.0",
   "private": true,
   "license": "Apache-2.0",
@@ -10,7 +10,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 5191 --strictPort"
   },
   "dependencies": {
-    "@canvas-spa/react": "0.1.0",
+    "@underglass/react": "0.1.0",
     "@radix-ui/react-dialog": "1.2.0",
     "react": "19.3.0",
     "react-dom": "19.3.0"

@@ -1,5 +1,5 @@
 {
-  "name": "@canvas-spa/playground",
+  "name": "@underglass/playground",
   "version": "0.0.0",
   "private": true,
   "license": "Apache-2.0",
@@ -10,7 +10,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
-    "@canvas-spa/react": "0.1.0",
+    "@underglass/react": "0.1.0",
     "@radix-ui/react-dialog": "1.2.0",
     "@babylonjs/lite-gl": "1.16.0",
     "react": "19.3.0",

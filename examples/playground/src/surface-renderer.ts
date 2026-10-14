@@ -1,1 +1,1 @@
-export { createSurfaceRenderer, type SurfaceRendererOptions } from "../../../packages/canvas-spa/src/renderer";
+export { createSurfaceRenderer, type SurfaceRendererOptions } from "../../../packages/underglass/src/renderer";

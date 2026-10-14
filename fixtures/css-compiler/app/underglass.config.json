@@ -6,7 +6,7 @@
   "entries": [
     {
       "id": "card",
-      "stylesheet": "@canvas-spa/fixture-card/styles.scss",
+      "stylesheet": "@underglass/fixture-card/styles.scss",
       "selector": ".card",
       "animations": ["float"]
     },

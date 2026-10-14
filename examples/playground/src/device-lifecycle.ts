@@ -1,1 +1,1 @@
-export { observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "../../../packages/canvas-spa/src/device-lifecycle";
+export { observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "../../../packages/underglass/src/device-lifecycle";

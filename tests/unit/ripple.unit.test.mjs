@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateRipple } from "../../packages/canvas-spa/src/ripple.ts";
+import { validateRipple } from "../../packages/underglass/src/ripple.ts";
 
 test("bounded decorative effect parameters reject atomically", () => {
   assert.deepEqual(validateRipple({ amplitude: 0, seconds: 10 }), { amplitude: 0, seconds: 10, playing: false });
