@@ -75,23 +75,17 @@ After opening the page in that configured Canary session, choose **Enable
 experimental GPU**. Flags alone do not guarantee support in every Canary build;
 CanvasSPA checks working capture and geometry and reports refusal reasons.
 
-## Deployment is a separate decision
+## Deployment
 
-`.github/workflows/showcase-pages.yml` prepares a manual build/deploy workflow:
-immutable action refs, committed-lock restore, no browser downloads, a
-showcase-only Pages artifact, and Pages/OIDC write permissions confined to the
-deployment job. It has no push or pull-request trigger. The existing private
-release workflow stays build-only. **Neither workflow dispatch nor Pages
-activation/deployment/publication is authorized or performed by preparation.**
-
-Before a future authorized deployment, an owner must confirm GitHub Pages
-availability for this private repository/account plan and desired site
-visibility. Private-source repositories can produce publicly reachable Pages
-sites depending on account configuration; repository privacy is not a promise
-of site privacy. Configure Pages to use GitHub Actions and review the
-`github-pages` environment approval/access rules separately. Custom domains,
-repository visibility and public release remain separate (license: Apache-2.0).
-No hosted URL or successful deployment is claimed here.
+`.github/workflows/showcase-pages.yml` builds and deploys the showcase to GitHub
+Pages (<https://raananw.github.io/CSPA/>) on every push to `main` that touches
+the showcase, the library, the compiler or the lockfile, and on manual dispatch.
+It never runs for pull requests. It uses immutable action refs, restores from
+the committed lockfile without browser downloads, uploads a showcase-only Pages
+artifact, and confines Pages/OIDC write permissions to the deployment job. It
+needs the repository's Pages source set to **GitHub Actions** (Settings → Pages);
+until then the deploy job fails without publishing anything. The release workflow stays
+build-only; npm publication remains a separate decision (license: Apache-2.0).
 
 The build emits only `index.html` and hashed CSS/JavaScript assets, with source
 maps disabled. The build's output guard rejects unexpected files, source maps,

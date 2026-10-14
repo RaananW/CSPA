@@ -1,6 +1,15 @@
-name: Prepare and deploy example showcase (manual)
+name: Deploy example showcase
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "examples/showcase/**"
+      - "examples/playground/src/apps/**"
+      - "packages/canvas-spa/**"
+      - "packages/css-compiler/**"
+      - "package-lock.json"
+      - ".github/workflows/showcase-pages.yml"
   workflow_dispatch:
 
 permissions:

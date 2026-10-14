@@ -55,8 +55,9 @@ npm run dev:showcase   # React example gallery
 
 The [showcase](docs/showcase.md) is a separate private React gallery of native
 layers, motion, effects and the task app. **GPU demos require Chrome Canary with
-HTML-in-Canvas enabled**; ordinary DOM mode works without flags. GitHub Pages
-deployment is prepared, **not enabled or published**.
+HTML-in-Canvas enabled**; ordinary DOM mode works without flags. It deploys to
+GitHub Pages at <https://raananw.github.io/CSPA/> from `main` once Pages is
+enabled for the repository.
 
 ## Minimal usage
 
