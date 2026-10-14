@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { intersectViewport, localViewport, scrollOrigin, canvasContentOrigin, viewportContains } from "../../packages/canvas-spa/src/viewport.ts";
+import { axisAligned, intersectViewport, localViewport, scrollOrigin, canvasContentOrigin, viewportContains } from "../../packages/canvas-spa/src/viewport.ts";
 
 test("owner native border-box origin is separate from GPU bitmap content coordinates", () => {
   assert.deepEqual(canvasContentOrigin({ clientLeft: 8, clientTop: 5 }, { paddingLeft: "4px", paddingTop: "6px" }),
@@ -36,5 +36,12 @@ test("viewport origin includes offset-parent borders and ancestor scroll, not ca
     assert.deepEqual(scrollOrigin(element, root), { x: 30, y: 33 });
   } finally {
     if (before === undefined) delete globalThis.HTMLElement; else globalThis.HTMLElement = before;
+  }
+});
+
+test("only positive axis-aligned matrices have a representable local clip rectangle", () => {
+  assert.equal(axisAligned({ a: 2, b: 0, c: 0, d: .5 }), true);
+  for (const matrix of [{ a: 1, b: .1, c: 0, d: 1 }, { a: 1, b: 0, c: -.1, d: 1 }, { a: -1, b: 0, c: 0, d: 1 }, { a: 1, b: 0, c: 0, d: 0 }]) {
+    assert.equal(axisAligned(matrix), false);
   }
 });

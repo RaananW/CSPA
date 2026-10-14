@@ -58,3 +58,53 @@ export function verifyProbeGeometry(host: DrawableCanvas, probe: ReturnType<type
     actual: Array.from(host.getElementTransform(probe.element).toFloat64Array()), hits,
     hitCheck: "elementFromPoint: two interiors and one clipped exterior" };
 }
+
+export type FrameBounds = "bounded" | "unbounded" | "unverifiable";
+
+/**
+ * Functional proof that native hit testing stops at the output canvas content
+ * box. The probe is rotated across one visible content edge with no clip beyond
+ * its own extent: the inner half must hit the probe and the outer half must not.
+ * When that holds, a transformed layer crossing the frame edge needs no extra
+ * frame clip, because the canvas bounds its GPU pixels and its native hits alike.
+ * `unverifiable` means no content edge is visible with room on both sides, or the
+ * inner half is occluded; callers then keep the frame clip requirement.
+ */
+export function verifyFrameBounds(host: DrawableCanvas, probe: ReturnType<typeof createAdmissionProbe>,
+  origin = { x: 0, y: 0 }): { result: FrameBounds; edge?: string; hits?: boolean[] } {
+  const view = host.ownerDocument.defaultView!;
+  const style = view.getComputedStyle(host);
+  const rect = host.getBoundingClientRect();
+  const width = host.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+  const height = host.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  const content = { left: rect.x + origin.x, top: rect.y + origin.y, right: rect.x + origin.x + width, bottom: rect.y + origin.y + height };
+  const margin = probe.extent;
+  const visible = (low: number, high: number, limit: number) => {
+    const start = Math.max(low, 0), end = Math.min(high, limit);
+    return end - start > margin * 2 ? (start + end) / 2 : undefined;
+  };
+  const middleY = visible(content.top, content.bottom, view.innerHeight);
+  const middleX = visible(content.left, content.right, view.innerWidth);
+  const fits = (value: number, low: number, high: number) => value - margin >= low && value + margin <= high;
+  const edges = [
+    { edge: "right", at: { x: content.right, y: middleY }, angle: 0, ok: middleY !== undefined && fits(content.right, Math.max(content.left, 0), view.innerWidth) },
+    { edge: "bottom", at: { x: middleX, y: content.bottom }, angle: 90, ok: middleX !== undefined && fits(content.bottom, Math.max(content.top, 0), view.innerHeight) },
+    { edge: "left", at: { x: content.left, y: middleY }, angle: 180, ok: middleY !== undefined && fits(content.left, 0, Math.min(content.right, view.innerWidth)) },
+    { edge: "top", at: { x: middleX, y: content.top }, angle: 270, ok: middleX !== undefined && fits(content.top, 0, Math.min(content.bottom, view.innerHeight)) },
+  ];
+  const candidate = edges.find(entry => entry.ok);
+  if (!candidate) return { result: "unverifiable" };
+  const half = probe.extent / 2;
+  // Local +x points out of the canvas; 11 degrees keeps the probe non-axis-aligned.
+  const matrix = new DOMMatrix().translate(candidate.at.x! - rect.x, candidate.at.y! - rect.y)
+    .rotate(candidate.angle + 11).translate(-half, -half);
+  host.updateElementGeometry(probe.element, { canvasTransform: matrix, canvasClip: { x: 0, y: 0, width: probe.extent, height: probe.extent } });
+  validateAppliedGeometry(host, probe.element, matrix);
+  const hits = [{ x: probe.extent * .15, y: half }, { x: probe.extent * .85, y: half }]
+    .map(point => matrix.transformPoint(point))
+    .map(point => {
+      const hit = host.ownerDocument.elementFromPoint(rect.x + point.x, rect.y + point.y);
+      return hit === probe.element || !!hit && probe.element.contains(hit);
+    });
+  return { result: !hits[0] ? "unverifiable" : hits[1] ? "unbounded" : "bounded", edge: candidate.edge, hits };
+}

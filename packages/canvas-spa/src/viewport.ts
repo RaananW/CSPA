@@ -17,8 +17,12 @@ export function viewportContains(matrix: Pick<DOMMatrixReadOnly, "a" | "b" | "c"
     return at.x >= clip.x && at.y >= clip.y && at.x <= clip.x + clip.width && at.y <= clip.y + clip.height;
   });
 }
+/** Positive axis-aligned scale/translation: the only form a local clip rectangle can represent. */
+export function axisAligned(matrix: Pick<DOMMatrixReadOnly, "a" | "b" | "c" | "d">): boolean {
+  return matrix.b === 0 && matrix.c === 0 && matrix.a > 0 && matrix.d > 0;
+}
 export function localViewport(matrix: DOMMatrixReadOnly, clip: ViewportRect): ViewportRect {
-  if (matrix.b !== 0 || matrix.c !== 0 || matrix.a <= 0 || matrix.d <= 0) {
+  if (!axisAligned(matrix)) {
     throw new Error("Viewport clipping requires positive axis-aligned layer transforms");
   }
   return { x: (clip.x - matrix.e) / matrix.a, y: (clip.y - matrix.f) / matrix.d,

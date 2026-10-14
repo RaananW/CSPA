@@ -10,7 +10,7 @@ import { completeCoverage, type CaptureCoverage } from "./publication.js";
 import { createMountBoundary, type MountBoundaryOptions } from "./mount-boundary.js";
 import { configuredDevice, observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "./device-lifecycle.js";
 import { compositionShader, compositionUniforms } from "./composition.js";
-import { createAdmissionProbe, verifyProbeGeometry, verifyProbePixels } from "./admission.js";
+import { createAdmissionProbe, verifyFrameBounds, verifyProbeGeometry, verifyProbePixels, type FrameBounds } from "./admission.js";
 import type { Ripple } from "./ripple.js";
 import type { ApplicationEffect, EffectDescriptor } from "./effects.js";
 import type { CompiledMotion, CompiledProgramSet } from "./compiled.js";
@@ -79,7 +79,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   const layerMetrics: Record<string, { captures: number; pixelCopies: number; pixelReadbacks: number; uploads: number }> = Object.create(null);
   const metrics = { captures: 0, pixelCopies: 0, pixelReadbacks: 0, reusedUploads: 0, uploads: 0, paintNotifications: 0, deviceLossCount: 0, fenceCount: 0, effectShaderCompilations: 0, incompleteFramesSkipped: 0, shaderSourceGenerations: 0, precompiledShaderSelections: 0,
     admission: { attempts: 0, passes: 0, captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0, gpuFrames: 0, gpuReadbacks: 0, geometryChecks: 0,
-      last: undefined as { nativePixels: number[][]; gpuPixels: number[][]; geometry: ReturnType<typeof verifyProbeGeometry> } | undefined },
+      last: undefined as { nativePixels: number[][]; gpuPixels: number[][]; geometry: ReturnType<typeof verifyProbeGeometry>; frameBounds: ReturnType<typeof verifyFrameBounds> } | undefined },
     timings: { captureMs: timing(), uploadMs: timing(), frameWorkMs: timing(), frameIntervalsMs: timing() },
     paintElements: [] as string[][], perLayer: layerMetrics, uploadBytes: 0, gpuFrames: 0, geometryUpdates: 0, moves: 0, deviceLosses: [] as { reason: GPUDeviceLostReason; message: string; duringMotion: boolean; duringAdmission: boolean }[], fenceOutcomes: [] as IdleOutcome[], captureMs: [] as number[], uploadMs: [] as number[], frameWorkMs: [] as number[], frameIntervalsMs: [] as number[] };
   function sample<T>(values: T[], value: T) {
@@ -126,6 +126,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     return compositionShader(count, custom);
   }
   let clearedGeometry: { id: string; identity: boolean | null }[] = [];
+  // Whether the last functional admission proved native hits stop at the canvas content box.
+  let frameBounds: FrameBounds = "unverifiable";
   type Layer = EnrolledLayer & { extent: { width: number; height: number }; texture: DynamicTexture2D;
     coverage: CaptureCoverage; contentExtent: { width: number; height: number; pixelWidth: number; pixelHeight: number } };
   type Composition = { layers: Layer[]; effect: EffectWrapper; renderer: ReturnType<typeof createEffectRenderer>;
@@ -756,6 +758,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         abort.signal.throwIfAborted();
         const geometryResult = verifyProbeGeometry(nativeHost(), probe, options.nativeOrigin?.());
         metrics.admission.geometryChecks++;
+        const frameResult = verifyFrameBounds(nativeHost(), probe, options.nativeOrigin?.());
+        frameBounds = frameResult.result;
         setEffectUniforms(effect!, compositionUniforms(layers, options.size().dpr, 0, 0, layers.length, [], !!options.compiled));
         const readback = captureScreenshot(engine.surfaces[0]);
         const pending = { active: true, completion: Promise.resolve() };
@@ -801,7 +805,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         if (clippedPixel.length !== 4 || clippedPixel.some(value => Math.abs(value - 255) > 2)) {
           throw new Error("Functional GPU viewport clip probe failed");
         }
-        metrics.admission.last = { nativePixels: [], gpuPixels, geometry: geometryResult };
+        metrics.admission.last = { nativePixels: [], gpuPixels, geometry: geometryResult, frameBounds: frameResult };
         const { outcome } = await waitForTeardown(engine, observer?.lost, 1500, pending.completion);
         sample(metrics.fenceOutcomes, outcome);
         metrics.fenceCount++;
@@ -1044,6 +1048,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     reconcileGeometry: () => { membershipPending = true; current = options.layers(); geometry(); },
     acceptsCustom: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)] === definition,
     phase: () => mode, version: () => generation, resume: scheduleCapture,
+    frameBounded: () => frameBounds === "bounded",
     pause: () => {
       // Paints skipped while hidden are not replayed; refresh every layer on resume.
       for (const layer of current) dirty.add(layer.id);
