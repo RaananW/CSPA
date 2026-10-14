@@ -1,25 +1,39 @@
+/**
+ * Example 03, "Shader lab": native checkboxes and sliders build an effect chain (ripple, chromatic,
+ * the custom `aurora` WGSL, dissolve) that `setEffects` applies to the decorative art layer through
+ * `scene.setChain`. Only the inert artwork is affected; the controls and the placard stay
+ * original. In ordinary DOM the chain is accepted but the static artwork is shown.
+ */
 import { useEffect, useRef, useState } from "react";
 import { Surface, type EffectDescriptor } from "@underglass/react";
 import { Panel, useReducedMotion } from "./shared";
 import { aurora, policy, residentChain, useScene, useSceneArt } from "./scene";
 
+// All lab controls in one object: the booleans say which operations are in the chain, the numbers
+// are their parameters.
 interface Lab {
   ripple: boolean; chromatic: boolean; aurora: boolean; dissolve: boolean;
   amplitude: number; displacement: number; strength: number; scanlines: number; glow: number; amount: number; playing: boolean;
 }
+// The four chain operations.
 type Key = "ripple" | "chromatic" | "aurora" | "dissolve";
+// Everything off, with default parameter values.
 const clean: Lab = { ripple: false, chromatic: false, aurora: false, dissolve: false,
   amplitude: 6, displacement: 8, strength: .75, scanlines: 0, glow: .6, amount: .35, playing: true };
+// Preset buttons: each overrides `clean` with a ready-made chain.
 const presets: Record<string, Partial<Lab>> = {
   Aurora: { aurora: true, strength: .8, scanlines: 0, glow: .8 },
   Hologram: { chromatic: true, displacement: 3, aurora: true, strength: .55, scanlines: 1, glow: .2 },
   Melt: { ripple: true, amplitude: 10, dissolve: true, amount: .3 },
   Glitch: { ripple: true, amplitude: 4, chromatic: true, displacement: 11, aurora: true, strength: .35, scanlines: .6, glow: 0 },
 };
+// A layer's effect chain holds at most three operations (see `docs/effects.md`).
 const MAX_OPERATIONS = 3;
 
 /** Declared order: sampling (ripple, chromatic) before colour/alpha (custom, dissolve). */
 function chain(lab: Lab, seconds: number, reduced: boolean): EffectDescriptor[] {
+  // `seconds` continues the shader clock from `epoch`, so changing a setting does not restart the
+  // animation. Reduced motion freezes it.
   const time = { seconds, playing: lab.playing && !reduced };
   const operations: EffectDescriptor[] = [];
   if (lab.ripple) operations.push({ kind: "ripple", parameters: { amplitude: lab.amplitude }, time: { ...time }, ...policy });
@@ -32,12 +46,14 @@ function chain(lab: Lab, seconds: number, reduced: boolean): EffectDescriptor[] 
   if (lab.dissolve) operations.push({ kind: "dissolve", parameters: { amount: lab.amount, speed: 1 }, time: { ...time }, ...policy });
   return operations;
 }
+// One-line description of the active chain, for the placard and feedback.
 function summary(lab: Lab) {
   const parts = [lab.ripple && `ripple ${lab.amplitude}px`, lab.chromatic && `chromatic ${lab.displacement}px`,
     lab.aurora && `aurora ${Math.round(lab.strength * 100)}%`, lab.dissolve && `dissolve ${Math.round(lab.amount * 100)}%`].filter(Boolean);
   return parts.length ? parts.join("  →  ") : "No effect: original artwork";
 }
 
+/** The shader lab example: controls on the left, the chain applied to the shared art layer. */
 export function ShaderLab() {
   const scene = useScene();
   const reduced = useReducedMotion();
@@ -46,7 +62,9 @@ export function ShaderLab() {
   const [saved, setSaved] = useState("Aurora over a quiet city");
   const [seed, setSeed] = useState(7);
   const [feedback, setFeedback] = useState("Choose a preset or build a chain of up to three operations.");
+  // Mirrors the newest state so `update` always merges into current values.
   const latest = useRef(lab);
+  // Time origin of the shader clock.
   const epoch = useRef(performance.now());
   latest.current = lab;
   useSceneArt(() => ({ layout: { x: 378, y: 24, width: 642, height: 500, overflow: "hidden" },
@@ -54,8 +72,11 @@ export function ShaderLab() {
   // Leaving the lab returns the shared art layer to its resident identity chain.
   useEffect(() => () => { scene.setChain(residentChain()); }, [scene]);
 
+  // Merges `change`, applies the new chain to the art layer, and only then commits it to state. A
+  // refused chain leaves the lab unchanged and shows why.
   function update(change: Partial<Lab>, message?: string) {
     const next = { ...latest.current, ...change };
+    // Seconds since the lab opened, wrapped at 1000 like the effect clock.
     const seconds = ((performance.now() - epoch.current) / 1000) % 1000;
     const result = scene.setChain(chain(next, seconds, reduced));
     if (!result.ok) { setFeedback(`Effect unavailable: ${result.error}`); return; }
@@ -64,7 +85,9 @@ export function ShaderLab() {
     setFeedback(scene.mode() !== "gpu" ? `${text} Ordinary DOM shows the static original artwork; enable experimental GPU to see the shader.`
       : result.customDropped && next.aurora ? `${text} Aurora needs a fresh GPU admission: use ordinary DOM, then enable GPU again.` : text);
   }
+  // Number of enabled operations; once it reaches `MAX_OPERATIONS`, unchecked boxes are disabled.
   const active = [lab.ripple, lab.chromatic, lab.aurora, lab.dissolve].filter(Boolean).length;
+  // Props for an operation's checkbox.
   const toggle = (key: Key) => ({
     checked: lab[key], disabled: !lab[key] && active >= MAX_OPERATIONS,
     onChange: () => update({ [key]: !lab[key] }),
@@ -115,6 +138,7 @@ export function ShaderLab() {
   </>;
 }
 
+/** One chain row: a native checkbox and a native range slider showing the parameter. */
 function EffectRow({ label, unit, toggle, value, min, max, step, percent, onValue }: {
   label: string; unit: string; value: number; min: number; max: number; step: number; percent?: boolean;
   toggle: { checked: boolean; disabled: boolean; onChange(): void }; onValue(value: number): void;

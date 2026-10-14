@@ -1,18 +1,34 @@
+/**
+ * Packs layer state into uniform buffers and generates the WGSL that composites layers. Each layer
+ * is described by a fixed block of 11 vec4s (see `BLOCK`): the inverse transform, extent, opacity,
+ * ripple, up to three effects and the clip. The uploaded inverse layer matrix maps each output
+ * pixel back into layer-local space, where the shader applies compiled motion and effects, then samples the
+ * captured texture. `renderer.ts` draws one pass per layer (`layerShader`/`layerUniforms`);
+ * `compositionShader`/`compositionUniforms` is the single-pass variant. Effect packing is in
+ * `effects.ts` and compiled motion in `compiled.ts`.
+ */
 import type { EffectWrapperOptions } from "@babylonjs/lite";
 import { validateGeometry } from "./native.js";
 import type { Ripple } from "./ripple.js";
 import { effectUniforms, type EffectDescriptor, type ApplicationEffect } from "./effects.js";
 import { LAYER_PASS_FLOATS, type CompiledMotion } from "./compiled.js";
 
+/**
+ * What the compositor reads from a layer. Optional members are absent for layers without that
+ * feature. Coordinates are CSS pixels; `matrix()` maps layer-local to canvas space.
+ */
 interface CompositeLayer {
   matrix(): DOMMatrix;
+  /** Visible region in layer-local pixels; the optional matrix is the layer's canvas-space matrix. */
   clip?(matrix?: DOMMatrixReadOnly): { x: number; y: number; width: number; height: number } | undefined;
   opacity(): number;
   extent: { width: number; height: number };
+  /** Captured texture size (`pixel*`) against the layer's CSS size, when they differ. */
   contentExtent?: { width: number; height: number; pixelWidth: number; pixelHeight: number };
   ripple?(): Ripple | undefined;
   effects?(): readonly EffectDescriptor[];
   effectsEnabled?(): boolean;
+  /** Present while a compiled CSS animation drives the layer inside the shader. */
   compiledMotion?(): CompiledMotion | undefined;
 }
 
@@ -21,25 +37,39 @@ const BLOCK = 44;
 
 /** Writes one layer's 11-vec4 uniform block at `offset` and returns its canvas-space matrix and clip. */
 function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeLayer, shift: number, customIndex: number, compiled: boolean) {
+  // Compiled motion is evaluated in the shader, so the matrix only carries the motion's origin.
   const motion = compiled ? layer.compiledMotion?.() : undefined;
   const base = motion ? new DOMMatrix().translate(motion.origin.x, motion.origin.y) : layer.matrix();
+  // `shift` is a horizontal canvas-space offset applied to the whole layer.
   const matrix = new DOMMatrix().translate(shift, 0).multiply(base);
   validateGeometry(matrix);
+  // The shader maps canvas -> layer-local, so it needs the inverse (only its 2D rows are uploaded).
   const inverse = matrix.inverse();
   const content = layer.contentExtent ?? { width: layer.extent.width, height: layer.extent.height,
     pixelWidth: layer.extent.width, pixelHeight: layer.extent.height };
+  // vec4 0-1: inverse rows plus texels per CSS pixel; vec4 2: extent, opacity, custom effect slot
+  // (the worker's decorative shader reads that `.w` as its opacity-preset flag, 1 or -1);
+  // vec4 3: ripple amplitude, ripple time (wrapped to keep f32 precision) and captured pixel size.
+  // With compiled motion the uniform opacity is 1; the shader applies the animated opacity instead.
   values.set([
     inverse.a, inverse.c, inverse.e, content.pixelWidth / Math.max(1, content.width),
     inverse.b, inverse.d, inverse.f, content.pixelHeight / Math.max(1, content.height),
     layer.extent.width, layer.extent.height, motion ? 1 : layer.opacity(), customIndex,
     layer.ripple?.()?.amplitude ?? 0, (layer.ripple?.()?.seconds ?? 0) % 1000, content.pixelWidth, content.pixelHeight,
   ], offset);
+  // vec4 4-9: the effect chain, left empty while effects are disabled for the layer.
   values.set(effectUniforms(layer.effectsEnabled?.() === false ? [] : layer.effects?.()), offset + 16);
+  // vec4 10: clip rectangle in layer-local pixels; defaults to the whole content.
   const clip = layer.clip?.(new DOMMatrix().translate(shift, 0).multiply(layer.matrix())) ?? { x: 0, y: 0, width: content.width, height: content.height };
   values.set([clip.x, clip.y, clip.width, clip.height], offset + 40);
   return { matrix, clip, motion };
 }
 
+/**
+ * Uniforms for the single-pass compositor: a 4-float header (`dpr`, `tint`), then `capacity` layer
+ * blocks, then (when `compiled`) one 4-float motion slot per layer. `custom` lists the registered
+ * custom effects; each block stores its layer's index into it, or -1 when none applies.
+ */
 export function compositionUniforms(layers: CompositeLayer[], dpr: number, shift = 0, tint = 0, capacity = layers.length,
   custom: readonly (ApplicationEffect | undefined)[] = [], compiled = false) {
   const values = new Float32Array(4 + capacity * (compiled ? BLOCK + 4 : BLOCK));
@@ -128,11 +158,13 @@ function layerBody(index: number, base: number, playback: number | undefined, cu
     }\n`;
 }
 
+/** WGSL functions for the application's custom effects, named `custom${index}` to match `layerBody`. */
 function customDeclarations(custom: readonly (ApplicationEffect | undefined)[]) {
   return custom.map((definition, index) => definition
     ? `fn custom${index}(color: vec4f, local: vec2f, extent: vec2f, seconds: f32, parameters: vec4f) -> vec4f { ${definition.wgsl} }\n` : "").join("");
 }
 
+/** Shared WGSL helpers: edge falloff, the ripple `warp` and premultiplied bilinear `filtered` sampling. */
 const helpers = `
       fn edge(local: vec2f, extent: vec2f) -> f32 { return smoothstep(0.0, 16.0, min(min(local.x, local.y), min(extent.x - local.x, extent.y - local.y))); }
       fn warp(local: vec2f, extent: vec2f, amplitude: f32, seconds: f32) -> vec2f {
@@ -163,6 +195,7 @@ const helpers = `
  * experimental worker compositor; the main renderer draws one pass per layer.
  */
 export function compositionShader(count: number, custom: readonly (ApplicationEffect | undefined)[] = [], compiledWGSL?: string, decorativeAnimation = false): Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL"> {
+  // Per layer: texture and sampler at bindings 2i and 2i+1; the uniform buffer follows at 2*count.
   const bindings: NonNullable<EffectWrapperOptions["bindings"]> = [];
   let declarations = (compiledWGSL ?? "") + customDeclarations(custom);
   let body = "";
@@ -171,12 +204,15 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
       { binding: index * 2 + 1, kind: "sampler", textureBinding: `layer${index}` });
     declarations += `@group(0) @binding(${index * 2}) var layer${index}: texture_2d<f32>;
       @group(0) @binding(${index * 2 + 1}) var sampler${index}: sampler;\n`;
+    // State layout in vec4s: [0] header, then 11 per layer, then (compiled only) one motion slot per layer.
     body += layerBody(index, 1 + index * 11, compiledWGSL ? 1 + count * 11 + index : undefined, custom, decorativeAnimation,
       alpha => `color = mix(color, sample.rgb, ${alpha});`);
   }
+  // Header floats (4) plus one block per layer, plus 4 floats per layer when compiled motion is present.
   bindings.push({ binding: count * 2, kind: "uniform", uniformByteLength: (4 + count * (compiledWGSL ? BLOCK + 4 : BLOCK)) * 4 });
   return {
     bindings,
+    // `state` holds the header vec4 followed by the layer blocks (and compiled slots).
     fragmentWGSL: `${declarations}${helpers}
       @group(0) @binding(${count * 2}) var<uniform> state: array<vec4f, ${1 + count * (compiledWGSL ? 12 : 11)}>;
       @fragment fn effectFragment(input: EffectVertexOutput) -> @location(0) vec4f {
@@ -189,6 +225,7 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
 }
 
 /** Per-layer pass uniforms: header, bounding box, frame size, one layer block, compiled slot. */
+// Header floats: dpr, tint, 2 spare; bounding box x0,y0,x1,y1; frame width, height, 2 spare.
 const LAYER_HEADER = 12;
 if (LAYER_PASS_FLOATS !== LAYER_HEADER + BLOCK + 4) throw new Error("Per-layer uniform layout mismatch");
 /** GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT; literal so the shader can be generated outside a browser. */
@@ -246,12 +283,14 @@ export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string): 
 export function layerUniforms(layer: CompositeLayer, dpr: number, frame: { width: number; height: number }, shift = 0, tint = 0,
   custom?: ApplicationEffect, compiled = false) {
   const values = new Float32Array(LAYER_PASS_FLOATS);
+  // The per-layer pass only binds its own custom effect, so its slot is 0 when it matches and -1 otherwise.
   const definition = layer.effects?.().find(value => value.kind === "custom")?.definition;
   const { matrix, clip, motion } = writeLayerBlock(values, LAYER_HEADER, layer, shift, custom && definition === custom ? 0 : -1, compiled);
   if (compiled) values.set([motion ? motion.index + 1 : 0, motion?.phase ?? 0, 0, 0], LAYER_HEADER + BLOCK);
   // Compiled motion moves the layer inside the shader, so it may cover the whole frame.
   const corners = motion ? [] : [[clip.x, clip.y], [clip.x + clip.width, clip.y], [clip.x, clip.y + clip.height], [clip.x + clip.width, clip.y + clip.height]]
     .map(([x, y]) => matrix.transformPoint({ x: Math.min(Math.max(x!, 0), layer.extent.width), y: Math.min(Math.max(y!, 0), layer.extent.height) }));
+  // Pixels of padding so antialiased edges are not cut off by the bounding triangle.
   const pad = 2;
   const bounds = motion ? [0, 0, frame.width, frame.height] : [
     Math.max(0, Math.min(...corners.map(point => point.x)) - pad), Math.max(0, Math.min(...corners.map(point => point.y)) - pad),

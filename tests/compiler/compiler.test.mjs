@@ -1,3 +1,8 @@
+/**
+ * Unit tests for the build-time CSS compiler core: configuration validation, code generation, refusal
+ * of unsupported CSS, and CSS Modules handling. Plain `node:test`, no browser; run with
+ * `node --test tests/compiler/*.test.mjs` (also run by `scripts/compiler-validation.mjs`).
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import postcss from "postcss";
@@ -6,8 +11,11 @@ import { generateModule } from "../../packages/css-compiler/src/generate.mjs";
 import { compileTimeline } from "../../packages/underglass/src/timeline.ts";
 import { validateCompiledPrograms } from "../../packages/underglass/src/compiled.ts";
 
+// A single enrolled target and a matching configuration, shared by the tests below.
 const entry = { id: "card", stylesheet: "./card.scss", selector: ".card", animations: ["float"] };
 const config = { version: 1, target: "webgpu", unsupported: "error", maxLayers: 2, entries: [entry] };
+// Reference stylesheet: an infinite alternating animation with a per-keyframe easing and a non-uniform
+// scale. Several tests derive invalid variants from it with `String.replace`.
 const css = `.card { animation: float 1s linear infinite alternate both; }
 @keyframes float {
   from { transform: translate(0px, 0px) rotate(0deg) scale(1); opacity: 1; }
@@ -21,30 +29,39 @@ test("JSON enrollment is strict, bounded and explicit", () => {
     { ...config, entries: [entry, entry] }, { ...config, entries: [{ ...entry, selector: ".card:hover" }] },
     { ...config, entries: [{ ...entry, animations: ["float", "other"] }] }]) assert.throws(() => validateConfig(bad));
 });
+// Evaluates the generated module (as a `data:` URL) and compares its JS sampler with the library's own
+// timeline implementation.
 test("build emits literal WGSL programs and generated native geometry samplers", async () => {
   const animations = compileStylesheet(css, [entry]);
   const source = generateModule(animations);
   const compiled = (await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`)).default;
+  // Infinity must survive code generation; JSON would have turned it into null.
   assert.equal(compiled.animations[0].timing.iterations, Infinity);
   // One per-layer program serves any layer count; the runtime draws it once per layer.
   assert.equal(compiled.version, 2);
   assert.equal(compiled.programs.length, 1);
   assert.match(compiled.programs[0].fragmentWGSL, /compiled_sample/);
   assert.match(compiled.programs[0].vertexWGSL, /effectFullscreenVertex/);
+  // Byte size of the program's final (uniform) binding: 12 header + 44 layer block + 4 compiled-slot floats.
   assert.equal(compiled.programs[0].bindings.at(-1).uniformByteLength, (12 + 44 + 4) * 4);
   const timeline = compileTimeline(animations[0].values, animations[0].timing);
+  // Tolerance allows for f32 rounding between the generated sampler and the reference timeline.
   for (const time of [0, 17.3, 250, 500, 740, 1000, 1500, 2000, 5734]) {
     const actual = compiled.animations[0].sample(time), expected = timeline.sample(Math.fround(time));
     for (const key of Object.keys(expected)) assert.ok(Math.abs(actual[key] - expected[key]) < 1e-4, `${time}:${key}`);
   }
+  // `normalizeTime` rejects non-finite or negative times.
   assert.throws(() => compiled.animations[0].sample(NaN));
   assert.throws(() => compiled.animations[0].sample(-1));
+  // The runtime-side validator must accept the generated set and reject malformed ones.
   validateCompiledPrograms(compiled);
   assert.throws(() => validateCompiledPrograms({ ...compiled, animations: [compiled.animations[0], compiled.animations[0]] }), /descriptor/);
   assert.throws(() => validateCompiledPrograms({ ...compiled, animations: [{ ...compiled.animations[0], normalizeTime: undefined }] }), /descriptor/);
   assert.throws(() => validateCompiledPrograms({ ...compiled, programs: [{ ...compiled.programs[0], bindings: [] }] }), /program/);
   assert.throws(() => validateCompiledPrograms({ ...compiled, version: 1 }), /rebuild/);
 });
+// Each variant leaves the supported subset. The error must be a PostCSS `CssSyntaxError` carrying a
+// source line, so the build can point at the offending CSS.
 test("selected unsupported CSS fails with an available input location", () => {
   for (const bad of [
     css.replace("opacity: 0.6;", "opacity: 0.6; filter: blur(3px);"),
@@ -71,6 +88,7 @@ test("CSS Modules mappings, untouched CSS and missing pipeline inputs are explic
   const compiler = createCompiler(config);
   assert.throws(() => compiler.generate(), /not processed/);
   const root = postcss.parse(css);
+  // `consume` must not modify the PostCSS root it analyzes (the application's CSS is shipped unchanged).
   compiler.consume("card.scss", root, [entry]);
   assert.equal(root.toString(), css);
   assert.match(compiler.generate(), /export default compiled/);

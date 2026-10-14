@@ -1,3 +1,8 @@
+/**
+ * Unit tests that read the repository's `package.json` and lock files to check workspace layout, release
+ * identity and React peer versions. Reads files relative to the repository root, so run from the root with
+ * `npm run test:unit`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -22,6 +27,7 @@ test("the release identity belongs only to the library workspace, not the toolin
 });
 
 
+// The root lock pins React 19.3.0 and the React 18 fixture lock pins 18.3.1; the library's own lock entry must match its package.json.
 test("both committed lock lanes retain distinct actual React peer ownership", async () => {
   const root = JSON.parse(await readFile("package-lock.json", "utf8")).packages;
   const react18 = JSON.parse(await readFile("fixtures/react18/package-lock.json", "utf8")).packages;

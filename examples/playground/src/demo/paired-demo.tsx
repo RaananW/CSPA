@@ -1,19 +1,30 @@
+/**
+ * Entry for `paired.html` (animation ownership and decorative pixels): shows a layer whose animation the GPU
+ * takes over and a paired decorative layer with a ripple. The default "typed" example creates the motion with
+ * `controller.createMotion` and takes ownership via `motion.own()`; `?example=css` instead mounts with
+ * `mountApplicationModule` and takes ownership of an existing CSS animation with `ownCSSAnimation`. The source
+ * `Animation` is paused at a known time so the probe can check which side owns it. Hook: `window.pairedProbe`.
+ */
 import { Profiler, StrictMode, useState, useEffect, type ReactNode } from "react";
 import { createRoot, flushSync } from "./react-root";
 import { mountApplicationModule, mountCanvasApp, Surface, type CanvasController, type AnimationPlayback, type MotionHandle } from "@underglass/react";
 
+// `?example=css` switches to the CSS-animation example; everything else uses the typed API.
 const parameters = new URLSearchParams(location.search);
 const existing = parameters.get("example") === "css";
 const id = existing ? "legacy" : "authored";
 const artId = existing ? "legacy-art" : "authored-art";
 const commits = { count: 0, mounts: 0, cleanups: 0 };
 let controller: CanvasController;
+// `source` is the Animation under test; `originalEffect` is its effect, kept to check ownership transfer
+// does not replace it.
 let source: Animation;
 let originalEffect: AnimationEffect | null;
 let playback: AnimationPlayback | undefined;
 let motion: MotionHandle | undefined;
 let reactPresentation: (opacity: number | undefined) => void;
 const removers: (() => void)[] = [];
+// The shared interactive content: one React tree whose state must survive GPU ownership.
 function Content() {
   const [name, setName] = useState("original");
   const [count, setCount] = useState(0);
@@ -35,6 +46,8 @@ function Art() {
       fill={index % 2 ? "rgb(25,100,220)" : "rgb(240,200,20)"} />)}
   </svg>;
 }
+// Typed example: `Surface` layers. CSS example: plain `drawable` sections enrolled later through `enroll`.
+// `reactPresentation` lets the probe change React-owned opacity synchronously.
 function App() {
   const [opacity, setOpacity] = useState<number>();
   reactPresentation = value => flushSync(() => setOpacity(value));
@@ -48,6 +61,7 @@ function App() {
     <Surface id={artId} decorative layout={{ x: 380, y: 60, width: 200, height: 200, direction: "column" }}><Art /></Surface>
   </>;
 }
+// HMR: wait for the previous module's disposal, then recreate the capture/output canvases if missing.
 const priorDisposal: unknown = import.meta.hot?.data.disposal;
 if (priorDisposal instanceof Promise) {
   await priorDisposal;
@@ -59,6 +73,7 @@ if (priorDisposal instanceof Promise) {
     frame.insertBefore(canvas, document.getElementById("ordinary"));
   }
 }
+// Options shared by both mounting styles. No `overlayHost` is passed.
 const options = {
   captureHost: document.querySelector<HTMLCanvasElement>("#capture")!,
   outputCanvas: document.querySelector<HTMLCanvasElement>("#output")!,
@@ -66,6 +81,8 @@ const options = {
   onStatus(message: string) { document.querySelector<HTMLElement>("#status")!.textContent = message; },
 };
 const tree: ReactNode = <Profiler id="paired-behavior" onRender={() => { commits.count++; }}><App /></Profiler>;
+// CSS example: an application module that renders its own React root and enrols the existing elements. The
+// returned function releases the enrolments and unmounts the root. Typed example: `mountCanvasApp`.
 if (existing) {
   controller = mountApplicationModule(options, { mount({ container, enroll }) {
     const root = createRoot(container);
@@ -80,6 +97,8 @@ if (existing) {
   } });
 } else controller = mountCanvasApp({ ...options, createRoot, flushSync, strict: parameters.has("strict") }, tree);
 const element = document.getElementById(id)!;
+// Pick the source Animation (the CSS-defined one, or the native animation behind the motion) and pause it at
+// 100 ms so tests can compare its time and effect before and after GPU ownership.
 if (existing) source = element.getAnimations()[0]!;
 else {
   motion = controller.createMotion(id, {
@@ -92,6 +111,8 @@ else {
 source.pause();
 source.currentTime = 100;
 originalEffect = source.effect;
+// Finds the `#legacy` style rule and the `paired-motion` keyframes in the page stylesheet; `ownCSSAnimation` needs
+// both to rebuild the animation.
 function cssProvenance() {
   const rules = Array.from((document.getElementById("paired-styles") as HTMLStyleElement).sheet!.cssRules);
   const rule = rules.find(rule => rule instanceof CSSStyleRule && rule.selectorText === "#legacy");
@@ -105,6 +126,7 @@ function state() {
       transform: getComputedStyle(element).transform, opacity: getComputedStyle(element).opacity, declarations: element.style.cssText },
     playback: playback?.state(), demoListeners: removers.length };
 }
+// Ownership transaction: take ownership (paused), seed the ripple on the decorative layer, then admit GPU.
 async function enable() {
   if (controller.state().mode !== "dom") throw new Error("Release before a new ownership transaction");
   playback = existing ? controller.ownCSSAnimation(id, cssProvenance()) : motion!.own();
@@ -120,21 +142,25 @@ async function dispose() {
   for (const remove of removers.splice(0)) remove();
   return state();
 }
+// Steps the controller's bounded timeline and returns the state before and after.
 async function advance(frames = 300, delta = 1000 / 60) {
   await controller.settle();
   const before = state();
   await controller.advance(frames, delta);
   return { before, after: state() };
 }
+// Play/pause both the owned animation and the ripple together.
 function playing(value: boolean) {
   if (value) playback!.play(); else playback!.pause();
   const effect = controller.state().decorativeEffects[0];
   if (effect) controller.setRipple(artId, { amplitude: effect.amplitude, seconds: effect.seconds, playing: value });
 }
+// Test hook.
 window.pairedProbe = { state, enable, disable, dispose, advance, source: () => source, controller: () => controller,
   cssProvenance, playback: () => playback, motion: () => motion,
   reactPresentation: value => reactPresentation(value),
   async seek(time: number) { playback!.seek(time); await controller.settle(); return state(); } };
+// Wire the page buttons; after each action write a summary of ownership state to the status line.
 for (const [button, action] of [["gpu", enable], ["dom", disable], ["play", () => playing(true)], ["pause", () => playing(false)],
   ["seek", () => window.pairedProbe.seek(600)], ["dispose", dispose]] as const) {
   const node = document.getElementById(button)!;
@@ -148,6 +174,7 @@ for (const [button, action] of [["gpu", enable], ["dom", disable], ["play", () =
   node.addEventListener("click", listener);
   removers.push(() => node.removeEventListener("click", listener));
 }
+// On a hot update, dispose the old mount and hand the pending promise to the replacement module.
 if (import.meta.hot) {
   const hot = import.meta.hot;
   import.meta.hot.accept();

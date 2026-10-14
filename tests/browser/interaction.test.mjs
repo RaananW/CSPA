@@ -1,19 +1,35 @@
+/**
+ * Browser suite for interaction boundaries on `integration.html` and `effects.html`:
+ * - live `contenteditable="plaintext-only"` editing inside the captured tree (on an enrolled element or a
+ *   child of it) must leave GPU for a diagnosed DOM fallback while the original native subtree stays usable,
+ *   and an explicit `enable()` is admitted once the editable boundary is removed;
+ * - an opt-in headful test (`CANVAS_HEADFUL_INTERACTION=1`) that switches to a real second tab so the page is
+ *   genuinely hidden, and checks that effect time pauses while hidden without catching up on return.
+ * Each test writes the browser identity and observations to the `interaction` evidence directory.
+ */
 import { test, expect, chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 import { previewURL } from "../helpers/urls.mjs";
 import { browserLaunchOptions } from "../helpers/browser.mjs";
 
+// Evidence directory for the JSON reports written by this suite.
 const directory = evidenceDirectory("interaction");
+// Editable boundary on the enrolled `#replacement` element itself, or on a `span` appended inside it. Both are
+// expected to force a diagnosed DOM fallback (the reason names editable/top-layer boundaries) with the original
+// elements retained.
 for (const boundary of ["root-plaintext", "child-plaintext"]) {
   test(`live ${boundary} editing recovers the original native subtree`, async ({ page }) => {
+    // Record the exact browser build and command line with the evidence.
     const cdp = await page.context().newCDPSession(page);
     const identity = await cdp.send("Browser.getVersion");
     const launch = await cdp.send("Browser.getBrowserCommandLine");
+    // `?dom` skips the automatic initial enable so the test controls when GPU is admitted.
     await page.goto("/integration.html?dom");
     await page.waitForFunction(() => !!window.integrationProbe);
     expect((await page.evaluate(() => window.integrationProbe.enable())).mode).toBe("gpu");
     await page.evaluate(boundary => {
+      // Keep references to the original elements to prove the fallback does not recreate them.
       window.originalEditor = document.querySelector("#replacement");
       window.originalInput = document.querySelector("#name");
       if (boundary === "root-plaintext") window.originalEditor.contentEditable = "plaintext-only";
@@ -57,9 +73,12 @@ for (const boundary of ["root-plaintext", "child-plaintext"]) {
 }
 
 test("headful clean-profile real background tab pauses effects without hidden-time catch-up", async () => {
+  // A real window and a real second tab are needed for genuine hidden visibility, so this runs only on request.
   test.skip(process.env.CANVAS_HEADFUL_INTERACTION !== "1", "Opt-in synthetic clean-profile headful execution");
   const browser = await chromium.launch(browserLaunchOptions({
     headless: false,
+    // Playwright disables background throttling by default; drop those flags so the hidden tab behaves as it would
+    // for a user.
     ignoreDefaultArgs: ["--disable-background-timer-throttling", "--disable-renderer-backgrounding", "--disable-backgrounding-occluded-windows"],
   }));
   try {
@@ -80,10 +99,12 @@ test("headful clean-profile real background tab pauses effects without hidden-ti
       document.addEventListener("visibilitychange", event => {
         window.visibilityEvents.push({ trusted: event.isTrusted, hidden: document.hidden, at: performance.now() });
       });
+      // Start a playing ripple so there is effect time that must pause while the tab is hidden.
       window.effectsProbe.apply([window.effectsProbe.descriptor("ripple", 0, true)]);
     });
     await page.waitForTimeout(150);
     const before = await page.evaluate(() => window.effectsProbe.state());
+    // Open a second tab in the same window through CDP and activate it, which hides the original page.
     const { targetInfo } = await cdp.send("Target.getTargetInfo");
     const [other] = await test.step("Open same-window synthetic tab", () => Promise.all([
       context.waitForEvent("page"),
@@ -92,6 +113,8 @@ test("headful clean-profile real background tab pauses effects without hidden-ti
     ]), { timeout: 8000 });
     await test.step("Activate synthetic target", () => other.bringToFront(), { timeout: 8000 });
     try {
+      // If the environment never reports a hidden document, record that as unverified and skip; a synthetic
+      // visibility event is deliberately not substituted.
       await page.waitForFunction(() => document.hidden, null, { timeout: 5000 });
     } catch (error) {
       if (error.name !== "TimeoutError") throw error;
@@ -110,8 +133,10 @@ test("headful clean-profile real background tab pauses effects without hidden-ti
     await page.waitForTimeout(600);
     const held = await page.evaluate(() => ({ at: performance.now(), visibility: document.visibilityState, state: window.effectsProbe.state() }));
     expect(held.visibility).toBe("hidden");
+    // The 600 ms wait must have elapsed in wall-clock time (at least 550 ms).
     expect(held.at - hidden.at).toBeGreaterThanOrEqual(550);
     expect(held.state.environment.visible).toBe(false);
+    // While hidden, no GPU frames are presented and effect time does not advance.
     expect(held.state.metrics.gpuFrames).toBe(hidden.state.metrics.gpuFrames);
     expect(held.state.decorativeEffects[0].seconds).toBe(hidden.state.decorativeEffects[0].seconds);
     await page.bringToFront();
@@ -123,7 +148,9 @@ test("headful clean-profile real background tab pauses effects without hidden-ti
     });
     expect(resumed.sameInput).toBe(true);
     expect(resumed.value).toBe("Background retained");
+    // Exactly one trusted hide and one trusted show event were delivered.
     expect(resumed.events.map(event => [event.trusted, event.hidden])).toEqual([[true, true], [true, false]]);
+    // Effect time resumes from where it paused instead of jumping by the hidden duration.
     expect(resumed.state.decorativeEffects[0].seconds - held.state.decorativeEffects[0].seconds).toBeLessThan(.4);
     await page.locator("#title").fill("Return native edit");
     await page.locator("#save").click();

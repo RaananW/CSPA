@@ -1,3 +1,19 @@
+/**
+ * Proves the packed `@underglass/react` archive works for a downstream project: packs the library, checks
+ * the archive against the exact file allowlist, installs it into a fresh consumer app for React 18 and
+ * React 19, typechecks it (bundler and NodeNext resolution), builds it, and drives it in a real browser with
+ * and without the HTML-in-Canvas flags at DPR 1 and 2.
+ *
+ * Invoked as `npm run test:package`. Flags: `--reuse-dependencies` (copy existing `node_modules` instead of
+ * running `npm install`), `--todo-case` (use the todo app and `todo-contract.mjs` instead of
+ * the small consumer fixture). Environment: `CANVAS_EVIDENCE_ROOT`, `CANVAS_INTERACTION_AUDIT=1` and
+ * `CANVAS_DYNAMIC_AUDIT=1` (also run `interaction-contract.mjs` checks), `CANVAS_BROWSER_EXECUTABLE`.
+ *
+ * Output: `package-<uuid>/` under the evidence root with logs, screenshots and `report.json`, and consumer
+ * workspaces in `fixtures/package-consumer/workspaces/run-<uuid>`. Source, lockfiles and curated evidence
+ * are fingerprinted before and after and must not change. Exits non-zero on failure; evidence is sanitized
+ * at the end by a child `sanitize-evidence.mjs`.
+ */
 import assert from "node:assert/strict";
 import { spawn, execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
@@ -27,6 +43,8 @@ const releasePackage = JSON.parse(await readFile(join(library, "package.json"), 
 const react18 = JSON.parse(await readFile("fixtures/react18/package.json", "utf8"));
 const env = { ...process.env, npm_config_userconfig: devNull, npm_config_registry: "https://registry.npmjs.org" };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
+// SHA-256 of every file that this script must leave untouched: manifests, lockfiles, library and
+// playground sources, the consumer fixture and the curated evidence. Compared before and after the run.
 async function fingerprints() {
   const paths = ["package.json", "packages/underglass/package.json", "packages/underglass/README.md", "package-lock.json", "fixtures/react18/package.json", "fixtures/react18/package-lock.json",
     "packages/underglass/tsconfig.json", "packages/underglass/vite.config.ts", ...curatedEvidence];
@@ -53,6 +71,8 @@ const workspace = resolve(`fixtures/package-consumer/workspaces/run-${runId}`);
 await mkdir(workspace);
 const results = { status: "running", head: execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
   package: {}, consumers: [], protectedBefore: before };
+// Runs a command in `cwd`, saves its combined output as `<label>.log` in the evidence directory and
+// throws with the output tail on a non-zero exit. `npm` is routed through `withPlatform` for Windows.
 async function run(command, args, cwd, label) {
   const child = spawn(...withPlatform(command, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }));
   let output = "";
@@ -62,10 +82,12 @@ async function run(command, args, cwd, label) {
   if (code !== 0) throw new Error(`${label} failed (${code}): ${output.slice(-5000)}`);
   return output;
 }
+// Parses the JSON manifest printed by `npm pack --json`.
 function packResult(output) {
   // npm emits prepack script stdout before the JSON archive manifest.
   return JSON.parse(output.slice(output.lastIndexOf("\n[") + 1))[0];
 }
+// Finds a free port by binding port 0 and releasing it. Another process could take it before reuse.
 async function availablePort() {
   const server = createServer();
   await new Promise((done, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", done); });
@@ -73,6 +95,8 @@ async function availablePort() {
   await new Promise((done, reject) => server.close(error => error ? reject(error) : done()));
   return port;
 }
+// Resolves true when `url` answers 200 and false for any other status; rejects on connection errors and when
+// the request takes longer than 1 s.
 function responsive(url) {
   return new Promise((done, reject) => {
     const request = get(url, response => { response.resume(); done(response.statusCode === 200); });
@@ -80,6 +104,8 @@ function responsive(url) {
     request.setTimeout(1000, () => request.destroy(new Error("Consumer readiness request timed out")));
   });
 }
+// Starts `vite preview` for a built consumer and polls (up to about 10 s) until it answers. Returns its
+// URL, pid and a `stop` function that also saves the server log.
 async function startPreview(cwd, vite) {
   const port = await availablePort();
   const url = `http://127.0.0.1:${port}`;
@@ -109,6 +135,8 @@ async function startPreview(cwd, vite) {
     throw new Error(`Consumer preview readiness timed out: ${output}`);
   } catch (error) { await stop(); throw error; }
 }
+// Waits until the app reports `mode` with no pending initialization or transition, then flushes pending
+// work through the controller.
 async function waitState(page, mode) {
   await page.waitForFunction(mode => {
     const state = window.packageConsumer.state();
@@ -116,12 +144,18 @@ async function waitState(page, mode) {
   }, mode);
   await page.evaluate(() => window.packageConsumer.controller.settle());
 }
+// Screenshots `#frame` (saved as `<name>.png`) and returns the RGBA of one pixel. `x` and `y` are in the
+// 640px-wide layout and are scaled by the screenshot ratio so they hold at any DPR.
 async function pixel(page, name, x, y) {
   const png = PNG.sync.read(await page.locator("#frame").screenshot({ path: join(evidence, `${name}.png`) }));
   const scale = png.width / 640;
   const offset = (Math.floor(y * scale) * png.width + Math.floor(x * scale)) * 4;
   return [...png.data.subarray(offset, offset + 4)];
 }
+// Exercises the original controls of the consumer app through real input: focus and edit the name field,
+// submit it, click the counter and an adopted button, edit a separate input, and leave a one-character
+// selection. Asserts the mode did not change, the original input and root elements are still in place and
+// focus and selection are intact. Returns the app state.
 async function nativeControls(page, value) {
   const mode = (await page.evaluate(() => window.packageConsumer.state())).mode;
   const count = Number((await page.locator("#count").textContent()).replace("Count ", ""));
@@ -147,6 +181,12 @@ async function nativeControls(page, value) {
   assert.ok(state.sameInput && state.sameRoot);
   return state;
 }
+// The browser scenario for the small consumer fixture. Without `flags` the HTML-in-Canvas APIs are off:
+// GPU admission must be refused with a diagnosed DOM fallback and the controls must keep working. With
+// `flags` GPU must be admitted, pixels must match the DOM rendering, native controls must still work after
+// a transform and while the frame sits inside an external scroller, motion must not capture or upload, and
+// `disable()` must return to DOM keeping the same elements, focus and selection. Both end with `dispose()`
+// leaving no resources, and React must not have been remounted by presentation changes.
 async function browserContract(url, major, expectedVersion, flags, dpr) {
   const browser = await chromium.launch(browserLaunchOptions({ native: !!flags }));
   const errors = [];
@@ -169,6 +209,7 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
     const domPixel = await pixel(page, `${major}-${flags}-${dpr}-dom`, 25, 245);
     assert.deepEqual(domPixel, [240, 30, 60, 255]);
     const dom = await nativeControls(page, `React${major} DOM`);
+    // Which HTML-in-Canvas related APIs this browser exposes, recorded for diagnosis only (not asserted).
     const capability = await page.evaluate(() => {
       const canvas = document.createElement("canvas"), context = canvas.getContext("2d");
       return {
@@ -179,6 +220,7 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
         webgpu: !!navigator.gpu,
       };
     });
+    // Explicit opt-in to GPU; with flags the result must be `gpu`, without them a `dom` result with a reason.
     const admission = await page.evaluate(() => window.packageConsumer.controller.enable());
     let gpu, recovery, gpuPixel, externalScroll;
     if (flags) {
@@ -193,6 +235,8 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
       await page.evaluate(() => window.packageConsumer.controller.settle());
       assert.deepEqual(await pixel(page, `${major}-${flags}-${dpr}-translated`, 55, 255), domPixel);
       gpu = await nativeControls(page, "fresh independent native");
+      // Move the frame into a new scrollable element, scroll both it and the page, and check that the runtime
+      // stays in GPU mode on the same root and input without a new admission attempt and with correct pixels.
       const externalBefore = await page.evaluate(() => window.packageConsumer.state());
       await page.evaluate(async () => {
         const frame = document.querySelector("#frame");
@@ -218,6 +262,7 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
       assert.equal(await page.locator("#saved").textContent(), "fresh independent native-external");
       await page.locator("h1").click();
       assert.equal((await page.evaluate(() => window.packageConsumer.state())).mode, "gpu");
+      // A 30-frame animation inside the external scroller must not trigger new captures, uploads or readbacks.
       const externalMotion = await page.evaluate(() => window.packageConsumer.controller.animate("editor", { x: 35, y: 10 }, 30));
       for (const key of ["captures", "uploads", "pixelReadbacks"]) {
         assert.equal(externalMotion.after.metrics[key], externalMotion.before.metrics[key]);
@@ -256,6 +301,7 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
       await nativeControls(page, `React${major} refused`);
       assert.deepEqual(await pixel(page, `${major}-${flags}-${dpr}-refused`, 25, 245), domPixel);
     }
+    // The engine is released after the last disable. Presentation changes must not have remounted React.
     await page.waitForFunction(() => window.packageConsumer.state().resources.engines === 0);
     const priorDisposal = await page.evaluate(() => window.packageConsumer.state());
     assert.equal(priorDisposal.mounts, startup.mounts, "Presentation must not remount React");
@@ -266,6 +312,7 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
     assert.ok(Object.values(disposed.runtimeResources).every(value => value === 0));
     assert.equal(disposed.mounts, disposed.cleanups);
     assert.deepEqual(errors, flags ? [] : [admission.reason], "Only the exact unflagged admission diagnostic is expected");
+    // Optional audits from `interaction-contract.mjs`, enabled by environment variables.
     const interactions = process.env.CANVAS_INTERACTION_AUDIT === "1" && dpr === 1
       ? await interactionContract(context, url, { directory: evidence, name: `react${major}-${flags}`, flags }) : undefined;
     const dynamic = process.env.CANVAS_DYNAMIC_AUDIT === "1"
@@ -275,6 +322,7 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
 }
 
 try {
+  // A dry-run pack and a real pack must agree on files and integrity hash, so the archive is reproducible.
   const dry = packResult(await run("npm", ["pack", "--dry-run", "--json"], library, "pack-dry"));
   const packed = packResult(await run("npm", ["pack", "--json", "--pack-destination", workspace], library, "pack-actual"));
   validatePackageContents(dry.files);
@@ -282,10 +330,12 @@ try {
   assert.deepEqual(dry.files, packed.files);
   assert.equal(dry.integrity, packed.integrity, "Repeated clean prepack builds must produce the same archive");
   const tarball = join(workspace, packed.filename);
+  // List the archive itself (not just npm's report) and require exactly the allowlisted files.
   const tarPaths = execFileSync("tar", tarArgs(["-tzf", tarball]), { encoding: "utf8" }).trim().split(/\r?\n/).map(path => path.replace(/^package\//, ""));
   assert.deepEqual(tarPaths.sort(), packageFiles);
   results.package = { name: packed.name, version: packed.version, bytes: packed.size, unpackedBytes: packed.unpackedSize,
     sha256: hash(await readFile(tarball)), integrity: packed.integrity, files: packed.files, tarball: tarball.slice(root.length + 1) };
+  // One consumer project per React major, each installing the same tarball.
   for (const major of [18, 19]) {
     const cwd = join(workspace, `react${major}`);
     await mkdir(cwd);
@@ -300,6 +350,7 @@ try {
           .replaceAll('"./model"', '"./model.js"').replaceAll('"./TodoApp"', '"./TodoApp.js"'));
       }
     }
+    // React 18 versions come from the separately locked fixture; React 19 from the root dev dependencies.
     const versions = major === 18 ? react18 : { dependencies: primary.devDependencies, devDependencies: primary.devDependencies };
     const manifest = { name: `underglass-installed-react${major}-consumer`, version: "0.0.0", private: true, type: "module",
       dependencies: { [releasePackage.name]: `file:${tarball}`, react: versions.dependencies.react, "react-dom": versions.dependencies["react-dom"],
@@ -307,6 +358,8 @@ try {
       devDependencies: { "@types/react": versions.devDependencies["@types/react"], "@types/react-dom": versions.devDependencies["@types/react-dom"],
         typescript: primary.devDependencies.typescript, vite: primary.devDependencies.vite } };
     await writeFile(join(cwd, "package.json"), JSON.stringify(manifest, null, 2));
+    // Either reuse already-resolved dependencies and unpack the tarball into `node_modules`, or run a real
+    // `npm install` of the tarball.
     if (reuseDependencies) {
       const dependencyRoots = [resolve("node_modules"), ...(major === 18 ? [resolve("fixtures/react18/node_modules")] : [])];
       for (const directory of dependencyRoots) await copyDependencies(directory, join(cwd, "node_modules"));
@@ -326,6 +379,7 @@ try {
       assert.equal(hash(bytes), hash(await readFile(join(library, path))), `Installed bytes differ: ${path}`);
       assert.ok(!/\/Users\/|\/private\/|session-state|react-dom\/profiling|integrationProbe|runtimeProbe/.test(bytes.toString()), `Private/demo boundary: ${path}`);
     }
+    // Installed versions must match the exact versions declared by the manifest and the package.
     const actual = {};
     for (const name of ["react", "react-dom", "@types/react", "@types/react-dom", "typescript", "vite", "@babylonjs/lite", "@types/webxr",
       ...(todoCase ? ["@radix-ui/react-dialog"] : [])]) {
@@ -348,6 +402,7 @@ try {
       lockSha256: reuseDependencies ? null : hash(await readFile(join(cwd, "package-lock.json"))), server: { port: new URL(server.url).port, pid: server.pid }, browsers: [] };
     results.consumers.push(consumer);
     try {
+      // Four browser runs per consumer: flags off and on, at DPR 1 and 2. The report is rewritten after each.
       for (const flags of [false, true]) for (const dpr of [1, 2]) {
         consumer.browsers.push(await (todoCase ? todoContract(server.url, major, actual.react, flags, dpr, evidence)
           : browserContract(server.url, major, actual.react, flags, dpr)));
@@ -356,6 +411,7 @@ try {
     } finally { await server.stop(); }
     console.log(`React${major}: installed tarball, strict Bundler/NodeNext types, safe import, build, four actual browser/DPR contracts passed`);
   }
+  // Nothing under test may have been modified by the run.
   const after = await fingerprints();
   assert.deepEqual(after, before, "Package validation must not change source, locks or curated history");
   results.protectedAfter = after;
@@ -368,5 +424,6 @@ try {
   throw error;
 } finally {
   await writeFile(join(evidence, "report.json"), JSON.stringify(results, null, 2));
+  // Sanitize in a child process so the sanitizer's `CANVAS_EVIDENCE_ROOT` points at this run's directory.
   execFileSync(process.execPath, ["scripts/sanitize-evidence.mjs"], { cwd: root, env: { ...process.env, CANVAS_EVIDENCE_ROOT: evidence } });
 }

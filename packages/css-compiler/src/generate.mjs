@@ -1,7 +1,20 @@
+/**
+ * Code generation for the build-time CSS compiler. Turns parsed keyframe animations (from `index.mjs`)
+ * into the source of the `virtual:underglass/compiled` module: literal WGSL samplers embedded in the
+ * runtime's per-layer compositor program, plus matching JS samplers that drive native hit geometry.
+ * The JS twins emulate f32 arithmetic with `Math.fround` so GPU motion and native geometry agree.
+ */
 import { layerShader } from "@underglass/react/build";
 
+/** Formats a number as WGSL source; integers get a `.0` suffix so they are written as float literals. */
 const literal = value => Number.isInteger(value) ? `${value}.0` : String(value);
+/** WGSL `vecNf(...)` constructor source for a list of numbers. */
 const vec = values => `vec${values.length}f(${values.map(literal).join(",")})`;
+/**
+ * Source for easing segment progress `t` (itself a source expression) with a named or canonical
+ * `cubic-bezier(...)` easing. Linear passes `t` through; other easings call `compiled_ease` in WGSL or
+ * `ease` in JS with numeric control points. Named easings use the CSS-defined control points.
+ */
 function easeCode(easing, t, gpu) {
   if (easing === "linear") return t;
   const named = { ease: [0.25, 0.1, 0.25, 1], "ease-in": [0.42, 0, 1, 1],
@@ -9,6 +22,12 @@ function easeCode(easing, t, gpu) {
   const points = named[easing] ?? easing.slice(13, -1).split(",").map(Number);
   return gpu ? `compiled_ease(${t}, ${vec(points)})` : `ease(${t}, ${points.join(",")})`;
 }
+/**
+ * JS twin of the WGSL `compiled_ease`, emitted verbatim into the generated module. Every operation is
+ * rounded with `Math.fround` to follow f32 arithmetic. The curve's x(p) is inverted by 24 bisection steps
+ * and y is evaluated at the result. For t > 0.5 the point-mirrored curve is evaluated instead
+ * (t -> 1 - t, controls (1-x2, 1-y2, 1-x1, 1-y1)) and the result is mirrored back.
+ */
 const jsEase = `function ease(t,x1,y1,x2,y2) {
   const f=Math.fround, mul=(a,b)=>f(f(a)*f(b)), add=(a,b)=>f(f(a)+f(b));
   const curve=(p,a,b)=>{const q=f(1-p);return add(add(mul(mul(mul(mul(3,q),q),p),a),mul(mul(mul(mul(3,q),p),p),b)),mul(mul(p,p),p));};
@@ -20,6 +39,11 @@ const jsEase = `function ease(t,x1,y1,x2,y2) {
   const value=curve(f(f(low+high)/2),y1,y2);
   return mirror?f(1-value):value;
 }`;
+/**
+ * WGSL prelude shared by all compiled samplers: `CompiledTransform` (translation in CSS pixels, scale,
+ * rotation in degrees and opacity, applied about the layer's top-left origin) and `compiled_ease`, the
+ * f32 cubic-bezier easing mirrored by `jsEase`.
+ */
 const gpuEase = `struct CompiledTransform { position: vec2f, scale: vec2f, rotation: f32, opacity: f32 };
 fn compiled_curve(p: f32, a: f32, b: f32) -> f32 {
   return 3.0*(1.0-p)*(1.0-p)*p*a + 3.0*(1.0-p)*p*p*b + p*p*p;
@@ -38,6 +62,14 @@ fn compiled_ease(t: f32, c: vec4f) -> f32 {
   return value;
 }`;
 
+/**
+ * Emits one sampler body, as WGSL when `gpu` is true and as JS otherwise. The WGSL function receives the
+ * bounded phase produced by `normalizeTime` (the runtime uploads it), while the JS `sample(ms)` receives
+ * absolute animation milliseconds and normalizes them itself. The phase is in [0, 1], or [0, 2] for
+ * alternate direction, which is folded back into [0, 1]. The body then selects the keyframe segment
+ * containing that fraction, eases the segment-local progress with the segment's start-frame easing and
+ * interpolates every field linearly.
+ */
 export function samplerCode(animation, gpu) {
   const { direction } = animation.timing;
   const maximum = direction === "alternate" ? 2 : 1;
@@ -51,6 +83,8 @@ export function samplerCode(animation, gpu) {
   const fields = ["x", "y", "scaleX", "scaleY", "rotation", "opacity"];
   for (let i = 1; i < animation.values.length; i++) {
     const start = animation.values[i - 1], end = animation.values[i];
+    // Segments are tested in order; the final one is unconditional, so every fraction above the last
+    // interior offset, including 1, lands in it.
     const condition = i === animation.values.length - 1 ? "true" : `fraction<=${gpu ? literal(end.offset) : end.offset}`;
     const progress = gpu ? `(fraction-${literal(start.offset)})/${literal(end.offset - start.offset)}`
       : `f(f(fraction-f(${start.offset}))/f(${end.offset - start.offset}))`;
@@ -62,12 +96,22 @@ export function samplerCode(animation, gpu) {
           mix(${vec(a.slice(2, 4))},${vec(b.slice(2, 4))},t),
           mix(${literal(a[4])},${literal(b[4])},t),clamp(mix(${literal(a[5])},${literal(b[5])},t),0.0,1.0)); }`;
     } else {
+      // f32-rounded `start * (1 - t) + end * t`, the same interpolation as WGSL `mix`.
       code += `if(${condition}){const t=${t};return {${fields.map(key => `${key}:f(f(f(${start[key]})*f(1-t))+f(f(${end[key]})*t))`).join(",")}};}`;
     }
   }
+  // WGSL needs a return after the segment chain; the unconditional last segment makes this unreachable.
   if (gpu) code += "return CompiledTransform(vec2f(0.0),vec2f(1.0),0.0,1.0);";
   return code;
 }
+/**
+ * Builds the source of the `virtual:underglass/compiled` ES module from parsed animations, in the order
+ * they will be indexed. The default export is a version 2 `CompiledProgramSet`: one descriptor per
+ * animation (public fields, `normalizeTime` and `sample`) and a single per-layer program from the
+ * runtime's `layerShader`, whose fragment WGSL is prefixed with the generated samplers. The runtime
+ * selects animation `i` with index `i + 1` in `compiled_sample`; index 0 means no compiled motion.
+ * The runtime checks the shape with `validateCompiledPrograms` before use.
+ */
 export function generateModule(animations) {
   const wgsl = `${gpuEase}\n${animations.map((animation, i) =>
     `fn compiled_${i}(ms:f32)->CompiledTransform {${samplerCode(animation, true)}}`).join("\n")}
@@ -78,16 +122,22 @@ export function generateModule(animations) {
   // One per-layer program; the runtime draws it once per layer, so layer count needs no capacity.
   const programs = [layerShader(undefined, wgsl)];
   const entries = animations.map(animation => {
+    // `values` is build-only data and is not emitted.
     const { values, ...publicAnimation } = animation;
+    // JSON has no Infinity, so infinite iteration counts are restored as a JS literal.
     const timing = JSON.stringify(publicAnimation.timing).replace('"iterations":null', '"iterations":Infinity');
     const { duration, delay, iterations, direction } = animation.timing;
+    // One alternate period covers a forward and a reverse iteration, so its phase spans [0, 2).
     const period = duration * (direction === "alternate" ? 2 : 1);
+    // After the last finite iteration, hold the end state: phase 0 when an alternate animation ends on a
+    // reverse iteration, otherwise 1.
     const endpoint = direction === "alternate" && iterations % 2 === 0 ? 0 : 1;
     // Upload bounded phase, avoiding delay precision loss and GPU reciprocal rounding near sharp easing endpoints.
     const normalize = `if(!Number.isFinite(ms)||ms<0||ms>1e12)throw new Error("Compiled time must be finite in [0,1e12]");
       const elapsed=Math.max(0,ms-${delay});
       ${Number.isFinite(iterations) ? `if(elapsed>=${duration * iterations})return Math.fround(${endpoint});` : ""}
       return Math.fround((elapsed%${period})/${duration});`;
+    // `timing` is undefined here so JSON drops it; it is re-added below with the Infinity fix.
     return `{...${JSON.stringify({ ...publicAnimation, timing: undefined })},timing:${timing},normalizeTime(ms){${normalize}},sample(ms){${samplerCode(animation, false)}}}`;
   });
   return `${jsEase}\nconst compiled={version:2,animations:[${entries.join(",")}],programs:${JSON.stringify(programs)}};\nexport default compiled;\n`;

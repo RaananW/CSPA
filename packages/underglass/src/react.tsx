@@ -1,3 +1,10 @@
+/**
+ * React bindings for the default (non-worker) backend. `mountCanvasApp` creates the persistent React
+ * root inside a `CanvasRuntime` mount boundary; `GPUHost` shares that runtime through context; and
+ * `Surface`, `useSurfaceRef`, `Presence`, `Box`, `NativeScroll` and `NativeOverlay` register ordinary
+ * React-rendered elements with the runtime. The components render plain DOM, so they work unchanged
+ * when GPU presentation is off. The runtime (`runtime.ts`) owns all GPU behaviour.
+ */
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, StrictMode, type HTMLAttributes, type ReactNode, type RefCallback } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
@@ -7,24 +14,46 @@ import { compileStyle, type Layout, type Appearance } from "./compiler.js";
 import type { EnrollmentOptions } from "./enrollment.js";
 import type { MotionDescriptor, TransitionResult } from "./motion.js";
 
+// Carries the runtime from `GPUHost` to every component and hook below.
 const Context = createContext<CanvasRuntime | null>(null);
 
+/**
+ * Provides `runtime` to the Underglass components below it. `mountCanvasApp` wraps the application
+ * in this for you; use it directly only when you create the runtime yourself. Every commit asks
+ * the runtime to reconcile.
+ */
 export function GPUHost({ runtime, children }: { runtime: CanvasRuntime; children: ReactNode }) {
   useLayoutEffect(() => runtime.requestReconcile());
   return <Context.Provider value={runtime}>{children}</Context.Provider>;
 }
+// Context lookup that fails loudly when a component is rendered outside `GPUHost`.
 function useRuntime() {
   const runtime = useContext(Context);
   if (!runtime) throw new Error("Underglass components require GPUHost and the explicit mount adapter");
   return runtime;
 }
+/**
+ * The narrow controller returned by `mountCanvasApp` and `useGPUHost`: enrollment, transforms,
+ * motion, effects and the `enable`/`disable`/`dispose` lifecycle. See `docs/api.md`.
+ */
 export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "setOrigin" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "ownCompiledAnimation" | "createMotion" | "advance" | "setRipple" | "setEffects">;
+/** Returns the controller of the enclosing `GPUHost`. Throws outside one. */
 export function useGPUHost(): CanvasController { return useRuntime(); }
+/**
+ * Returns the adapter-owned overlay host for native dialogs and popovers, which stay outside the
+ * captured tree. Throws when the mount supplied no `overlayHost`.
+ */
 export function useNativeOverlayHost(): HTMLElement {
   const host = useRuntime().overlayHost;
   if (!host) throw new Error("Native overlay requires the adapter-owned overlayHost");
   return host;
 }
+/**
+ * Enrolls your own element (a callback ref) as a layer of the runtime without cloning it, so the
+ * original React controls and state are kept. Attach the returned ref to a direct child of the
+ * React root. The enrollment is released when the element detaches or `id`/`decorative` change;
+ * `origin` updates in place. Throws `EnrollmentError` (from the runtime) when the element is refused.
+ */
 export function useSurfaceRef<T extends HTMLElement = HTMLElement>({ id, decorative, origin }: EnrollmentOptions): RefCallback<T> {
   const runtime = useRuntime();
   const originKey = JSON.stringify(origin ?? "top-left");
@@ -43,6 +72,7 @@ export function useSurfaceRef<T extends HTMLElement = HTMLElement>({ id, decorat
     }
   }, [runtime, id, decorative]);
   // React18 StrictMode replays effects but not callback refs.
+  // So the effect below re-enrolls the element that is still attached after the replayed cleanup.
   useLayoutEffect(() => {
     if (attached.current && !release.current) release.current = runtime.enroll(attached.current, { id, decorative, origin: latestOrigin.current });
     return () => { release.current?.(); release.current = undefined; };
@@ -51,14 +81,25 @@ export function useSurfaceRef<T extends HTMLElement = HTMLElement>({ id, decorat
   useLayoutEffect(() => runtime.requestReconcile());
   return ref;
 }
+/** Props of `Presence`. */
 export interface PresenceProps {
+  /** ID of the enrolled layer the enter and exit motion is applied to. */
   id: string;
+  /** Whether the children should be mounted. Switching to false plays `exit` before unmounting. */
   present: boolean;
+  /** Motion played when `present` changes to true. Content that is present on first render does not enter-animate. */
   enter: MotionDescriptor;
+  /** Motion played when the children are removed; they unmount once it finishes. */
   exit: MotionDescriptor;
   children: ReactNode;
+  /** Called with the result when an enter or exit ends; not called for a transition superseded by a newer one or by unmount. */
   onComplete?: (result: TransitionResult) => void;
 }
+/**
+ * Mounts its children while `present`, and keeps them mounted until the exit transition on layer
+ * `id` completes. `id` names an already-enrolled boundary that encloses `Presence` (for example a
+ * `useSurfaceRef` element); `Presence` animates that boundary and does not enroll anything.
+ */
 export function Presence({ id, present, enter, exit, children, onComplete }: PresenceProps) {
   const runtime = useRuntime();
   const [retained, setRetained] = useState(present);
@@ -68,6 +109,7 @@ export function Presence({ id, present, enter, exit, children, onComplete }: Pre
   const motion = useRef<ReturnType<CanvasRuntime["transition"]> | undefined>(undefined);
   const completion = useRef(onComplete);
   completion.current = onComplete;
+  // The descriptors are compared by value so an inline object does not restart the effect each render.
   const enterKey = JSON.stringify(enter), exitKey = JSON.stringify(exit);
   // Layout effect: the enter sample is applied before the newly retained children first paint.
   useLayoutEffect(() => {
@@ -81,6 +123,7 @@ export function Presence({ id, present, enter, exit, children, onComplete }: Pre
     const handle = runtime.transition(id, present ? enter : exit);
     motion.current = handle;
     void handle.finished.then(result => {
+      // A newer transition or an unmount superseded this one; ignore its completion.
       if (version !== generation.current) return;
       if (!present) setRetained(false);
       completion.current?.(result);
@@ -89,56 +132,93 @@ export function Presence({ id, present, enter, exit, children, onComplete }: Pre
   useEffect(() => () => { generation.current++; motion.current?.cancel(); }, []);
   return retained ? <>{children}</> : null;
 }
+/** Props of `Surface`. Other HTML attributes are forwarded to the rendered `<section>`. */
 export interface SurfaceProps extends Omit<HTMLAttributes<HTMLElement>, "style" | "id"> {
+  /** Unique layer ID used by the controller methods. */
   id: string;
+  /** Position, size and flex layout compiled to browser styles. */
   layout?: Layout;
+  /** Visual styling compiled to browser styles. */
   appearance?: Appearance;
+  /** Numeric transform of the layer; applied in both GPU and ordinary DOM presentation. */
   transform?: Transform;
   /** Static pivot for `transform` rotation and scale, like CSS `transform-origin`. */
   origin?: TransformOrigin;
+  /** Marks inert, aria-hidden, noninteractive decoration that effects may distort. */
   decorative?: boolean;
+  /** Makes the surface's content inert. Decorative surfaces are always inert. */
   inert?: boolean;
 }
+/**
+ * A top-level GPU layer: renders one native `<section>` (the original element, never a copy) and
+ * registers it with the runtime. Its content is ordinary React and stays interactive through
+ * native hit testing. `layout`, `transform` and `origin` updates are forwarded to the runtime in
+ * layout effects so they land in the same commit.
+ */
 export function Surface({ id, layout = {}, appearance = {}, transform = {}, origin, decorative = false, inert = false, children, ...attributes }: SurfaceProps) {
   const runtime = useRuntime();
   const element = useRef<HTMLElement>(null);
   const layoutKey = JSON.stringify(layout);
   const transformKey = JSON.stringify(transform);
   const originKey = JSON.stringify(origin ?? "top-left");
+  // Validate eagerly so a bad transform or origin throws during render rather than inside an effect.
   affine(transform);
   pivot(origin, { width: 1, height: 1 });
   useLayoutEffect(() => { element.current!.inert = decorative || inert; }, [decorative, inert]);
+  // Re-registers only when `id` or `decorative` change; other updates go through the effects below.
   useLayoutEffect(() => runtime.register({ id, element: element.current!, layout, transform: { ...transform }, origin, decorative }), [runtime, id, decorative]);
   useLayoutEffect(() => runtime.setOrigin(id, origin), [runtime, id, originKey]);
   useLayoutEffect(() => runtime.update(id, layout, transform), [runtime, id, layoutKey, transformKey]);
   useLayoutEffect(() => runtime.requestReconcile());
+  // The element keeps `transform-origin: 0 0`; the pivot requested through `origin` is baked into the
+  // runtime's transform matrix (`affine`) instead of being applied by CSS.
   return <section {...attributes} aria-hidden={decorative ? true : attributes["aria-hidden"]}
     ref={element} id={id} {...{ drawable: "" }} style={{
     ...compileStyle(layout, appearance, true), transformOrigin: "0 0",
     ...(decorative ? { pointerEvents: "none" } : {}),
   }}>{children}</section>;
 }
+/** Props of `Box` and `NativeScroll`. */
 export interface BoxProps extends Omit<HTMLAttributes<HTMLDivElement>, "style"> {
   layout?: Layout;
   appearance?: Appearance;
 }
+/**
+ * A styled `<div>` for content inside a `Surface`. It gets a `data-underglass-clipped` marker
+ * attribute when its `overflow` clips.
+ */
 export function Box({ layout, appearance, ...attributes }: BoxProps) {
   return <div {...attributes} data-underglass-clipped={layout?.overflow && layout.overflow !== "visible" ? "" : undefined}
     style={compileStyle(layout, appearance)} />;
 }
+/** A `Box` that scrolls natively (`overflow: scroll`, marked `data-underglass-scroll`); the browser handles the scrolling. */
 export function NativeScroll({ layout, ...attributes }: BoxProps) {
   return <Box {...attributes} layout={{ ...layout, overflow: "scroll" }} data-underglass-scroll="" />;
 }
+/**
+ * Portals its children into the adapter-owned overlay host, outside the captured tree, so native
+ * dialogs and popovers keep working. Throws when the mount supplied no `overlayHost`.
+ */
 export function NativeOverlay({ children }: { children: ReactNode }) {
   const runtime = useRuntime();
   if (!runtime.overlayHost) throw new Error("NativeOverlay requires the adapter-owned overlayHost");
   return createPortal(children, runtime.overlayHost);
 }
+/**
+ * Options for `mountCanvasApp`: the runtime options minus `mount`, plus injectable React entry
+ * points (for a second React copy or tests) and `strict` to wrap the tree in `StrictMode`.
+ */
 export type MountCanvasOptions = Omit<RuntimeOptions, "mount"> & {
   createRoot?: typeof createRoot;
   flushSync?: typeof flushSync;
   strict?: boolean;
 };
+/**
+ * Explicit bootstrap: creates the persistent React root inside the adapter-owned container, renders
+ * `children` under `GPUHost` synchronously and returns the controller. The app starts in ordinary
+ * DOM; call `enable()` to request GPU presentation. If the first render throws, the root is
+ * unmounted and the error rethrown.
+ */
 export function mountCanvasApp(options: MountCanvasOptions, children: ReactNode): CanvasController {
   return new CanvasRuntime({
     ...options,

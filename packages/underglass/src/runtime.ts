@@ -1,3 +1,11 @@
+/**
+ * `CanvasRuntime`, the controller behind `mountCanvasApp`, `mountApplicationModule` and `useGPUHost()`.
+ * It keeps the layer registry, turns each layer's `Transform` and static origin into the one canonical matrix
+ * used for DOM CSS, GPU sampling and native hit geometry, and decides who writes each element's
+ * transform/opacity declarations. It drives the one shared renderer (`renderer.ts`) and owns the observers,
+ * listeners and RAF clocks for reconciliation, viewport geometry, visibility, reduced motion, controller
+ * motion, declarative transitions, animation ownership and decorative effects.
+ */
 import { affine, cssMatrix, pivot, point, type Transform, type TransformOrigin } from "./affine.js";
 import { createSurfaceRenderer, type SurfaceRendererOptions } from "./renderer.js";
 import type { Layout } from "./compiler.js";
@@ -17,76 +25,153 @@ const MAX_LAYERS = 64;
 /** `"automatic"` is accepted for compatibility and behaves like `"explicit"`: initial and diagnosed reentry both require `enable()`. */
 export type AdmissionPolicy = "explicit" | "automatic";
 
+/**
+ * Properties GPU presentation owns on an enrolled boundary (both CSS and camel-case `transformOrigin` keyframe
+ * spellings); `"all"` covers `transition-property: all`.
+ */
 const presentationProperties = new Set(["transform", "opacity", "translate", "rotate", "scale", "transform-origin", "transformOrigin", "all"]);
 /** Whether an animation drives a property that GPU presentation owns exclusively on the enrolled boundary. */
 function animatesPresentation(animation: Animation) {
   if (typeof CSSTransition !== "undefined" && animation instanceof CSSTransition) return presentationProperties.has(animation.transitionProperty);
   const effect = animation.effect;
+  // Keyframes of a non-`KeyframeEffect` cannot be inspected, so it is treated as a conflict.
   if (!(effect instanceof KeyframeEffect)) return true;
   return effect.getKeyframes().some(frame => Object.keys(frame).some(key => presentationProperties.has(key)));
 }
 
+/**
+ * One enrolled layer as the runtime tracks it. `Surface` registers one directly, `enroll` builds one for an
+ * original element, and `mountApplicationModule` passes module-supplied definitions to `register`.
+ */
 export interface LayerDefinition {
+  /** Unique nonempty id; every controller call addresses the layer by it. */
   id: string;
+  /** The original element; it must be connected inside the persistent root. */
   element: HTMLElement;
+  /** Typed layout last supplied by React; only checked for zero size here. Ref enrollments use `{}`. */
   layout: Layout;
+  /** Current transform; motion, transitions and animation ownership overwrite it while they run. */
   transform: Transform;
   /** Static pivot for rotation and scale; defaults to "top-left". */
   origin?: TransformOrigin;
+  /**
+   * Keeps authored CSS authoritative in ordinary DOM: the runtime writes presentation declarations only
+   * while GPU presents and requires neutral authored transform/opacity. Set by `enroll`.
+   */
   preserveStyles?: boolean;
+  /** Inert, aria-hidden decoration; required before `setEffects` or `setRipple` may target the layer. */
   decorative?: boolean;
 }
+/** `CanvasRuntime` options. `mountCanvasApp` supplies `mount` itself and passes the rest through. */
 export interface RuntimeOptions extends Omit<MountBoundaryOptions, "mount"> {
+  /** Empty, connected sibling of `ordinaryHost` outside the root; the portal target of `NativeOverlay`. */
   overlayHost?: HTMLElement;
+  /** Layer count (1..64) and captured-pixel budgets; the renderer's defaults apply when omitted. */
   budgets?: SurfaceRendererOptions["budgets"];
+  /** Build-generated CSS compiler program set; validated on construction, used by `ownCompiledAnimation`. */
   compiled?: SurfaceRendererOptions["compiled"];
   /** Serialized JSON status; prefer `onStatusChange` for a structured value. */
   onStatus?(message: string): void;
+  /** Structured renderer status, delivered on every status change. */
   onStatusChange?: SurfaceRendererOptions["onStatusChange"];
+  /** Per-operation timing samples (capture, upload, frame work); the runtime retains none of them. */
   onMeasure?: SurfaceRendererOptions["onMeasure"];
+  /** `"explicit"` (default) or `"automatic"`; both currently require `enable()` for entry and reentry. */
   admissionPolicy?: AdmissionPolicy;
+  /**
+   * Called once, synchronously during construction, with the stable adapter-owned container. It mounts one
+   * React root there and returns that root's unmount, which final disposal calls exactly once.
+   */
   mount(container: HTMLDivElement, runtime: CanvasRuntime): () => void;
 }
 
+/**
+ * Runtime controller for one mounted application. Its public methods form the `CanvasController`
+ * (`react.tsx`), plus `register`, `enroll`, `update` and `requestReconcile`, which `Surface`, `useSurfaceRef`
+ * and `GPUHost` call from layout effects. After `dispose()` the mutating methods throw `Runtime is disposed`.
+ */
 export class CanvasRuntime {
+  /** The shared renderer; undefined only while its creation runs the synchronous mount callback. */
   private core: ReturnType<typeof createSurfaceRenderer> | undefined;
+  /** Enrolled layers by id. Paint and hit order come from `ordered()`, not insertion order. */
   private readonly registry = new Map<string, LayerDefinition>();
+  /** Teardown callbacks for listeners added through `listen`, run by `dispose()`. */
   private readonly removers: (() => void)[] = [];
+  /** Watches the root (and the output canvas's ancestors' style/class) to dirty captures and cached policy. */
   private readonly mutation: MutationObserver;
+  /** Watches the frame, every layer and the ancestors that can change layer geometry. */
   private readonly resize: ResizeObserver;
+  /** `prefers-reduced-motion` query; keeps GPU but stops controller motion (see the `change` listener). */
   private readonly reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  /** `forced-colors` query; a change recaptures every layer because painted content changes. */
   private readonly forced = matchMedia("(forced-colors: active)");
+  /** Pending coalesced `requestDraw` RAF id; 0 when none. */
   private drawFrame = 0;
+  /** The RAF currently awaited by `animate`/`advance`, with the rejecter `cancelMotion` uses to interrupt it. */
   private motionFrame: { id: number; reject(error: Error): void } | undefined;
+  /** `animate`/`advance` loops parked until the document becomes visible again. */
   private readonly visibilityWaiters = new Set<{ resolve(): void; reject(error: Error): void }>();
+  /** Set once `dispose()` has finished; observers, listeners and schedulers then do nothing. */
   private stopped = false;
+  /** True while `dispose()` awaits the renderer, so effects finish as `disposed` rather than `fallback`. */
   private disposalRequested = false;
+  /** True while `animate` or `advance` drives frames; the shared clock and other motion stay off. */
   private moving = false;
+  /** Bumped on membership changes and effect pass rebuilds; part of `sizeSignature()`. */
   private revision = 0;
+  /** Set by `reconcileMembership` until its microtask runs the full `reconcile()`. */
   private membershipCommitPending = false;
+  /** `sizeSignature()` last reconciled by the renderer; an unchanged signature only needs a redraw. */
   private admittedSize = "";
+  // Admission bookkeeping reported by `state().admission`. No automatic retry runs in the current core, so
+  // `readmissionPending` stays false and `automaticAttempts` stays 0; `admissionEpoch` lets `enable()`
+  // ignore a result that a later `enable`/`disable`/`dispose` superseded.
   private admissionIntent: "disabled" | "enabled" | "blocked" = "disabled";
   private readmissionPending = false;
   private admissionEpoch = 0;
   private automaticAttempts = 0;
   private admissionReason = "Explicit enable required";
+  /** The adapter-owned `app-container`; root-relative layer geometry is measured against it. */
   private rootContainer: HTMLElement | undefined;
+  /** Removes the current device-pixel-ratio media-query listener (see `watchDPR`). */
   private releaseDPR: (() => void) | undefined;
+  /** Per-layer leases for the `!important` neutral transform/opacity/origin written while GPU presents. */
   private readonly gpuDeclarations = new Map<string, DeclarationOwnership>();
+  /**
+   * Presentation properties an application rewrote while the runtime owned them. DOM presentation leaves
+   * those untouched until the controller supplies a new transform; reported as `presentationOverrides`.
+   */
   private readonly relinquishedDeclarations = new Map<string, ReturnType<DeclarationOwnership["restore"]>>();
+  /**
+   * Animation ownership per layer (`ownAnimation`, `ownCSSAnimation`, `ownCompiledAnimation`). `base` is the
+   * transform restored when ownership ends; `check`/`restore`/`resources` come from CSS provenance and
+   * `compiled` selects a build-generated program.
+   */
   private readonly ownership = new Map<string, { lease: ReturnType<typeof prepareAnimation>; base: Transform; compiled?: CompiledAnimation; check?(): void; restore?(): void; resources?(): number }>();
+  /** Managed native sources created by `createMotion`, whether or not they are currently owned. */
   private readonly motions = new Map<string, { source: Animation; handle: MotionHandle }>();
+  /** Running declarative transitions (`transition`/`transitionGroup`), at most one per layer. */
   private readonly transitions = new Map<string, { finish(status: TransitionResult["status"], reason: string, transferred?: boolean): void; pause(): void; resume(): void; lease: DeclarationOwnership; start: number; end: number }>();
+  /** Shared RAF clock for owned animation playback and effect time; `clockTime` is the last tick's timestamp. */
   private clockFrame = 0;
   private clockTime: number | undefined;
+  /** Active decorative effect chain per layer (`setEffects`/`setRipple`). */
   private readonly effects = new Map<string, { values: EffectDescriptor[]; finish(result: EffectResult): void }>();
   /** Last React-supplied transform per Surface, and one supplied while motion owned the layer. */
   private readonly reactTransforms = new Map<string, Transform>();
   private readonly deferredTransforms = new Map<string, Transform>();
+  /** Set while a `requestReconcile` microtask is pending. */
   private reconcileQueued = false;
+  /** Environment inputs mirrored from listeners; reported as `state().environment`. */
   private readonly environment = { visible: !document.hidden, reducedMotion: this.reduced.matches, forcedColors: this.forced.matches };
+  /** Ledger of runtime-owned observers, listeners, frames and owners; reported as `state().runtimeResources`. */
   private readonly resources = { mutationObservers: 1, resizeObservers: 1, environmentListeners: 0, controllerFrames: 0, visibilityWaiters: 0, enrolledLayers: 0, animationOwners: 0, decorativeEffects: 0, nativeMotions: 0, declarativeMotions: 0, readmissionFrames: 0 };
 
+  /**
+   * Validates options, creates the renderer (which validates the hosts and calls `options.mount`
+   * synchronously, starting in ordinary DOM) and installs observers and listeners. Throws before mounting
+   * on invalid options; GPU stays off until `enable()`.
+   */
   constructor(private readonly options: RuntimeOptions) {
     if (options.admissionPolicy !== undefined && options.admissionPolicy !== "explicit" && options.admissionPolicy !== "automatic") {
       throw new Error("Admission policy must be explicit or automatic");
@@ -100,6 +185,8 @@ export class CanvasRuntime {
     if (options.compiled) validateCompiledPrograms(options.compiled);
     if (budget && (!Number.isInteger(budget.layers) || budget.layers < 1 || budget.layers > MAX_LAYERS
       || !Number.isInteger(budget.pixels) || budget.pixels < 1)) throw new Error(`Invalid layer/pixel budgets; layer limit is 1..${MAX_LAYERS}`);
+    // Root mutations dirty the containing layers' captures and invalidate cached structural policy. The
+    // observer is also pointed at external ancestors' style/class later (see `refreshViewportGeometry`).
     this.mutation = new MutationObserver(records => {
       if (this.stopped) return;
       this.invalidatePolicy();
@@ -110,6 +197,7 @@ export class CanvasRuntime {
       this.requestReconcile();
       this.checkPolicy();
     });
+    // Observes the frame, every layer, the layers' ancestors up to the root and the output canvas's ancestors.
     this.resize = new ResizeObserver(() => {
       if (this.stopped || !this.core) return;
       this.invalidatePolicy();
@@ -121,6 +209,9 @@ export class CanvasRuntime {
       this.checkPolicy();
     });
     try {
+      // The renderer pulls everything it needs from these callbacks, so the registry stays the single
+      // source of layers, size and policy. `mount` runs inside this call, before `this.core` is assigned:
+      // layers registered by the first commit present as DOM until `enable()`.
       this.core = createSurfaceRenderer({
         ...options,
         mount: container => {
@@ -135,6 +226,7 @@ export class CanvasRuntime {
           opacity: () => layer.transform.opacity ?? 1,
           effects: () => this.effects.get(layer.id)?.values ?? [],
           effectsEnabled: () => !this.reduced.matches,
+          // Selects the build-generated program and its phase when a compiled CSS animation owns the layer.
           compiledMotion: () => {
             const owner = this.ownership.get(layer.id);
             return owner?.compiled ? { index: options.compiled!.animations.indexOf(owner.compiled),
@@ -144,6 +236,8 @@ export class CanvasRuntime {
         size: () => this.size(),
         nativeOrigin: () => this.ownerContentOrigin,
         policy: () => this.policy(),
+        // Called by the renderer when it moves the root: to the output canvas at admission ("gpu") and back
+        // on recovery, disable or disposal ("dom"). DOM recovery also hands owned animations back.
         presentation: mode => {
           if (mode === "dom") this.cancelTransitions("DOM recovery");
           this.cancelMotion();
@@ -162,8 +256,10 @@ export class CanvasRuntime {
       throw error;
     }
     this.mutation.observe(this.core.container, { subtree: true, attributes: true, characterData: true, childList: true });
+    // The hosts' shared parent is the frame whose client size is the output size (see `size()`).
     this.resize.observe(options.ordinaryHost.parentElement!);
     for (const layer of this.registry.values()) this.resize.observe(layer.element);
+    // Hiding pauses scheduling and motion without revoking GPU; showing resumes it and refreshes captures.
     this.listen(document, "visibilitychange", () => {
       this.environment.visible = !document.hidden;
       if (!this.environment.visible) this.cancelReadmissionFrame();
@@ -188,6 +284,8 @@ export class CanvasRuntime {
         this.scheduleReadmission();
       }
     });
+    // Reduced motion keeps GPU: controller motion stops, transitions jump to their end state, and owned
+    // playback and effect time pause.
     this.listen(this.reduced, "change", () => {
       this.environment.reducedMotion = this.reduced.matches;
       if (this.reduced.matches) this.cancelReadmissionFrame();
@@ -203,6 +301,7 @@ export class CanvasRuntime {
       this.requestDraw();
       this.scheduleReadmission();
     });
+    // Forced colors changes painted content only, so every layer is recaptured.
     this.listen(this.forced, "change", () => {
       this.environment.forcedColors = this.forced.matches;
       this.core?.invalidate();
@@ -216,7 +315,10 @@ export class CanvasRuntime {
     for (const type of ["animationstart", "animationcancel", "animationend", "transitionrun", "transitioncancel", "transitionend", "input", "focusin", "focusout"]) {
       this.listen(this.core.container, type, () => this.invalidatePolicy(), true);
     }
+    // Scroll does not bubble, so both listeners capture.
     this.listen(this.core.container, "scroll", event => { this.invalidatePolicy(); this.nativeScroll(event); }, true);
+    // Document and external ancestor scrolling move the owner canvas and root together, so only the cached
+    // owner-local projection is refreshed; captures and motion are left alone.
     this.listen(document, "scroll", event => {
       this.invalidatePolicy();
       const target = event.target;
@@ -232,6 +334,7 @@ export class CanvasRuntime {
     this.removers.push(() => this.releaseDPR?.());
   }
 
+  /** The enrolled layer containing a native event's target, or undefined when it is outside every layer. */
   private nativeEventLayer(event: Event) {
     const target = event.target;
     if (!(target instanceof Element) || !target.isConnected || !this.core?.container.contains(target)) return;
@@ -239,6 +342,11 @@ export class CanvasRuntime {
       && layer.element.hasAttribute("drawable") && layer.element.contains(target));
     return layer ? { target, layer } : undefined;
   }
+  /**
+   * Native scroll inside the root while GPU presents or admits. Scrolling the root, an ancestor of a layer
+   * or a layer itself moves layer geometry and clips, so it reconciles; scrolling inside a layer only needs a
+   * fresh capture. Any other scroll target is outside the supported viewport contract and recovers to DOM.
+   */
   private nativeScroll(event: Event) {
     if (this.stopped || this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") return;
     const source = this.nativeEventLayer(event);
@@ -262,6 +370,10 @@ export class CanvasRuntime {
     this.checkPolicy();
     this.core?.invalidate(source.target);
   }
+  /**
+   * IME composition keeps GPU only for an eligible input/textarea inside a layer, whose capture is refreshed;
+   * composition anywhere else in the root recovers to DOM.
+   */
   private nativeComposition(event: Event) {
     if (this.stopped || this.core?.phase() !== "gpu" && this.core?.phase() !== "admitting") return;
     const source = this.nativeEventLayer(event);
@@ -272,21 +384,31 @@ export class CanvasRuntime {
     this.checkPolicy();
     this.core?.invalidate(source.target);
   }
+  /** The adapter-owned native overlay host, if one was supplied; `NativeOverlay` portals into it. */
   get overlayHost() { return this.options.overlayHost; }
+  /** The stable adapter-owned container holding the React root; it moves between hosts, never remounts. */
   get container() { return this.renderer().container; }
+  /** The renderer, or a throw while the mount callback is still running inside its creation. */
   private renderer() {
     if (!this.core) throw new Error("Runtime mount has not completed");
     return this.core;
   }
+  /** Throws `Runtime is disposed` once disposal finished or the renderer reached its disposed phase. */
   private assertLive() { if (this.stopped || this.core?.phase() === "disposed") throw new Error("Runtime is disposed"); }
+  /** Output frame size in CSS pixels plus the current DPR; the frame is the hosts' shared parent. */
   private size() {
     const frame = this.options.ordinaryHost.parentElement!;
     return { width: frame.clientWidth, height: frame.clientHeight, dpr: window.devicePixelRatio };
   }
+  /**
+   * Everything that requires a full renderer reconcile (new capture extents or passes) rather than a redraw:
+   * frame size, DPR, registry revision and each layer's order, size and position.
+   */
   private sizeSignature() {
     return JSON.stringify({ ...this.size(), revision: this.revision,
       layers: this.ordered().map(layer => [layer.id, layer.element.offsetWidth, layer.element.offsetHeight, this.origin(layer)]) });
   }
+  /** Layers in DOM order, which is both GPU paint order and native hit order. */
   private ordered() {
     return [...this.registry.values()].sort((a, b) =>
       a.element.compareDocumentPosition(b.element) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
@@ -300,12 +422,20 @@ export class CanvasRuntime {
     const around = pivot(layer.origin, { width: layer.element.offsetWidth, height: layer.element.offsetHeight });
     return affine(transform, placed ? this.origin(layer) : undefined, around);
   }
+  /**
+   * The layer's laid-out position in root (canvas content) coordinates, net of ancestor scroll offsets;
+   * cached by `refreshViewportGeometry`, measured directly before the first refresh.
+   */
   private origin(layer: LayerDefinition) {
     return this.viewportGeometry.get(layer.element)?.origin ?? scrollOrigin(layer.element, this.rootContainer!);
   }
+  /** Ancestors of the output canvas, observed for style/class changes and matched against scroll targets. */
   private externalAncestors = new Set<HTMLElement>();
+  /** Output canvas border plus padding offset; native geometry is registered relative to its border box. */
   private ownerContentOrigin = { x: 0, y: 0 };
+  /** Output canvas content-box size, compared with the frame by `canvasBoundsFrame`. */
   private ownerContentSize = { width: 0, height: 0 };
+  /** Re-measures cached viewport geometry and redraws after document or external ancestor scrolling. */
   private reconcileProjection() {
     if (this.stopped || this.core?.phase() !== "gpu") return;
     try {
@@ -316,8 +446,18 @@ export class CanvasRuntime {
       this.recover(`Native/GPU viewport projection failed: ${String(error)}`);
     }
   }
+  /**
+   * Per-layer cached geometry in root coordinates: `origin` and `extent` of the layer, `clip` intersected
+   * from clipping ancestors, `own` for the layer's own overflow clip (layer-local), whether its content
+   * overflows, and an `error` when an ancestor chain is outside the supported viewport contract.
+   */
   private viewportGeometry = new WeakMap<HTMLElement, { origin: { x: number; y: number }; extent: { width: number; height: number }; clip?: ViewportRect; own?: ViewportRect; overflowing?: boolean; error?: string }>();
+  /** Elements resize-observed as ancestors of a layer, or as the output canvas and its ancestors. */
   private viewportAncestors = new Set<HTMLElement>();
+  /**
+   * Recomputes `viewportGeometry`, the output canvas content box and the observed ancestor sets. It does
+   * not throw for unsupported ancestor chains; it records them as errors that `viewportClip` throws later.
+   */
   private refreshViewportGeometry() {
     const ancestors = new Set<HTMLElement>();
     const external = new Set<HTMLElement>();
@@ -332,6 +472,8 @@ export class CanvasRuntime {
     const root = owner.ownerDocument.documentElement, rootStyle = getComputedStyle(root);
     const viewportOverflow = (node: HTMLElement) => node === root
       || node === owner.ownerDocument.body && rootStyle.overflowX === "visible" && rootStyle.overflowY === "visible";
+    // The output canvas and its ancestors up to the document. The browser moves and clips the canvas with
+    // its root together, so these only need to stay untransformed, LTR, unzoomed and rectangular.
     for (let node: HTMLElement | null = owner; node; node = node.parentElement) {
       ancestors.add(node);
       if (node !== owner) external.add(node);
@@ -348,6 +490,7 @@ export class CanvasRuntime {
     }
     if ([...external].some(node => !this.externalAncestors.has(node))
       || [...this.externalAncestors].some(node => !external.has(node))) {
+      // MutationObserver has no per-target unobserve: re-observe the root plus the new external chain.
       this.mutation.disconnect();
       this.mutation.observe(this.core!.container, { subtree: true, attributes: true, characterData: true, childList: true });
       for (const node of external) this.mutation.observe(node, { attributes: true, attributeFilter: ["style", "class"] });
@@ -385,6 +528,12 @@ export class CanvasRuntime {
     for (const node of ancestors) if (!this.viewportAncestors.has(node)) this.resize.observe(node);
     this.viewportAncestors = ancestors;
   }
+  /**
+   * The clip the renderer applies to a layer, in layer-local coordinates, or undefined when no clip is needed
+   * (fully inside the frame with no clipping ancestor, or a rotated layer with no own overflow clip). Throws the
+   * geometry error recorded by `refreshViewportGeometry` for unsupported ancestor chains, which the policy check
+   * turns into a recovery, and for rotated layers whose clipped content overflows.
+   */
   private viewportClip(layer: LayerDefinition, matrix?: DOMMatrixReadOnly): ViewportRect | undefined {
     const geometry = this.viewportGeometry.get(layer.element);
     if (geometry?.error) throw new Error(geometry.error);
@@ -423,6 +572,14 @@ export class CanvasRuntime {
     lease.write("transform", "none", "important");
     lease.write("opacity", "1", "important");
   }
+  /**
+   * Moves every layer's declarations to the given presentation. `"gpu"` writes the neutral important
+   * declarations (the canvas draws the transform). `"dom"` releases those leases and writes the inline CSS
+   * matrix and opacity, except for `preserveStyles` layers and animation-owned layers and for properties an
+   * application rewrote meanwhile (`relinquishedDeclarations`). With `releaseOwnership` it also hands owned
+   * animations back. Switching to `"dom"` always finishes all decorative effects, since ordinary DOM only shows
+   * the original.
+   */
   private presentation(mode: "dom" | "gpu", releaseOwnership = false) {
     this.invalidatePolicy();
     const restored = new Map<string, ReturnType<DeclarationOwnership["restore"]>>();
@@ -484,8 +641,15 @@ export class CanvasRuntime {
     }
     return undefined;
   }
+  /** Cached result of `structuralViolation()` for one renderer phase; cleared by `invalidatePolicy()`. */
   private structuralPolicy: { phase: string | undefined; reason: string | undefined } | undefined;
+  /** Drops the cached structural policy so the next `policy()` call re-reads DOM and style. */
   private invalidatePolicy() { this.structuralPolicy = undefined; }
+  /**
+   * Style- and DOM-derived checks on every layer (editable/top-layer content, effects on non-decorative
+   * content, competing animations, size, overflow, presentation declarations, stacking). Returns the first
+   * violation as the diagnosed reason, or undefined. Expensive, so `policy()` caches it.
+   */
   private structuralViolation(): string | undefined {
     const phase = this.core?.phase();
     const nativeBoundary = '[contenteditable]:not([contenteditable="false" i]), dialog, [popover]';
@@ -522,14 +686,20 @@ export class CanvasRuntime {
     }
     return undefined;
   }
+  /** Runs `policy()` and recovers to DOM with its reason when it reports a violation. Idle ordinary DOM is skipped. */
   private checkPolicy() {
     if (this.core?.phase() === "dom" && !this.ownership.size) return;
     const policy = this.policy();
     if (policy) this.recover(policy);
   }
+  /** Clears the pending-readmission flag; no readmission frame is scheduled by the current core. */
   private cancelReadmissionFrame() {
     this.readmissionPending = false;
   }
+  /**
+   * Renderer callback after a diagnosed recovery. Under the `"automatic"` policy it records the reason and
+   * marks admission blocked until an explicit `enable()`; otherwise it does nothing.
+   */
   private recovered(reason: string) {
     if (this.options.admissionPolicy !== "automatic" || this.admissionIntent !== "enabled"
       || this.stopped || this.disposalRequested) return;
@@ -542,6 +712,7 @@ export class CanvasRuntime {
     // Kept as a lifecycle compatibility hook: healthy updates reconcile in the
     // existing engine; diagnosed failures always require explicit reentry.
   }
+  /** Starts a diagnosed fallback to ordinary DOM without awaiting it; a failing recovery is logged and reported. */
   private recover(reason: string) {
     if (this.stopped || !this.core) return;
     void this.core.recover(reason).catch(error => {
@@ -549,6 +720,7 @@ export class CanvasRuntime {
       this.options.onStatus?.(`Underglass recovery failed: ${String(error)}`);
     });
   }
+  /** Adds a listener and registers its removal for `dispose()`, keeping the resource ledger in step. */
   private listen(target: EventTarget, name: string, callback: EventListener, capture = false) {
     target.addEventListener(name, callback, capture);
     this.resources.environmentListeners++;
@@ -557,6 +729,10 @@ export class CanvasRuntime {
       this.resources.environmentListeners--;
     });
   }
+  /**
+   * A `resolution` media query only matches one exact DPR, so each change reconciles and re-arms the watch
+   * for the new value.
+   */
   private watchDPR() {
     this.releaseDPR?.();
     const query = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
@@ -571,6 +747,12 @@ export class CanvasRuntime {
       this.resources.environmentListeners--;
     };
   }
+  /**
+   * Adds a layer to the registry and returns an idempotent release. Throws if the runtime is disposed, the
+   * transform/origin is invalid, the element is not connected inside the persistent root, the id is empty or
+   * duplicate, or a `preserveStyles` element is not a direct root child. Release cancels the layer's
+   * transition, effects and animation ownership and restores its declarations.
+   */
   register(definition: LayerDefinition): () => void {
     this.assertLive();
     this.matrix(definition);
@@ -615,6 +797,11 @@ export class CanvasRuntime {
       this.reconcileMembership();
     };
   }
+  /**
+   * Ref-based enrollment of an original direct-root element (see `useSurfaceRef`): validates it, marks it
+   * `drawable` for capture and registers it with `preserveStyles`. Throws `EnrollmentError` with a specific code
+   * on failure. The returned release is idempotent and restores the element's previous `drawable` attribute.
+   */
   enroll(element: HTMLElement, options: EnrollmentOptions): () => void {
     this.assertLive();
     if (typeof options.id !== "string" || !options.id.trim() || this.registry.has(options.id)) throw new EnrollmentError("invalid-id", `Duplicate/empty enrollment id: ${options.id}`);
@@ -672,6 +859,11 @@ export class CanvasRuntime {
     this.core?.invalidate(layer.element);
     this.requestDraw();
   }
+  /**
+   * Controller call that replaces a layer's transform. Throws for an unknown layer, an invalid transform or a
+   * layer owned by an animation or transition. In GPU mode it reconciles geometry; otherwise it rewrites the
+   * DOM presentation.
+   */
   setTransform(id: string, transform: Transform) {
     this.assertLive();
     const layer = this.registry.get(id);
@@ -714,6 +906,7 @@ export class CanvasRuntime {
     this.checkPolicy();
     this.presentTransform();
   }
+  /** Schedules one coalesced RAF `draw()` while GPU presents and the document is visible. */
   private requestDraw() {
     if (this.stopped || this.drawFrame || !this.environment.visible || this.core?.phase() !== "gpu") return;
     this.resources.controllerFrames++;
@@ -736,6 +929,10 @@ export class CanvasRuntime {
       this.reconcile();
     });
   }
+  /**
+   * Applies registry, layout and transform changes while GPU presents or admits; does nothing in DOM. An
+   * unchanged size signature only needs a draw, a changed one a full renderer reconcile. Errors recover to DOM.
+   */
   reconcile() {
     if (this.stopped || !this.core || this.core.phase() !== "gpu" && this.core.phase() !== "admitting") return;
     try {
@@ -750,6 +947,10 @@ export class CanvasRuntime {
     }
     catch (error) { console.error("Underglass reconciliation failed", error); this.recover(`Native/GPU reconciliation failed: ${String(error)}`); }
   }
+  /**
+   * After a layer joins or leaves the GPU registry, updates geometry at once and defers the full `reconcile()`
+   * to one microtask, so several membership changes in the same commit share it.
+   */
   private reconcileMembership() {
     if (this.stopped || this.core?.phase() !== "gpu") return;
     this.refreshViewportGeometry();
@@ -761,6 +962,10 @@ export class CanvasRuntime {
       this.reconcile();
     });
   }
+  /**
+   * Interrupts controller-driven motion: stops the shared clock and the pending draw frame, and rejects the
+   * RAF or visibility wait that `animate`/`advance` is awaiting.
+   */
   private cancelMotion() {
     this.stopClock();
     if (this.drawFrame) {
@@ -788,6 +993,8 @@ export class CanvasRuntime {
     affine(target);
     const duration = typeof length === "object" ? length.duration : undefined;
     if (duration !== undefined && (!Number.isFinite(duration) || duration <= 0 || duration > 60000)) throw new Error("Motion duration requires (0, 60000] ms");
+    // With `{ duration }` progress comes from elapsed time and the loop ends when it reaches 1; the frame count
+    // then acts only as the 10000-frame ceiling that also bounds numeric lengths.
     const frames = typeof length === "number" ? length : 10000;
     if (!Number.isInteger(frames) || frames < 1 || frames > 10000) throw new Error("Motion requires 1..10000 frames");
     await this.settle();
@@ -809,6 +1016,7 @@ export class CanvasRuntime {
           });
           previous = undefined;
         }
+        // Re-armed every iteration; `motionFrame` lets `cancelMotion` reject this wait.
         const now = await new Promise<number>((resolve, reject) => {
           this.resources.controllerFrames++;
           const frame = requestAnimationFrame(time => {
@@ -841,6 +1049,11 @@ export class CanvasRuntime {
     } finally { this.moving = false; this.scheduleReadmission(); }
     return { before, after: this.state() };
   }
+  /**
+   * Requests GPU admission and resolves with `state()`. Always a fresh, explicit admission: it re-measures
+   * geometry, cancels transitions and invalidates cached policy first. A result superseded by a later
+   * `enable`/`disable`/`dispose` is ignored; a refused admission records its reason in `state().admission`.
+   */
   async enable() {
     this.assertLive();
     this.refreshViewportGeometry();
@@ -859,6 +1072,7 @@ export class CanvasRuntime {
     this.startClock();
     return this.state();
   }
+  /** Caller-owned exit from GPU: cancels admission intent, transitions and motion, then recovers to ordinary DOM. */
   async disable() {
     this.admissionEpoch++;
     this.admissionIntent = "disabled";
@@ -870,13 +1084,22 @@ export class CanvasRuntime {
     await this.renderer().disable();
     return this.state();
   }
+  /**
+   * Waits for already scheduled work: queued microtasks, the viewport projection, a pending controller draw
+   * frame and then the renderer's own settle. It does not prevent later browser paints.
+   */
   async settle() {
     await new Promise<void>(resolve => queueMicrotask(resolve));
     this.reconcileProjection();
     if (this.drawFrame) await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     await this.renderer().settle();
   }
+  /** Marks one layer (or all when `id` is omitted) for recapture. */
   invalidate(id?: string) { this.assertLive(); this.renderer().invalidate(id); }
+  /**
+   * Ends every animation ownership, returning each layer to its base transform. It restores all owners even
+   * if some fail and then throws an `AggregateError` with the failures.
+   */
   private restoreOwnership() {
     this.stopClock();
     const errors: unknown[] = [];
@@ -896,6 +1119,7 @@ export class CanvasRuntime {
     for (const id of this.motions.keys()) if (!this.registry.has(id)) this.cancelNativeMotion(id);
     if (errors.length) throw new AggregateError(errors, "Animation ownership restoration failed");
   }
+  /** Cancels and forgets the managed native animation `createMotion` made for a layer. */
   private cancelNativeMotion(id: string) {
     const motion = this.motions.get(id);
     if (!motion) return;
@@ -904,6 +1128,11 @@ export class CanvasRuntime {
     this.invalidatePolicy();
     this.resources.nativeMotions--;
   }
+  /**
+   * Creates a managed, paused WAAPI animation for a layer from typed numeric keyframes and returns its handle.
+   * Only valid in idle ordinary DOM or active GPU, for a layer with no other animation source. Playback goes
+   * to the native animation until `own()` hands it to the runtime for GPU presentation.
+   */
   createMotion(id: string, descriptor: MotionDescriptor): MotionHandle {
     this.assertLive();
     const state = this.renderer().state();
@@ -914,6 +1143,7 @@ export class CanvasRuntime {
       throw new Error("Typed motion requires one enrolled layer without overlapping sources");
     }
     const compiled = compileMotion(descriptor);
+    // Typed motion frames map one-to-one onto native keyframes; the animation stays paused until played or owned.
     const nativeFrames = compiled.frames.map(frame => ({
       offset: frame.offset, easing: frame.easing ?? "linear", transform: frame.transform, opacity: frame.opacity,
     }));
@@ -956,9 +1186,15 @@ export class CanvasRuntime {
     this.resources.nativeMotions++;
     return handle;
   }
+  /** Cancels every running declarative transition with the given reason. */
   private cancelTransitions(reason: string) {
     for (const transition of [...this.transitions.values()]) transition.finish("cancelled", reason);
   }
+  /**
+   * Validates a declarative transition without side effects and returns what `stageTransition` needs.
+   * Throws when the renderer is busy, another owner competes for the layer, the descriptor is out of bounds
+   * or authored CSS conflicts. A transition that replaces a running one restarts from the current transform.
+   */
   private prepareTransition(id: string, descriptor: MotionDescriptor) {
     this.assertLive();
     const state = this.renderer().state();
@@ -968,8 +1204,10 @@ export class CanvasRuntime {
       // Descendant animations only repaint native content; only boundary presentation animations compete.
       throw new Error("Declarative motion requires an idle enrolled boundary without competing animation owners");
     }
+    // A replacing transition continues from the layer's current transform instead of jumping.
     const prior = this.transitions.get(id);
     const current = { ...layer.transform };
+    // Validate the caller's descriptor itself, apart from the rewritten keyframes below.
     compileMotion(descriptor);
     const input = prior ? { ...descriptor, keyframes: [{ ...current, offset: 0 }, ...descriptor.keyframes.slice(1)] } : descriptor;
     const compiled = compileMotion(input);
@@ -988,9 +1226,14 @@ export class CanvasRuntime {
     prior?.lease.check();
     return { layer, prior, compiled, base: current };
   }
+  /** Runs a bounded declarative motion on one layer; the handle reports completion or cancellation. */
   transition(id: string, descriptor: MotionDescriptor): TransitionHandle {
     return this.startTransitions([{ id, prepared: this.prepareTransition(id, descriptor) }])[0]!;
   }
+  /**
+   * Starts 1..8 transitions on distinct layers sharing one start time, delaying item `n` by `n * stagger` ms. All items
+   * are validated before any starts, so an invalid group leaves no side effects.
+   */
   transitionGroup(items: readonly CoordinatedMotion[], stagger = 0): TransitionHandle[] {
     if (!Number.isFinite(stagger) || stagger < 0 || stagger > 1000 || items.length < 1 || items.length > 8
       || new Set(items.map(item => item.id)).size !== items.length) throw new Error("Coordinated motion requires 1..8 distinct ids and stagger in [0,1000]ms");
@@ -999,6 +1242,10 @@ export class CanvasRuntime {
     }));
     return this.startTransitions(items.map((item, index) => ({ id: item.id, prepared: prepared[index]! })));
   }
+  /**
+   * Two-phase start: stage every transition, apply and validate the first frame of each, then commit them.
+   * Any failure rolls all staged transitions back, which makes groups atomic.
+   */
   private startTransitions(items: { id: string; prepared: ReturnType<CanvasRuntime["prepareTransition"]> }[]): TransitionHandle[] {
     const start = performance.now();
     const staged = items.map(({ id, prepared }) => this.stageTransition(id, prepared, start));
@@ -1011,6 +1258,11 @@ export class CanvasRuntime {
     }
     return staged.map(transition => transition.commit());
   }
+  /**
+   * Builds one transition's lifecycle (`prepare`, `validate`, `rollback`, `commit`) around a RAF loop that
+   * samples the compiled timeline. In ordinary DOM it writes the CSS matrix and opacity itself and verifies
+   * they were not overridden; in GPU mode it only updates the layer transform and requests a draw.
+   */
   private stageTransition(id: string, { layer, prior, compiled, base }: ReturnType<CanvasRuntime["prepareTransition"]>, start: number) {
     const lease = new DeclarationOwnership(layer.element, prior?.lease);
     let frame = 0, done = false;
@@ -1064,6 +1316,7 @@ export class CanvasRuntime {
       this.requestDraw();
       resolve({ status, reason });
     };
+    // Hiding the document pauses the transition; `resume` shifts `start` by the paused time so progress continues.
     let pausedAt: number | undefined;
     const pause = () => {
       if (done || pausedAt !== undefined) return;
@@ -1095,12 +1348,14 @@ export class CanvasRuntime {
     };
     const schedule = () => { this.resources.controllerFrames++; frame = requestAnimationFrame(tick); };
     let initial: Transform;
+    // Under reduced motion the transition jumps to its end state on commit instead of animating.
     const reduced = this.reduced.matches;
     return {
       prepare: () => { initial = sample(reduced ? compiled.timeline.end : 0); },
       validate: () => { validate(initial); },
       rollback: () => { lease.rollback(); },
       commit: (): TransitionHandle => {
+        // `transferred`: the new transition inherits the prior one's declaration lease, so nothing is restored.
         prior?.finish("cancelled", "Replaced", true);
         layer.transform = initial;
         this.transitions.set(id, { finish, pause, resume, lease, start, end: compiled.timeline.end });
@@ -1120,16 +1375,25 @@ export class CanvasRuntime {
       },
     };
   }
+  /**
+   * Takes ownership of a WAAPI animation on a layer so the runtime samples it for GPU presentation, and
+   * returns its playback controls. CSS animations need `ownCSSAnimation` or `ownCompiledAnimation`.
+   */
   ownAnimation(id: string, source: Animation): AnimationPlayback {
     if (source instanceof CSSAnimation) throw new Error("CSS animation requires explicit source-rule provenance");
     return this.acquireAnimation(id, source);
   }
+  /** Owns a CSS animation whose stylesheet rule is identified by `provenance`; the source rule is validated and tracked. */
   ownCSSAnimation(id: string, provenance: CSSAnimationSource): AnimationPlayback {
     const layer = this.registry.get(id);
     if (!layer) throw new Error(`Unknown Surface: ${id}`);
     const css = validateCSSSource(layer.element, provenance);
     return this.acquireAnimation(id, css.source, css.check, css.restore, css.resources);
   }
+  /**
+   * Owns the single matching running CSS animation as a build-generated program from `options.compiled`, which
+   * the renderer evaluates on the GPU. Throws if the program or layer is unknown or the match is not exact.
+   */
   ownCompiledAnimation(id: string, animationId: string): AnimationPlayback {
     const layer = this.registry.get(id);
     const compiled = this.options.compiled?.animations.find(animation => animation.id === animationId);
@@ -1140,6 +1404,10 @@ export class CanvasRuntime {
     verifyCompiledAnimation(layer.element, source, compiled);
     return this.acquireAnimation(id, source, undefined, undefined, undefined, compiled);
   }
+  /**
+   * Shared ownership path for the `own*` methods: checks the renderer is idle and the layer is neutral and
+   * unowned, acquires the animation lease and registers the owner. Works in ordinary DOM and in active GPU.
+   */
   private acquireAnimation(id: string, source: Animation, check?: () => void, restore?: () => void, resources?: () => number, compiled?: CompiledAnimation): AnimationPlayback {
     this.assertLive();
     const state = this.renderer().state();
@@ -1221,10 +1489,16 @@ export class CanvasRuntime {
     this.requestDraw();
     this.startClock();
   }
+  /** Cancels the shared RAF clock and forgets its last timestamp, so the next tick starts with a zero delta. */
   private stopClock() {
     if (this.clockFrame) { cancelAnimationFrame(this.clockFrame); this.clockFrame = 0; this.resources.controllerFrames--; }
     this.clockTime = undefined;
   }
+  /**
+   * Starts the shared RAF clock if something needs it: GPU is active, the document visible, motion not
+   * reduced or driven by `animate`/`advance`, and an owned animation or effect is playing. Each tick advances
+   * them by the elapsed time (capped at 100 ms), re-checks policy, draws and re-arms itself.
+   */
   private startClock() {
     if (this.stopped || this.clockFrame || this.moving || !this.environment.visible || this.reduced.matches || this.core?.phase() !== "gpu"
       || ![...this.ownership.values()].some(owner => owner.lease.playback.state().playing)
@@ -1244,6 +1518,7 @@ export class CanvasRuntime {
       this.startClock();
     });
   }
+  /** Convenience over `setEffects` for one ripple; `null` clears the layer's effect ownership. */
   setRipple(id: string, value: Ripple | null) {
     if (value) {
       const ripple = validateRipple(value);
@@ -1255,6 +1530,11 @@ export class CanvasRuntime {
       this.effects.get(id)?.finish({ status: "cancelled", reason: "setRipple cleared effect ownership" });
     }
   }
+  /**
+   * Validates and installs a decorative effect chain on a layer, replacing any previous one, and returns its
+   * handle. The layer must be enrolled as decorative. Custom effects need WebGPU and may rebuild the layer's
+   * pass. Ordinary DOM keeps only the static original, so effects finish as `fallback` there.
+   */
   setEffects(id: string, descriptors: readonly EffectDescriptor[]): EffectHandle {
     this.assertLive();
     const layer = this.registry.get(id);
@@ -1303,9 +1583,15 @@ export class CanvasRuntime {
       dispose: () => entry.finish({ status: "disposed", reason: "Effect disposed" }),
     };
   }
+  /** Advances playing effect time (or all when `force`), wrapping at 1000 seconds. */
   private tickRipples(milliseconds: number, force = false) {
     for (const effect of this.effects.values()) for (const value of effect.values) if (value.time.playing || force) value.time.seconds = (value.time.seconds + milliseconds / 1000) % 1000;
   }
+  /**
+   * Deterministic timeline stepping for measurement: advances owned animations and effects by a fixed
+   * `milliseconds` per real displayed frame, even when paused, and returns `state()` before and after.
+   * Requires idle GPU without reduced motion; a policy violation disables GPU and throws.
+   */
   async advance(frames = 300, milliseconds = 1000 / 60) {
     this.assertLive();
     if (!Number.isInteger(frames) || frames < 1 || frames > 10000 || !Number.isFinite(milliseconds) || milliseconds < 0 || milliseconds > 1000) throw new Error("Invalid bounded timeline advance");
@@ -1335,6 +1621,7 @@ export class CanvasRuntime {
     } finally { this.moving = false; this.startClock(); }
     return { before, after: this.state() };
   }
+  /** Renderer state extended with runtime diagnostics: environment, admission, layers, resource ledgers and owners. */
   state() {
     return { ...this.renderer().state(), environment: { ...this.environment }, registryRevision: this.revision,
       admission: { policy: this.options.admissionPolicy ?? "explicit", intent: this.admissionIntent,
@@ -1350,9 +1637,14 @@ export class CanvasRuntime {
         return { id, amplitude: ripple?.parameters.amplitude ?? 0, seconds: ripple?.time.seconds ?? effect.values[0]!.time.seconds, playing: ripple?.time.playing ?? false,
           effects: effect.values.map(value => ({ kind: value.kind, parameters: { ...value.parameters }, time: { ...value.time } })) };
       }),
+      // Fixed values, not measured from live state.
       effectBudget: { passes: 1, operationsPerLayer: 3, extraTextures: 0, uniformBytesPerLayer: 160, gpuTimestampMs: null },
     };
   }
+  /**
+   * Final teardown: cancels intent, motion and transitions, disposes the renderer (which unmounts the React
+   * root), then disconnects observers and listeners. Safe to call again; later calls return `state()`.
+   */
   async dispose() {
     if (this.stopped) return this.state();
     this.admissionEpoch++;

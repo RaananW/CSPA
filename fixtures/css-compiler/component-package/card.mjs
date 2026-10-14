@@ -1,3 +1,9 @@
+/**
+ * Card component of the fixture package `@underglass/fixture-card`, standing in for a third-party
+ * component library. It forwards its `ref` to the root `section`, which is the enrollment boundary, and
+ * keeps its own state (an input, a saved value and a glyph toggle) so tests can verify that it survives
+ * GPU presentation. `onCommit` lets the host count renders.
+ */
 import { createElement, forwardRef, useState } from "react";
 export const Card = forwardRef(function Card({ className, onCommit }, ref) {
   const [value, setValue] = useState("Original package input");

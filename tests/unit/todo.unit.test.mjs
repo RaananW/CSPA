@@ -1,3 +1,7 @@
+/**
+ * Unit tests for the playground TODO app's reducer and renderer diagnostics
+ * (`examples/playground/src/apps/todo`). Pure state logic, no browser. Run with `npm run test:unit`.
+ */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { initialTodos, reduceTodos, visibleTasks, TASK_LIMIT, NOTES_LIMIT } from "../../examples/playground/src/apps/todo/model.ts";
@@ -45,6 +49,7 @@ test("list/detail uses stable IDs, live bounded notes, search and deterministic 
   assert.match(reduceTodos(state, { type: "save", id: 1 }).message, /no longer/);
   assert.equal(reduceTodos(state, { type: "select", id: 1 }).selectedId, null);
 });
+// The prefix of each diagnostic names its category, so GPU errors and capability absence are told apart from admission.
 test("diagnostics distinguish admission and authored framework boundaries from factual capability absence", () => {
   assert.match(rendererDiagnostic("dom", "Missing requestPaint canvas.content"), /^capability/);
   assert.match(rendererDiagnostic("dom", "Offscreen functional admission unproven"), /^admission/);

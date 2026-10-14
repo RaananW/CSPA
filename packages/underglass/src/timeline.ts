@@ -1,5 +1,13 @@
+/**
+ * Pure keyframe timeline compiler. It parses the supported `translate() rotate() scale()` transform
+ * strings, cubic-bezier easings and iteration/direction timing, validates them against finite
+ * limits and returns a `sample(milliseconds)` function giving the interpolated transform and
+ * opacity. Used by `animation.ts` (source animations), `motion.ts` (typed motion) and
+ * `css-animation.ts` (CSS provenance checks); it touches no DOM.
+ */
 import type { Transform } from "./affine.js";
 
+/** Timing for a timeline. Times are milliseconds; `iterations` may be `Infinity`. Only the listed values are supported. */
 export interface TimelineTiming {
   duration: number;
   delay?: number;
@@ -8,6 +16,7 @@ export interface TimelineTiming {
   easing?: string;
   fill?: "both";
 }
+/** One complete keyframe: `offset` 0..1, a supported transform string, opacity and the easing to the next frame. */
 export interface TimelineFrame {
   offset: number;
   transform: string;
@@ -15,8 +24,11 @@ export interface TimelineFrame {
   easing?: string;
 }
 
+// Number syntax accepted inside transform strings (optional sign, decimals and exponent).
 const numeric = "(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:e[+-]?\\d+)?)";
+// The only transform shape supported: translate(x px[, y px]) rotate(deg) scale(s[, t]).
 const trs = new RegExp(`^translate\\(${numeric}px(?:,\\s*${numeric}px)?\\) rotate\\(${numeric}deg\\) scale\\(${numeric}(?:,\\s*${numeric})?\\)$`, "i");
+/** Parses `none` or a supported transform string into numeric channels; throws on anything else or out-of-range values. */
 export function parseTransform(value: string): Transform {
   if (value === "none") return { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 };
   const match = value.match(trs);
@@ -29,6 +41,11 @@ export function parseTransform(value: string): Transform {
   return result;
 }
 
+/**
+ * Builds a sampler for `linear`, a named CSS easing or `cubic-bezier(...)`. Returns `at(t)` plus the
+ * curve's `min`/`max` output (overshoot), found from the interior extrema of the y curve, so callers
+ * can bound interpolated values. `at` extrapolates linearly outside 0..1 along the end tangents.
+ */
 function easing(value: string) {
   const named: Record<string, string> = { ease: "cubic-bezier(0.25,0.1,0.25,1)", "ease-in": "cubic-bezier(0.42,0,1,1)",
     "ease-out": "cubic-bezier(0,0,0.58,1)", "ease-in-out": "cubic-bezier(0.42,0,0.58,1)" };
@@ -38,7 +55,9 @@ function easing(value: string) {
   if (!values || match!.slice(1).some(n => !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(n.trim()))
     || values.some(n => !Number.isFinite(n) || Math.abs(n) > 1e6) || values[0]! < 0 || values[0]! > 1 || values[2]! < 0 || values[2]! > 1) throw new Error(`Unsupported or numerically unbounded easing: ${value}`);
   const [x1, y1, x2, y2] = values as [number, number, number, number];
+  // Cubic bezier coordinate with endpoints 0 and 1 and control values a and b.
   const curve = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
+  // Roots of the y curve's derivative (a quadratic) give its interior extrema.
   const a = 1 + 3 * y1 - 3 * y2, b = 3 * y2 - 6 * y1, c = 3 * y1;
   const roots = Math.abs(a) < 1e-12 ? [-c / (2 * b)] : [
     (-2 * b + Math.sqrt(4 * b * b - 12 * a * c)) / (6 * a),
@@ -51,11 +70,19 @@ function easing(value: string) {
     if (t > 1) return 1 + (t - 1) * (x2 < 1 ? (1 - y2) / (1 - x2) : x1 < 1 ? (1 - y1) / (1 - x1) : 0);
     if (t === 0 || t === 1) return t;
     let low = 0, high = 1;
+    // Solve x(u) = t by bisection, then evaluate y at that parameter.
     for (let i = 0; i < 40; i++) { const mid = (low + high) / 2; if (curve(mid, x1, x2) < t) low = mid; else high = mid; }
     return curve((low + high) / 2, y1, y2);
   } };
 }
 
+/**
+ * Validates keyframes and timing and returns the compiled timeline: `duration`, `delay`,
+ * `iterations`, `direction`, `end` (ms) and `sample(ms)`, which gives the transform and opacity at a
+ * time in 0..1e12 (held at the first/last pose outside the active range, as with `fill: "both"`).
+ * Throws on fewer than 2 or more than 32 frames, offsets that do not span 0..1 strictly increasing,
+ * opacity outside 0..1, or easings whose overshoot would reach a singular scale or non-finite values.
+ */
 export function compileTimeline(frames: TimelineFrame[], timing: TimelineTiming) {
   const { duration, delay = 0, iterations = 1, direction = "normal", fill = "both" } = timing;
   if (!Number.isFinite(duration) || duration <= 0 || duration > 3_600_000 || !Number.isFinite(delay) || delay < 0 || delay > 3_600_000
@@ -69,6 +96,7 @@ export function compileTimeline(frames: TimelineFrame[], timing: TimelineTiming)
     if (typeof frame.opacity === "string" && !frame.opacity.trim() || !Number.isFinite(opacity) || opacity < 0 || opacity > 1) throw new Error("Timeline opacity must be in [0,1]");
     return { offset: frame.offset, transform: { ...parseTransform(frame.transform), opacity }, ease: easing(frame.easing ?? "linear") };
   });
+  // Worst case interpolation per segment (easing overshoot included) must stay finite and keep positive scales.
   for (let index = 1; index < compiled.length; index++) {
     const start = compiled[index - 1]!, finish = compiled[index]!;
     const span = finish.offset - start.offset;
@@ -87,10 +115,12 @@ export function compileTimeline(frames: TimelineFrame[], timing: TimelineTiming)
     duration, delay, iterations, direction, end,
     sample(milliseconds: number): Transform {
       if (!Number.isFinite(milliseconds) || milliseconds < 0 || milliseconds > 1e12) throw new Error("Seek requires finite milliseconds in [0,1e12]");
+      // Time inside the active interval, then split into iteration number and fraction within it.
       const active = Math.max(0, Math.min(milliseconds - delay, duration * iterations));
       let iteration = Math.floor(active / duration);
       let fraction = (active % duration) / duration;
       if (active === duration * iterations) { iteration = iterations - 1; fraction = 1; }
+      // Odd iterations of an alternating animation run backwards.
       if (direction === "alternate" && iteration % 2) fraction = 1 - fraction;
       fraction = globalEase.at(fraction);
       let index = compiled.findIndex(frame => frame.offset >= fraction);

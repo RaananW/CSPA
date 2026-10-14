@@ -1,3 +1,20 @@
+/**
+ * Browser suite for the typed shared runtime (`mountCanvasApp`, `Surface`, `NativeScroll`, `NativeOverlay`)
+ * on the playground page `runtime.html` (`examples/playground/src/demo/runtime-demo.tsx`), driven through
+ * its `window.runtimeProbe` hooks. Tests load the production preview build by default; `strict` tests and the
+ * fault-injection admission tests load the Vite development server (`developmentURL`), and `strict` adds React
+ * StrictMode and real HMR. Query flags on the page select
+ * specimens (`dom` skips the automatic initial enable; `many`, `transparent`, `nested`, `budget`, ...).
+ *
+ * It proves that typed layers stay GPU-presented with fresh pixels and correct native hits across content,
+ * transform, origin, DPR, resize and layer add/remove; that functional admission rejects broken capture or
+ * geometry; and that faults, device loss and pending cleanup fall back to the same usable original DOM with
+ * a diagnosed reason. Each test writes JSON reports and PNG screenshots to the `runtime` evidence directory.
+ *
+ * Specimen colours used by the pixel checks: `primary` rgb(240,30,60) at (40,50) 260x300, `stationary`
+ * rgb(20,200,90) at (380,60) 140x100, the optional third layer rgb(30,100,220) at (400,210) 100x50, on a
+ * white 640x420 frame.
+ */
 import { test, expect } from "../helpers/current-browser.mjs";
 import { developmentURL } from "../helpers/urls.mjs";
 import { mkdir, writeFile, stat, utimes } from "node:fs/promises";
@@ -5,16 +22,26 @@ import { PNG } from "pngjs";
 
 import { evidenceDirectory } from "../helpers/evidence.mjs";
 const evidence = evidenceDirectory("runtime");
+/** Writes one named JSON report into this suite's evidence directory. */
 async function save(name, report) {
   await mkdir(evidence, { recursive: true });
   await writeFile(`${evidence}/${name}.json`, JSON.stringify(report, null, 2));
 }
+/**
+ * Opens `runtime.html` with `query` and waits until the automatic initial enable has admitted GPU.
+ * `strict` switches to the development server and React StrictMode.
+ */
 async function ready(page, query = "", strict = false) {
   await page.goto(`${strict ? developmentURL : ""}/runtime.html?${query}${strict ? "&strict" : ""}`);
   await page.waitForFunction(() => window.runtimeProbe?.state().mode === "gpu" && !window.runtimeProbe.state().initializing);
+  // A short quiet period after admission, then `settle()` drains already scheduled capture/draw work.
   await page.waitForTimeout(300);
   await page.evaluate(() => window.runtimeProbe.settle());
 }
+/**
+ * Screenshots `#frame` (saved as evidence) and returns a sampler `(x, y) => [r, g, b, a]` that takes
+ * frame-local CSS pixels. The frame is 640 CSS pixels wide, so `png.width / 640` is the device pixel ratio.
+ */
 async function snap(page, name) {
   await mkdir(evidence, { recursive: true });
   const bytes = await page.locator("#frame").screenshot({ path: `${evidence}/${name}.png` });
@@ -23,54 +50,70 @@ async function snap(page, name) {
   return (x, y) => [...png.data.subarray((Math.round(y * ratio) * png.width + Math.round(x * ratio)) * 4,
     (Math.round(y * ratio) * png.width + Math.round(x * ratio)) * 4 + 4)];
 }
+/** Asserts that every owned GPU and runtime resource counter is back to zero, as after `dispose()`. */
 function zero(state) {
   expect(Object.values(state.resources).every(value => value === 0)).toBe(true);
   expect(Object.values(state.runtimeResources).every(value => value === 0)).toBe(true);
 }
 
+// Baseline GPU path: admission proof, direct GPU capture pixels, native clicks, a content update that
+// recaptures only the changed layer, and 300 numeric motion frames that need no React commit or capture.
 for (const strict of [false, true]) test(`typed layers: direct native pixels and 300 real-commit-free frames strict=${strict}`, async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   await ready(page, "", strict);
   const initial = await page.evaluate(() => window.runtimeProbe.state());
+  // `scripts/react-matrix.mjs` sets the expected version for its React 18 run.
   expect(initial.reactVersion).toBe(process.env.CANVAS_EXPECT_REACT_VERSION ?? "19.3.0");
+  // Admission read back its two marker colours from the GPU output only (no native 2D readback), and its
+  // native hit probe found both interior points and missed the clipped exterior point.
   expect(initial.metrics.admission.passes).toBe(1);
   expect(initial.metrics.admission.last.nativePixels).toEqual([]);
   expect(initial.metrics.admission.last.gpuPixels).toEqual([[207, 37, 83, 255], [31, 179, 113, 255]]);
   expect(initial.metrics.admission.last.geometry.hits).toEqual([true, true, false]);
   expect(initial.resources.probeElements).toBe(0);
   expect(initial.resources.probeReadbacks).toBe(0);
+  // StrictMode mounts effects twice in development.
   expect(initial.commits.mounts).toBe(strict ? 2 : 1);
   expect(initial.commits.count).toBeGreaterThan(0);
   expect(initial.resources.engines).toBe(1);
   const cdp = await page.context().newCDPSession(page);
   const environment = { browser: await cdp.send("Browser.getVersion"), launch: await cdp.send("Browser.getBrowserCommandLine") };
   await cdp.detach();
+  // Sample points: (45,340) inside `primary`, (515,155) inside `stationary`.
   const pixels = await snap(page, `independent-${strict}-initial`);
   expect(pixels(45, 340)).toEqual([240, 30, 60, 255]);
   expect(pixels(515, 155)).toEqual([20, 200, 90, 255]);
   await page.locator("#nested").click();
   await expect(page.locator("#nested")).toHaveText("Nested 1");
+  // Clicking the heading moves focus out of the layers before the quiet period.
   await page.locator("h1").click();
   await page.waitForTimeout(300);
   await page.evaluate(() => window.runtimeProbe.settle());
   const changed = await page.evaluate(() => window.runtimeProbe.state());
+  // The nested React commit inside `primary` produced a fresh capture of that layer.
   expect(changed.commits.count).toBeGreaterThan(initial.commits.count);
   expect(changed.metrics.perLayer.primary.captures).toBeGreaterThan(initial.metrics.perLayer.primary.captures);
   expect(changed.metrics.perLayer.stationary.uploads).toBeGreaterThanOrEqual(initial.metrics.perLayer.stationary.uploads);
+  // A one-frame warm-up, then a quiet period, so the measured interval starts from a settled surface.
   const warmup = await page.evaluate(() => window.runtimeProbe.animate({ x: 42, scaleX: 0.91, scaleY: 0.91, rotation: 9 }, 1));
   await page.waitForTimeout(300);
   await page.evaluate(() => window.runtimeProbe.settle());
   const motion = await page.evaluate(() => window.runtimeProbe.animate({ x: 45, scaleX: 0.9, scaleY: 0.9, rotation: 10 }, 300));
+  // Numeric motion is uniforms plus native geometry only: no capture, copy, readback, upload, React commit
+  // or readmission, and exactly one GPU frame per requested frame.
   for (const key of ["captures", "pixelCopies", "pixelReadbacks", "uploads"]) expect(motion.after.metrics[key]).toBe(motion.before.metrics[key]);
   expect(motion.after.metrics.admission).toEqual(motion.before.metrics.admission);
   expect(motion.after.commits.count).toBe(motion.before.commits.count);
   expect(motion.after.metrics.gpuFrames - motion.before.metrics.gpuFrames).toBe(300);
+  // Per-frame timing history is capped at its last 256 samples; the cumulative timing count is not.
   expect(motion.after.metrics.frameWorkMs.length).toBe(256);
   expect(motion.after.metrics.timings.frameWorkMs.count).toBe(motion.after.metrics.gpuFrames);
+  // Motion of `primary` leaves the independent `stationary` layer's matrix and pixels unchanged.
   expect(motion.after.layers.find(layer => layer.id === "stationary").matrix).toEqual(initial.layers.find(layer => layer.id === "stationary").matrix);
   const after = await snap(page, `independent-${strict}-transformed`);
   expect(after(515, 155)).toEqual([20, 200, 90, 255]);
+  // Playwright clicks the element's current (transformed) box, so this also checks moved native geometry.
   await page.locator("#count").click();
   await expect(page.locator("#count")).toHaveText("Count 1");
   const disposed = await page.evaluate(() => window.runtimeProbe.dispose());
@@ -79,6 +122,9 @@ for (const strict of [false, true]) test(`typed layers: direct native pixels and
   await save(`independent-${strict}`, { environment, initial, changed, warmup, motion, disposed, errors });
 });
 
+// The page's "Layer" button toggles a third `Surface` in and out. Each toggle must stay GPU without
+// readmission, keep the original root and controls, publish captures that match the current slots at
+// the DPR's backing resolution, and show every layer's pixels (no blank or partial frame).
 for (const dpr of [1, 2]) test(`original Layer actions retain complete GPU composition DPR${dpr}`, async ({ browser }) => {
   const page = await browser.newPage({ deviceScaleFactor: dpr });
   try {
@@ -86,8 +132,10 @@ for (const dpr of [1, 2]) test(`original Layer actions retain complete GPU compo
     const cdp = await page.context().newCDPSession(page);
     const environment = { browser: await cdp.send("Browser.getVersion"), launch: await cdp.send("Browser.getBrowserCommandLine") };
     await cdp.detach();
+    // Identity references: the same DOM nodes must survive every toggle (no remount or cloning).
     await page.evaluate(() => { window.originalRuntimeRoot = document.querySelector(".app-container"); window.originalRuntimeCount = document.querySelector("#count"); });
     const observations = [];
+    // Even iterations add the third layer (three captures), odd ones remove it (two).
     for (let index = 0; index < 8; index++) {
       await page.locator("#third").click();
       await page.evaluate(() => window.runtimeProbe.settle());
@@ -98,6 +146,8 @@ for (const dpr of [1, 2]) test(`original Layer actions retain complete GPU compo
       expect(state.original).toBe(true); expect(state.owner).toBe("output"); expect(state.hidden).toBe(false);
       expect(state.metrics.admission.attempts).toBe(1);
       expect(state.publication.captures).toHaveLength(index % 2 === 0 ? 3 : 2);
+      // Captured device pixels cover the CSS extent at this DPR, the texture holds them, and each capture
+      // was taken for the slot it is published in.
       for (const capture of state.publication.captures) {
         expect(capture.pixelWidth).toBeGreaterThanOrEqual(capture.width * dpr);
         expect(capture.pixelHeight).toBeGreaterThanOrEqual(capture.height * dpr);
@@ -109,6 +159,7 @@ for (const dpr of [1, 2]) test(`original Layer actions retain complete GPU compo
       expect(pixels(45, 340)).toEqual([240, 30, 60, 255]);
       expect(pixels(515, 155)).toEqual([20, 200, 90, 255]);
       if (index % 2 === 0) {
+        // (495,255) is inside the newly added third layer; its native control must also be clickable.
         expect(pixels(495, 255)).toEqual([30, 100, 220, 255]);
         await page.locator("#third-control").click();
       }
@@ -121,6 +172,11 @@ for (const dpr of [1, 2]) test(`original Layer actions retain complete GPU compo
   } finally { await page.close(); }
 });
 
+// For translate, scale and rotate transforms of `primary`, the runtime's GPU matrix must equal the matrix
+// the browser applied to native geometry, the native bounding box must match the transformed corners,
+// the rendered edge must sit exactly where the matrix puts it, and a trusted click at the transformed
+// button centre must hit while one just outside the button must not. A resize then keeps GPU and
+// re-derives exact device-pixel capture sizes.
 for (const dpr of [1, 2]) test(`canonical geometry, rendered edges, native hits and resize at DPR ${dpr}`, async ({ browser }) => {
   const page = await browser.newPage({ deviceScaleFactor: dpr });
   const observations = [];
@@ -129,6 +185,10 @@ for (const dpr of [1, 2]) test(`canonical geometry, rendered edges, native hits 
     for (const transform of [{ x: 30, y: 5 }, { x: 40, scaleX: 0.8, scaleY: 0.85 }, { x: 90, rotation: 15, scaleX: 0.8, scaleY: 0.8 }]) {
       await page.evaluate(transform => window.runtimeProbe.transform("primary", transform), transform);
       await page.evaluate(() => window.runtimeProbe.settle());
+      // Points are layer-local CSS pixels mapped through the runtime's 2D matrix [a, b, c, d, e, f] into
+      // frame-local pixels; `hit` and `exteriorHit` add the frame position to become viewport points for
+      // `page.mouse`. `native` picks a, b, c, d, e, f (indices 0, 1, 4, 5, 12, 13) from the 4x4 matrix the
+      // browser reports for the layer.
       const geometry = await page.evaluate(() => {
         const state = window.runtimeProbe.state();
         const layer = state.layers.find(layer => layer.id === "primary");
@@ -141,6 +201,8 @@ for (const dpr of [1, 2]) test(`canonical geometry, rendered edges, native hits 
         for (let node = button; node && node !== element; node = node.offsetParent) { x += node.offsetLeft; y += node.offsetTop; }
         const native = state.transforms.find(item => item.id === "primary").matrix;
         const hit = matrix.transformPoint({ x: x + button.offsetWidth / 2, y: y + button.offsetHeight / 2 });
+        // Middle of the layer's bottom edge, and the unit outward normal of that edge, to sample one CSS
+        // pixel inside and one outside the rendered edge.
         const edge = matrix.transformPoint({ x: element.offsetWidth / 2, y: element.offsetHeight });
         const normal = { x: -matrix.b / Math.hypot(matrix.a, matrix.b), y: matrix.a / Math.hypot(matrix.a, matrix.b) };
         const inside = { x: edge.x - normal.x, y: edge.y - normal.y };
@@ -149,6 +211,7 @@ for (const dpr of [1, 2]) test(`canonical geometry, rendered edges, native hits 
           .map(([x,y]) => matrix.transformPoint({x,y}));
         const minX = Math.min(...corners.map(p => p.x)), minY = Math.min(...corners.map(p => p.y));
         const expectedRect = { x: minX, y: minY, width: Math.max(...corners.map(p => p.x)) - minX, height: Math.max(...corners.map(p => p.y)) - minY };
+        // Two frame pixels left of the button's left edge (the layer-local offset is divided by the scale).
         const exteriorHit = matrix.transformPoint({ x: x - 2 / Math.hypot(matrix.a, matrix.b), y: y + button.offsetHeight / 2 });
         return { matrix: layer.matrix, native: [native[0], native[1], native[4], native[5], native[12], native[13]],
           rect: { x: rect.x - root.x, y: rect.y - root.y, width: rect.width, height: rect.height },
@@ -156,11 +219,14 @@ for (const dpr of [1, 2]) test(`canonical geometry, rendered edges, native hits 
           exteriorHit: { x: root.x + exteriorHit.x, y: root.y + exteriorHit.y },
           expectedRect, edge, inside, outside, count: state.native.count };
       });
+      // GPU and native matrices agree to float precision; the native bounding box agrees to within one
+      // CSS pixel.
       geometry.matrix.forEach((value, index) => expect(Math.abs(value - geometry.native[index])).toBeLessThanOrEqual(1e-5));
       for (const key of ["x", "y", "width", "height"]) expect(Math.abs(geometry.rect[key] - geometry.expectedRect[key])).toBeLessThanOrEqual(1);
       const pixels = await snap(page, `geometry-${dpr}-${observations.length}`);
       expect(pixels(geometry.inside.x, geometry.inside.y)).toEqual([240, 30, 60, 255]);
       expect(pixels(geometry.outside.x, geometry.outside.y)).toEqual([255, 255, 255, 255]);
+      // A trusted click at the computed centre increments the counter; one just outside leaves it unchanged.
       await page.mouse.click(geometry.hit.x, geometry.hit.y);
       const value = await page.locator("#count").textContent();
       expect(value).not.toBe(geometry.count);
@@ -168,6 +234,7 @@ for (const dpr of [1, 2]) test(`canonical geometry, rendered edges, native hits 
       expect(await page.locator("#count").textContent()).toBe(value);
       observations.push({ transform, geometry, count: value });
     }
+    // Viewport and frame resize: GPU stays without readmission, and capture sizes are exact again.
     await page.setViewportSize({ width: 1000, height: 820 });
     await page.evaluate(() => { document.querySelector("#frame").style.width = "700px"; });
     await page.evaluate(() => window.runtimeProbe.settle());
@@ -186,6 +253,9 @@ for (const dpr of [1, 2]) test(`canonical geometry, rendered edges, native hits 
   } finally { await page.close(); }
 });
 
+// Native editing through GPU: label click focus, typing, Enter submit, selection keys and Tab order work on
+// the original controls with GPU active. An explicit disable()/enable() keeps the same input element and
+// its native state. The dialog and popover stay inside the page's `#overlay` and GPU stays active.
 test("native keyboard, labels, selection, form, overlap order and explicit modal overlay", async ({ page }) => {
   await ready(page);
   await page.locator("#name-label").click();
@@ -242,6 +312,9 @@ test("native keyboard, labels, selection, form, overlap order and explicit modal
   await save("native-semantics", { selected, final });
 });
 
+// `nested`, `budget` (1 layer / 100000 pixels) and `zero` (zero-width layer) specimens are outside what
+// the runtime admits. Each must report a diagnosed DOM mode with no engine; except `zero`, the original
+// controls must still be clickable.
 test("nested enrollment, budgets and zero-sized layers use explicit DOM policy", async ({ page }) => {
   const results = [];
   for (const query of ["nested", "budget", "zero"]) {
@@ -261,6 +334,10 @@ test("nested enrollment, budgets and zero-sized layers use explicit DOM policy",
   await save("conservative-policies", results);
 });
 
+// A layer at opacity 0.5 over white composites to (248,143,158) (240*0.5 + 255*0.5, rounded), within 1 per
+// channel. The DPR loop uses CDP device-metrics emulation, which can change DPR without resize events:
+// the next controller operation must still re-derive the backing grid (canvas width / frame width == dpr)
+// with one admission and the same root.
 test("opacity composition and repeated emulated DPR changes retain one root", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {
@@ -295,9 +372,15 @@ test("opacity composition and repeated emulated DPR changes retain one root", as
   await save("opacity-dpr", { expected, changes, disposed, dprFixture: "CDP device-scale emulation plus normal controller operation; CDP may omit resolution events. Not physical display migration." });
 });
 
+// Races and bad input: a native edit that lands during a capture must be recaptured; transforms that are
+// not finite and invertible throw and leave the layer untouched; layers can be added and removed; ids
+// that are special object keys work as layer ids.
 test("registration/removal, mutation-in-flight and invalid transforms do not lose content or root", async ({ page }) => {
   await ready(page);
   const raceBefore = await page.evaluate(() => window.runtimeProbe.state());
+  // Race fixture: wrap the real native capture. The first `primary` capture records the input value read
+  // before drawing, then a microtask edits the uncontrolled input after that synchronous capture. The
+  // layer must be recaptured (at least two captures) so the edit is not lost.
   await page.evaluate(() => {
     window.savedContainer = document.querySelector(".app-container");
     const original = GPUQueue.prototype.drawElementImageToTexture;
@@ -328,6 +411,7 @@ test("registration/removal, mutation-in-flight and invalid transforms do not los
   expect(inFlightValues[0]).toBe("native");
   expect(inFlightValues).toContain("during-capture");
   const invalidTransforms = [];
+  // Zero scale and extreme scales/translations must be rejected with a "finite invertible" error.
   for (const transform of [{ scaleX: 0 }, { scaleX: 1e308, scaleY: 1e308 }, { scaleX: 1e308, scaleY: 1e-308 },
     { scaleX: 1e308, scaleY: 1e-308, x: 1e308, y: 1e308 }]) {
     const result = await page.evaluate(transform => {
@@ -352,6 +436,7 @@ test("registration/removal, mutation-in-flight and invalid transforms do not los
   expect(await page.evaluate(() => window.savedContainer === document.querySelector(".app-container"))).toBe(true);
   zero(await page.evaluate(() => window.runtimeProbe.dispose()));
   const identifierCases = [];
+  // Ids such as `__proto__` and `constructor` must behave as ordinary keys of the per-layer metrics.
   for (const id of ["__proto__", "constructor"]) {
     await ready(page, `thirdId=${encodeURIComponent(id)}`);
     await page.locator("#third").click();
@@ -366,6 +451,12 @@ test("registration/removal, mutation-in-flight and invalid transforms do not los
   await save("registry-dirty-races", { fixture: "Microtask invalidation after actual synchronous native-paint direct upload", raceBefore, inFlightValues, inFlight, enrolled, removed, identifierCases, invalidTransforms });
 });
 
+// Fault injection against functional admission. Each fault replaces one public native entry point with a
+// no-op, an error or a wrong result (the real methods exist, so presence checks would pass). Admission
+// must detect it by observing pixels or geometry, fall back to usable original DOM with a diagnosed
+// reason and zero GPU resources, keep the controls and their state, and admit again once the fault is
+// removed. `geometry-forged` makes `getElementTransform` echo what was requested, so only the native hit
+// test can reveal it; `content-geometry-noop` ignores geometry for every element except `primary`.
 for (const fault of ["capture-noop", "capture-error", "geometry-noop", "geometry-wrong", "geometry-forged", "content-geometry-noop", "clear-noop"]) {
   test(`functional admission rejects ${fault} and preserves usable original DOM`, async ({ page }) => {
     await page.goto(`${developmentURL}/runtime.html?dom`);
@@ -432,6 +523,8 @@ for (const fault of ["capture-noop", "capture-error", "geometry-noop", "geometry
   });
 }
 
+// A fully transparent layer is valid content: admission must not mistake an all-transparent capture for a
+// failed one, and the white page background stays visible.
 test("functional probe admits an actually transparent application layer", async ({ page }) => {
   await ready(page, "transparent");
   const admitted = await page.evaluate(() => window.runtimeProbe.state());
@@ -445,6 +538,9 @@ test("functional probe admits an actually transparent application layer", async 
   await save("admission-transparent", { admitted, disposed });
 });
 
+// Hold `GPUBuffer.mapAsync` delivery after the real mapping so the admission readback times out while
+// the queue is healthy. Resources stay owned (pending cleanup, one engine and one probe readback) and
+// enable()/dispose() are refused until the held request settles; the DOM stays usable meanwhile.
 test("functional readback timeout retains healthy probe resources until its public request settles", async ({ page }) => {
   await page.goto("/runtime.html?dom");
   await page.waitForFunction(() => window.runtimeProbe);
@@ -488,6 +584,8 @@ test("functional readback timeout retains healthy probe resources until its publ
   await save("admission-readback-timeout", { fixture: "Public buffer.mapAsync delivery artificially held after real mapping; healthy queue, not device loss", admitting, retained, released, reentered, disposed });
 });
 
+// Destroy the real device from inside the admission readback. Admission must record a loss during
+// admission, never reveal the unverified output canvas, and leave the original DOM usable.
 test("real destroyed-device loss during functional readback never reveals unverified output", async ({ page }) => {
   await page.goto("/runtime.html?dom");
   await page.waitForFunction(() => window.runtimeProbe);
@@ -529,6 +627,10 @@ test("real destroyed-device loss during functional readback never reveals unveri
   await save("admission-device-loss", { fixture: "Explicit public device.destroy() from diagnostic mapAsync hook; genuine destroyed-device loss during admission, not physical reset", lost, reentered, disposed });
 });
 
+// One long scenario: reduced motion rejects numeric animation; a synthetic hidden document with a held
+// `requestPaint` cancels the outstanding paint wait and pauses GPU frames; forced colors keep GPU; a
+// real device destroy during motion interrupts the animation and falls back to DOM; then 20 StrictMode
+// teardown/rebuild cycles must release everything and leak no listeners.
 test("environment policies, synthetic visibility pause, real destroyed-device loss and 20 StrictMode cycles", async ({ page }) => {
   test.setTimeout(120000);
   await ready(page, "", true);
@@ -538,6 +640,8 @@ test("environment policies, synthetic visibility pause, real destroyed-device lo
     try { await window.runtimeProbe.animate({ x: 20 }, 10); } catch (error) { return String(error); }
   })).toMatch(/reduced-motion/);
   await page.emulateMedia({ reducedMotion: "no-preference" });
+  // Replace `requestPaint` with a no-op so an invalidated layer leaves a paint wait outstanding, then fake
+  // `document.hidden`. Hiding must cancel that wait and stop GPU frames.
   await page.evaluate(() => {
     const host = document.querySelector("#output");
     window.restorePaint = () => { host.requestPaint = window.realPaint; };
@@ -552,6 +656,7 @@ test("environment policies, synthetic visibility pause, real destroyed-device lo
     document.dispatchEvent(new Event("visibilitychange"));
     window.motion = window.runtimeProbe.animate({ x: 20 }, 30);
   });
+  // Two 150 ms windows: first the wait is cancelled, then no GPU frame advances while hidden.
   await page.waitForTimeout(150);
   const paused = await page.evaluate(() => window.runtimeProbe.state());
   expect(paused.resources.paintWaits).toBe(0);
@@ -582,6 +687,8 @@ test("environment policies, synthetic visibility pause, real destroyed-device lo
   await expect(page.locator("#count")).toHaveText("Count 1");
   const recovered = await page.evaluate(() => window.runtimeProbe.state());
   const cycles = [];
+  // Each cycle retires the current adapter and mounts a new one: the retired one must be fully released,
+  // and the new one must show 1 engine, 2 enrolled layers, 2 textures and the demo's 4 listeners.
   for (let index = 0; index < 20; index++) {
     cycles.push(await page.evaluate(() => window.runtimeProbe.cycle()));
     zero(cycles[index].retired);
@@ -604,6 +711,9 @@ test("environment policies, synthetic visibility pause, real destroyed-device lo
     paused, forced, loss, recovered, cycles, disposed });
 });
 
+// A healthy queue whose `onSubmittedWorkDone` never resolves: disable() cannot prove the GPU is idle, so
+// it keeps the engine as pending cleanup instead of tearing down unsafely. Only an actual device loss
+// releases it, and native input made meanwhile is preserved.
 test("typed disposal retains a healthy pending queue and releases only on actual loss", async ({ page }) => {
   await ready(page);
   await page.evaluate(() => {
@@ -639,6 +749,8 @@ test("typed disposal retains a healthy pending queue and releases only on actual
   await save("typed-pending-cleanup", { syntheticFault: "Indefinitely pending healthy queue fence; subsequent destroy/lost delivery is genuine", retained, loss, reentered, disposed });
 });
 
+// The adapter request is delayed past the admission deadline. After dispose() the abandoned engine that
+// resolves later must be released rather than adopted.
 test("late admission after serialized disposal releases an abandoned engine", async ({ page }) => {
   await page.addInitScript(() => {
     const original = navigator.gpu.requestAdapter.bind(navigator.gpu);
@@ -662,6 +774,9 @@ test("late admission after serialized disposal releases an abandoned engine", as
   await save("typed-late-admission", { syntheticFault: "Public adapter result artificially delayed beyond admission deadline", disposed, late });
 });
 
+// Touching the demo source's mtime makes the Vite dev server hot-reload it. The old adapter must be
+// disposed before the replacement mounts. HMR starts a new root lifetime. The file's original timestamp
+// is restored afterwards.
 test("real development HMR disposes the old adapter before creating its replacement", async ({ page }) => {
   const source = "examples/playground/src/demo/runtime-demo.tsx";
   const original = await stat(source);

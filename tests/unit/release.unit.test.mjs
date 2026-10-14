@@ -1,3 +1,8 @@
+/**
+ * Unit tests for the release-root, dependency-copy, browser-pin, React peer and requested-lane checks in
+ * `scripts/release-policy.mjs`. Uses temp directories and (where permitted) symlinks or junctions; tests
+ * that need them skip on Windows without symlink privilege. Run with `npm run test:unit`.
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from "node:fs/promises";
@@ -41,6 +46,7 @@ test("unpinned runs record the actual browser identity without enforcing the his
     assert.deepEqual(assertBrowserIdentity(actual), { pinEnforced: false, actual, qualifiedBrowser });
   } finally { if (previous !== undefined) process.env.CANVAS_REQUIRE_BROWSER_PIN = previous; }
 });
+// Checks a matching identity passes, then that mismatches throw in-process and exit 1 in a child process.
 function runPinned() {
   assertBrowserIdentity(qualifiedBrowser);
   for (const actual of [{ ...qualifiedBrowser, revision: "@different" }, { ...qualifiedBrowser, product: "Chrome/154.0.0.0" },

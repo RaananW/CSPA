@@ -1,8 +1,14 @@
+/**
+ * Entry for the playground home page (`index.html`): a plain React app that reports whether the native
+ * HTML-in-Canvas methods exist and links to `probe.html`, `surface.html` and `recovery.html`. It does not enable
+ * GPU presentation; it is the ordinary-DOM baseline.
+ */
 import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { capabilities } from "./native";
 import "./style.css";
 
+// Feature report only: method availability is not treated as proof that GPU presentation works.
 const capability = capabilities(document.createElement("canvas"));
 
 function App() {
@@ -49,6 +55,7 @@ function App() {
   );
 }
 
+// Mount the page's single React root.
 const root = document.getElementById("root");
 if (!root) throw new Error("Application root is missing");
 createRoot(root).render(<StrictMode><App /></StrictMode>);
