@@ -7,7 +7,7 @@ on:
       - "examples/showcase/**"
       - "examples/playground/src/apps/**"
       - "packages/core/**"
-      - "packages/underglass/**"
+      - "packages/react/**"
       - "packages/css-compiler/**"
       - "package-lock.json"
       - ".github/workflows/showcase-pages.yml"

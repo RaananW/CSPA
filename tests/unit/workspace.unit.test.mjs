@@ -10,7 +10,7 @@ import { readFile } from "node:fs/promises";
 test("the release identity belongs only to the library workspaces, not the tooling root", async () => {
   const root = JSON.parse(await readFile("package.json", "utf8"));
   const core = JSON.parse(await readFile("packages/core/package.json", "utf8"));
-  const library = JSON.parse(await readFile("packages/underglass/package.json", "utf8"));
+  const library = JSON.parse(await readFile("packages/react/package.json", "utf8"));
   const playground = JSON.parse(await readFile("examples/playground/package.json", "utf8"));
   assert.equal(root.private, true);
   assert.equal(root.exports, undefined);
@@ -18,7 +18,7 @@ test("the release identity belongs only to the library workspaces, not the tooli
   assert.equal(root.devDependencies["@radix-ui/react-dialog"], undefined);
   assert.equal(root.devDependencies["@babylonjs/lite-gl"], undefined);
   assert.match(root.scripts.prepack, /Tooling root is not the release package/);
-  assert.deepEqual(root.workspaces, ["packages/core", "packages/underglass", "packages/vue", "packages/css-compiler", "examples/playground", "examples/showcase"]);
+  assert.deepEqual(root.workspaces, ["packages/core", "packages/react", "packages/vue", "packages/css-compiler", "examples/playground", "examples/showcase"]);
   assert.equal(core.name, "@underglass/core");
   assert.equal(core.version, "0.1.0");
   assert.equal(core.private, true);
@@ -34,7 +34,7 @@ test("the release identity belongs only to the library workspaces, not the tooli
 // The core runtime must stay framework-neutral, and every adapter must share it rather than bundle a copy.
 test("the core package has no framework dependency and each adapter depends on it", async () => {
   const core = JSON.parse(await readFile("packages/core/package.json", "utf8"));
-  const library = JSON.parse(await readFile("packages/underglass/package.json", "utf8"));
+  const library = JSON.parse(await readFile("packages/react/package.json", "utf8"));
   const vue = JSON.parse(await readFile("packages/vue/package.json", "utf8"));
   assert.equal(core.peerDependencies, undefined);
   for (const name of Object.keys(core.dependencies)) assert.doesNotMatch(name, /^(react|react-dom|vue|svelte|solid-js)$/);
@@ -67,9 +67,9 @@ test("both committed lock lanes retain distinct actual React peer ownership", as
   assert.equal(react18["node_modules/react"].version, "18.3.1");
   assert.equal(react18["node_modules/react-dom"].version, "18.3.1");
   assert.deepEqual(root["node_modules/@underglass/core"], { resolved: "packages/core", link: true });
-  assert.deepEqual(root["node_modules/@underglass/react"], { resolved: "packages/underglass", link: true });
+  assert.deepEqual(root["node_modules/@underglass/react"], { resolved: "packages/react", link: true });
   assert.deepEqual(root["node_modules/@underglass/playground"], { resolved: "examples/playground", link: true });
-  for (const directory of ["packages/core", "packages/underglass"]) {
+  for (const directory of ["packages/core", "packages/react"]) {
     const library = JSON.parse(await readFile(`${directory}/package.json`, "utf8"));
     assert.equal(root[directory].version, library.version);
     assert.deepEqual(root[directory].dependencies, library.dependencies);

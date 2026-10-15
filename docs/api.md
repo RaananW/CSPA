@@ -4,7 +4,7 @@
 external local archive, not files in this checkout. Only compact verdicts
 remain tracked; [archive access, hashes and reproduction](archive/archive-catalog.md).
 
-The intentional source entry point is `packages/underglass/src/index.ts`, the
+The intentional source entry point is `packages/react/src/index.ts`, the
 React adapter; it re-exports the framework-neutral helpers and types of
 `@underglass/core` (`packages/core/src/index.ts`). This private
 experimental package has no published package name or stability promise.

@@ -1,7 +1,7 @@
 # Current open issues and qualification register
 
 **Repository restructuring:** current library/package ownership is
-`packages/underglass`, demo/page ownership is `examples/playground`, and tests
+`packages/react`, demo/page ownership is `examples/playground`, and tests
 are grouped under `tests/unit`, `tests/browser` and `tests/helpers`.
 Historical paths in accepted records below identify their original layouts;
 they are not rewritten or requalified by this migration.

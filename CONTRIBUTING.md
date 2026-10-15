@@ -3,7 +3,7 @@
 ## Workspace ownership
 
 `packages/core/package.json` (the framework-neutral runtime),
-`packages/underglass/package.json` (the React adapter) and
+`packages/react/package.json` (the React adapter) and
 `packages/vue/package.json` (the Vue adapter) are the release manifests; both
 adapters depend on core. Keep library source independent of playground/tests,
 and never import a UI framework from `packages/core`. A new adapter must pass
@@ -335,7 +335,7 @@ closes its own randomly allocated strict-port previews and browser profiles.
 Its actual npm-installed tarball consumers have no workspace/source aliases,
 matching declared React/types, strict Bundler/NodeNext declarations and
 flagged/unflagged production native/GPU pixel checks. Prepack builds only
-`packages/core/dist/library`, `packages/underglass/dist/library` and `packages/vue/dist/library`; playground builds use
+`packages/core/dist/library`, `packages/react/dist/library` and `packages/vue/dist/library`; playground builds use
 `examples/playground/dist/` and cannot replace library output. No generated output belongs in Git.
 Curated versioned verdicts are read-only. Raw historical evidence is externally
 archived, not available in the current checkout; never reconstruct or regenerate

@@ -95,11 +95,11 @@ test("release peer assertions fail closed including real production ReactDOM18 s
 test("only verified current workspace links are excluded from physical execution copies", async t => {
   const root = await mkdtemp(join(await realpath(tmpdir()), "canvas-workspace-copy-unit-"));
   try {
-    await mkdir(join(root, "packages/underglass"), { recursive: true });
+    await mkdir(join(root, "packages/react"), { recursive: true });
     await mkdir(join(root, "examples/playground"), { recursive: true });
     await mkdir(join(root, "examples/showcase"), { recursive: true });
     await mkdir(join(root, "node_modules/@underglass"), { recursive: true });
-    if (!await symlinkOrSkip(t, join(root, "packages/underglass"), join(root, "node_modules/@underglass/react"), "junction")) return;
+    if (!await symlinkOrSkip(t, join(root, "packages/react"), join(root, "node_modules/@underglass/react"), "junction")) return;
     await symlinkOrSkip(t, join(root, "examples/playground"), join(root, "node_modules/@underglass/playground"), "junction");
     await symlinkOrSkip(t, join(root, "examples/showcase"), join(root, "node_modules/@underglass/showcase"), "junction");
     await copyDependencies(join(root, "node_modules"), join(root, "copied"));
