@@ -91,8 +91,25 @@ test("the taper rule holds on a 1920 by 1080 stage at every depth anchor", () =>
   }
 });
 
+test("material roles use existing presets, and colour aliases point at colour roles", () => {
+  const presets = Object.keys(tokens.material.presets);
+  for (const preset of ["matte", "satin", "gloss", "lacquer", "glass", "metal", "emissive"]) assert.ok(presets.includes(preset), `preset ${preset}`);
+  for (const [role, token] of Object.entries(tokens.material.roles)) {
+    assert.ok(presets.includes(token.$value), `role ${role} uses a preset`);
+    assert.ok(!role.includes("."), `role name ${role} has no dot (Design Tokens naming)`);
+  }
+  for (const [path, token] of leaves(tokens.material)) {
+    if (typeof token.$value === "string" && token.$value.startsWith("{")) {
+      assert.equal(token.$type, "color", `${path}: alias type`);
+      assert.ok(get(token.$value.slice(1, -1)), `${path}: alias ${token.$value} resolves`);
+    }
+  }
+  // Lacquer is the glass-coated preset: a strong, sharp clear coat.
+  assert.ok(tokens.material.presets.lacquer.coat.strength.$value >= 0.9 && tokens.material.presets.lacquer.coat.roughness.$value <= 0.1);
+});
+
 test("light and other application-only tokens cannot be overridden in a scope", () => {
-  for (const [path, token] of leaves(tokens.light)) assert.equal(token.$extensions[NS].scope, false, `light.${path}`);
+  for (const group of ["light", "environment"]) for (const [path, token] of leaves(tokens[group])) assert.equal(token.$extensions[NS].scope, false, `${group}.${path}`);
   assert.equal(get("bevel.profile").$extensions[NS].scope, false);
   assert.equal(get("target.min").$extensions[NS].invariant, true);
   assert.ok(numeric(get("focus.width").$extensions[NS].min) >= 2, "focus width floor");

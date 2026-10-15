@@ -103,18 +103,90 @@ may be set from 0° to 60°. P0.1 proved exact native hits through perspective u
 
 ## 4. Materials
 
-Materials form a closed set. An application may tune each one's parameters; components choose a
-material by role, never by raw values.
+Materials are **open**. A material is a named recipe of layers. Strata ships presets, an
+application defines its own in the theme, and every presentation renders the same recipe with what
+it can do. Materials are assigned by role (section 8), by scope or per component; components never
+hard-code material values.
 
-| Material | Role | GPU (Objects) | Relief and CSS |
-| --- | --- | --- | --- |
-| `matte` | Default faces: panels, secondary controls | Roughness 0.45 at 50%, sheen 0.10 | Bevel and shadows only |
-| `glass` | Accent surfaces, overlays | Transmission and refraction (P0 effect path), roughness 0.1 | Frosted: `backdrop-filter: blur()` plus tint. Turns `matte` under reduced transparency. |
-| `metal` | Hardware: knobs, levers, rails | Metallic 1.0, roughness 0.3, needs an environment map | Higher bevel gain, cool tint |
-| `emissive` | Indicators, focus edges, active tracks | Emissive colour, unlit | Solid colour, no shading |
+### Material layers
 
-Roughness and sheen blend with depth (section 15): roughness runs from 0.8 (0%) through 0.45 (50%)
-to 0.3 (100%).
+| Layer | Parameters (range) | Objects (Babylon Lite PBR) | Relief (material pass) | CSS |
+| --- | --- | --- | --- | --- |
+| `base` | colour role; `roughness` 0–1; `metallic` 0–1 | Base colour, roughness, metallic | Bevel lighting plus a specular lobe whose width follows roughness | Face colour; low roughness adds a highlight gradient |
+| `coat` | `strength` 0–1; `roughness` 0–1; `ior` 1.3–1.8 | Clear coat (`setPbrClearCoat`) | A sharp highlight band and a Fresnel rim on the bevels | An inset top highlight and an edge rim |
+| `sheen` | `colour`; `strength` 0–1; `roughness` 0–1 | Sheen (`setPbrSheen`) | A soft brightening at grazing bevel angles | A soft inner glow |
+| `iridescence` | `strength` 0–1; `thickness` 100–1200 nm | Iridescence (`setPbrIridescence`) | A subtle hue shift on the bevels | Not rendered (the other layers still are) |
+| `transmission` | `strength` 0–1; `ior` 1–2.4; `tint` colour role; `frost` 0–1 | Transmission and refraction (`setPbrTransmission`) | A frosted tint over the panel; refraction of decorative backdrops through the Underglass effect path | `backdrop-filter: blur()` plus tint |
+| `emissive` | `colour` role; `strength` 0–4 | Emissive colour | An additive glow, not lit | A solid colour and a glow shadow |
+
+### Presets
+
+| Preset | Recipe | Feel |
+| --- | --- | --- |
+| `matte` (default) | base roughness from depth (0.8 → 0.45 → 0.3), metallic 0 | Plain painted surface |
+| `satin` | base roughness 0.4; coat 0.3 at roughness 0.35 | Soft sheen |
+| `gloss` | base roughness 0.25; coat 0.6 at roughness 0.12 | Shiny plastic |
+| `lacquer` | base roughness 0.45; coat 1.0 at roughness 0.04, ior 1.5 | Glass-coated: a clear, glossy top layer |
+| `glass` | transmission 0.9, ior 1.5, frost 0.3, tint from the role; base roughness 0.05 | Translucent glass |
+| `metal` | metallic 1, roughness 0.3 | Brushed metal |
+| `emissive` | emissive from the role colour, strength 1 | Light source: indicators, active tracks |
+
+### Defining and assigning materials
+
+- **Custom materials** are any combination of layers, defined in the theme. Each layer
+  parameter is a token, so a custom material can blend with depth like any other token.
+
+  ```ts
+  createStrataTheme({
+    materials: { candy: { base: { roughness: 0.2 }, coat: { strength: 1, roughness: 0.05 } } },
+    roles: { buttonPrimary: "candy" },
+  });
+  // Per subtree or component: <StrataScope material="lacquer">, <Button material="candy">,
+  // data-strata-material="candy" in plain HTML.
+  ```
+
+- **Material roles** and their defaults:
+
+  | Role | Default |
+  | --- | --- |
+  | `panel` | `matte` |
+  | `control` | `matte` |
+  | `buttonPrimary` | `matte` |
+  | `field` | `matte` |
+  | `knob` | `satin` |
+  | `rail` | `metal` |
+  | `trackOn` | `emissive` |
+  | `indicator` | `emissive` |
+  | `overlay` | `matte` (`glass` is a common choice) |
+
+- **Custom shading.** For looks the layers cannot express, a material may carry custom code:
+  - **Relief:** a trusted WGSL colour function, with the same contract as Underglass's
+    `defineEffect`. It receives the sampled colour, local position, surface normal, light
+    direction and up to four parameters, and returns a colour. It never moves pixels.
+  - **Objects:** a Babylon Lite shader or node material.
+  - **CSS:** a custom material declares a CSS fallback, or inherits the nearest preset.
+  - **Trust:** custom code is trusted application code, never built from user input.
+
+### Environment
+
+Reflections (metal, gloss, coat, glass) need an environment.
+
+| Token | Default | Options |
+| --- | --- | --- |
+| `environment.source` | `studio` | `studio` (a neutral studio generated in code: soft gradient plus two softboxes, no asset), `none`, or the URL of an `.hdr` or `.env` file |
+| `environment.intensity` | 1 | 0–3 |
+
+### Guardrails
+
+- **Contrast holds.** Highlights, coats and custom shading reach full strength on bevels, edges,
+  mesh sides and knobs. On face interiors, where text may sit, the material pass limits any
+  brightness change to `interior.max`, whatever the material or custom code, so the contrast
+  invariant (section 8) holds.
+- **Colour only.** A material may change colour; it never moves pixels or hit areas.
+- **Preferences:**
+  - `prefers-reduced-transparency`: `glass` becomes `matte`, and transmission is off.
+  - `prefers-contrast: more`: coat, sheen and iridescence are off.
+  - `forced-colors`: everything is flat.
 
 ## 5. Shape
 
@@ -154,8 +226,7 @@ the native control (P0.4).
 | `object.keyHeight` | 4 | 8 | 12 | 0–24 |
 | `object.keyTravel` | 3 | 6 | 9 | 0–keyHeight |
 | `object.taper` | 2 | 3 | 4 | ≥ drift |
-| `object.roughness` | 0.8 | 0.45 | 0.3 | 0–1 |
-| `object.sheen` | 0.05 | 0.10 | 0.25 | 0–1 |
+| `material.matte.base.roughness` | 0.8 | 0.45 | 0.3 | 0–1 |
 
 **Object vocabulary:**
 
@@ -349,7 +420,7 @@ Configuration comes in layers. Each later layer overrides the earlier ones, toke
 | Elevation | `elevation.*` | Yes |
 | Shape | `radius.*`, `bevel.width`, `bevel.profile` | Yes (`bevel.profile`: application only) |
 | Objects | `object.*` | Yes |
-| Materials | Per-material parameters, and the material for each role | Yes |
+| Materials | Every preset's layers, custom materials, the material for each role, `environment.*` | Yes (`environment.*`: application only) |
 | Colour | Every role in every theme, plus additional themes | Yes |
 | Typography | `font.*` | Yes |
 | Spacing and density | `space.base`, `density` | Yes |
@@ -456,5 +527,8 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-15: first draft. Depth at 50%, light from the top left (323°, 41°), light theme with
   a blue accent, and dark theme. The configuration model is "everything configurable within
   invariants".
+- 2026-10-15: section 4 rewritten: open, layered materials (base, coat, sheen, iridescence,
+  transmission, emissive), presets including `lacquer` (glass-coated), custom materials and custom
+  shading, a generated studio environment, and contrast guardrails.
 - 2026-10-15: added section 18: standalone-first layers, one markup contract, React, Vue and Astro
   bindings, and server rendering.

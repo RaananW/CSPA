@@ -371,38 +371,545 @@
           "scope": true
         }
       }
-    },
-    "roughness": {
-      "$type": "number",
-      "$value": 0.45,
-      "$description": "Surface roughness.",
-      "$extensions": {
-        "dev.underglass.strata": {
-          "anchors": [
-            0.8,
-            0.45,
-            0.3
-          ],
-          "scope": true,
-          "min": 0,
-          "max": 1
+    }
+  },
+  "material": {
+    "$description": "Open, layered materials: presets, roles, and any custom materials an application adds (design-language.md section 4).",
+    "presets": {
+      "matte": {
+        "base": {
+          "colour": {
+            "$type": "color",
+            "$value": "{colour.panel}",
+            "$description": "Colour role.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "scope": true
+              }
+            }
+          },
+          "roughness": {
+            "$type": "number",
+            "$value": 0.45,
+            "$description": "Base roughness, blended with depth.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "anchors": [
+                  0.8,
+                  0.45,
+                  0.3
+                ],
+                "scope": true,
+                "min": 0,
+                "max": 1
+              }
+            }
+          },
+          "metallic": {
+            "$type": "number",
+            "$value": 0,
+            "$description": "Base metallic.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          }
+        }
+      },
+      "satin": {
+        "base": {
+          "colour": {
+            "$type": "color",
+            "$value": "{colour.panel}",
+            "$description": "Colour role.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "scope": true
+              }
+            }
+          },
+          "roughness": {
+            "$type": "number",
+            "$value": 0.4,
+            "$description": "Base roughness.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "metallic": {
+            "$type": "number",
+            "$value": 0,
+            "$description": "Base metallic.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          }
+        },
+        "coat": {
+          "strength": {
+            "$type": "number",
+            "$value": 0.3,
+            "$description": "Clear coat strength.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "roughness": {
+            "$type": "number",
+            "$value": 0.35,
+            "$description": "Clear coat roughness.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "ior": {
+            "$type": "number",
+            "$value": 1.5,
+            "$description": "Clear coat index of refraction.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 1.3,
+                "max": 1.8,
+                "scope": true
+              }
+            }
+          }
+        }
+      },
+      "gloss": {
+        "base": {
+          "colour": {
+            "$type": "color",
+            "$value": "{colour.panel}",
+            "$description": "Colour role.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "scope": true
+              }
+            }
+          },
+          "roughness": {
+            "$type": "number",
+            "$value": 0.25,
+            "$description": "Base roughness.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "metallic": {
+            "$type": "number",
+            "$value": 0,
+            "$description": "Base metallic.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          }
+        },
+        "coat": {
+          "strength": {
+            "$type": "number",
+            "$value": 0.6,
+            "$description": "Clear coat strength.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "roughness": {
+            "$type": "number",
+            "$value": 0.12,
+            "$description": "Clear coat roughness.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "ior": {
+            "$type": "number",
+            "$value": 1.5,
+            "$description": "Clear coat index of refraction.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 1.3,
+                "max": 1.8,
+                "scope": true
+              }
+            }
+          }
+        }
+      },
+      "lacquer": {
+        "$description": "Glass-coated: a clear, glossy top layer.",
+        "base": {
+          "colour": {
+            "$type": "color",
+            "$value": "{colour.panel}",
+            "$description": "Colour role.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "scope": true
+              }
+            }
+          },
+          "roughness": {
+            "$type": "number",
+            "$value": 0.45,
+            "$description": "Base roughness.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "metallic": {
+            "$type": "number",
+            "$value": 0,
+            "$description": "Base metallic.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          }
+        },
+        "coat": {
+          "strength": {
+            "$type": "number",
+            "$value": 1,
+            "$description": "Clear coat strength.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "roughness": {
+            "$type": "number",
+            "$value": 0.04,
+            "$description": "Clear coat roughness.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "ior": {
+            "$type": "number",
+            "$value": 1.5,
+            "$description": "Clear coat index of refraction.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 1.3,
+                "max": 1.8,
+                "scope": true
+              }
+            }
+          }
+        }
+      },
+      "glass": {
+        "base": {
+          "colour": {
+            "$type": "color",
+            "$value": "{colour.panel}",
+            "$description": "Colour role.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "scope": true
+              }
+            }
+          },
+          "roughness": {
+            "$type": "number",
+            "$value": 0.05,
+            "$description": "Base roughness.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "metallic": {
+            "$type": "number",
+            "$value": 0,
+            "$description": "Base metallic.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          }
+        },
+        "transmission": {
+          "strength": {
+            "$type": "number",
+            "$value": 0.9,
+            "$description": "Transmission.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "ior": {
+            "$type": "number",
+            "$value": 1.5,
+            "$description": "Index of refraction.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 1,
+                "max": 2.4,
+                "scope": true
+              }
+            }
+          },
+          "frost": {
+            "$type": "number",
+            "$value": 0.3,
+            "$description": "Frost (blur) amount.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "tint": {
+            "$type": "color",
+            "$value": "{colour.panel}",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "scope": true
+              }
+            }
+          }
+        }
+      },
+      "metal": {
+        "base": {
+          "colour": {
+            "$type": "color",
+            "$value": "{colour.panel}",
+            "$description": "Colour role.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "scope": true
+              }
+            }
+          },
+          "roughness": {
+            "$type": "number",
+            "$value": 0.3,
+            "$description": "Base roughness.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          },
+          "metallic": {
+            "$type": "number",
+            "$value": 1,
+            "$description": "Base metallic.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 1,
+                "scope": true
+              }
+            }
+          }
+        }
+      },
+      "emissive": {
+        "emissive": {
+          "colour": {
+            "$type": "color",
+            "$value": "{colour.accent}",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "scope": true
+              }
+            }
+          },
+          "strength": {
+            "$type": "number",
+            "$value": 1,
+            "$description": "Emissive strength.",
+            "$extensions": {
+              "dev.underglass.strata": {
+                "min": 0,
+                "max": 4,
+                "scope": true
+              }
+            }
+          }
         }
       }
     },
-    "sheen": {
-      "$type": "number",
-      "$value": 0.1,
-      "$description": "Metallic sheen.",
+    "roles": {
+      "panel": {
+        "$type": "string",
+        "$value": "matte",
+        "$description": "Material for the panel role.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "control": {
+        "$type": "string",
+        "$value": "matte",
+        "$description": "Material for the control role.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "buttonPrimary": {
+        "$type": "string",
+        "$value": "matte",
+        "$description": "Material for the buttonPrimary role.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "field": {
+        "$type": "string",
+        "$value": "matte",
+        "$description": "Material for the field role.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "knob": {
+        "$type": "string",
+        "$value": "satin",
+        "$description": "Material for the knob role.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "rail": {
+        "$type": "string",
+        "$value": "metal",
+        "$description": "Material for the rail role.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "trackOn": {
+        "$type": "string",
+        "$value": "emissive",
+        "$description": "Material for the trackOn role.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "indicator": {
+        "$type": "string",
+        "$value": "emissive",
+        "$description": "Material for the indicator role.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "overlay": {
+        "$type": "string",
+        "$value": "matte",
+        "$description": "Material for the overlay role.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      }
+    }
+  },
+  "environment": {
+    "source": {
+      "$type": "string",
+      "$value": "studio",
+      "$description": "studio (generated in code), none, or the URL of an .hdr or .env file.",
       "$extensions": {
         "dev.underglass.strata": {
-          "anchors": [
-            0.05,
-            0.1,
-            0.25
-          ],
-          "scope": true,
+          "scope": false
+        }
+      }
+    },
+    "intensity": {
+      "$type": "number",
+      "$value": 1,
+      "$description": "Environment lighting strength.",
+      "$extensions": {
+        "dev.underglass.strata": {
           "min": 0,
-          "max": 1
+          "max": 3,
+          "scope": false
         }
       }
     }
