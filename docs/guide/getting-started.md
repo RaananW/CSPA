@@ -24,12 +24,13 @@ code changes.
 
 ## Install
 
-The package is not on npm yet. Build a tarball from this repository and install it:
+The packages are not on npm yet. Build the tarballs from this repository and install
+both: `@underglass/react` depends on the framework-neutral runtime `@underglass/core`.
 
 ```sh
 npm ci --ignore-scripts
-npm run pack:library            # writes underglass-react-<version>.tgz
-cd ../your-app && npm install ../underglass/underglass-react-*.tgz
+npm run pack:library            # writes underglass-core-<version>.tgz and underglass-react-<version>.tgz
+cd ../your-app && npm install ../underglass/underglass-core-*.tgz ../underglass/underglass-react-*.tgz
 ```
 
 ## Your first layer
