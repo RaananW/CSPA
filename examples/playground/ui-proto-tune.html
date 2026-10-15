@@ -46,7 +46,9 @@
   <h1>Strata tuning</h1>
   <p class="intro">One panel in all three presentations, driven by the Strata settings. <b>Depth</b> blends the looks
     continuously: 0% is A (subtle), 50% is B (medium), 100% is C (bold). The light direction, theme and accent are
-    settings too; the defaults are the proposed starting point. The URL keeps your settings, so you can share them.</p>
+    settings too; the defaults are the proposed starting point. <b>Controls material</b> applies an open, layered
+    material to the buttons, the field bezel and the switch knob: pick a preset or move the sliders for a custom one.
+    The URL keeps your settings, so you can share them.</p>
   <div class="controls">
     <label>Depth <input id="depth" type="range" min="0" max="100" step="1"><output for="depth"></output></label>
     <label>Light from <input id="azimuth" type="range" min="0" max="359" step="1"><output for="azimuth"></output></label>
@@ -55,6 +57,15 @@
     <div class="scale"><span>A · subtle</span><span>B · medium</span><span>C · bold</span></div>
     <label>Light height <input id="elevation" type="range" min="20" max="80" step="1"><output for="elevation"></output></label>
     <label>Accent <input id="accent" type="color"> <button id="reset" type="button">Reset to defaults</button></label>
+  </div>
+  <div class="controls materials">
+    <label>Controls material <select id="material"><option value="matte">Matte</option><option value="satin">Satin</option><option value="gloss">Gloss</option><option value="lacquer">Lacquer (glass-coated)</option><option value="metal">Metal</option><option value="custom">Custom</option></select></label>
+    <label>Roughness <input id="roughness" type="range" min="0" max="100" step="1"><output for="roughness"></output></label>
+    <label>Coat <input id="coat" type="range" min="0" max="100" step="1"><output for="coat"></output></label>
+    <span></span>
+    <span></span>
+    <label>Metallic <input id="metallic" type="range" min="0" max="100" step="1"><output for="metallic"></output></label>
+    <label>Coat roughness <input id="coat-roughness" type="range" min="0" max="100" step="1"><output for="coat-roughness"></output></label>
   </div>
   <div class="row" id="row"></div>
   <pre id="readout" role="status"></pre>

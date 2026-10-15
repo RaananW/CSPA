@@ -80,10 +80,15 @@ export function frustum(engine: EngineContext, world: World, name: string, r: Re
   return builder.mesh(engine, name);
 }
 
-/** A flat rounded face at `height`; with `extent`, UVs map face-local pixels onto a capture of that size. */
-export function cap(engine: EngineContext, world: World, name: string, r: Rect, radius: number, height: number, extent?: { width: number; height: number }, flip = false): Mesh {
+/**
+ * A flat rounded face at `height`. With `extent`, UVs map face-local pixels onto a capture of that size; with a
+ * function, it maps each face-local point to its UV.
+ */
+export function cap(engine: EngineContext, world: World, name: string, r: Rect, radius: number, height: number,
+  extent?: { width: number; height: number } | ((x: number, y: number) => [number, number]), flip = false): Mesh {
   const builder = new Builder(world, flip);
-  builder.fan(outline(r, radius), height, extent ? (x, y) => [x / extent.width, y / extent.height] : undefined);
+  const uv = typeof extent === "function" ? extent : extent ? (x: number, y: number): [number, number] => [x / extent.width, y / extent.height] : undefined;
+  builder.fan(outline(r, radius), height, uv);
   return builder.mesh(engine, name);
 }
 

@@ -43,12 +43,25 @@ driven live by:
 - **Theme** (light or dark) and **accent** colour. Text on the accent switches between white and near-black
   for contrast, and the readout reports the accent's text contrast at rest and when lit.
 
+- **Controls material** (the open material model, section 4 of the [design language](design-language.md)): presets
+  Matte, Satin, Gloss, Lacquer (glass-coated) and Metal, or a custom mix of base roughness, metallic, coat and coat
+  roughness. It applies to the buttons, the field bezel and the switch knob in all three presentations: real
+  clear-coat and metal reflections of a generated studio environment at the Objects level, specular, coat and rim
+  terms plus the finish zones (a coat band with its horizon line, a gloss sheen, brushed metal) in Relief and on the
+  Objects key tops, and the same zones as gradients in CSS.
+
 The URL hash keeps the settings, so a configuration can be shared as a link. The default depth is 50%. If the
 preferred spot is elsewhere, the scale is re-centred so that spot becomes the 50% default.
 
 ## Known prototype limits
 
-- **Metal:** there is no environment map, so knobs and keys are glossy plastic rather than metal.
+- **Environment:** the Objects level reflects a studio generated in code (`studio.ts`): mostly dark, with a key
+  softbox at the upper left, a fill at the right and a strip overhead. `/ui-proto-env-check.html` shows it on mirror
+  balls. A real studio HDR would look richer; the token `environment.source` accepts one.
+- **Text anti-aliasing:** captured text (Relief and Objects) is drawn with greyscale anti-aliasing, while the CSS
+  presentation uses the platform's, often LCD subpixel on Windows, which looks slightly sharper. This is how the
+  browser captures HTML into a canvas, not a Strata setting. Key labels at the Objects level are screen-locked, so
+  they map one texel to one pixel like Relief.
 - **Shadow mismatch:** Objects shadows come from a coarse shadow map and are a little lighter than
   the Relief shadows.
 - **Engines:** each GPU panel has its own engine and device here. Underglass uses one shared engine.

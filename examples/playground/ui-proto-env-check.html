@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata environment check</title>
+  <style>body { margin: 20px; font: 14px system-ui; } canvas { display: block; width: 640px; height: 320px; }</style>
+</head>
+<body>
+  <p>Diagnostic: chrome, satin and white spheres lit only by the generated studio environment (no lights), seen from the
+    same camera direction as the Objects level. Shows what reflections the environment really provides, and where.</p>
+  <canvas id="stage"></canvas>
+  <pre id="status"></pre>
+  <script type="module">
+    import { addToScene, createEngine, createFreeCamera, createPbrMaterial, createSceneContext, createSphere, loadHdrEnvironment, registerScene, renderFrame, vec3 } from "@babylonjs/lite";
+    import { studioUrl } from "/src/ui-proto/studio.ts";
+    const canvas = document.getElementById("stage");
+    canvas.width = 640 * devicePixelRatio; canvas.height = 320 * devicePixelRatio;
+    const engine = await createEngine(canvas, { msaaSamples: 4 });
+    const scene = createSceneContext(engine);
+    scene.clearColor = { r: 0.5, g: 0.5, b: 0.5, a: 1 };
+    const camera = createFreeCamera(vec3(0, 0, -900), vec3(0, 0, 0));
+    camera.fov = 2 * Math.atan(160 / 900); camera.nearPlane = 1; camera.farPlane = 5000;
+    scene.camera = camera;
+    const url = studioUrl();
+    await loadHdrEnvironment(scene, url, { skipSkybox: true, skipGround: true, faceSize: 128 });
+    scene.imageProcessing = { exposure: 1, contrast: 1, toneMappingEnabled: false };
+    [[-200, 1, 0.02], [0, 0, 0.35], [200, 0, 0.9]].forEach(([x, metallic, roughness]) => {
+      const sphere = createSphere(engine, { diameter: 170, segments: 48 });
+      sphere.position.set(x, 0, 0);
+      sphere.material = createPbrMaterial({ baseColorFactor: metallic ? [0.95, 0.95, 0.95, 1] : [0.8, 0.8, 0.8, 1], metallicFactor: metallic, roughnessFactor: roughness });
+      addToScene(scene, sphere);
+    });
+    await registerScene(scene);
+    const draw = () => { renderFrame(engine, 16.67); requestAnimationFrame(draw); };
+    draw();
+    document.getElementById("status").textContent = "ready";
+  </script>
+</body>
+</html>

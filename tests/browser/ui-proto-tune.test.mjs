@@ -28,6 +28,46 @@ test("Strata tuning redraws every presentation from the settings and keeps nativ
   for (const name of ["relief", "objects", "css"]) expect(difference(medium[name], subtle[name]), `${name} redraws for depth 0`).toBeGreaterThan(0.01);
   expect(page.url()).toContain("depth=0");
 
+  // A material change (lacquer: a glass-coated finish) redraws every presentation, and the captured panel keeps its
+  // exact colour in the Objects view (the studio environment must not tone-map unlit faces).
+  await page.evaluate(() => window.strataTuning.set({ depth: 0.5 }));
+  await page.waitForTimeout(600);
+  // Measured over the buttons: the finish must be clearly visible, not merely present.
+  const buttons = async name => { const clip = await page.locator(`.${name} .actions`).boundingBox(); return PNG.sync.read(await page.screenshot({ clip })); };
+  const meanChange = (a, b) => { let sum = 0; for (let i = 0; i < a.data.length; i += 4) sum += (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2])) / 3; return sum / (a.data.length / 4); };
+  const matte = { relief: await buttons("relief"), objects: await buttons("objects"), css: await buttons("css") };
+  await page.evaluate(() => window.strataTuning.setMaterial("lacquer"));
+  await page.waitForTimeout(900);
+  for (const name of ["relief", "objects", "css"]) expect(meanChange(matte[name], await buttons(name)), `${name}: lacquer visibly changes the buttons`).toBeGreaterThan(3);
+  // No finish reaches the label zone (35% to 65% of a face's height), for any preset.
+  for (const preset of ["matte", "satin", "gloss", "lacquer", "metal"]) for (let along = 0.35; along <= 0.65; along += 0.01) {
+    expect(await page.evaluate(([value, name]) => window.strataTuning.finishAt(value, name), [along, preset]), `${preset} at ${along.toFixed(2)}`).toEqual([0, 0]);
+  }
+  expect(page.url()).toContain("mat=lacquer");
+  const panel = await page.locator("#name-objects").evaluate(element => { const face = element.closest(".face").getBoundingClientRect(); return { x: face.left + face.width - 40, y: face.top + 60 }; });
+  const objects = await shot("objects");
+  const stage = await page.locator(".objects .stage").boundingBox();
+  const index = (Math.round(panel.y - stage.y) * objects.width + Math.round(panel.x - stage.x)) * 4;
+  expect([...objects.data.subarray(index, index + 3)], "captured panel colour in the Objects view").toEqual([233, 235, 239]);
+  await page.evaluate(() => window.strataTuning.setMaterial("matte"));
+
+  // Light from the lower left (230°, 46° high): the panel's shadow falls up and to the right, continuously along the
+  // whole top edge, in Relief and Objects (the Objects level once used a shadow map that cut and detached it).
+  await page.evaluate(() => window.strataTuning.set({ azimuth: 230, elevation: 46 }));
+  await page.waitForTimeout(900);
+  for (const name of ["relief", "objects"]) {
+    const face = await page.locator(`.${name} .face`).boundingBox();
+    const stage = await page.locator(`.${name} .stage`).boundingBox();
+    const png = await shot(name);
+    const gaps = [];
+    for (let fraction = 0.15; fraction <= 0.9; fraction += 0.05) {
+      const x = Math.round(face.x - stage.x + face.width * fraction), y = Math.round(face.y - stage.y - 3);
+      const i = (y * png.width + x) * 4, value = (png.data[i] + png.data[i + 1] + png.data[i + 2]) / 3;
+      if (value > 243) gaps.push({ fraction: +fraction.toFixed(2), value: Math.round(value) });
+    }
+    expect(gaps, `${name}: shadow along the top edge`).toEqual([]);
+  }
+
   // A light change re-lights the objects in place: the stage around the panel keeps its colour (no black clear).
   for (const azimuth of [200, 90]) {
     await page.evaluate(value => window.strataTuning.set({ azimuth: value }), azimuth);

@@ -3,6 +3,8 @@
  * they are. The light direction, palette and layout are the same in all three, so the comparison isolates depth,
  * bevel, shadow and material. These are throwaway prototype values; the accepted look becomes the Phase 1 tokens.
  */
+import { finishCss } from "./finish.ts";
+
 export interface LookTokens {
   name: string;
   summary: string;
@@ -114,4 +116,38 @@ export function paletteFor(config: StrataConfig): Palette {
     : { stage: [255, 255, 255], panel: [233, 235, 239], text: [28, 30, 36], muted: [90, 94, 104], field: [255, 255, 255], secondary: [247, 248, 250], track: [205, 209, 217], knob: [252, 252, 253] };
   const onAccent = contrastRatio(config.accent, [255, 255, 255]) >= contrastRatio(config.accent, [16, 18, 22]) ? [255, 255, 255] : [16, 18, 22];
   return { ...base, accent: config.accent, onAccent };
+}
+
+/**
+ * Prototype subset of the open material model (design-language.md section 4): the base and clear-coat layers.
+ * Presets mirror the spec; any values in range make a custom material.
+ */
+export interface MaterialRecipe { roughness: number; metallic: number; coat: number; coatRoughness: number }
+export const materialPresets: Record<string, MaterialRecipe> = {
+  matte: { roughness: 0.45, metallic: 0, coat: 0, coatRoughness: 0.5 },
+  satin: { roughness: 0.4, metallic: 0, coat: 0.3, coatRoughness: 0.35 },
+  gloss: { roughness: 0.25, metallic: 0, coat: 0.6, coatRoughness: 0.12 },
+  lacquer: { roughness: 0.45, metallic: 0, coat: 1, coatRoughness: 0.04 },
+  metal: { roughness: 0.3, metallic: 1, coat: 0, coatRoughness: 0.5 },
+};
+export const defaultMaterial: MaterialRecipe = materialPresets.matte!;
+/** The preset a recipe matches exactly, or "custom". */
+export const presetOf = (recipe: MaterialRecipe) =>
+  Object.entries(materialPresets).find(([, preset]) => (Object.keys(preset) as (keyof MaterialRecipe)[]).every(key => Math.abs(preset[key] - recipe[key]) < 1e-6))?.[0] ?? "custom";
+
+/**
+ * CSS approximation of a material recipe on a raised control: extra `box-shadow` layers (a coat's sharp top
+ * highlight, a sharper bevel highlight as roughness falls) and a `background-image` with the finish zones
+ * (`finish.ts`), which stay clear of centred labels.
+ */
+export function cssMaterial(look: LookTokens, recipe: MaterialRecipe): { shadow: string; image: string } {
+  const length = Math.hypot(look.light[0], look.light[1]);
+  const towards = { x: look.light[0] / length, y: look.light[1] / length };
+  const away = (scale: number) => `${(-towards.x * scale).toFixed(2)}px ${(-towards.y * scale).toFixed(2)}px`;
+  const shadow = [
+    `inset 0 1px 0 rgba(255, 255, 255, ${(recipe.coat * 0.9).toFixed(3)})`,
+    `inset ${away(1.5)} ${(1 + recipe.roughness * 3).toFixed(2)}px rgba(255, 255, 255, ${((1 - recipe.roughness) * 0.55).toFixed(3)})`,
+  ].join(", ");
+  // Finish zones (coat band, gloss sheen, brushed metal), the same profile as the GPU presentations.
+  return { shadow, image: finishCss(recipe) };
 }
