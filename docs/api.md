@@ -301,7 +301,7 @@ Matching React18/19 types/builds and actual mounted behavior are recorded in
 | `requestReconcile()` (`CanvasRuntime`) | Public request to reconcile membership/geometry. React commits call it through layout effects and it coalesces into one microtask |
 | `createMotion(id, descriptor)` | Numeric keyframes/timing for new applications; creates one managed native source in idle DOM or active GPU and returns explicit ownership/playback/disposal controls |
 | `invalidate(id?)` | Explicit dirty enrollment(s), with normal native paint/input/mutation invalidation still enabled |
-| `settle()` | Bounded completion of already scheduled capture/draw work; not a promise that future browser paint cannot occur |
+| `settle()` | Bounded completion of already scheduled capture/draw work; not a promise that future browser paint cannot occur. Content that keeps changing (a `requestAnimationFrame` loop, a video) does not hold it: once a paint it waited for completes, a newer paint request is not awaited |
 | `state()` | Current capability/mode/reason, registry matrices, bounded telemetry and owned-resource ledgers |
 | `dispose()` | Serialized final unmount/observer/listener/canvas release; refuses while healthy GPU cleanup remains pending |
 

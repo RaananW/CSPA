@@ -343,6 +343,60 @@ for (const operation of ["layout", "disable", "dispose"]) {
   });
 }
 
+// App code that changes a layer every frame (a requestAnimationFrame loop, as animation libraries and live
+// charts do) re-dirties it after every capture, so a paint is always requested. Admission and settle() must
+// still finish once the paint they waited for completes, and the presented pixels must keep up with the loop.
+test("admission and settle complete while app code changes a layer every frame", async ({ page }) => {
+  await page.goto("/integration.html?dom");
+  await page.waitForFunction(() => window.integrationProbe);
+  // `#saved` sits inside the enrolled `#library` layer, next to the native `#save` button.
+  await page.evaluate(() => {
+    const target = document.querySelector("#saved");
+    Object.assign(target.style, { display: "inline-block", width: "60px", height: "24px" });
+    window.updates = 0;
+    window.stopUpdates = false;
+    const tick = () => {
+      if (window.stopUpdates) { target.style.background = "rgb(20, 200, 40)"; return; }
+      window.updates++;
+      target.style.background = `rgb(${window.updates * 7 % 256}, 40, 160)`;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+  const enabled = await page.evaluate(() => window.integrationProbe.enable());
+  expect(enabled.mode, enabled.reason).toBe("gpu");
+  await page.evaluate(() => window.integrationProbe.settle());
+  const box = await page.evaluate(() => {
+    const frame = document.querySelector("#frame").getBoundingClientRect(), saved = document.querySelector("#saved").getBoundingClientRect();
+    return { x: saved.x - frame.x + saved.width / 2, y: saved.y - frame.y + saved.height / 2 };
+  });
+  // The layer is presented (not a blank frame): the loop's colour has green 40 and blue 160. Fresh pixels while
+  // the loop runs: the presented colour keeps changing.
+  const first = await color(page, box.x, box.y);
+  expect(Math.abs(first[1] - 40)).toBeLessThanOrEqual(2); expect(Math.abs(first[2] - 160)).toBeLessThanOrEqual(2);
+  await page.waitForTimeout(250);
+  const second = await color(page, box.x, box.y);
+  expect(first.slice(0, 3)).not.toEqual(second.slice(0, 3));
+  expect((await state(page)).metrics.gpuFrames).toBeGreaterThan(0);
+  // Native hits on the continuously re-captured layer reach the original controls.
+  expect(await page.evaluate(() => {
+    const button = document.querySelector("#save").getBoundingClientRect();
+    return document.elementFromPoint(button.x + button.width / 2, button.y + button.height / 2)?.id;
+  })).toBe("save");
+  await page.locator("#count").click();
+  await expect(page.locator("#count")).toHaveText("Count 1");
+  const running = await state(page);
+  expect(running.mode).toBe("gpu");
+  // Once the loop stops on a known colour, settle() presents it.
+  await page.evaluate(() => { window.stopUpdates = true; });
+  await page.waitForTimeout(50);
+  await page.evaluate(() => window.integrationProbe.settle());
+  const final = await color(page, box.x, box.y);
+  for (const [actual, expected] of final.slice(0, 3).map((value, index) => [value, [20, 200, 40][index]])) expect(Math.abs(actual - expected)).toBeLessThanOrEqual(2);
+  expect((await state(page)).mode).toBe("gpu");
+  await save("continuous-updates", { enabled, running, updates: await page.evaluate(() => window.updates), first, second, final, retired: await zero(page) });
+});
+
 // Reduced motion is not a reason to revoke GPU: ownership stays and no new admission happens.
 test("reduced motion preserves structural GPU ownership without new admission", async ({ page }) => {
   const metadata = await ready(page);
