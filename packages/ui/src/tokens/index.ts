@@ -11,8 +11,10 @@ export const strataTokens: TokenGroup = source as TokenGroup;
 
 export { blend, flatten, namespace, numeric, resolve, themesOf, valueOf } from "./model.ts";
 export type { ResolveOptions, ThemeInfo, Token, TokenGroup, TokenMeta, TokenNode, TokenValue } from "./model.ts";
-export { contrast, luminance, nearBlack, onColour, parseHex, scale, toHex } from "./contrast.ts";
+export { contrast, luminance, nearBlack, onColour, parseHex, scale, textColour, toHex } from "./contrast.ts";
 export type { Rgb } from "./contrast.ts";
 export { validateTokens } from "./validate.ts";
 export type { Issue } from "./validate.ts";
 export { cssVariable, tokensToCss } from "./css.ts";
+export { finish, finishGradient, finishRecipes } from "./finish.ts";
+export type { FinishRecipe } from "./finish.ts";

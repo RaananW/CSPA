@@ -85,3 +85,21 @@ test("the stylesheet declares every token in a cascade layer, with every theme",
   assert.equal(cssVariable("object.keyHeight"), "--strata-object-key-height");
   assert.equal(cssVariable("material.roles.buttonPrimary"), "--strata-material-roles-button-primary");
 });
+
+test("derived role text colours reach 4.5:1 on every lit surface in every theme", () => {
+  const css = tokensToCss(strataTokens);
+  const interior = resolve(strataTokens)["interior.max"];
+  for (const theme of Object.keys(themesOf(strataTokens))) {
+    const values = resolve(strataTokens, { theme });
+    const block = theme === "light" ? css.slice(css.indexOf(':root, [data-strata-theme="light"]')) : css.slice(css.indexOf(`[data-strata-theme="${theme}"] {`));
+    for (const role of ["accent", "success", "warning", "danger", "info"]) {
+      const hex = block.match(new RegExp(`--strata-colour-${role}-text: (#[0-9a-f]{6});`))[1];
+      for (const surface of ["panel", "field", "stage", "secondary"]) {
+        for (const factor of [1, 1 + interior, 1 - interior]) {
+          const lit = parseHex(values[`colour.${surface}`]).map(channel => Math.min(255, channel * factor));
+          assert.ok(contrast(parseHex(hex), lit) >= 4.5, `${theme}: ${role}-text on ${surface} at ×${factor}`);
+        }
+      }
+    }
+  }
+});

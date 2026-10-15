@@ -8,7 +8,7 @@ it shows, and binding tests compare against it.
 ## Conventions
 
 **Class names** use the `ug-` prefix, Bootstrap-style: a block (`ug-button`), modifiers
-(`ug-button--accent`) and parts (`ug-switch__track`). States come from native pseudo-classes and ARIA or
+(`ug-button--accent`) and parts (`ug-switch__knob`). States come from native pseudo-classes and ARIA or
 native attributes (`:hover`, `:active`, `:focus-visible`, `:checked`, `:disabled`, `aria-invalid`,
 `aria-busy`, `aria-pressed`), never from state classes.
 
@@ -21,6 +21,10 @@ native attributes (`:hover`, `:active`, `:focus-visible`, `:checked`, `:disabled
 | `data-strata-elevation` | A raised face | An elevation token name (`raised`, `floating`); the component's default when absent |
 | `data-strata-level` | A component or a scope | `relief`, `objects` or `scene`, overriding the scope's level |
 | `data-strata-depth` | A scope | Depth for the subtree, 0–1 |
+| `data-strata-theme` | The root or a scope | `light`, `dark`, `contrast` or `contrast-dark`; the root follows the system without it |
+| `data-strata-density` | The root or a scope | `compact`, `comfortable` or `spacious` |
+| `data-strata-mode` | The root or a scope | `face`: the GPU paints relief, so CSS paints flat faces (no bevel, shadow or finish) |
+| `data-strata-preview` | A control | `hover`, `active` or `focus`: shows a state statically, for specimens and tests only |
 
 **Relief primitives.** Each is a rounded box (or a circle) taken from the element's border box and its
 `border-radius`. The GPU reads them from the markers, and the CSS presentation styles the same elements.
@@ -49,6 +53,13 @@ the GPU pose and in CSS `transform`, inside the box (the [footprint rule](../des
 **Overlays.** Anything that floats above the page (dialogs, menus, popovers, tooltips, select popups)
 portals to the Underglass overlay host and is CSS-presented there. Tier A has no overlays: the native
 `<select>` opens the browser's own list.
+
+## Specimen
+
+The [specimen page](../../../examples/playground/ui-specimen.html) (`ui-specimen.html` in the playground) shows
+every token, material, elevation and Tier A state from `@underglass/ui/css` in plain HTML and CSS. Its browser
+test is the accessibility harness: axe in every theme and under forced colours, contrast on decoded pixels, the
+light and depth, reduced motion, keyboard input and reflow.
 
 ## Tier A
 

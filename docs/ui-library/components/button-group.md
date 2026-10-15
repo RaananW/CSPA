@@ -59,9 +59,9 @@ each child.
 
 ```html
 <div class="ug-button-group" role="group" aria-label="Alignment" data-strata-face="raised">
-  <button type="button" class="ug-button">Left</button>
-  <button type="button" class="ug-button">Centre</button>
-  <button type="button" class="ug-button">Right</button>
+  <button type="button" class="ug-button" data-strata-face="raised">Left</button>
+  <button type="button" class="ug-button" data-strata-face="raised">Centre</button>
+  <button type="button" class="ug-button" data-strata-face="raised">Right</button>
 </div>
 ```
 

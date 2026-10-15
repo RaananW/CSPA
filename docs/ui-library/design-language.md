@@ -324,6 +324,9 @@ themes beyond light and dark.
   | `warning` | 138, 60, 0 | 255, 190, 90 |
   | `danger` | 168, 20, 20 | 255, 150, 150 |
 
+- **Role colours as text** (`accent-text`, `danger-text` and so on, for links and messages) are derived: the
+  role colour mixed towards `text` by the smallest step that reaches 4.5:1 on every surface at every lit state.
+  With the defaults, light `accent` (3.97:1 on the lit panel) and `danger` (4.33:1) need it.
 - **Text on role colours** (`on-accent`, `on-success` and so on) is derived: white or near-black
   (16, 18, 22), whichever contrasts more.
 - **Lit contrast:** with the defaults, every role keeps at least 4.7:1 with its text at the
@@ -615,3 +618,4 @@ packages are thin bindings that render the same markup and wire the same behavio
   their depth on hover and press, cards at `raised`, and the inline-link target exemption.
 - 2026-10-16: the high-contrast themes `contrast` and `contrast-dark` (section 8). The token source moved to the
   `@underglass/ui` package, which validates it and generates the token stylesheet.
+- 2026-10-16: derived role colours as text (`accent-text` and so on, section 8), from the specimen's contrast checks.

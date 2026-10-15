@@ -42,3 +42,16 @@ const white: Rgb = [255, 255, 255];
 export function onColour(colour: Rgb): Rgb {
   return contrast(colour, white) >= contrast(colour, nearBlack) ? white : nearBlack;
 }
+
+/**
+ * A role colour usable as text (`accent-text`, `danger-text` and so on): `colour` mixed towards `text` by the
+ * smallest step that reaches `minimum` against every surface in `surfaces`.
+ */
+export function textColour(colour: Rgb, text: Rgb, surfaces: readonly Rgb[], minimum = 4.5): Rgb {
+  for (let step = 0; step <= 50; step++) {
+    const t = step / 50;
+    const mixed = colour.map((channel, index) => Math.round(channel + (text[index]! - channel) * t)) as unknown as Rgb;
+    if (surfaces.every(surface => contrast(mixed, surface) >= minimum)) return mixed;
+  }
+  return text;
+}

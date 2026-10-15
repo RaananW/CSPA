@@ -4,7 +4,7 @@
 private and not published or release-qualified. The design language is specified in
 [docs/ui-library](../../docs/ui-library/design-language.md).
 
-This version ships the **tokens** layer only:
+This version ships the **tokens** layer and the **CSS** for the Tier A components:
 
 ```ts
 import { strataTokens, resolve, validateTokens } from "@underglass/ui/tokens";
@@ -37,5 +37,14 @@ The stylesheet sits in the `strata.tokens` cascade layer, so unlayered applicati
 validates the tokens against the design language's invariants (contrast on lit faces in every theme, non-text
 contrast, elevation order, the taper rule) and fails on any broken rule.
 
-Next: the component stylesheet (`@underglass/ui/css`), plain-DOM behaviour (`/dom`), the GPU presentation
-(`/gpu`) and React, Vue and Astro bindings, as the [plan](../../docs/ui-library/plan.md) describes.
+`@underglass/ui/css` is the whole stylesheet: tokens plus the Tier A components, in the `strata.components` layer.
+The markup for each component is its [anatomy page](../../docs/ui-library/components/README.md); the relief comes
+from `data-strata-face` on that markup, lit from the configured light. `@underglass/ui/css/tokens.css` and
+`@underglass/ui/css/components.css` are the two halves.
+
+```html
+<button type="button" class="ug-button ug-button--accent" data-strata-face="raised">Save</button>
+```
+
+Next: plain-DOM behaviour (`/dom`), the GPU presentation (`/gpu`) and React, Vue and Astro bindings, as the
+[plan](../../docs/ui-library/plan.md) describes.

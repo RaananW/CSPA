@@ -1,0 +1,654 @@
+/*
+ * Strata components, the CSS presentation (T1): the Tier A markup contracts in docs/ui-library/components, styled
+ * from the token custom properties in tokens.css. Plain HTML and CSS, no JavaScript.
+ *
+ * - Relief comes from the markup: `data-strata-face="raised"` and `"well"` get the shared recipes below, lit from
+ *   the configured light (`--strata-light-*`), with cast shadows from `--strata-shadow-dx/dy` and the height.
+ * - States come from native pseudo-classes and attributes. `data-strata-preview` ("hover", "active", "focus")
+ *   shows a state statically, for specimens and parity tests only.
+ * - `data-strata-mode="face"` on a scope turns relief off: the GPU presentation paints depth, and CSS paints flat
+ *   faces only.
+ * - Preferences: forced colours flatten to system colours, reduced motion removes transitions and animation,
+ *   reduced transparency turns glass matte, and more contrast is handled by the high-contrast token themes.
+ */
+@layer strata.components {
+  /* Light direction in the face plane (unit vector towards the light), bevel gain and the state multipliers. */
+  :where([data-strata-face]) {
+    --_lx: calc(var(--strata-light-x) / max(0.0001, hypot(var(--strata-light-x), var(--strata-light-y))));
+    --_ly: calc(var(--strata-light-y) / max(0.0001, hypot(var(--strata-light-x), var(--strata-light-y))));
+    --_gain: calc(var(--strata-bevel-gain) / 0.55);
+    --_bevel: var(--strata-bevel-width);
+    --_h: var(--strata-elevation-raised);
+    --_lift: 1;
+    --_tone: 1;
+    --_finish: none;
+    --_hover-tone: calc(1 + min(var(--strata-state-hover-lift), var(--strata-interior-max)));
+    --_press-tone: calc(1 - min(var(--strata-state-press-sink), var(--strata-interior-max)));
+  }
+
+  /* Raised: bevel lit from the light, a cast shadow from the height, and the material's finish. */
+  :where([data-strata-face="raised"]) {
+    box-shadow:
+      inset calc(var(--_lx) * var(--_bevel) * 0.56) calc(var(--_ly) * var(--_bevel) * 0.56) calc(var(--_bevel) * 0.6) rgb(0 0 0 / calc(0.62 * var(--_gain))),
+      inset calc(var(--_lx) * var(--_bevel) * -0.6) calc(var(--_ly) * var(--_bevel) * -0.6) calc(var(--_bevel) * 0.6) rgb(255 255 255 / min(1, var(--_gain))),
+      calc(var(--strata-shadow-dx) * var(--_h) * var(--_lift)) calc(var(--strata-shadow-dy) * var(--_h) * var(--_lift))
+        calc(var(--_h) * var(--_lift) * 1.9 + 1px) rgb(0 0 0 / min(1, calc(var(--strata-shadow-strength) * 1.56)));
+    background-image: var(--_finish);
+    filter: brightness(var(--_tone));
+    transition: box-shadow var(--strata-motion-fast) var(--strata-motion-easing-press), filter var(--strata-motion-fast) var(--strata-motion-easing-press);
+  }
+
+  /* Well: inverted bevel (dark nearest the light) and an edge outline at 3:1 against the panel. */
+  :where([data-strata-face="well"]) {
+    --_bevel: calc(var(--strata-bevel-width) * 0.75);
+    border: 1px solid var(--strata-colour-edge);
+    box-shadow:
+      inset calc(var(--_lx) * var(--_bevel) * -0.56) calc(var(--_ly) * var(--_bevel) * -0.56) calc(var(--_bevel) * 0.6) rgb(0 0 0 / calc(0.55 * var(--_gain))),
+      inset calc(var(--_lx) * var(--_bevel) * 0.6) calc(var(--_ly) * var(--_bevel) * 0.6) calc(var(--_bevel) * 0.6) rgb(255 255 255 / min(1, calc(0.19 * var(--_gain))));
+    filter: brightness(var(--_tone));
+    transition: filter var(--strata-motion-fast) var(--strata-motion-easing-standard);
+  }
+
+  /* Focus: an accent outline just outside the shape, in every presentation. */
+  :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-text-field, .ug-text-area, .ug-text-field__wrap,
+    .ug-checkbox__input, .ug-radio__input, .ug-switch__input, .ug-slider, .ug-link, .ug-panel, .ug-card):is(:focus-visible, [data-strata-preview~="focus"]) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: var(--strata-focus-offset);
+  }
+  :where(.ug-text-field__wrap):focus-within:has(:focus-visible) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: var(--strata-focus-offset);
+  }
+  :where(.ug-text-field__input:focus-visible) { outline: none; }
+
+  /* Hover and press on raised controls: height and interior light (section 11). */
+  :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select):is(:hover, [data-strata-preview~="hover"]):not(:disabled, [aria-disabled="true"]) {
+    --_lift: var(--strata-state-hover-height);
+    --_tone: var(--_hover-tone);
+  }
+  :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select):is(:active, [data-strata-preview~="active"]):not(:disabled, [aria-disabled="true"]) {
+    --_lift: var(--strata-state-press-height);
+    --_tone: var(--_press-tone);
+  }
+  /* Wells keep their depth; only the interior light changes. */
+  :where(.ug-text-field, .ug-text-area, .ug-text-field__wrap, .ug-checkbox__input, .ug-radio__input, .ug-switch__input):is(:hover, [data-strata-preview~="hover"]):not(:disabled) {
+    --_tone: var(--_hover-tone);
+  }
+
+  /* Disabled: flat, no bevel, content at 38%. */
+  :where([data-strata-face]):is(:disabled, [aria-disabled="true"]) {
+    --_h: 0px;
+    --_gain: 0;
+    cursor: not-allowed;
+  }
+
+  /* ---- Surfaces ---- */
+
+  :where(.ug-panel) {
+    --_h: var(--strata-elevation-floating);
+    --_finish: var(--strata-finish-role-panel);
+    display: block;
+    box-sizing: border-box;
+    padding: var(--strata-panel-padding);
+    border-radius: var(--strata-radius-panel);
+    background-color: var(--strata-colour-panel);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-body);
+    line-height: var(--strata-font-line-height-body);
+  }
+  :where(.ug-panel[data-strata-material="glass"]) {
+    background-color: color-mix(in srgb, var(--strata-colour-panel) 78%, transparent);
+    backdrop-filter: blur(14px) saturate(1.2);
+  }
+  :where(.ug-card) {
+    --_finish: var(--strata-finish-role-panel);
+    display: flex;
+    flex-direction: column;
+    gap: var(--strata-space-3);
+    box-sizing: border-box;
+    padding: var(--strata-space-5);
+    border-radius: var(--strata-radius-panel);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+  }
+  :where(.ug-card__title) {
+    margin: 0;
+    font-size: var(--strata-font-size-subtitle);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: var(--strata-font-line-height-heading);
+  }
+  :where(.ug-card__body) { min-width: 0; }
+  :where(.ug-card__footer) { display: flex; flex-wrap: wrap; gap: var(--strata-space-3); }
+
+  /* ---- Buttons ---- */
+
+  :where(.ug-button, .ug-icon-button, .ug-toggle-button) {
+    --_finish: var(--strata-finish-role-control);
+    --_text: var(--strata-colour-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--strata-space-2);
+    box-sizing: border-box;
+    min-width: var(--strata-target-min);
+    min-height: max(var(--strata-control-height), var(--strata-target-min));
+    margin: 0;
+    padding: 0 var(--strata-space-5);
+    border: 0;
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+    color: var(--_text);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-body);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: 1;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :where(.ug-button--accent) {
+    --_finish: var(--strata-finish-role-button-primary);
+    --_text: var(--strata-colour-on-accent);
+    background-color: var(--strata-colour-accent);
+  }
+  :where(.ug-button--danger) {
+    --_text: var(--strata-colour-on-danger);
+    background-color: var(--strata-colour-danger);
+  }
+  :where(.ug-button__label, .ug-toggle-button__label) { min-width: 0; }
+  :where(.ug-button__icon, .ug-icon-button__icon) { display: inline-grid; width: 1.15em; height: 1.15em; }
+  :where(.ug-button__icon, .ug-icon-button__icon) > svg { width: 100%; height: 100%; }
+  :where(.ug-icon-button) {
+    width: max(var(--strata-control-height), var(--strata-target-min));
+    padding: 0;
+  }
+  :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select):is(:disabled, [aria-disabled="true"]) {
+    color: color-mix(in srgb, var(--_text) 38%, transparent);
+  }
+  /* A latching key: held down and lit by an indicator strip while on. */
+  :where(.ug-toggle-button[aria-pressed="true"]) {
+    --_lift: var(--strata-state-press-height);
+    --_tone: var(--_press-tone);
+    /* The strip is a border, so it stays in face mode and contrast tools can read the face behind the label. */
+    padding-top: 3px;
+    border-bottom: 3px solid var(--strata-colour-accent);
+  }
+  /* Keys on one plinth. */
+  :where(.ug-button-group) {
+    --_finish: var(--strata-finish-role-panel);
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--strata-space-2);
+    padding: var(--strata-space-2);
+    border-radius: calc(var(--strata-radius-control) + var(--strata-space-2));
+    background-color: var(--strata-colour-panel);
+  }
+  :where(.ug-button-group--vertical) { flex-direction: column; }
+
+  /* ---- Link ---- */
+
+  :where(.ug-link) {
+    color: var(--strata-colour-accent-text);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+    border-radius: var(--strata-radius-small);
+  }
+  :where(.ug-link):is(:hover, [data-strata-preview~="hover"]) { text-decoration-thickness: 2px; }
+  :where(.ug-link--standalone) {
+    display: inline-flex;
+    align-items: center;
+    min-width: var(--strata-target-min);
+    min-height: var(--strata-target-min);
+  }
+
+  /* ---- Field ---- */
+
+  :where(.ug-field) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--strata-space-2);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+  }
+  :where(.ug-field__label) { font-size: var(--strata-font-size-small); font-weight: var(--strata-font-weight-strong); }
+  :where(.ug-field__help, .ug-field__error) { margin: 0; font-size: var(--strata-font-size-small); line-height: var(--strata-font-line-height-body); }
+  :where(.ug-field__help) { color: var(--strata-colour-muted); }
+  :where(.ug-field__error) { color: var(--strata-colour-danger-text); }
+
+  /* ---- Text field and text area ---- */
+
+  :where(.ug-text-field, .ug-text-area, .ug-text-field__wrap) {
+    --_finish: var(--strata-finish-role-field);
+    box-sizing: border-box;
+    min-height: max(var(--strata-control-height), var(--strata-target-min));
+    margin: 0;
+    padding: 0 var(--strata-space-4);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-field);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-body);
+  }
+  :where(.ug-text-area) {
+    padding: var(--strata-space-3) var(--strata-space-4);
+    line-height: var(--strata-font-line-height-body);
+    resize: vertical;
+  }
+  :where(.ug-text-field, .ug-text-area, .ug-text-field__input)::placeholder { color: var(--strata-colour-muted); opacity: 1; }
+  :where(.ug-text-field, .ug-text-area, .ug-text-field__input):focus-visible { outline-offset: var(--strata-focus-offset); }
+  :where(.ug-text-field__wrap) { display: inline-flex; align-items: center; gap: var(--strata-space-3); }
+  :where(.ug-text-field__icon) { display: inline-grid; width: 1.1em; height: 1.1em; color: var(--strata-colour-muted); }
+  :where(.ug-text-field__input) {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+  :where(.ug-text-field, .ug-text-area, .ug-text-field__wrap, .ug-select)[aria-invalid="true"],
+  :where(.ug-text-field__wrap):has([aria-invalid="true"]) {
+    border-color: var(--strata-colour-danger);
+    box-shadow: inset 0 0 0 1px var(--strata-colour-danger);
+  }
+  :where(.ug-text-field, .ug-text-area, .ug-text-field__wrap):is(:disabled, :has(:disabled)) {
+    color: color-mix(in srgb, var(--strata-colour-text) 38%, transparent);
+  }
+
+  /* ---- Select ---- */
+
+  :where(.ug-select) {
+    --_finish: var(--strata-finish-role-field);
+    --_text: var(--strata-colour-text);
+    --_chevron: var(--strata-colour-muted);
+    box-sizing: border-box;
+    min-height: max(var(--strata-control-height), var(--strata-target-min));
+    margin: 0;
+    padding: 0 calc(var(--strata-space-5) + 12px) 0 var(--strata-space-4);
+    border: 0;
+    border-radius: var(--strata-radius-control);
+    appearance: none;
+    background-color: var(--strata-colour-field);
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--_chevron) 50%),
+      linear-gradient(135deg, var(--_chevron) 50%, transparent 50%),
+      var(--_finish);
+    background-position: right calc(var(--strata-space-4) + 5px) center, right var(--strata-space-4) center, 0 0;
+    background-size: 5px 5px, 5px 5px, 100% 100%;
+    background-repeat: no-repeat;
+    color: var(--_text);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-body);
+    cursor: pointer;
+  }
+
+  /* ---- Checkbox and radio ---- */
+
+  :where(.ug-checkbox, .ug-radio, .ug-switch) {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--strata-space-3);
+    min-height: max(var(--strata-control-height), var(--strata-target-min));
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-body);
+    cursor: pointer;
+  }
+  :where(.ug-checkbox__input, .ug-radio__input) {
+    --_finish: var(--strata-finish-role-field);
+    --_bevel: calc(var(--strata-bevel-width) * 0.5);
+    flex: none;
+    box-sizing: border-box;
+    width: var(--strata-target-min);
+    height: var(--strata-target-min);
+    margin: 0;
+    appearance: none;
+    border-radius: var(--strata-radius-small);
+    background-color: var(--strata-colour-field);
+    cursor: inherit;
+  }
+  :where(.ug-radio__input) { border-radius: 50%; }
+  :where(.ug-checkbox__mark, .ug-radio__dot, .ug-switch__knob) {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    pointer-events: none;
+  }
+  :where(.ug-checkbox__label, .ug-radio__label, .ug-switch__label) { min-width: 0; }
+  /* The check mark: drawn by a mask, raised when checked. */
+  :where(.ug-checkbox__mark) {
+    width: var(--strata-target-min);
+    height: var(--strata-target-min);
+    translate: 0 -50%;
+    background-color: var(--strata-colour-accent);
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+    opacity: 0;
+    filter: drop-shadow(calc(var(--strata-shadow-dx) * 1.5px) calc(var(--strata-shadow-dy) * 1.5px) 1px rgb(0 0 0 / calc(var(--strata-shadow-strength) * 1.2)));
+    transition: opacity var(--strata-motion-fast) var(--strata-motion-easing-standard);
+  }
+  :where(.ug-checkbox__input:checked + .ug-checkbox__mark) { opacity: 1; }
+  :where(.ug-checkbox__input:indeterminate + .ug-checkbox__mark) {
+    opacity: 1;
+    mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 12h10' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+  }
+  :where(.ug-radio__dot) {
+    --_size: calc(var(--strata-target-min) - 4 * var(--strata-object-taper));
+    left: calc((var(--strata-target-min) - var(--_size)) / 2);
+    width: var(--_size);
+    height: var(--_size);
+    translate: 0 -50%;
+    border-radius: 50%;
+    background: radial-gradient(circle at calc(50% + var(--strata-light-x) * 30%) calc(50% + var(--strata-light-y) * 30%),
+      color-mix(in srgb, var(--strata-colour-accent), white 30%), var(--strata-colour-accent) 70%);
+    box-shadow: calc(var(--strata-shadow-dx) * 2px) calc(var(--strata-shadow-dy) * 2px) 3px rgb(0 0 0 / var(--strata-shadow-strength));
+    opacity: 0;
+    transition: opacity var(--strata-motion-fast) var(--strata-motion-easing-standard);
+  }
+  :where(.ug-radio__input:checked + .ug-radio__dot) { opacity: 1; }
+  :where(.ug-checkbox, .ug-radio, .ug-switch):has(:disabled) {
+    color: color-mix(in srgb, var(--strata-colour-text) 38%, transparent);
+    cursor: not-allowed;
+  }
+  :where(.ug-checkbox__input, .ug-radio__input):disabled + :is(.ug-checkbox__mark, .ug-radio__dot) { opacity: 0.38; }
+  :where(.ug-checkbox__input:disabled:not(:checked, :indeterminate) + .ug-checkbox__mark, .ug-radio__input:disabled:not(:checked) + .ug-radio__dot) { opacity: 0; }
+  :where(.ug-checkbox__input, .ug-radio__input, .ug-switch__input)[aria-invalid="true"] { border-color: var(--strata-colour-danger); box-shadow: inset 0 0 0 1px var(--strata-colour-danger); }
+  :where(.ug-radio-group) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--strata-space-1);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+  }
+  :where(.ug-radio-group__legend) {
+    margin-bottom: var(--strata-space-2);
+    padding: 0;
+    font-size: var(--strata-font-size-small);
+    font-weight: var(--strata-font-weight-strong);
+  }
+
+  /* ---- Switch ---- */
+
+  :where(.ug-switch__input) {
+    --_finish: var(--strata-finish-role-field);
+    --_bevel: calc(var(--strata-bevel-width) * 0.5);
+    flex: none;
+    box-sizing: border-box;
+    width: 44px;
+    height: var(--strata-target-min);
+    margin: 0;
+    appearance: none;
+    border-radius: var(--strata-radius-pill);
+    background-color: var(--strata-colour-track);
+    cursor: inherit;
+    transition: background-color var(--strata-motion-normal) var(--strata-motion-easing-standard), filter var(--strata-motion-fast) var(--strata-motion-easing-standard);
+  }
+  :where(.ug-switch__input:checked) {
+    background-color: var(--strata-colour-accent);
+    box-shadow: 0 0 calc(4px * var(--_gain) + 2px) color-mix(in srgb, var(--strata-colour-accent) 55%, transparent);
+  }
+  :where(.ug-switch__knob) {
+    --_size: calc(var(--strata-target-min) - 2 * var(--strata-object-taper));
+    left: var(--strata-object-taper);
+    box-sizing: border-box;
+    width: var(--_size);
+    height: var(--_size);
+    translate: 0 -50%;
+    border: 1px solid var(--strata-colour-edge);
+    border-radius: 50%;
+    background: radial-gradient(circle at calc(50% + var(--strata-light-x) * 30%) calc(50% + var(--strata-light-y) * 30%),
+      color-mix(in srgb, var(--strata-colour-knob), white 40%), var(--strata-colour-knob) 72%);
+    box-shadow: calc(var(--strata-shadow-dx) * 3px) calc(var(--strata-shadow-dy) * 3px) 6.7px rgb(0 0 0 / var(--strata-shadow-strength));
+    transition: translate var(--strata-motion-normal) var(--strata-motion-easing-standard), background-color var(--strata-motion-normal) var(--strata-motion-easing-standard);
+  }
+  :where(.ug-switch__input:checked + .ug-switch__knob) {
+    translate: calc(44px - var(--strata-target-min)) -50%;
+    border-color: transparent;
+    background: radial-gradient(circle at calc(50% + var(--strata-light-x) * 30%) calc(50% + var(--strata-light-y) * 30%),
+      color-mix(in srgb, var(--strata-colour-on-accent), white 30%), var(--strata-colour-on-accent) 72%);
+  }
+  :where(.ug-switch__input:disabled + .ug-switch__knob) { box-shadow: none; opacity: 0.38; }
+  :where(.ug-switch--reverse) { flex-direction: row-reverse; justify-content: flex-end; }
+  :where(.ug-switch--reverse .ug-switch__knob) { left: auto; right: calc(44px - var(--strata-target-min) + var(--strata-object-taper)); }
+
+  /* ---- Slider: a groove rail with a knob ---- */
+
+  :where(.ug-slider) {
+    --_rail: 6px;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 120px;
+    height: var(--strata-target-min);
+    margin: 0;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+  :where(.ug-slider)::-webkit-slider-runnable-track {
+    box-sizing: border-box;
+    height: var(--_rail);
+    border: 1px solid var(--strata-colour-edge);
+    border-radius: var(--strata-radius-pill);
+    background: var(--strata-finish-role-rail), var(--strata-colour-track);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / calc(0.3 * var(--_gain)));
+  }
+  :where(.ug-slider)::-moz-range-track {
+    box-sizing: border-box;
+    height: var(--_rail);
+    border: 1px solid var(--strata-colour-edge);
+    border-radius: var(--strata-radius-pill);
+    background: var(--strata-finish-role-rail), var(--strata-colour-track);
+  }
+  :where(.ug-slider)::-webkit-slider-thumb {
+    box-sizing: border-box;
+    width: var(--strata-target-min);
+    height: var(--strata-target-min);
+    margin-top: calc((var(--_rail) - 2px - var(--strata-target-min)) / 2);
+    appearance: none;
+    border: 1px solid var(--strata-colour-edge);
+    border-radius: 50%;
+    background: radial-gradient(circle at calc(50% + var(--strata-light-x) * 30%) calc(50% + var(--strata-light-y) * 30%),
+      color-mix(in srgb, var(--strata-colour-knob), white 40%), var(--strata-colour-knob) 72%);
+    box-shadow: calc(var(--strata-shadow-dx) * 3px) calc(var(--strata-shadow-dy) * 3px) 6.7px rgb(0 0 0 / var(--strata-shadow-strength));
+  }
+  :where(.ug-slider)::-moz-range-thumb {
+    box-sizing: border-box;
+    width: var(--strata-target-min);
+    height: var(--strata-target-min);
+    border: 1px solid var(--strata-colour-edge);
+    border-radius: 50%;
+    background: var(--strata-colour-knob);
+  }
+  :where(.ug-slider:disabled) { opacity: 0.38; cursor: not-allowed; }
+
+  /* ---- Divider ---- */
+
+  :where(.ug-divider) {
+    box-sizing: border-box;
+    width: 100%;
+    height: 2px;
+    margin: var(--strata-space-4) 0;
+    border: 0;
+    border-top: 1px solid rgb(0 0 0 / calc(0.1 + 0.12 * var(--_gain)));
+    border-bottom: 1px solid rgb(255 255 255 / calc(0.25 + 0.4 * var(--_gain)));
+  }
+  :where(.ug-divider--vertical) {
+    display: inline-block;
+    width: 2px;
+    height: auto;
+    min-height: 1em;
+    margin: 0 var(--strata-space-4);
+    align-self: stretch;
+    border-top: 0;
+    border-bottom: 0;
+    border-left: 1px solid rgb(0 0 0 / calc(0.1 + 0.12 * var(--_gain)));
+    border-right: 1px solid rgb(255 255 255 / calc(0.25 + 0.4 * var(--_gain)));
+  }
+
+  /* ---- Badge ---- */
+
+  :where(.ug-badge) {
+    --_role: var(--strata-colour-secondary);
+    --_on: var(--strata-colour-text);
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    padding: var(--strata-space-1) var(--strata-space-3);
+    border: 1px solid var(--strata-colour-edge);
+    border-radius: var(--strata-radius-pill);
+    background-color: var(--_role);
+    color: var(--_on);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-caption);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: 1.2;
+  }
+  :where(.ug-badge--accent) { --_role: var(--strata-colour-accent); --_on: var(--strata-colour-on-accent); border-color: transparent; }
+  :where(.ug-badge--success) { --_role: var(--strata-colour-success); --_on: var(--strata-colour-on-success); border-color: transparent; }
+  :where(.ug-badge--warning) { --_role: var(--strata-colour-warning); --_on: var(--strata-colour-on-warning); border-color: transparent; }
+  :where(.ug-badge--danger) { --_role: var(--strata-colour-danger); --_on: var(--strata-colour-on-danger); border-color: transparent; }
+  :where(.ug-badge--info) { --_role: var(--strata-colour-info); --_on: var(--strata-colour-on-info); border-color: transparent; }
+
+  /* ---- Progress bar ---- */
+
+  :where(.ug-progress) {
+    box-sizing: border-box;
+    width: 100%;
+    height: 8px;
+    border: 1px solid var(--strata-colour-edge);
+    border-radius: var(--strata-radius-pill);
+    appearance: none;
+    overflow: hidden;
+    background-color: var(--strata-colour-track);
+    color: var(--strata-colour-accent);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / calc(0.3 * var(--_gain)));
+  }
+  :where(.ug-progress)::-webkit-progress-bar { background: transparent; }
+  :where(.ug-progress)::-webkit-progress-value {
+    border-radius: var(--strata-radius-pill);
+    background-color: var(--strata-colour-accent);
+    box-shadow: 0 0 4px color-mix(in srgb, var(--strata-colour-accent) 60%, transparent);
+  }
+  :where(.ug-progress)::-moz-progress-bar { border-radius: var(--strata-radius-pill); background-color: var(--strata-colour-accent); }
+  :where(.ug-progress:indeterminate) {
+    background-image: linear-gradient(90deg, transparent, var(--strata-colour-accent), transparent);
+    background-size: 40% 100%;
+    background-repeat: no-repeat;
+    animation: ug-progress-sweep 1400ms linear infinite;
+  }
+  :where(.ug-progress:indeterminate)::-moz-progress-bar { background: transparent; }
+
+  /* ---- Spinner: a ring groove with an emissive arc ---- */
+
+  :where(.ug-spinner) {
+    --_size: 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--strata-space-3);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-small);
+  }
+  :where(.ug-spinner--sm) { --_size: 16px; }
+  :where(.ug-spinner--md) { --_size: 24px; }
+  :where(.ug-spinner--lg) { --_size: 40px; }
+  :where(.ug-spinner__arc) {
+    box-sizing: border-box;
+    width: var(--_size);
+    height: var(--_size);
+    border: max(2px, calc(var(--_size) / 8)) solid var(--strata-colour-track);
+    border-top-color: var(--strata-colour-accent);
+    border-radius: 50%;
+    animation: ug-spinner-turn 800ms linear infinite;
+  }
+  :where(.ug-spinner__label) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  :where(.ug-spinner--labelled .ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+
+  /* ---- Overrides by attribute: after the components, so they win at equal specificity ---- */
+
+  /* Elevation by attribute overrides the component's level. */
+  :where([data-strata-elevation="ground"]) { --_h: var(--strata-elevation-ground); }
+  :where([data-strata-elevation="raised"]) { --_h: var(--strata-elevation-raised); }
+  :where([data-strata-elevation="floating"]) { --_h: var(--strata-elevation-floating); }
+  :where([data-strata-elevation="overlay"]) { --_h: var(--strata-elevation-overlay); }
+  :where([data-strata-elevation="modal"]) { --_h: var(--strata-elevation-modal); }
+
+  /* Materials by attribute override the role's finish. */
+  :where([data-strata-material="matte"]) { --_finish: var(--strata-finish-matte); }
+  :where([data-strata-material="satin"]) { --_finish: var(--strata-finish-satin); }
+  :where([data-strata-material="gloss"]) { --_finish: var(--strata-finish-gloss); }
+  :where([data-strata-material="lacquer"]) { --_finish: var(--strata-finish-lacquer); }
+  :where([data-strata-material="glass"]) { --_finish: var(--strata-finish-glass); }
+  :where([data-strata-material="metal"]) { --_finish: var(--strata-finish-metal); }
+  :where([data-strata-material="emissive"]) { --_finish: var(--strata-finish-emissive); }
+
+  @keyframes ug-progress-sweep { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+  @keyframes ug-spinner-turn { to { rotate: 1turn; } }
+
+  /* ---- Face mode: the GPU paints relief, CSS paints flat faces ---- */
+
+  :where([data-strata-mode="face"]) [data-strata-face] {
+    --_finish: none;
+    box-shadow: none;
+    filter: none;
+  }
+
+  /* ---- Preferences ---- */
+
+  @media (prefers-reduced-motion: reduce) {
+    :where([data-strata-face], .ug-checkbox__mark, .ug-radio__dot, .ug-switch__knob, .ug-switch__input) { transition: none; }
+    :where(.ug-spinner__arc) { animation: none; }
+    :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+    :where(.ug-progress:indeterminate) {
+      animation: none;
+      background-image: repeating-linear-gradient(45deg, var(--strata-colour-accent) 0 6px, transparent 6px 12px);
+      background-size: auto;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    :where(.ug-panel[data-strata-material="glass"]) {
+      --_finish: var(--strata-finish-matte);
+      background-color: var(--strata-colour-panel);
+      backdrop-filter: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    :where([data-strata-face]) { box-shadow: none; background-image: none; filter: none; }
+    :where(.ug-panel, .ug-card) { border: 1px solid CanvasText; }
+    :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group) { border: 1px solid ButtonBorder; }
+    :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
+    :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
+    :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }
+    :where(.ug-switch__input:checked) { background-color: Highlight; }
+    :where(.ug-switch__knob) { forced-color-adjust: none; border: 0; background: ButtonText; box-shadow: none; }
+    :where(.ug-switch__input:checked + .ug-switch__knob) { background: HighlightText; }
+    :where(.ug-switch__input:disabled, .ug-switch__input:disabled + .ug-switch__knob) { opacity: 1; border-color: GrayText; }
+    :where(.ug-switch__input:disabled + .ug-switch__knob) { background: GrayText; }
+    :where(.ug-progress) { forced-color-adjust: none; border-color: CanvasText; background-color: Canvas; }
+    :where(.ug-progress)::-webkit-progress-value { background-color: Highlight; box-shadow: none; }
+    :where(.ug-progress)::-moz-progress-bar { background-color: Highlight; }
+    :where(.ug-spinner__arc) { forced-color-adjust: none; border-color: CanvasText; border-top-color: Highlight; }
+    :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+    :where(.ug-divider) { border-top-color: CanvasText; border-bottom: 0; }
+    :where(.ug-divider--vertical) { border-left-color: CanvasText; border-right: 0; }
+    :where(.ug-badge) { border-color: CanvasText; }
+    :where(.ug-field__error) { color: CanvasText; }
+  }
+}

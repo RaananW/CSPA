@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata specimen</title>
+  <style>
+    @import "@underglass/ui/css";
+    @layer specimen {
+      body { margin: 0; background: var(--strata-colour-stage); color: var(--strata-colour-text); font: var(--strata-font-size-body) / var(--strata-font-line-height-body) var(--strata-font-family); }
+      main { box-sizing: border-box; max-width: 1180px; margin: 0 auto; padding: var(--strata-space-7) var(--strata-space-5) var(--strata-space-10); }
+      h1 { margin: 0 0 var(--strata-space-2); font-size: var(--strata-font-size-display); line-height: var(--strata-font-line-height-heading); }
+      h2 { margin: var(--strata-space-9) 0 var(--strata-space-4); font-size: var(--strata-font-size-headline); line-height: var(--strata-font-line-height-heading); }
+      h3 { margin: 0 0 var(--strata-space-3); font-size: var(--strata-font-size-subtitle); }
+      .lead { margin: 0; max-width: 70ch; color: var(--strata-colour-muted); }
+      .controls { display: flex; flex-wrap: wrap; gap: var(--strata-space-5); align-items: end; margin-top: var(--strata-space-5); }
+      .grid { display: grid; gap: var(--strata-space-6); grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+      .row { display: flex; flex-wrap: wrap; gap: var(--strata-space-4); align-items: center; }
+      .stack { display: flex; flex-direction: column; gap: var(--strata-space-4); align-items: flex-start; }
+      .swatch { display: flex; flex-direction: column; gap: var(--strata-space-1); font-size: var(--strata-font-size-small); }
+      .chip { width: 100%; height: 48px; border-radius: var(--strata-radius-control); border: 1px solid var(--strata-colour-edge); }
+      .caption { color: var(--strata-colour-muted); font-size: var(--strata-font-size-small); }
+      .level { display: grid; place-items: center; min-height: 72px; }
+      code { font-family: var(--strata-font-mono); font-size: 0.92em; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Strata specimen</h1>
+    <p class="lead">Every token, material, elevation and state of the Tier A components, in plain HTML and CSS from
+      <code>@underglass/ui/css</code>. States are shown statically with <code>data-strata-preview</code>; the real
+      controls respond to the pointer and keyboard too. This page is the visual reference for later tests.</p>
+    <form class="controls" id="settings" hidden>
+      <div class="ug-field">
+        <label class="ug-field__label" for="set-theme">Theme</label>
+        <select class="ug-select" data-strata-face="raised" id="set-theme">
+          <option value="">System</option><option value="light">Light</option><option value="dark">Dark</option>
+          <option value="contrast">High contrast</option><option value="contrast-dark">High contrast dark</option>
+        </select>
+      </div>
+      <div class="ug-field">
+        <label class="ug-field__label" for="set-density">Density</label>
+        <select class="ug-select" data-strata-face="raised" id="set-density">
+          <option value="compact">Compact</option><option value="comfortable" selected>Comfortable</option><option value="spacious">Spacious</option>
+        </select>
+      </div>
+      <div class="ug-field">
+        <label class="ug-field__label" for="set-depth">Depth</label>
+        <input class="ug-slider" data-strata-face="groove" type="range" id="set-depth" min="0" max="100" value="50">
+      </div>
+      <div class="ug-field">
+        <label class="ug-field__label" for="set-azimuth">Light from</label>
+        <input class="ug-slider" data-strata-face="groove" type="range" id="set-azimuth" min="0" max="359" value="323">
+      </div>
+      <div class="ug-field">
+        <label class="ug-field__label" for="set-elevation">Light height</label>
+        <input class="ug-slider" data-strata-face="groove" type="range" id="set-elevation" min="15" max="85" value="41">
+      </div>
+    </form>
+  </header>
+
+  <section aria-labelledby="colour-title">
+    <h2 id="colour-title">Colour</h2>
+    <div class="grid" id="swatches">
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-stage)"></span><code>stage</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-panel)"></span><code>panel</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-field)"></span><code>field</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-secondary)"></span><code>secondary</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-text)"></span><code>text</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-muted)"></span><code>muted</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-accent)"></span><code>accent</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-success)"></span><code>success</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-warning)"></span><code>warning</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-danger)"></span><code>danger</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-track)"></span><code>track</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-knob)"></span><code>knob</code></div>
+      <div class="swatch"><span class="chip" style="background: var(--strata-colour-edge)"></span><code>edge</code></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="type-title">
+    <h2 id="type-title">Typography</h2>
+    <section class="ug-panel" data-strata-face="raised" aria-label="Type scale">
+      <div class="stack">
+        <span style="font-size: var(--strata-font-size-display); font-weight: var(--strata-font-weight-strong)">Display 28</span>
+        <span style="font-size: var(--strata-font-size-headline); font-weight: var(--strata-font-weight-strong)">Headline 22</span>
+        <span style="font-size: var(--strata-font-size-title); font-weight: var(--strata-font-weight-strong)">Title 18</span>
+        <span style="font-size: var(--strata-font-size-subtitle)">Subtitle 16</span>
+        <span>Body 14: text lives on faces and is never lit, extruded or tilted at rest.</span>
+        <span style="font-size: var(--strata-font-size-small); color: var(--strata-colour-muted)">Small 13, muted</span>
+        <span style="font-size: var(--strata-font-size-caption)">Caption 12</span>
+        <code>Mono: font.mono</code>
+      </div>
+    </section>
+  </section>
+
+  <section aria-labelledby="elevation-title">
+    <h2 id="elevation-title">Elevation</h2>
+    <div class="grid">
+      <div class="ug-card level" data-strata-face="raised" data-strata-elevation="raised">Raised · 3</div>
+      <div class="ug-card level" data-strata-face="raised" data-strata-elevation="floating">Floating · 10</div>
+      <div class="ug-card level" data-strata-face="raised" data-strata-elevation="overlay">Overlay · 16</div>
+      <div class="ug-card level" data-strata-face="raised" data-strata-elevation="modal">Modal · 24</div>
+    </div>
+  </section>
+
+  <section aria-labelledby="material-title">
+    <h2 id="material-title">Materials</h2>
+    <section class="ug-panel" data-strata-face="raised" aria-label="Material presets">
+      <div class="row">
+        <button type="button" class="ug-button" data-strata-face="raised" data-strata-material="matte">Matte</button>
+        <button type="button" class="ug-button" data-strata-face="raised" data-strata-material="satin">Satin</button>
+        <button type="button" class="ug-button" data-strata-face="raised" data-strata-material="gloss">Gloss</button>
+        <button type="button" class="ug-button" data-strata-face="raised" data-strata-material="lacquer">Lacquer</button>
+        <button type="button" class="ug-button" data-strata-face="raised" data-strata-material="metal">Metal</button>
+        <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" data-strata-material="lacquer">Accent lacquer</button>
+      </div>
+    </section>
+  </section>
+
+  <section aria-labelledby="depth-title">
+    <h2 id="depth-title">Depth</h2>
+    <div class="grid">
+      <div data-strata-scope style="--strata-depth: 0">
+        <section class="ug-panel" data-strata-face="raised" aria-label="Depth 0%">
+          <h3>0% · subtle</h3>
+          <div class="row"><button type="button" class="ug-button ug-button--accent" data-strata-face="raised">Save</button><button type="button" class="ug-button" data-strata-face="raised">Cancel</button></div>
+        </section>
+      </div>
+      <div data-strata-scope style="--strata-depth: 0.5">
+        <section class="ug-panel" data-strata-face="raised" aria-label="Depth 50%">
+          <h3>50% · default</h3>
+          <div class="row"><button type="button" class="ug-button ug-button--accent" data-strata-face="raised">Save</button><button type="button" class="ug-button" data-strata-face="raised">Cancel</button></div>
+        </section>
+      </div>
+      <div data-strata-scope style="--strata-depth: 1">
+        <section class="ug-panel" data-strata-face="raised" aria-label="Depth 100%">
+          <h3>100% · bold</h3>
+          <div class="row"><button type="button" class="ug-button ug-button--accent" data-strata-face="raised">Save</button><button type="button" class="ug-button" data-strata-face="raised">Cancel</button></div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="components-title">
+    <h2 id="components-title">Components and states</h2>
+    <div class="grid" id="components">
+      <section class="ug-panel" data-strata-face="raised" aria-labelledby="buttons-title">
+        <h3 id="buttons-title">Button</h3>
+        <div class="stack">
+          <div class="row">
+            <button type="button" class="ug-button" data-strata-face="raised">Rest</button>
+            <button type="button" class="ug-button" data-strata-face="raised" data-strata-preview="hover">Hover</button>
+            <button type="button" class="ug-button" data-strata-face="raised" data-strata-preview="active">Pressed</button>
+          </div>
+          <div class="row">
+            <button type="button" class="ug-button ug-button--accent" data-strata-face="raised">Accent</button>
+            <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" data-strata-preview="focus">Focus</button>
+            <button type="button" class="ug-button ug-button--danger" data-strata-face="raised">Delete</button>
+          </div>
+          <div class="row">
+            <button type="button" class="ug-button" data-strata-face="raised" disabled>Disabled</button>
+            <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" aria-busy="true">Busy</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="ug-panel" data-strata-face="raised" aria-labelledby="icon-title">
+        <h3 id="icon-title">IconButton, ToggleButton, ButtonGroup</h3>
+        <div class="stack">
+          <div class="row">
+            <button type="button" class="ug-icon-button" data-strata-face="raised" aria-label="Close">
+              <span class="ug-icon-button__icon" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg></span>
+            </button>
+            <button type="button" class="ug-toggle-button" data-strata-face="raised" aria-pressed="false">Bold</button>
+            <button type="button" class="ug-toggle-button" data-strata-face="raised" aria-pressed="true">Italic</button>
+          </div>
+          <div class="ug-button-group" role="group" aria-label="Alignment" data-strata-face="raised">
+            <button type="button" class="ug-button" data-strata-face="raised">Left</button>
+            <button type="button" class="ug-button" data-strata-face="raised">Centre</button>
+            <button type="button" class="ug-button" data-strata-face="raised">Right</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="ug-panel" data-strata-face="raised" aria-labelledby="fields-title">
+        <h3 id="fields-title">Field, TextField, TextArea</h3>
+        <div class="stack">
+          <div class="ug-field">
+            <label class="ug-field__label" for="spec-name">Name</label>
+            <input id="spec-name" class="ug-text-field" data-strata-face="well" value="Ada Lovelace" aria-describedby="spec-name-help">
+            <p class="ug-field__help" id="spec-name-help">As it appears on your card.</p>
+          </div>
+          <div class="ug-field">
+            <label class="ug-field__label" for="spec-email">Email</label>
+            <input id="spec-email" class="ug-text-field" data-strata-face="well" type="email" value="ada@" aria-invalid="true" aria-describedby="spec-email-error">
+            <p class="ug-field__error" id="spec-email-error">Error: enter an address like name@example.com.</p>
+          </div>
+          <div class="ug-field">
+            <label class="ug-field__label" for="spec-disabled">Disabled</label>
+            <input id="spec-disabled" class="ug-text-field" data-strata-face="well" value="Read only here" disabled>
+          </div>
+          <div class="ug-field">
+            <label class="ug-field__label" for="spec-notes">Notes</label>
+            <textarea id="spec-notes" class="ug-text-area" data-strata-face="well" rows="3" placeholder="Anything else?"></textarea>
+          </div>
+        </div>
+      </section>
+
+      <section class="ug-panel" data-strata-face="raised" aria-labelledby="choice-title">
+        <h3 id="choice-title">Checkbox, Radio, Switch</h3>
+        <div class="stack">
+          <label class="ug-checkbox"><input class="ug-checkbox__input" data-strata-face="well" type="checkbox"><span class="ug-checkbox__mark" data-strata-face="mark" aria-hidden="true"></span><span class="ug-checkbox__label">Unchecked</span></label>
+          <label class="ug-checkbox"><input class="ug-checkbox__input" data-strata-face="well" type="checkbox" checked><span class="ug-checkbox__mark" data-strata-face="mark" aria-hidden="true"></span><span class="ug-checkbox__label">Checked</span></label>
+          <label class="ug-checkbox"><input class="ug-checkbox__input" data-strata-face="well" type="checkbox" checked disabled><span class="ug-checkbox__mark" data-strata-face="mark" aria-hidden="true"></span><span class="ug-checkbox__label">Disabled</span></label>
+          <fieldset class="ug-radio-group">
+            <legend class="ug-radio-group__legend">Plan</legend>
+            <label class="ug-radio"><input class="ug-radio__input" data-strata-face="well" type="radio" name="spec-plan" value="free" checked><span class="ug-radio__dot" data-strata-face="knob" aria-hidden="true"></span><span class="ug-radio__label">Free</span></label>
+            <label class="ug-radio"><input class="ug-radio__input" data-strata-face="well" type="radio" name="spec-plan" value="pro"><span class="ug-radio__dot" data-strata-face="knob" aria-hidden="true"></span><span class="ug-radio__label">Pro</span></label>
+          </fieldset>
+          <label class="ug-switch"><input class="ug-switch__input" data-strata-face="well" type="checkbox" role="switch"><span class="ug-switch__knob" data-strata-face="knob" aria-hidden="true"></span><span class="ug-switch__label">Wi-Fi</span></label>
+          <label class="ug-switch"><input class="ug-switch__input" data-strata-face="well" type="checkbox" role="switch" checked><span class="ug-switch__knob" data-strata-face="knob" aria-hidden="true"></span><span class="ug-switch__label">Bluetooth</span></label>
+          <label class="ug-switch"><input class="ug-switch__input" data-strata-face="well" type="checkbox" role="switch" disabled><span class="ug-switch__knob" data-strata-face="knob" aria-hidden="true"></span><span class="ug-switch__label">Airplane mode</span></label>
+        </div>
+      </section>
+
+      <section class="ug-panel" data-strata-face="raised" aria-labelledby="select-title">
+        <h3 id="select-title">Select, Slider</h3>
+        <div class="stack">
+          <div class="ug-field">
+            <label class="ug-field__label" for="spec-size">Size</label>
+            <select class="ug-select" data-strata-face="raised" id="spec-size">
+              <option value="s">Small</option><option value="m" selected>Medium</option><option value="l">Large</option>
+            </select>
+          </div>
+          <div class="ug-field" style="align-self: stretch">
+            <label class="ug-field__label" for="spec-volume">Volume</label>
+            <input class="ug-slider" data-strata-face="groove" type="range" id="spec-volume" min="0" max="100" value="40">
+          </div>
+        </div>
+      </section>
+
+      <section class="ug-panel" data-strata-face="raised" aria-labelledby="status-title">
+        <h3 id="status-title">Badge, ProgressBar, Spinner, Divider, Link</h3>
+        <div class="stack" style="align-items: stretch">
+          <div class="row">
+            <span class="ug-badge" data-strata-face="flat">Neutral</span>
+            <span class="ug-badge ug-badge--accent" data-strata-face="flat">New</span>
+            <span class="ug-badge ug-badge--success" data-strata-face="flat">Active</span>
+            <span class="ug-badge ug-badge--warning" data-strata-face="flat">Pending</span>
+            <span class="ug-badge ug-badge--danger" data-strata-face="flat">Failed</span>
+          </div>
+          <div class="ug-field">
+            <label class="ug-field__label" for="spec-upload">Upload</label>
+            <progress id="spec-upload" class="ug-progress" data-strata-face="groove" value="40" max="100">40%</progress>
+          </div>
+          <div class="ug-field">
+            <label class="ug-field__label" for="spec-sync">Syncing</label>
+            <progress id="spec-sync" class="ug-progress" data-strata-face="groove">Syncing</progress>
+          </div>
+          <span class="ug-spinner ug-spinner--labelled" role="status" data-strata-face="ring"><span class="ug-spinner__arc" aria-hidden="true"></span><span class="ug-spinner__label">Loading results</span></span>
+          <hr class="ug-divider" data-strata-face="groove">
+          <p style="margin: 0">Read the <a class="ug-link" href="#components-title">component guide</a> for the markup contracts.</p>
+        </div>
+      </section>
+
+      <article class="ug-card" data-strata-face="raised" aria-labelledby="card-title">
+        <h3 id="card-title" class="ug-card__title">Card</h3>
+        <div class="ug-card__body">A raised slab inside a panel, for grouped content.</div>
+        <div class="ug-card__footer"><button type="button" class="ug-button" data-strata-face="raised">Details</button></div>
+      </article>
+    </div>
+  </section>
+
+  <section aria-labelledby="density-title">
+    <h2 id="density-title">Density</h2>
+    <div class="grid">
+      <div data-strata-density="compact"><section class="ug-panel" data-strata-face="raised" aria-label="Compact"><h3>Compact · 28</h3><div class="row"><button type="button" class="ug-button" data-strata-face="raised">Action</button><input class="ug-text-field" data-strata-face="well" aria-label="Compact field" value="Field"></div></section></div>
+      <div data-strata-density="comfortable"><section class="ug-panel" data-strata-face="raised" aria-label="Comfortable"><h3>Comfortable · 34</h3><div class="row"><button type="button" class="ug-button" data-strata-face="raised">Action</button><input class="ug-text-field" data-strata-face="well" aria-label="Comfortable field" value="Field"></div></section></div>
+      <div data-strata-density="spacious"><section class="ug-panel" data-strata-face="raised" aria-label="Spacious"><h3>Spacious · 40</h3><div class="row"><button type="button" class="ug-button" data-strata-face="raised">Action</button><input class="ug-text-field" data-strata-face="well" aria-label="Spacious field" value="Field"></div></section></div>
+    </div>
+  </section>
+</main>
+<script>
+  // Optional: theme, density, depth and light controls for reviewers. The page renders completely without it.
+  (() => {
+    const form = document.getElementById("settings"), root = document.documentElement;
+    form.hidden = false;
+    const value = id => document.getElementById(id).value;
+    const apply = () => {
+      if (value("set-theme")) root.dataset.strataTheme = value("set-theme"); else delete root.dataset.strataTheme;
+      root.dataset.strataDensity = value("set-density");
+      root.style.setProperty("--strata-depth", String(Number(value("set-depth")) / 100));
+      root.style.setProperty("--strata-light-azimuth", value("set-azimuth"));
+      root.style.setProperty("--strata-light-elevation", value("set-elevation"));
+    };
+    form.addEventListener("input", apply);
+    form.addEventListener("submit", event => event.preventDefault());
+  })();
+</script>
+</body>
+</html>

@@ -10,12 +10,15 @@
  * - **Themes:** `data-strata-theme` (`light`, `dark`, `contrast`, `contrast-dark`) on the root or a scope. Without it
  *   the root follows `prefers-color-scheme`, and `prefers-contrast: more` turns light into `contrast` and dark into
  *   `contrast-dark`.
- * - **Derived values:** text on role colours (`--strata-colour-on-accent` and so on), the light vector
- *   (`--strata-light-x`, `-y`, `-z`), the shadow offset per pixel of height (`--strata-shadow-dx`, `-dy`), and the
- *   density's control height and panel padding.
+ * - **Derived values:** text on role colours (`--strata-colour-on-accent`), role colours as text
+ *   (`--strata-colour-accent-text`), the light vector (`--strata-light-x`, `-y`, `-z`), the shadow offset per pixel of
+ *   height (`--strata-shadow-dx`, `-dy`), the spacing scale (`--strata-space-1` to `-10`), each material's finish
+ *   gradient (`--strata-finish-gloss`) and each role's (`--strata-finish-role-knob`), and the density's control
+ *   height and panel padding.
  */
-import { onColour, parseHex, toHex } from "./contrast.ts";
-import { flatten, themesOf, type Token, type TokenGroup, type TokenValue } from "./model.ts";
+import { onColour, parseHex, scale, textColour, toHex, type Rgb } from "./contrast.ts";
+import { finishGradient, finishRecipes } from "./finish.ts";
+import { flatten, numeric, themesOf, type Token, type TokenGroup, type TokenValue } from "./model.ts";
 
 /** The custom property for a token path: `object.keyHeight` → `--strata-object-key-height`. */
 export function cssVariable(path: string): string {
@@ -78,18 +81,32 @@ export function tokensToCss(source: TokenGroup): string {
     "--strata-shadow-dx: calc(-1 * var(--strata-light-x) / var(--strata-light-z));",
     "--strata-shadow-dy: calc(-1 * var(--strata-light-y) / var(--strata-light-z));",
   );
+  // The spacing scale (section 13): space.1–space.10 as multiples of the base unit.
+  [0.5, 1, 2, 3, 4, 5, 6, 8, 10, 12].forEach((factor, index) => root.push(`--strata-space-${index + 1}: calc(var(--strata-space-base) * ${factor});`));
+  // Material finishes (section 4) at the default depth, and each material role's finish.
+  for (const [preset, recipe] of Object.entries(finishRecipes(source))) root.push(`--strata-finish-${preset}: ${finishGradient(recipe)};`);
+  for (const token of tokens.filter(token => token.path.startsWith("material.roles."))) {
+    root.push(`${cssVariable(`finish.role.${token.path.split(".")[2]!}`)}: var(--strata-finish-${String(token.$value)});`);
+  }
 
-  // Each theme's values, including derived on-colours.
+  // Each theme's values, with derived colours: text on each role colour (`on-accent`), and each role colour as text
+  // on the lit surfaces (`accent-text`, for links and messages), at 4.5:1 on every surface at every lit state.
+  const interior = numeric(tokens.find(token => token.path === "interior.max")?.$value ?? 0);
   const themeLines = (theme: string) => {
     const lines = [`color-scheme: ${themes[theme]!.scheme};`];
+    const colours = new Map<string, Rgb>();
     for (const token of tokens) {
       const value = token.meta.themes?.[theme];
       const name = cssVariable(token.path);
       // A theme without its own value restores the depth-blended one inside another theme's subtree.
       if (value === undefined) { if (token.meta.themes && token.meta.anchors) lines.push(`--strata-theme-${name.slice(9)}: initial;`); continue; }
       lines.push(token.meta.anchors ? `--strata-theme-${name.slice(9)}: ${literal(token, value)};` : `${name}: ${literal(token, value)};`);
-      const role = token.path.replace(/^colour\./, "");
-      if (token.path.startsWith("colour.") && textRoles.includes(role)) lines.push(`${cssVariable(`colour.on-${role}`)}: ${toHex(onColour(parseHex(String(value))))};`);
+      if (token.path.startsWith("colour.")) colours.set(token.path.slice(7), parseHex(String(value)));
+    }
+    const surfaces = ["panel", "field", "stage", "secondary"].flatMap(role => [1, 1 + interior, 1 - interior].map(factor => scale(colours.get(role)!, factor)));
+    for (const role of textRoles) {
+      lines.push(`${cssVariable(`colour.on-${role}`)}: ${toHex(onColour(colours.get(role)!))};`);
+      lines.push(`${cssVariable(`colour.${role}-text`)}: ${toHex(textColour(colours.get(role)!, colours.get("text")!, surfaces))};`);
     }
     return lines;
   };
