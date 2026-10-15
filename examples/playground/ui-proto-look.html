@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata look prototypes</title>
+  <style>
+    body { margin: 20px; background: white; color: rgb(28, 30, 36); font: 15px system-ui; }
+    h1 { margin: 0 0 4px; font-size: 22px; }
+    .intro { max-width: 1340px; margin: 0 0 16px; color: rgb(70, 74, 84); }
+    .grid { display: grid; grid-template-columns: 120px repeat(3, 440px); gap: 12px 16px; align-items: start; }
+    .look-head h2 { margin: 0; font-size: 17px; }
+    .look-head p { margin: 2px 0 0; font-size: 13px; color: rgb(90, 94, 104); }
+    .mode { padding-top: 12px; font-weight: 600; }
+    .mode small { display: block; font-weight: 400; font-size: 12px; color: rgb(90, 94, 104); }
+    canvas.stage, div.stage { display: block; width: 440px; height: 300px; border: 0; background: white; }
+    div.stage { position: relative; overflow: hidden; }
+    div.stage > .face { position: absolute; left: 40px; top: 35px; }
+    /* The panel: plain native controls in face mode. The GPU (or the CSS recipe) adds all depth. */
+    .face { position: relative; width: 360px; height: 230px; box-sizing: border-box; padding: 18px 20px; border-radius: 14px;
+      background: rgb(233, 235, 239); color: rgb(28, 30, 36); font: 14px system-ui; }
+    .face h2 { margin: 0 0 10px; font-size: 17px; }
+    .face .field-label { display: block; margin: 0 0 6px; }
+    .face .field { box-sizing: border-box; display: block; width: 100%; height: 34px; margin: 0 0 14px; padding: 0 10px; border: 0;
+      border-radius: 8px; background: rgb(255, 255, 255); color: rgb(28, 30, 36); font: inherit; outline: none; }
+    .face .switch-row { display: flex; align-items: center; gap: 10px; }
+    .face .switch { position: relative; display: block; width: 44px; height: 24px; }
+    .face .switch-input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+    .face .track { position: absolute; inset: 0; border-radius: 12px; background: rgb(205, 209, 217); }
+    .face .knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 9px; background: rgb(252, 252, 253); }
+    .face .switch-input:checked + .track { background: rgb(37, 99, 235); }
+    .face .switch-input:checked + .track .knob { left: 23px; }
+    .face .actions { position: absolute; right: 20px; bottom: 18px; display: flex; gap: 10px; }
+    .face button { height: 34px; padding: 0 16px; border: 0; border-radius: 8px; font: 600 14px system-ui; outline: none; cursor: pointer; }
+    .face .secondary { background: rgb(247, 248, 250); color: rgb(28, 30, 36); }
+    .face .primary { background: rgb(37, 99, 235); color: white; }
+    /* Objects level: meshes draw the switch; the captured panel keeps labels, text and button faces. */
+    .objects .face .track, .objects .face .knob { visibility: hidden; }
+    #status { white-space: pre-wrap; font-size: 12px; color: rgb(90, 94, 104); }
+  </style>
+</head>
+<body>
+  <h1>Strata look prototypes</h1>
+  <p class="intro">Three candidate looks, side by side, each shown three ways. <b>Relief</b>: the GPU lights flat native
+    controls (the default level). <b>Objects</b>: the same controls as 3D meshes (opt-in level). <b>CSS only</b>: the
+    fallback without GPU. Light from the top left, the same palette and layout everywhere: only how physical it feels
+    changes. Every control is real: type, toggle, hover, press, Tab. These are rough prototypes, not components.</p>
+  <div class="grid" id="grid"></div>
+  <pre id="status" role="status"></pre>
+  <template id="panel"><div class="face">
+    <h2>Settings</h2>
+    <label class="field-label" for="name">Display name</label>
+    <input class="field" id="name" type="text" value="Ada Lovelace" data-relief="well">
+    <div class="switch-row"><span class="switch"><input class="switch-input" id="notify" type="checkbox" role="switch" checked><span class="track" data-relief="well" data-relief-control="notify"><span class="knob" data-relief="raised" data-relief-control="notify"></span></span></span><label for="notify">Notifications</label></div>
+    <div class="actions"><button class="secondary" type="button" data-relief="raised">Cancel</button><button class="primary" type="button" data-relief="raised">Save</button></div>
+  </div></template>
+  <script type="module" src="/src/ui-proto/look.ts"></script>
+</body>
+</html>
