@@ -418,8 +418,8 @@ try {
       const comparisons = await comparisonInputs.evaluateAll(inputs => inputs.map(input => input.value));
       assert.deepEqual(comparisons, ["glow", "ripple", "split", "burn", "cells", "glass"]);
       record.compare = {};
-      // Paused first: a continuously repainting CSS pane always has a fresh capture pending, so settle() would not finish.
-      await page.locator(".stage input[name=compare-run][value=none]").check();
+      // Both sides keep animating here: settle() finishes once the paint it waited for completes, even though the
+      // CSS pane requests a new one every frame.
       for (const id of comparisons) {
         await page.locator(`.stage input[name=compare-scene][value=${id}]`).check();
         await settle();
@@ -447,6 +447,7 @@ try {
         return { spread: spread / (pixels.length / 3), pixels };
       };
       const changed = (a, b) => a.pixels.filter((value, index) => Math.abs(value - b.pixels[index]) > 8).length;
+      await page.locator(".stage input[name=compare-run][value=none]").check();
       const pausedA = await heatMap("paused-a");
       await page.waitForTimeout(500);
       const pausedB = await heatMap("paused-b");
@@ -474,6 +475,20 @@ try {
       if (lane === "dom") await page.locator("#compare-work").getByText("needs GPU mode").waitFor();
       assert.equal(await page.locator(".stage input[name=compare-run]:checked").getAttribute("value"), "both");
       assert.equal((await state()).mode, lane === "native" ? "gpu" : "dom");
+      // GPU admits while app code changes a layer every frame: the ripple's CSS side moves an SVG filter from
+      // requestAnimationFrame. This used to time out with "Native refresh did not settle".
+      if (lane === "native") {
+        await page.getByRole("button", { name: "Use ordinary DOM", exact: true }).click();
+        await page.waitForFunction(() => window.showcase.state().mode === "dom");
+        await page.locator(".stage input[name=compare-scene][value=ripple]").check();
+        await page.locator(".stage").scrollIntoViewIfNeeded();
+        await page.waitForTimeout(300);
+        await page.getByRole("button", { name: "Enable experimental GPU", exact: true }).click();
+        await page.waitForFunction(() => !window.showcase.state().initializing && window.showcase.state().mode !== "admitting");
+        record.compare.enableWhileAnimating = await state();
+        assert.equal(record.compare.enableWhileAnimating.mode, "gpu", record.compare.enableWhileAnimating.reason);
+        assert.ok(record.compare.enableWhileAnimating.metrics.gpuFrames > 0);
+      }
       record.beforeDispose = await state();
       assert.equal(record.beforeDispose.mode, lane === "native" ? "gpu" : "dom", record.beforeDispose.reason);
       // Explicit dispose must retire every GPU and runtime resource.
