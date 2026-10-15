@@ -463,6 +463,17 @@ try {
         assert.equal((await state()).mode, "gpu");
       } else assert.ok(pausedA.spread < 12, `DOM shows the grey capture: ${pausedA.spread}`);
       await page.locator(".stage input[name=compare-run][value=both]").check();
+      // Measure times idle, CSS only and (GPU only) Underglass only, then restores the Animate choice.
+      await page.locator(".stage .meter-head button").click();
+      await page.waitForFunction(() => document.querySelector(".stage .meter-head button")?.textContent === "Measure both", null, { timeout: 15000 });
+      const result = (await page.locator(".stage .meter-result").innerText()).match(/idle ([\d.]+), CSS ([\d.]+)(?:, Underglass ([\d.]+))? ms/);
+      assert.ok(result, "measurement shown");
+      record.compare.measured = { idle: Number(result[1]), css: Number(result[2]), underglass: result[3] && Number(result[3]) };
+      assert.ok(record.compare.measured.css > record.compare.measured.idle, `CSS heat map costs more than idle: ${JSON.stringify(record.compare.measured)}`);
+      assert.equal(record.compare.measured.underglass !== undefined, lane === "native");
+      if (lane === "dom") await page.locator("#compare-work").getByText("needs GPU mode").waitFor();
+      assert.equal(await page.locator(".stage input[name=compare-run]:checked").getAttribute("value"), "both");
+      assert.equal((await state()).mode, lane === "native" ? "gpu" : "dom");
       record.beforeDispose = await state();
       assert.equal(record.beforeDispose.mode, lane === "native" ? "gpu" : "dom", record.beforeDispose.reason);
       // Explicit dispose must retire every GPU and runtime resource.

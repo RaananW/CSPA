@@ -5,7 +5,7 @@
  * "work per frame" strip under the panes make the cost visible, and the last comparison is one
  * where CSS wins. In ordinary DOM the right pane shows Underglass's raw capture, without its shader.
  */
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Surface, defineEffect, useGPUHost, type EffectDescriptor } from "@underglass/react";
 import { Panel, useReducedMotion } from "./shared";
 import { policy, residentChain, useScene, useSceneArt } from "./scene";
@@ -188,31 +188,66 @@ export function Compare() {
 
   const meter = useFrameMeter();
   const gpu = meter.mode === "gpu";
+  const controller = useGPUHost();
+  // Measurements per comparison, setting and mode; `phase` is the step running now, if any.
+  const [measurements, setMeasurements] = useState<Record<string, Measurement>>({});
+  const [phase, setPhase] = useState<Phase>();
+  const busy = phase !== undefined;
+  const measured = measurements[`${id}:${amount}:${meter.mode}`];
+  // Bumped to cancel a running measurement (unmount); a cancelled run records nothing.
+  const attempt = useRef(0);
+  useEffect(() => () => { attempt.current++; }, []);
+  /**
+   * Measures rendering work per frame with both sides paused, then CSS only, then Underglass only
+   * (GPU mode only): each step settles for 0.5 s, then averages 1.5 s of frames. The controls are
+   * disabled meanwhile; the previous Animate choice comes back afterwards.
+   */
+  async function measure() {
+    const mine = ++attempt.current, before = run, mode = controller.state().mode, key = `${id}:${amount}:${mode}`;
+    const step = async (next: Phase) => {
+      setPhase(next); setRun(next === "idle" ? "none" : next);
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const value = await meter.collect(1500);
+      if (attempt.current !== mine) throw new Error("Measurement cancelled");
+      return value;
+    };
+    try {
+      const idle = await step("idle"), css = await step("css"), underglass = mode === "gpu" ? await step("gpu") : undefined;
+      // A mode change mid-run (GPU lost or disabled) would mix two setups, so the result is dropped.
+      if (controller.state().mode === mode) setMeasurements(values => ({ ...values, [key]: { idle, css, gpu: underglass } }));
+    } catch { /* cancelled */ } finally {
+      if (attempt.current === mine) { setPhase(undefined); setRun(before); }
+    }
+  }
   return <>
     <Panel tone="dark" label="STUDIO 08" title="GPU or CSS?">
       <fieldset className="compare-picker">
         <legend>Comparison</legend>
         {comparisons.map(entry => <label key={entry.id} className={`chip ${entry.id === id ? "on" : ""}`}>
-          <input type="radio" name="compare-scene" value={entry.id} checked={entry.id === id} onChange={() => setId(entry.id)} />{entry.label}</label>)}
+          <input type="radio" name="compare-scene" value={entry.id} checked={entry.id === id} disabled={busy} onChange={() => setId(entry.id)} />{entry.label}</label>)}
       </fieldset>
       <fieldset className="compare-run">
         <legend>Animate</legend>
         {([["both", "Both"], ["css", "CSS"], ["gpu", "Underglass"], ["none", "Paused"]] as const).map(([value, label]) =>
           <label key={value} className={`chip ${running === value ? "on" : ""}`}>
-            <input type="radio" name="compare-run" value={value} checked={running === value} disabled={reduced || comparison.still} onChange={() => setRun(value)} />{label}</label>)}
+            <input type="radio" name="compare-run" value={value} checked={running === value} disabled={reduced || comparison.still || busy} onChange={() => setRun(value)} />{label}</label>)}
       </fieldset>
       {comparison.amount && <label className="range">
         <span className="range-head">{comparison.amount.label}<span className="count">{amount}{comparison.amount.unit}</span></span>
-        <input type="range" min={comparison.amount.min} max={comparison.amount.max} step={comparison.amount.step} value={amount}
+        <input type="range" min={comparison.amount.min} max={comparison.amount.max} step={comparison.amount.step} value={amount} disabled={busy}
           aria-valuetext={`${amount}${comparison.amount.unit}`} onChange={event => setAmounts(values => ({ ...values, [id]: Number(event.target.value) }))} />
       </label>}
       <div className="meter" role="group" aria-label="Rendering work per frame">
-        <span><strong>{meter.work.toFixed(1)}</strong> ms render</span><span><strong>{meter.worst}</strong> ms worst</span><span><strong>{meter.fps}</strong> fps</span>
+        <div className="meter-head"><span>Render time per frame</span>
+          <button type="button" disabled={reduced || comparison.still || busy} onClick={() => void measure()}>{phase ? measuring[phase] : "Measure both"}</button></div>
+        <div className="meter-live"><span><strong>{meter.work.toFixed(1)}</strong> ms now</span><span><strong>{meter.worst}</strong> ms worst</span><span><strong>{meter.fps}</strong> fps</span></div>
+        <span className="meter-result" role="status">{measured ? `Measured: idle ${ms(measured.idle)}, CSS ${ms(measured.css)}${measured.gpu !== undefined ? `, Underglass ${ms(measured.gpu)}` : ""} ms`
+          : comparison.still ? "Nothing animates here, so there is nothing to time." : "Measure times each side alone, 2 s each."}</span>
       </div>
       <output id="compare-verdict" role="status">{note ?? comparison.verdict}</output>
       <p className="panel-note">{reduced ? "Reduced motion is on, so both sides stay still."
         : comparison.still ? "Nothing animates here: the CSS cost is three copies of the card, paid whenever it changes."
-        : gpu ? "Animate one side at a time and compare render ms/frame. In GPU mode the CSS pane is captured like any layer, so its repaints also cost a capture."
+        : gpu ? "In GPU mode the CSS pane is captured like any layer, so its repaints also cost a capture."
           : "Ordinary DOM: the right pane shows Underglass's raw capture without its shader. Enable experimental GPU to compare."}</p>
     </Panel>
     <Surface id="compare-heads" className="compare-strip compare-heads" aria-label="What each side uses"
@@ -226,15 +261,27 @@ export function Compare() {
     </Surface>
     <Surface id="compare-work" className="compare-strip compare-work" aria-label="Work per animated frame"
       layout={{ x: CSS_X, y: 596, width: GPU_X + PANE.width - CSS_X, height: 80, direction: "row", gap: 16 }}>
-      <Work side={comparison.css} extra={gpu && id !== "glass" ? "+ capture (GPU mode)" : undefined} />
-      <Work side={comparison.gpu} />
+      <Work side={comparison.css} extra={gpu && id !== "glass" ? "+ capture (GPU mode)" : undefined}
+        time={measured?.css} idle={measured?.idle} />
+      <Work side={comparison.gpu} time={measured?.gpu} idle={measured?.idle}
+        missing={measured && measured.gpu === undefined ? "needs GPU mode" : undefined} />
     </Surface>
   </>;
 }
 
-/** One side's "per frame" chips. */
-function Work({ side, extra }: { side: Side; extra?: string }) {
-  return <div><span className="work-label">PER FRAME</span>
+/** One measurement, in ms of rendering work per frame: both sides paused, CSS only, Underglass only (GPU mode). */
+interface Measurement { idle: number; css: number; gpu?: number }
+type Phase = "idle" | "css" | "gpu";
+const measuring: Record<Phase, string> = { idle: "Timing idle…", css: "Timing CSS…", gpu: "Timing Underglass…" };
+/** Milliseconds with one decimal; a step without frames (hidden tab) shows a dash. */
+const ms = (value: number) => Number.isFinite(value) ? value.toFixed(1) : "–";
+
+/** One side's "per frame" chips and, once measured, its time and the part above idle. */
+function Work({ side, extra, time, idle, missing }: { side: Side; extra?: string; time?: number; idle?: number; missing?: string }) {
+  return <div>
+    <span className="work-head"><span className="work-label">PER FRAME</span>
+      {time !== undefined ? <span className="work-time"><strong>{ms(time)} ms</strong>{idle !== undefined && Number.isFinite(time - idle) && ` +${Math.max(0, time - idle).toFixed(1)} over idle`}</span>
+        : missing ? <span className="work-time">{missing}</span> : <span className="work-time">not measured</span>}</span>
     <span className="work-chips">{side.work.map(step => <span key={step}>{step}</span>)}{extra && <span className="extra">{extra}</span>}</span></div>;
 }
 
@@ -391,12 +438,18 @@ function Glass({ blur, running }: { blur: number; running: boolean }) {
 function useFrameMeter() {
   const controller = useGPUHost();
   const [reading, setReading] = useState({ fps: 0, work: 0, worst: 0, mode: "dom" });
+  // Extra listeners for `collect`, each receiving every frame's rendering work in ms.
+  const sinks = useRef(new Set<(work: number) => void>());
   useEffect(() => {
     const frames: number[] = [];
     let work: number[] = [];
     let started = 0, shown = performance.now();
     const channel = new MessageChannel();
-    channel.port1.onmessage = () => { work.push(performance.now() - started); };
+    channel.port1.onmessage = () => {
+      const value = performance.now() - started;
+      work.push(value);
+      for (const sink of sinks.current) sink(value);
+    };
     let frame = requestAnimationFrame(function tick(now) {
       started = performance.now();
       channel.port2.postMessage(0);
@@ -412,5 +465,15 @@ function useFrameMeter() {
     });
     return () => { cancelAnimationFrame(frame); channel.port1.close(); };
   }, [controller]);
-  return reading;
+  /** Average rendering work per frame over the next `milliseconds`. */
+  const collect = useCallback((milliseconds: number) => new Promise<number>(resolve => {
+    const values: number[] = [];
+    const sink = (value: number) => { values.push(value); };
+    sinks.current.add(sink);
+    setTimeout(() => {
+      sinks.current.delete(sink);
+      resolve(values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : NaN);
+    }, milliseconds);
+  }), []);
+  return { ...reading, collect };
 }
