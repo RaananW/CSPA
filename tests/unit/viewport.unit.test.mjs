@@ -1,10 +1,10 @@
 /**
- * Unit tests for the viewport and clip geometry helpers in `packages/underglass/src/viewport.ts`. Matrices
+ * Unit tests for the viewport and clip geometry helpers in `packages/core/src/viewport.ts`. Matrices
  * are `{ a, b, c, d, e, f }` DOMMatrix-style 2D affines. Run with `npm run test:unit`.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { axisAligned, intersectViewport, localViewport, scrollOrigin, canvasContentOrigin, viewportContains } from "../../packages/underglass/src/viewport.ts";
+import { axisAligned, intersectViewport, localViewport, scrollOrigin, canvasContentOrigin, viewportContains } from "../../packages/core/src/viewport.ts";
 
 test("owner native border-box origin is separate from GPU bitmap content coordinates", () => {
   assert.deepEqual(canvasContentOrigin({ clientLeft: 8, clientTop: 5 }, { paddingLeft: "4px", paddingTop: "6px" }),

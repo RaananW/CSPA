@@ -3,7 +3,7 @@
  * in `./vite` and `./webpack`.
  */
 import type { Root, Plugin, ProcessOptions } from "postcss";
-import type { CompiledAnimation } from "@underglass/react";
+import type { CompiledAnimation } from "@underglass/core";
 /**
  * One enrolled animation in `underglass.config.json`: the `selector` rule in `stylesheet` whose single
  * named animation is compiled.

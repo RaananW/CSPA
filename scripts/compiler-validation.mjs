@@ -98,11 +98,18 @@ try {
   await copyDependencies(join(root, "node_modules"), join(tree, "node_modules"));
   await assertPhysicalTree(tree);
   const node = process.execPath, vite = join(tree, "node_modules/vite/bin/vite.js"), tsc = join(tree, "node_modules/typescript/bin/tsc");
-  const library = join(tree, "packages/underglass");
-  await command(node, [vite, "build"], library, "library-build");
-  await command(node, [tsc, "-p", "tsconfig.json"], library, "library-types");
+  const library = join(tree, "packages/underglass"), coreLibrary = join(tree, "packages/core");
   const archives = join(run, "archives");
   await mkdir(archives);
+  const archive = async prefix => join(archives, (await readdir(archives)).find(name => name.startsWith(prefix)));
+  // Core first and installed as a package: the compiler depends on it, and the React library's
+  // declarations resolve it.
+  await command(node, [vite, "build"], coreLibrary, "core-build");
+  await command(node, [tsc, "-p", "tsconfig.json"], coreLibrary, "core-types");
+  await command("npm", ["pack", "--ignore-scripts", "--pack-destination", archives, "--json"], coreLibrary, "pack-core");
+  await installArchive(tree, await archive("underglass-core"), "@underglass/core");
+  await command(node, [vite, "build"], library, "library-build");
+  await command(node, [tsc, "-p", "tsconfig.json"], library, "library-types");
   // Pack the library, the compiler and the fixture component package; the compiler and the fixture app
   // then consume them as installed packages.
   for (const [name, source] of [
@@ -111,10 +118,8 @@ try {
   ]) {
     await command("npm", ["pack", "--ignore-scripts", "--pack-destination", archives, "--json"], source, `pack-${name}`);
   }
-  const archiveNames = await readdir(archives);
-  const archive = prefix => join(archives, archiveNames.find(name => name.startsWith(prefix)));
-  await installArchive(tree, archive("underglass-react"), "@underglass/react");
-  await installArchive(tree, archive("underglass-css-compiler"), "@underglass/css-compiler");
+  await installArchive(tree, await archive("underglass-react"), "@underglass/react");
+  await installArchive(tree, await archive("underglass-css-compiler"), "@underglass/css-compiler");
   await command(node, ["--test", "tests/compiler/compiler.test.mjs", "tests/compiler/conformance.test.mjs"], tree, "compiler-units");
   const { compileStylesheet } = await import(pathToFileURL(join(tree, "packages/css-compiler/src/index.mjs")).href);
   const { generateModule } = await import(pathToFileURL(join(tree, "packages/css-compiler/src/generate.mjs")).href);
@@ -139,7 +144,7 @@ try {
   // The compiler's public entry points and the generated-module types must typecheck under NodeNext.
   await writeFile(join(tree, "compiler-types.ts"), `import {createCompiler,compileStylesheet,type CompilerConfig} from "@underglass/css-compiler";
     import {underglass} from "@underglass/css-compiler/vite";import {UnderglassPlugin} from "@underglass/css-compiler/webpack";
-    import type {CompiledProgramSet} from "@underglass/react";import "@underglass/css-compiler/client";
+    import type {CompiledProgramSet} from "@underglass/core";import "@underglass/css-compiler/client";
     import compiled from "virtual:underglass/compiled";const valid:CompiledProgramSet=compiled;
     const config:CompilerConfig={version:1,target:"webgpu",unsupported:"error",entries:[]};
     createCompiler(config);compileStylesheet("",config.entries);underglass();new UnderglassPlugin();void valid;`);
@@ -151,7 +156,7 @@ try {
     const app = join(tree, bundler);
     await cp(join(tree, "fixtures/css-compiler/app"), app, { recursive: true });
     await writeFile(join(app, "package.json"), '{"private":true,"type":"module"}\n');
-    await installArchive(app, archive("underglass-fixture-card"), "@underglass/fixture-card");
+    await installArchive(app, await archive("underglass-fixture-card"), "@underglass/fixture-card");
     const packageBefore = hash(await readFile(join(app, "node_modules/@underglass/fixture-card/card.module.scss")));
     if (bundler === "vite") {
       await command(node, [vite, "build"], app, "vite-package-scss");

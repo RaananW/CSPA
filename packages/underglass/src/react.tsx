@@ -3,16 +3,15 @@
  * root inside a `CanvasRuntime` mount boundary; `GPUHost` shares that runtime through context; and
  * `Surface`, `useSurfaceRef`, `Presence`, `Box`, `NativeScroll` and `NativeOverlay` register ordinary
  * React-rendered elements with the runtime. The components render plain DOM, so they work unchanged
- * when GPU presentation is off. The runtime (`runtime.ts`) owns all GPU behaviour.
+ * when GPU presentation is off. The framework-neutral runtime in `@underglass/core` owns all GPU behaviour.
  */
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, StrictMode, type HTMLAttributes, type ReactNode, type RefCallback } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { CanvasRuntime, type RuntimeOptions } from "./runtime.js";
-import { affine, pivot, type Transform, type TransformOrigin } from "./affine.js";
-import { compileStyle, type Layout, type Appearance } from "./compiler.js";
-import type { EnrollmentOptions } from "./enrollment.js";
-import type { MotionDescriptor, TransitionResult } from "./motion.js";
+import {
+  CanvasRuntime, affine, pivot, compileStyle, type CanvasController, type RuntimeOptions, type Transform, type TransformOrigin,
+  type Layout, type Appearance, type EnrollmentOptions, type MotionDescriptor, type TransitionResult,
+} from "@underglass/core";
 
 // Carries the runtime from `GPUHost` to every component and hook below.
 const Context = createContext<CanvasRuntime | null>(null);
@@ -32,12 +31,7 @@ function useRuntime() {
   if (!runtime) throw new Error("Underglass components require GPUHost and the explicit mount adapter");
   return runtime;
 }
-/**
- * The narrow controller returned by `mountCanvasApp` and `useGPUHost`: enrollment, transforms,
- * motion, effects and the `enable`/`disable`/`dispose` lifecycle. See `docs/api.md`.
- */
-export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "setOrigin" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "ownCompiledAnimation" | "createMotion" | "advance" | "setRipple" | "setEffects">;
-/** Returns the controller of the enclosing `GPUHost`. Throws outside one. */
+/** Returns the controller (`CanvasController` from `@underglass/core`) of the enclosing `GPUHost`. Throws outside one. */
 export function useGPUHost(): CanvasController { return useRuntime(); }
 /**
  * Returns the adapter-owned overlay host for native dialogs and popovers, which stay outside the

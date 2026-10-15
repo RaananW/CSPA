@@ -5,18 +5,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { validateWorkerFrame, validateWorkerProgram } from "../../packages/underglass/src/worker-protocol.ts";
+import { validateWorkerFrame, validateWorkerProgram } from "../../packages/core/src/worker-protocol.ts";
 
 // `build.ts` imports siblings as `./x.js`, which only exist as `.ts` in the source tree. This hook
 // maps those specifiers to `.ts` for the dynamic import below, then is removed.
-const sourceRoot = new URL("../../packages/underglass/src/", import.meta.url).href;
+const sourceRoot = new URL("../../packages/core/src/", import.meta.url).href;
 const hooks = registerHooks({
   resolve(specifier, context, next) {
     return next(specifier.startsWith("./") && specifier.endsWith(".js") && context.parentURL?.startsWith(sourceRoot)
       ? specifier.slice(0, -3) + ".ts" : specifier, context);
   },
 });
-const { workerCompositorProgram } = await import("../../packages/underglass/src/build.ts");
+const { workerCompositorProgram } = await import("../../packages/core/src/build.ts");
 hooks.deregister();
 
 test("worker shader and binding layout are emitted by the build entry for each bounded capacity", () => {

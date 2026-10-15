@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { compileStylesheet } from "../../packages/css-compiler/src/index.mjs";
 import { generateModule } from "../../packages/css-compiler/src/generate.mjs";
-import { validateCompiledPrograms } from "../../packages/underglass/src/compiled.ts";
+import { validateCompiledPrograms } from "../../packages/core/src/compiled.ts";
 import { acceptedCSS, refusedCSS, referenceTimes } from "./css-corpus.mjs";
 
 for (const fixture of acceptedCSS) {

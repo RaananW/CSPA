@@ -45,6 +45,7 @@ async function hashSource(directory) {
   }
 }
 await hashSource(resolve("examples/playground/src"));
+await hashSource(resolve("packages/core/src"));
 await hashSource(resolve("packages/underglass/src"));
 const sourceSha256 = sourceHash.digest("hex");
 // Copy the sources and test tooling, leaving out build output and dependency folders. `dist`,
@@ -118,7 +119,7 @@ try {
       development: JSON.parse(await readFile(resolve(destination, `${evidenceRoot}/runtime/independent-true.json`), "utf8")).initial.reactVersion,
     },
     resolvedIntegration: { name: dialogPackage.name, version: dialogPackage.version, license: dialogPackage.license, peerDependencies: dialogPackage.peerDependencies },
-    sourceRoot: "<workspace>/packages/underglass/src + examples/playground/src", sourceSha256, primaryLockUnchanged: true, primaryLockSha256: lockAfter,
+    sourceRoot: "<workspace>/packages/core/src + packages/underglass/src + examples/playground/src", sourceSha256, primaryLockUnchanged: true, primaryLockSha256: lockAfter,
   }, null, 2));
 } finally {
   // Always sanitize evidence, even after a failure; paths are resolved against the repository root.

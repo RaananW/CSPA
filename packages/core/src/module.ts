@@ -1,10 +1,10 @@
 /**
  * Trusted local module adapter: mounts an already-imported application module through the same
- * `CanvasRuntime` and mount boundary as `mountCanvasApp`, for code that creates its own React root
- * and registers existing elements itself. There is no URL loader or sandbox (see `docs/api.md`).
+ * `CanvasRuntime` and mount boundary as `mountCanvasApp`, for code that creates its own root (any
+ * framework, or plain DOM) and registers existing elements itself. There is no URL loader or sandbox
+ * (see `docs/api.md`).
  */
-import { CanvasRuntime, type RuntimeOptions, type LayerDefinition } from "./runtime.js";
-import type { CanvasController } from "./react.js";
+import { CanvasRuntime, type RuntimeOptions, type LayerDefinition, type CanvasController } from "./runtime.js";
 
 /**
  * An already-imported, trusted local application. `mount` receives the adapter-owned root

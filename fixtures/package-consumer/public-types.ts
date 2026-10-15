@@ -17,10 +17,19 @@ import { mountWorkerCanvasApp, WorkerSurface,
   type WorkerMountOptions, type WorkerSurfaceProps, type WorkerProgram, type WorkerAnimation, type WorkerStats,
 } from "@underglass/react/experimental-worker";
 import { startWorkerCompositor } from "@underglass/react/experimental-worker/thread";
+// The framework-neutral runtime that framework adapters build on.
+import { CanvasRuntime, compileStyle, createCanvasHosts, type CompiledStyle, type CanvasController as CoreController } from "@underglass/core";
+import { workerCompositorProgram as coreWorkerProgram } from "@underglass/core/build";
 
 // Internal implementations are deliberately not package entry points.
 // @ts-expect-error Internal implementation files are not public subpaths.
-import type { CanvasRuntime } from "@underglass/react/dist/library/runtime.js";
+import type { CanvasRuntime as ReactInternalRuntime } from "@underglass/react/dist/library/react.js";
+// @ts-expect-error Internal implementation files are not public subpaths.
+import type { SurfaceRendererOptions } from "@underglass/core/dist/library/renderer.js";
+// `@underglass/react` re-exports the core controller type rather than declaring its own.
+export const sameController = (controller: CanvasController): CoreController => controller;
+// Every compiled style value is a string a framework can bind directly.
+export const styleValues: (string | undefined)[] = Object.values(compileStyle({ width: 1 }) satisfies CompiledStyle);
 // Naming each exported type in a tuple makes the compiler fail if any of them stops being exported.
 export type PublicTypes = [
   AdmissionPolicy, MountCanvasOptions, CanvasController, RuntimeOptions, LocalApplicationModule, LayerDefinition,
@@ -32,7 +41,7 @@ export type PublicTypes = [
 ];
 // Referenced values keep the runtime exports of every public entry point imported.
 export const publicFunctions = [mountApplicationModule, defineEffect, workerCompositorProgram,
-  mountWorkerCanvasApp, WorkerSurface, startWorkerCompositor];
+  mountWorkerCanvasApp, WorkerSurface, startWorkerCompositor, CanvasRuntime, createCanvasHosts, coreWorkerProgram];
 // `AdmissionPolicy` accepts only the documented values.
 export const automatic: AdmissionPolicy = "automatic";
 // @ts-expect-error Automatic admission is a closed, explicit policy.

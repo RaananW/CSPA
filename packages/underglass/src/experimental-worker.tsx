@@ -9,15 +9,14 @@
 import { createContext, useContext, useLayoutEffect, useRef, StrictMode, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
-import { compileStyle, type Appearance, type Layout } from "./compiler.js";
-import { decorative as isDecorative } from "./ripple.js";
-import { capabilities, enableDrawable, validateAppliedGeometry, waitForPaint, type DrawableCanvas } from "./native.js";
+import { compileStyle, type Appearance, type Layout } from "@underglass/core";
 import {
+  decorative as isDecorative, capabilities, enableDrawable, validateAppliedGeometry, waitForPaint, type DrawableCanvas,
   validateWorkerProgram, type WorkerProgram, type WorkerAnimation, type WorkerSnapshot,
   type WorkerFrame, type WorkerRequest, type WorkerResponse, type WorkerStats,
-} from "./worker-protocol.js";
+} from "@underglass/core/experimental-worker";
 
-export type { WorkerProgram, WorkerAnimation, WorkerStats } from "./worker-protocol.js";
+export type { WorkerProgram, WorkerAnimation, WorkerStats } from "@underglass/core/experimental-worker";
 /** Options for `mountWorkerCanvasApp`. */
 export interface WorkerMountOptions {
   /** Empty host for the original React root in ordinary DOM mode. */

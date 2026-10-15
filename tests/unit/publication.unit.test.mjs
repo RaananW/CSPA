@@ -4,19 +4,19 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { completeCoverage } from "../../packages/underglass/src/publication.ts";
+import { completeCoverage } from "../../packages/core/src/publication.ts";
 import { registerHooks } from "node:module";
 // `composition.ts` imports siblings as `./x.js`, which only exist as `.ts` in the source tree.
 // This hook maps those specifiers to `.ts` for the dynamic import below, then is removed.
 const sourceImports = registerHooks({
   resolve(specifier, context, next) {
-    if (context.parentURL?.endsWith("/underglass/src/composition.ts") && specifier.startsWith("./") && specifier.endsWith(".js")) {
+    if (context.parentURL?.endsWith("/core/src/composition.ts") && specifier.startsWith("./") && specifier.endsWith(".js")) {
       return next(specifier.replace(/\.js$/, ".ts"), context);
     }
     return next(specifier, context);
   },
 });
-const { compositionUniforms, compositionShader } = await import("../../packages/underglass/src/composition.ts");
+const { compositionUniforms, compositionShader } = await import("../../packages/core/src/composition.ts");
 sourceImports.deregister();
 
 // A capture of slot 1 at 100x80 CSS pixels backed by 200x160 device pixels (device pixel ratio 2).

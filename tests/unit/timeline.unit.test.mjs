@@ -1,11 +1,11 @@
 /**
- * Unit tests for `compileTimeline` and `parseTransform` in `packages/underglass/src/timeline.ts`: sampling
+ * Unit tests for `compileTimeline` and `parseTransform` in `packages/core/src/timeline.ts`: sampling
  * at delay, iteration and direction boundaries, easing overshoot, and rejection of unsupported inputs.
  * Run with `npm run test:unit`.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compileTimeline, parseTransform } from "../../packages/underglass/src/timeline.ts";
+import { compileTimeline, parseTransform } from "../../packages/core/src/timeline.ts";
 
 const frames = [
   { offset: 0, transform: "translate(0px, 0px) rotate(0deg) scale(1)", opacity: 1 },

@@ -11,7 +11,11 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "paths": { "@underglass/react": ["../../packages/underglass/src/index.ts"] }
+    "paths": {
+      "@underglass/react": ["../../packages/underglass/src/index.ts"],
+      "@underglass/core": ["../../packages/core/src/index.ts"],
+      "@underglass/core/experimental-worker": ["../../packages/core/src/experimental-worker.ts"]
+    }
   },
   "include": ["src"]
 }

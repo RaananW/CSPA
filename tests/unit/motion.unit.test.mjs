@@ -1,10 +1,10 @@
 /**
- * Unit tests for `compileMotion` in `packages/underglass/src/motion.ts`: typed keyframe and timing
+ * Unit tests for `compileMotion` in `packages/core/src/motion.ts`: typed keyframe and timing
  * validation, and sampling through the shared timeline. Run with `npm run test:unit`.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { compileMotion } from "../../packages/underglass/src/motion.ts";
+import { compileMotion } from "../../packages/core/src/motion.ts";
 
 test("numeric motion snapshots channels/timing and shares bounded timeline sampling", () => {
   const descriptor = {

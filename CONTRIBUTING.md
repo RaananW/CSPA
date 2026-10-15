@@ -2,8 +2,10 @@
 
 ## Workspace ownership
 
-`packages/underglass/package.json` is the only release manifest; keep library
-source independent of playground/tests. The private root owns tools and stable
+`packages/core/package.json` (the framework-neutral runtime) and
+`packages/underglass/package.json` (the React adapter, which depends on core)
+are the release manifests; keep library source independent of
+playground/tests, and never import a UI framework from `packages/core`. The private root owns tools and stable
 scripts, while `examples/playground` owns app dependencies, HTML and Vite/TS
 configuration. Use root `npm run build:library`, `npm run build`,
 `npm run test:unit`, `npm run test:browser` and `npm run pack:library`.
@@ -331,7 +333,7 @@ closes its own randomly allocated strict-port previews and browser profiles.
 Its actual npm-installed tarball consumers have no workspace/source aliases,
 matching declared React/types, strict Bundler/NodeNext declarations and
 flagged/unflagged production native/GPU pixel checks. Prepack builds only
-`packages/underglass/dist/library`; playground builds use
+`packages/core/dist/library` and `packages/underglass/dist/library`; playground builds use
 `examples/playground/dist/` and cannot replace library output. No generated output belongs in Git.
 Curated versioned verdicts are read-only. Raw historical evidence is externally
 archived, not available in the current checkout; never reconstruct or regenerate
@@ -425,6 +427,7 @@ and native pointer/keyboard input for behavior claims, not `element.click()`.
 
 Keep source changes scoped, update maintained contracts and distinguish actual
 loss from synthetic failures. No new reconciler, CSS normalization engine,
-generic toolkit, package proliferation, private device access or broad
+generic toolkit, package proliferation (beyond the core runtime and one thin
+package per framework adapter), private device access or broad
 compatibility claim belongs to this gate. Do not infer release readiness from
 passing headless specimen tests.

@@ -1,10 +1,10 @@
 /**
- * Unit tests for the browser capability and input helpers in `packages/underglass/src/native.ts`, using
+ * Unit tests for the browser capability and input helpers in `packages/core/src/native.ts`, using
  * small fakes for the DOM and the canvas instead of a real browser. Run with `npm run test:unit`.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { capabilities, waitForPaint, validateGeometry, nativeEditingControl, nativeScrollKind } from "../../packages/underglass/src/native.ts";
+import { capabilities, waitForPaint, validateGeometry, nativeEditingControl, nativeScrollKind } from "../../packages/core/src/native.ts";
 
 test("native editing eligibility distinguishes original text controls from viewport targets", () => {
   class Input { type = "text"; disabled = false; isConnected = true; }

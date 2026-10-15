@@ -1,27 +1,18 @@
-/// <reference types="@types/webxr" preserve="true" />
 /**
- * Public entry point of `@underglass/react`: the typed React components and hooks, the explicit
- * `mountCanvasApp` bootstrap, host helpers, enrollment errors, the trusted local module adapter and
- * the public authoring, motion and effect types. Anything not re-exported here is internal.
- * Build-time generators (`./build`) and the experimental worker backend (`./experimental-worker`,
- * `./experimental-worker/thread`) are separate package entries.
+ * Public entry point of `@underglass/react`: the typed React components and hooks and the explicit
+ * `mountCanvasApp` bootstrap, plus the framework-neutral host helpers, enrollment errors, trusted
+ * local module adapter and public authoring, motion and effect types re-exported from
+ * `@underglass/core`. Anything not re-exported here is internal. Build-time generators (`./build`)
+ * and the experimental worker backend (`./experimental-worker`, `./experimental-worker/thread`)
+ * are separate package entries.
  */
 export { GPUHost, Surface, Box, NativeScroll, NativeOverlay, Presence, useSurfaceRef, useNativeOverlayHost, useGPUHost, mountCanvasApp } from "./react.js";
-export type { SurfaceProps, BoxProps, PresenceProps, MountCanvasOptions, CanvasController } from "./react.js";
-export { createCanvasHosts } from "./hosts.js";
-export type { CanvasHosts } from "./hosts.js";
-export { EnrollmentError } from "./enrollment.js";
-export type { EnrollmentOptions, EnrollmentErrorCode } from "./enrollment.js";
-export type { Transform, TransformOrigin, Affine, Point } from "./affine.js";
-export type { Layout, Appearance } from "./compiler.js";
-export { mountApplicationModule } from "./module.js";
-export type { LocalApplicationModule } from "./module.js";
-export type { AdmissionPolicy, LayerDefinition, RuntimeOptions } from "./runtime.js";
-export type { RendererStatus as CanvasStatus } from "./renderer.js";
-export type { AnimationPlayback, ReleaseOptions } from "./animation.js";
-export type { CSSAnimationSource } from "./css-animation.js";
-export type { CompiledAnimation, CompiledProgramSet } from "./compiled.js";
-export type { Ripple } from "./ripple.js";
-export { defineEffect } from "./effects.js";
-export type { ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult } from "./effects.js";
-export type { MotionKeyframe, MotionTiming, MotionDescriptor, MotionHandle, TransitionHandle, TransitionResult, CoordinatedMotion } from "./motion.js";
+export type { SurfaceProps, BoxProps, PresenceProps, MountCanvasOptions } from "./react.js";
+export { createCanvasHosts, EnrollmentError, mountApplicationModule, defineEffect } from "@underglass/core";
+export type {
+  CanvasController, CanvasHosts, EnrollmentOptions, EnrollmentErrorCode, Transform, TransformOrigin, Affine, Point,
+  Layout, Appearance, LocalApplicationModule, AdmissionPolicy, LayerDefinition, RuntimeOptions, CanvasStatus,
+  AnimationPlayback, ReleaseOptions, CSSAnimationSource, CompiledAnimation, CompiledProgramSet, Ripple,
+  ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult,
+  MotionKeyframe, MotionTiming, MotionDescriptor, MotionHandle, TransitionHandle, TransitionResult, CoordinatedMotion,
+} from "@underglass/core";

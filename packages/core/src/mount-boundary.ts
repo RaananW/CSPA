@@ -1,7 +1,7 @@
 /**
- * The mount boundary: owns the single persistent React root container and moves it between the
+ * The mount boundary: owns the single persistent framework root container and moves it between the
  * ordinary DOM host and the GPU output canvas without remounting. Created by the renderer in
- * `renderer.ts` so GPU admission and recovery keep the original controls and React state.
+ * `renderer.ts` so GPU admission and recovery keep the original controls and framework state.
  */
 
 /** Hosts and mount callback for `createMountBoundary`. */
@@ -12,15 +12,15 @@ export interface MountBoundaryOptions {
   outputCanvas: HTMLCanvasElement;
   /** Holds the root container in ordinary DOM mode. */
   ordinaryHost: HTMLElement;
-  /** Creates the persistent React root in `container` and returns its synchronous unmount callback. */
+  /** Creates the persistent framework root in `container` and returns its synchronous unmount callback. */
   mount(container: HTMLDivElement): () => void;
 }
 
 /**
  * Creates the adapter-owned root container inside `ordinaryHost`, calls `mount` once to create the
- * persistent React root there, and returns controls to move that same container between the
+ * persistent framework root there, and returns controls to move that same container between the
  * ordinary host and the output canvas with `moveBefore`, which preserves DOM state so the original
- * controls and React state survive the move. Throws if the hosts are not distinct, connected,
+ * controls and framework state survive the move. Throws if the hosts are not distinct, connected,
  * same-document siblings, or are not empty. `dispose` unmounts and requires the container to be back
  * in the ordinary host.
  */
@@ -42,7 +42,7 @@ export function createMountBoundary(options: MountBoundaryOptions) {
   }
   const container = document.createElement("div");
   container.className = "app-container";
-  ordinaryHost.append(container); // Adapter-owned, before the persistent React root is created.
+  ordinaryHost.append(container); // Adapter-owned, before the persistent framework root is created.
   let unmount: () => void;
   try { unmount = options.mount(container); }
   catch (error) { container.remove(); throw error; }

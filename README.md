@@ -127,13 +127,15 @@ down. `captureHost` is optional and deprecated. Full API, including
 `useSurfaceRef`, `Presence`, `NativeScroll`, `NativeOverlay`, `createMotion`,
 `setEffects` and the Radix Dialog integration, is in [docs/api.md](docs/api.md); the
 [guide](docs/guide/getting-started.md) walks through it step by step.
-Public exports live in `packages/underglass/src/index.ts`.
+Public exports live in `packages/underglass/src/index.ts`, over the
+framework-neutral runtime exported from `packages/core/src/index.ts`.
 
 ## Repository layout
 
 | Path | Contents |
 | --- | --- |
-| `packages/underglass` | The library (private package `@underglass/react`): source, ESM entry, declarations, prepack build |
+| `packages/core` | The framework-neutral runtime (private package `@underglass/core`): GPU engine, mount boundary, enrollment, motion, effects |
+| `packages/underglass` | The React adapter (private package `@underglass/react`): React bindings over core, ESM entry, declarations, prepack build |
 | `packages/css-compiler` | Opt-in build-time CSS compiler with Vite/webpack adapters ([guide](packages/css-compiler/README.md)) |
 | `examples/playground` | Engineering HTML pages, demo apps and probes (Vite root) |
 | `examples/showcase` | Private public-facing React gallery |

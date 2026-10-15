@@ -6,6 +6,7 @@ on:
     paths:
       - "examples/showcase/**"
       - "examples/playground/src/apps/**"
+      - "packages/core/**"
       - "packages/underglass/**"
       - "packages/css-compiler/**"
       - "package-lock.json"

@@ -8,8 +8,8 @@ import assert from "node:assert/strict";
 import postcss from "postcss";
 import { createCompiler, compileStylesheet, validateConfig } from "../../packages/css-compiler/src/index.mjs";
 import { generateModule } from "../../packages/css-compiler/src/generate.mjs";
-import { compileTimeline } from "../../packages/underglass/src/timeline.ts";
-import { validateCompiledPrograms } from "../../packages/underglass/src/compiled.ts";
+import { compileTimeline } from "../../packages/core/src/timeline.ts";
+import { validateCompiledPrograms } from "../../packages/core/src/compiled.ts";
 
 // A single enrolled target and a matching configuration, shared by the tests below.
 const entry = { id: "card", stylesheet: "./card.scss", selector: ".card", animations: ["float"] };

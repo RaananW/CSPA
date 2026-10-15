@@ -1,6 +1,7 @@
 /**
- * Proves the packed `@underglass/react` archive works for a downstream project: packs the library, checks
- * the archive against the exact file allowlist, installs it into a fresh consumer app for React 18 and
+ * Proves the packed `@underglass/react` archive works for a downstream project: packs it and the
+ * `@underglass/core` runtime it depends on, checks both archives against their exact file allowlists,
+ * installs them into a fresh consumer app for React 18 and
  * React 19, typechecks it (bundler and NodeNext resolution), builds it, and drives it in a real browser with
  * and without the HTML-in-Canvas flags at DPR 1 and 2.
  *
@@ -25,7 +26,7 @@ import { get } from "node:http";
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
 import { evidenceRoot, validateEvidenceRoot } from "../tests/helpers/evidence.mjs";
-import { packageFiles, validatePackageContents } from "./package-policy.mjs";
+import { packageFiles, corePackageFiles, validatePackageContents } from "./package-policy.mjs";
 import { curatedEvidence } from "./check-evidence.mjs";
 import { interactionContract, dynamicContract } from "./interaction-contract.mjs";
 import { todoContract } from "./todo-contract.mjs";
@@ -40,6 +41,9 @@ const primary = JSON.parse(await readFile("package.json", "utf8"));
 const playground = JSON.parse(await readFile("examples/playground/package.json", "utf8"));
 const library = resolve("packages/underglass");
 const releasePackage = JSON.parse(await readFile(join(library, "package.json"), "utf8"));
+// The framework-neutral runtime the React package depends on; packed and installed alongside it.
+const coreLibrary = resolve("packages/core");
+const corePackage = JSON.parse(await readFile(join(coreLibrary, "package.json"), "utf8"));
 const react18 = JSON.parse(await readFile("fixtures/react18/package.json", "utf8"));
 const env = { ...process.env, npm_config_userconfig: devNull, npm_config_registry: "https://registry.npmjs.org" };
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
@@ -47,7 +51,8 @@ const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 // playground sources, the consumer fixture and the curated evidence. Compared before and after the run.
 async function fingerprints() {
   const paths = ["package.json", "packages/underglass/package.json", "packages/underglass/README.md", "package-lock.json", "fixtures/react18/package.json", "fixtures/react18/package-lock.json",
-    "packages/underglass/tsconfig.json", "packages/underglass/vite.config.ts", ...curatedEvidence];
+    "packages/underglass/tsconfig.json", "packages/underglass/vite.config.ts", "packages/core/package.json", "packages/core/README.md",
+    "packages/core/tsconfig.json", "packages/core/vite.config.ts", ...curatedEvidence];
   async function visit(directory) {
     for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       if (entry.name === "workspaces") continue;
@@ -56,7 +61,7 @@ async function fingerprints() {
       else paths.push(path);
     }
   }
-  await visit("packages/underglass/src"); await visit("examples/playground/src");
+  await visit("packages/underglass/src"); await visit("packages/core/src"); await visit("examples/playground/src");
   await visit("fixtures/package-consumer");
   return Object.fromEntries(await Promise.all(paths.map(async path => [path, hash(await readFile(path))])));
 }
@@ -321,20 +326,33 @@ async function browserContract(url, major, expectedVersion, flags, dpr) {
   } finally { await browser.close(); }
 }
 
-try {
+// Packs `directory` twice (dry run and real), requires both to agree and to match `allowlist` exactly, lists
+// the archive itself, and returns the npm pack result with the archive path. `label` prefixes the logs.
+async function packArchive(directory, allowlist, label) {
   // A dry-run pack and a real pack must agree on files and integrity hash, so the archive is reproducible.
-  const dry = packResult(await run("npm", ["pack", "--dry-run", "--json"], library, "pack-dry"));
-  const packed = packResult(await run("npm", ["pack", "--json", "--pack-destination", workspace], library, "pack-actual"));
-  validatePackageContents(dry.files);
-  validatePackageContents(packed.files);
+  const dry = packResult(await run("npm", ["pack", "--dry-run", "--json"], directory, `${label}-dry`));
+  const packed = packResult(await run("npm", ["pack", "--json", "--pack-destination", workspace], directory, `${label}-actual`));
+  validatePackageContents(dry.files, allowlist);
+  validatePackageContents(packed.files, allowlist);
   assert.deepEqual(dry.files, packed.files);
   assert.equal(dry.integrity, packed.integrity, "Repeated clean prepack builds must produce the same archive");
   const tarball = join(workspace, packed.filename);
   // List the archive itself (not just npm's report) and require exactly the allowlisted files.
   const tarPaths = execFileSync("tar", tarArgs(["-tzf", tarball]), { encoding: "utf8" }).trim().split(/\r?\n/).map(path => path.replace(/^package\//, ""));
-  assert.deepEqual(tarPaths.sort(), packageFiles);
-  results.package = { name: packed.name, version: packed.version, bytes: packed.size, unpackedBytes: packed.unpackedSize,
-    sha256: hash(await readFile(tarball)), integrity: packed.integrity, files: packed.files, tarball: tarball.slice(root.length + 1) };
+  assert.deepEqual(tarPaths.sort(), allowlist);
+  return { ...packed, tarball };
+}
+// Package summary recorded in the report.
+const packageRecord = async packed => ({ name: packed.name, version: packed.version, bytes: packed.size, unpackedBytes: packed.unpackedSize,
+  sha256: hash(await readFile(packed.tarball)), integrity: packed.integrity, files: packed.files, tarball: packed.tarball.slice(root.length + 1) });
+
+try {
+  // Core first: the React package's own build resolves `@underglass/core` declarations.
+  const corePacked = await packArchive(coreLibrary, corePackageFiles, "core-pack");
+  const packed = await packArchive(library, packageFiles, "pack");
+  const tarball = packed.tarball, coreTarball = corePacked.tarball;
+  results.package = await packageRecord(packed);
+  results.corePackage = await packageRecord(corePacked);
   // One consumer project per React major, each installing the same tarball.
   for (const major of [18, 19]) {
     const cwd = join(workspace, `react${major}`);
@@ -353,7 +371,8 @@ try {
     // React 18 versions come from the separately locked fixture; React 19 from the root dev dependencies.
     const versions = major === 18 ? react18 : { dependencies: primary.devDependencies, devDependencies: primary.devDependencies };
     const manifest = { name: `underglass-installed-react${major}-consumer`, version: "0.0.0", private: true, type: "module",
-      dependencies: { [releasePackage.name]: `file:${tarball}`, react: versions.dependencies.react, "react-dom": versions.dependencies["react-dom"],
+      dependencies: { [releasePackage.name]: `file:${tarball}`, [corePackage.name]: `file:${coreTarball}`,
+        react: versions.dependencies.react, "react-dom": versions.dependencies["react-dom"],
         ...(todoCase ? { "@radix-ui/react-dialog": playground.dependencies["@radix-ui/react-dialog"] } : {}) },
       devDependencies: { "@types/react": versions.devDependencies["@types/react"], "@types/react-dom": versions.devDependencies["@types/react-dom"],
         typescript: primary.devDependencies.typescript, vite: primary.devDependencies.vite } };
@@ -363,29 +382,33 @@ try {
     if (reuseDependencies) {
       const dependencyRoots = [resolve("node_modules"), ...(major === 18 ? [resolve("fixtures/react18/node_modules")] : [])];
       for (const directory of dependencyRoots) await copyDependencies(directory, join(cwd, "node_modules"));
-      const unpacked = join(cwd, "node_modules", releasePackage.name);
-      await mkdir(unpacked);
-      execFileSync("tar", tarArgs(["-xzf", tarball, "--strip-components=1", "-C", unpacked]));
+      for (const [name, archive] of [[releasePackage.name, tarball], [corePackage.name, coreTarball]]) {
+        const unpacked = join(cwd, "node_modules", name);
+        await mkdir(unpacked);
+        execFileSync("tar", tarArgs(["-xzf", archive, "--strip-components=1", "-C", unpacked]));
+      }
       await writeFile(join(evidence, `react${major}-dependency-reuse.json`), JSON.stringify({
         mode: "No installation; independent physical dependencies without optimizer caches, physically extracted current child-package archive",
         dependencies: dependencyRoots.map(directory => directory.slice(root.length + 1)),
       }, null, 2));
     } else await run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund"], cwd, `react${major}-install`);
     const require = createRequire(join(cwd, "package.json"));
-    const installed = join(cwd, "node_modules", releasePackage.name);
-    assert.equal((await lstat(installed)).isSymbolicLink(), false, "Must install tarball bytes, not a workspace alias");
-    for (const path of packageFiles) {
-      const bytes = await readFile(join(installed, path));
-      assert.equal(hash(bytes), hash(await readFile(join(library, path))), `Installed bytes differ: ${path}`);
-      assert.ok(!/\/Users\/|\/private\/|session-state|react-dom\/profiling|integrationProbe|runtimeProbe/.test(bytes.toString()), `Private/demo boundary: ${path}`);
+    for (const [name, directory, allowlist] of [[releasePackage.name, library, packageFiles], [corePackage.name, coreLibrary, corePackageFiles]]) {
+      const installed = join(cwd, "node_modules", name);
+      assert.equal((await lstat(installed)).isSymbolicLink(), false, "Must install tarball bytes, not a workspace alias");
+      for (const path of allowlist) {
+        const bytes = await readFile(join(installed, path));
+        assert.equal(hash(bytes), hash(await readFile(join(directory, path))), `Installed bytes differ: ${name}/${path}`);
+        assert.ok(!/\/Users\/|\/private\/|session-state|react-dom\/profiling|integrationProbe|runtimeProbe/.test(bytes.toString()), `Private/demo boundary: ${name}/${path}`);
+      }
     }
-    // Installed versions must match the exact versions declared by the manifest and the package.
+    // Installed versions must match the exact versions declared by the manifest and both packages.
     const actual = {};
     for (const name of ["react", "react-dom", "@types/react", "@types/react-dom", "typescript", "vite", "@babylonjs/lite", "@types/webxr",
-      ...(todoCase ? ["@radix-ui/react-dialog"] : [])]) {
+      corePackage.name, ...(todoCase ? ["@radix-ui/react-dialog"] : [])]) {
       actual[name] = JSON.parse(await readFile(join(cwd, "node_modules", name, "package.json"), "utf8")).version;
     }
-    for (const [name, version] of Object.entries({ ...manifest.dependencies, ...manifest.devDependencies, ...releasePackage.dependencies })) {
+    for (const [name, version] of Object.entries({ ...manifest.dependencies, ...manifest.devDependencies, ...releasePackage.dependencies, ...corePackage.dependencies })) {
       if (name !== releasePackage.name) assert.equal(actual[name], version);
     }
     if (!reuseDependencies) await run("npm", ["ls", "--all", "--json"], cwd, `react${major}-dependency-tree`);
