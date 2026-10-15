@@ -417,7 +417,8 @@ These are design questions the spec or a phase answers, not open plan decisions:
 - Exact token values (light angles, heights, radii, palette), settled through the
   Phase 1 prototypes.
 - The adjust policy's default thresholds, settled by P0.4 measurements.
-- The mesh budget and relief primitive budget, settled by P0.3 and P0.4.
+- The mesh budget, settled by P0.4. (Relief primitives: settled at 256 per panel by P0.3,
+  [Phase 0 report](phase0.md#p02-p03-and-p05-relief-material-pass-its-cost-and-the-shadow-outset).)
 - ~~Whether panel tilt at rest is allowed, settled by P0.1.~~ Settled: allowed. P0.1 passed
   on Canary 158 ([Phase 0 report](phase0.md#p01-projective-hits)).
 
