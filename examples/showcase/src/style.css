@@ -554,8 +554,12 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 .panel .chip:has(input:disabled) { opacity: .55; cursor: default; }
 .compare-picker, .compare-run { gap: 6px !important; }
 .range-head { display: flex; justify-content: space-between; }
-.meter { display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; white-space: nowrap; padding: 10px 12px; border-radius: 12px; background: #12132c; border: 1px solid #34366a; font: 600 12px var(--mono); color: #9a96c4; }
-.meter strong { color: #ecebff; font-size: 15px; }
+.meter { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 12px; background: #12132c; border: 1px solid #34366a; font: 600 12px var(--mono); color: #9a96c4; }
+.meter strong { color: #ecebff; font-size: 14px; }
+.meter-head { display: flex; justify-content: space-between; align-items: center; font: 750 12px var(--display); color: #ecebff; }
+.panel .meter-head button { padding: 5px 10px; font-size: 12px; }
+.meter-live { display: grid; grid-template-columns: repeat(3, auto); justify-content: space-between; white-space: nowrap; }
+.meter-result { font-size: 11px; line-height: 1.4; color: #c9c6ef; }
 .compare-strip { color: #ecebff; }
 .compare-strip > div { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 0 16px; border-radius: 16px; background: #1b1a33; border: 1px solid #2f2d55; }
 .compare-heads strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -563,6 +567,9 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 .side-label.css { color: #ff9a7a; }
 .side-label.gpu { color: #5ee1d0; }
 .work-label { color: #8a86b8; }
+.work-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.work-time { font: 600 11px var(--mono); color: #8a86b8; white-space: nowrap; }
+.work-time strong { margin-right: 6px; font-size: 15px; color: #ecebff; }
 .work-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .work-chips span { font: 600 11px var(--mono); padding: 3px 7px; border-radius: 6px; background: #2a2950; color: #d8d5ff; }
 .work-chips .extra { background: #4a2a35; color: #ffc0b0; }
