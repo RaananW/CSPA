@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata probe: projective hits</title>
+  <style>
+    body { margin: 24px; background: white; color: black; font: 16px system-ui; }
+    #stage { display: block; width: 640px; height: 420px; border: 0; }
+    #face { position: relative; width: 320px; height: 200px; box-sizing: border-box; padding: 8px;
+      display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 8px; background: rgb(120, 120, 120); }
+    #face button { border: 0; margin: 0; padding: 4px 6px; font: 11px system-ui; color: white; cursor: pointer;
+      display: flex; align-items: flex-end; justify-content: flex-start; }
+    #nw { background: rgb(207, 37, 83); }
+    #ne { background: rgb(31, 179, 113); }
+    #sw { background: rgb(37, 99, 235); }
+    #se { background: rgb(245, 158, 11); }
+    #status { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Strata probe P0.1: projective hits</h1>
+  <p>A drawable face with four native buttons, drawn with raw WebGPU onto a perspective-projected quad.
+    The same projective matrix is its canvas element transform. Click a quadrant: the click must land on
+    the button drawn there. See <code>docs/ui-library/phase0.md</code>.</p>
+  <canvas id="stage" content="drawable"><div id="face" drawable><button id="nw" type="button">NW 0</button><button id="ne" type="button">NE 0</button><button id="sw" type="button">SW 0</button><button id="se" type="button">SE 0</button></div></canvas>
+  <p>
+    <label>rotateX <input id="rotate-x" type="range" min="-45" max="45" value="20"></label>
+    <label>rotateY <input id="rotate-y" type="range" min="-60" max="60" value="-35"></label>
+    <label>perspective <input id="perspective" type="range" min="0" max="1600" step="50" value="700"></label>
+  </p>
+  <pre id="status" role="status"></pre>
+  <script type="module" src="/src/ui-probes/projective.ts"></script>
+</body>
+</html>
