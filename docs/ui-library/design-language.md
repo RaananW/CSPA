@@ -193,7 +193,7 @@ Reflections (metal, gloss, coat, glass) need an environment.
 
 | Token | Default | Options |
 | --- | --- | --- |
-| `environment.source` | `studio` | `studio` (a neutral studio generated in code: soft gradient plus two softboxes, no asset), `none`, or the URL of an `.hdr` or `.env` file |
+| `environment.source` | `studio` | `studio` (a neutral studio generated in code, no asset: mostly dark, with a key softbox matching the key light, a fill opposite it and a strip overhead), `none`, or the URL of an `.hdr` or `.env` file |
 | `environment.intensity` | 1 | 0–3 |
 
 ### Guardrails
@@ -241,6 +241,12 @@ the native control (P0.4).
   then `taper`, and reports what it changed.
 - **Moving parts:** parts that must rise or move further (levers, knobs, thumbs) stay inside a
   native control whose box covers their whole travel.
+
+**Screen-locked tops.** Raised parts that carry captured content (key tops with labels, field bezels) are
+built with each point at height `h` pre-scaled towards the vanishing point by `(D − h) / D`. They then
+project exactly onto the native control's pixels: labels map one texel to one pixel, with no resampling
+blur, and their drift is zero. The sides between base and top still show the object's depth. The taper rule
+remains for parts that are not screen-locked.
 
 | Token | 0% | 50% | 100% | Range |
 | --- | --- | --- | --- | --- |
@@ -307,6 +313,12 @@ themes beyond light and dark.
 
 Text lives on faces. Strata never lights, extrudes or tilts text at rest; tilted panels carry
 their text with them.
+
+- **Anti-aliasing:** text drawn by the GPU presentations comes from the browser's HTML-in-Canvas capture, which uses
+  greyscale anti-aliasing. The CSS presentation uses the platform's (often LCD subpixel on Windows), which looks
+  slightly sharper. This is a browser capture property, not a Strata setting.
+- **One texel per pixel:** captured text is never resampled at rest: panels map 1:1, and raised tops are
+  screen-locked (section 6).
 
 | Token | Default | Range |
 | --- | --- | --- |
@@ -553,5 +565,7 @@ packages are thin bindings that render the same markup and wire the same behavio
   shading, a generated studio environment, and contrast guardrails.
 - 2026-10-15: the coat band became the finish zones (top 0–32%, bottom 70–100%), shared by Relief,
   Objects and CSS, after the tuning page showed materials were too subtle to see.
+- 2026-10-15: screen-locked raised tops (section 6), the dark studio environment, and the captured-text
+  anti-aliasing note (section 9).
 - 2026-10-15: added section 18: standalone-first layers, one markup contract, React, Vue and Astro
   bindings, and server rendering.
