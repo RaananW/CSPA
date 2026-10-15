@@ -5,6 +5,7 @@
  */
 import type { DrawableCanvas } from "../ui-probes/common.ts";
 import { mountObjects } from "./objects-view.ts";
+import { finish } from "./finish.ts";
 import { mountRelief } from "./relief-view.ts";
 import { contrastRatio, cssMaterial, cssRelief, defaultConfig, defaultMaterial, lookAt, materialPresets, paletteFor, presetOf,
   type LookTokens, type MaterialRecipe, type Palette, type StrataConfig } from "./variants.ts";
@@ -167,9 +168,10 @@ document.getElementById("reset")!.addEventListener("click", () => { config = { .
 apply();
 
 const ready = Promise.allSettled(mounts).then(results => { apply(); return { failed: results.filter(result => result.status === "rejected").length }; });
-declare global { interface Window { strataTuning: { ready: Promise<{ failed: number }>; config: () => StrataConfig; set(next: Partial<StrataConfig>): void; material: () => MaterialRecipe; setMaterial(next: Partial<MaterialRecipe> | string): void } } }
+declare global { interface Window { strataTuning: { ready: Promise<{ failed: number }>; config: () => StrataConfig; set(next: Partial<StrataConfig>): void; material: () => MaterialRecipe; setMaterial(next: Partial<MaterialRecipe> | string): void; finishAt(along: number, preset?: string): [number, number] } } }
 window.strataTuning = {
   ready, config: () => config, set(next) { config = { ...config, ...next }; apply(); },
   material: () => material,
+  finishAt: (along: number, preset?: string) => finish(along, preset ? materialPresets[preset]! : material),
   setMaterial(next) { material = typeof next === "string" ? { ...materialPresets[next]! } : { ...material, ...next }; apply(); },
 };

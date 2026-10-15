@@ -3,6 +3,8 @@
  * they are. The light direction, palette and layout are the same in all three, so the comparison isolates depth,
  * bevel, shadow and material. These are throwaway prototype values; the accepted look becomes the Phase 1 tokens.
  */
+import { finishCss } from "./finish.ts";
+
 export interface LookTokens {
   name: string;
   summary: string;
@@ -135,8 +137,8 @@ export const presetOf = (recipe: MaterialRecipe) =>
 
 /**
  * CSS approximation of a material recipe on a raised control: extra `box-shadow` layers (a coat's sharp top
- * highlight, a sharper bevel highlight as roughness falls) and a `background-image` (the coat band across the top
- * quarter of the face, a brushed gradient for metal). The band ends before centred labels.
+ * highlight, a sharper bevel highlight as roughness falls) and a `background-image` with the finish zones
+ * (`finish.ts`), which stay clear of centred labels.
  */
 export function cssMaterial(look: LookTokens, recipe: MaterialRecipe): { shadow: string; image: string } {
   const length = Math.hypot(look.light[0], look.light[1]);
@@ -146,8 +148,6 @@ export function cssMaterial(look: LookTokens, recipe: MaterialRecipe): { shadow:
     `inset 0 1px 0 rgba(255, 255, 255, ${(recipe.coat * 0.9).toFixed(3)})`,
     `inset ${away(1.5)} ${(1 + recipe.roughness * 3).toFixed(2)}px rgba(255, 255, 255, ${((1 - recipe.roughness) * 0.55).toFixed(3)})`,
   ].join(", ");
-  // Coat band: the reflection across the top quarter of the face, ending before centred labels.
-  const images = [`linear-gradient(to bottom, rgba(255, 255, 255, 0) 3%, rgba(255, 255, 255, ${(recipe.coat * 0.38).toFixed(3)}) 8%, rgba(255, 255, 255, 0) 27%)`];
-  if (recipe.metallic > 0) images.push(`linear-gradient(to bottom, rgba(255, 255, 255, ${(recipe.metallic * 0.22).toFixed(3)}), rgba(0, 0, 0, ${(recipe.metallic * 0.12).toFixed(3)}))`);
-  return { shadow, image: images.join(", ") };
+  // Finish zones (coat band, gloss sheen, brushed metal), the same profile as the GPU presentations.
+  return { shadow, image: finishCss(recipe) };
 }

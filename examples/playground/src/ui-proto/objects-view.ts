@@ -11,11 +11,12 @@ import {
   addToScene, createBox, createCapsule, createDirectionalLight, createDynamicTexture, createEngine, createFreeCamera,
   createHemisphericLight, createPbrMaterial, createPcfDirectionalShadowGenerator, createSceneContext, createSphere,
   loadHdrEnvironment, markMaterialUboDirty, registerSceneWithShadowSupport, removeFromScene, renderFrame, setPbrClearCoat, setPbrEmissive,
-  setPbrUnlit, setShadowOnly, setShadowTaskCasterMeshes, vec3,
+  createShaderMaterial, setPbrUnlit, setShadowOnly, setShadowTaskCasterMeshes, vec3,
   type Material, type Mesh, type PbrMaterialProps,
 } from "@babylonjs/lite";
 import { offsetWithin, type DrawableCanvas } from "../ui-probes/common.ts";
 import { band, cap, frustum, type Rect } from "./geometry.ts";
+import { finishWgsl } from "./finish.ts";
 import { studioUrl } from "./studio.ts";
 import { defaultMaterial, palette as lightPalette, type LookTokens, type MaterialRecipe, type Palette } from "./variants.ts";
 
@@ -28,6 +29,22 @@ const query = new URLSearchParams(location.search);
 const shadowMap = Number(query.get("map") ?? 256), shadowOpacity = Number(query.get("opacity") ?? 0.4);
 // Winding: Lite's front faces are reversed relative to the geometry builder's default.
 const flip = query.get("flip") !== "0";
+
+// Finish overlay: the shared finish zones (finish.ts) blended over a key top, in the key top's own UV space.
+const finishVertex = /* wgsl */ `struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) vUv: vec2<f32> };
+@vertex fn mainVertex(input: VertexInput) -> VertexOutput {
+  var out: VertexOutput;
+  out.position = shaderSystem.projection * (shaderSystem.view * (shaderSystem.world * vec4<f32>(input.position, 1.0)));
+  out.vUv = input.uv;
+  return out;
+}`;
+const finishFragment = /* wgsl */ `struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) vUv: vec2<f32> };
+${finishWgsl}
+@fragment fn mainFragment(input: VertexOutput) -> @location(0) vec4<f32> {
+  let zones = finish(input.vUv.y, shaderUniforms.recipe);
+  if (zones.x >= zones.y) { return vec4<f32>(1.0, 1.0, 1.0, zones.x); }
+  return vec4<f32>(0.0, 0.0, 0.0, zones.y);
+}`;
 
 interface ControlState { hover: number; pressed: number; focus: number; depth: number }
 
@@ -123,9 +140,17 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
       const sides = add(frustum(engine, world, "key", r, radius, look.keyHeight, t, flip), material);
       const topRect = { x: r.x + t, y: r.y + t, width: r.width - 2 * t, height: r.height - 2 * t };
       const top = add(cap(engine, world, "key-top", topRect, Math.max(1, radius - t), look.keyHeight + 0.05, extent, flip), unlit(), false);
-      // The coat shows as real reflections of the studio environment on the key's sides and edges. A flat top facing
-      // the viewer reflects what is behind the viewer, so it carries no band at this level (Relief and CSS draw one).
-      movers.push({ meshes: [sides, top], control: button, material, travel: look.keyTravel, lift: look.keyHeight * 0.25 });
+      // The coat and metal also reflect the studio environment on the key's sides; the finish zones on the top use
+      // the same profile as Relief and CSS, clear of the centred label.
+      const finishMaterial = createShaderMaterial({ name: "strata-finish", vertexSource: finishVertex, fragmentSource: finishFragment, attributes: ["position", "uv"],
+        uniforms: ["world", "view", "projection", { name: "recipe", type: "vec4<f32>", defaultValue: [recipe.roughness, recipe.metallic, recipe.coat, recipe.coatRoughness] }],
+        needAlphaBlending: true, blendMode: "alpha", backFaceCulling: false, depthWrite: false });
+      const overlay = cap(engine, world, "key-finish", topRect, Math.max(1, radius - t), look.keyHeight + 0.12,
+        (x, y) => [(x - topRect.x) / topRect.width, (y - topRect.y) / topRect.height], flip);
+      overlay.material = finishMaterial as unknown as Material;
+      addToScene(scene, overlay);
+      meshes.push(overlay);
+      movers.push({ meshes: [sides, top, overlay], control: button, material, travel: look.keyTravel, lift: look.keyHeight * 0.25 });
     }
     for (const field of fields) {
       const h = Math.max(1.5, look.keyHeight * 0.3);

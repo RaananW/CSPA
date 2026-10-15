@@ -6,6 +6,7 @@
  * (`data-relief-control`, else the element itself) and only change the primitive buffer.
  */
 import { bufferUsage, firstPaint, offsetWithin, startProbe, type DrawableCanvas } from "../ui-probes/common.ts";
+import { finishWgsl } from "./finish.ts";
 import { defaultMaterial, materialPresets, palette as lightPalette, type LookTokens, type MaterialRecipe, type Palette } from "./variants.ts";
 
 const floatsPerPrimitive = 12;
@@ -32,6 +33,7 @@ struct Varyings { @builtin(position) position: vec4f, @location(0) local: vec2f 
   out.local = local;
   return out;
 }
+${finishWgsl}
 fn roundedBox(p: vec2f, half: vec2f, radius: f32) -> f32 {
   let q = abs(p) - half + vec2f(radius);
   return length(max(q, vec2f(0))) + min(max(q.x, q.y), 0) - radius;
@@ -51,6 +53,7 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
   var interior = 1.0;
   var glow = 0.0;
   var band = 0.0;
+  var dark = 0.0;
   for (var i = 0u; i < u32(u.misc.x); i++) {
     let primitive = primitives[i];
     let raised = primitive.shape.z < 0.5;
@@ -83,19 +86,19 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
       // Clear coat: a sharp highlight plus a Fresnel rim where the bevel turns away from the viewer.
       let fresnel = 0.04 + 0.96 * pow(1 - clamp(normal.z, 0, 1), 5);
       let coat = recipe.z * (pow(facing, mix(90.0, 10.0, recipe.w)) * 0.9 + fresnel * 0.6);
-      shade += ((dot(normal, light) - light.z) * u.look.z * (1 + 0.5 * recipe.y) + specular * 0.7 + coat) * edge;
+      shade += ((dot(normal, light) - light.z) * u.look.z * (1 + recipe.y) + specular * 1.2 + coat) * edge;
     } else {
       // Face interiors (where text may sit): gloss and the coat's top highlight stay inside the interior budget.
       let along = clamp((p.y - primitive.rect.y) / max(primitive.rect.w, 1.0), 0, 1);
       let gloss = recipe.z * 0.02 + (1 - recipe.x) * 0.01;
       interior *= 1 + clamp(u.look.w * hover - u.stage.x * pressed + gloss, -u.light.w, u.light.w);
-      // Coat band: the coat's reflection across the top quarter of a raised control's face, clear of centred labels.
-      if (primitive.state.w > 0.5) { band = max(band, recipe.z * 0.38 * (1 - smoothstep(0.08, 0.27, along)) * smoothstep(0.0, 0.04, along)); }
+      // Finish zones: the top and bottom quarters of a raised control's face, clear of centred labels.
+      if (primitive.state.w > 0.5) { let zones = finish(along, recipe); band = max(band, zones.x); dark = max(dark, zones.y); }
     }
     // Anti-aliased focus edge from 0.5 to 3.5 px outside the shape.
     if (primitive.state.z > 0.5) { glow = max(glow, smoothstep(0.0, 1.0, d) * (1 - smoothstep(3.0, 4.0, d))); }
   }
-  var lit = mix((base * interior + vec3f(shade)) * (1 - shadow), vec3f(1), band);
+  var lit = mix(mix((base * interior + vec3f(shade)) * (1 - shadow), vec3f(1), band), vec3f(0), dark);
   lit = mix(lit, u.misc.yzw, glow);
   return vec4f(clamp(lit, vec3f(0), vec3f(1)), 1);
 }

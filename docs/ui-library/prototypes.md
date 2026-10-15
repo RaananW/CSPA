@@ -47,7 +47,8 @@ driven live by:
   Matte, Satin, Gloss, Lacquer (glass-coated) and Metal, or a custom mix of base roughness, metallic, coat and coat
   roughness. It applies to the buttons, the field bezel and the switch knob in all three presentations: real
   clear-coat and metal reflections of a generated studio environment at the Objects level, specular, coat and rim
-  terms plus a coat band in Relief, and highlight layers in CSS.
+  terms plus the finish zones (a coat band with its horizon line, a gloss sheen, brushed metal) in Relief and on the
+  Objects key tops, and the same zones as gradients in CSS.
 
 The URL hash keeps the settings, so a configuration can be shared as a link. The default depth is 50%. If the
 preferred spot is elsewhere, the scale is re-centred so that spot becomes the 50% default.

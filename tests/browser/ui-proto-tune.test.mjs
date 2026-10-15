@@ -32,10 +32,17 @@ test("Strata tuning redraws every presentation from the settings and keeps nativ
   // exact colour in the Objects view (the studio environment must not tone-map unlit faces).
   await page.evaluate(() => window.strataTuning.set({ depth: 0.5 }));
   await page.waitForTimeout(600);
-  const matte = { relief: await shot("relief"), objects: await shot("objects"), css: await shot("css") };
+  // Measured over the buttons: the finish must be clearly visible, not merely present.
+  const buttons = async name => { const clip = await page.locator(`.${name} .actions`).boundingBox(); return PNG.sync.read(await page.screenshot({ clip })); };
+  const meanChange = (a, b) => { let sum = 0; for (let i = 0; i < a.data.length; i += 4) sum += (Math.abs(a.data[i] - b.data[i]) + Math.abs(a.data[i + 1] - b.data[i + 1]) + Math.abs(a.data[i + 2] - b.data[i + 2])) / 3; return sum / (a.data.length / 4); };
+  const matte = { relief: await buttons("relief"), objects: await buttons("objects"), css: await buttons("css") };
   await page.evaluate(() => window.strataTuning.setMaterial("lacquer"));
   await page.waitForTimeout(900);
-  for (const name of ["relief", "objects", "css"]) expect(difference(matte[name], await shot(name)), `${name} redraws for lacquer`).toBeGreaterThan(0.001);
+  for (const name of ["relief", "objects", "css"]) expect(meanChange(matte[name], await buttons(name)), `${name}: lacquer visibly changes the buttons`).toBeGreaterThan(3);
+  // No finish reaches the label zone (35% to 65% of a face's height), for any preset.
+  for (const preset of ["matte", "satin", "gloss", "lacquer", "metal"]) for (let along = 0.35; along <= 0.65; along += 0.01) {
+    expect(await page.evaluate(([value, name]) => window.strataTuning.finishAt(value, name), [along, preset]), `${preset} at ${along.toFixed(2)}`).toEqual([0, 0]);
+  }
   expect(page.url()).toContain("mat=lacquer");
   const panel = await page.locator("#name-objects").evaluate(element => { const face = element.closest(".face").getBoundingClientRect(); return { x: face.left + face.width - 40, y: face.top + 60 }; });
   const objects = await shot("objects");
