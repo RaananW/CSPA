@@ -13,7 +13,7 @@
     "@fluentui/react-components": "9.74.9",
     "@fluentui/react-icons": "2.0.344",
     "@radix-ui/react-dialog": "1.2.0",
-    "@underglass/react": "0.1.0",
+    "@underglass/react": "*",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   }

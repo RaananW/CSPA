@@ -46,3 +46,28 @@ jobs:
         if: always()
         shell: bash
         run: echo "The GPU browser suite runs in the Browser workflow on a self-hosted GPU runner (docs/ci-gpu-runner.md), or locally with 'npm run test:browser'."
+
+  changeset:
+    name: Changeset for changed packages
+    # The Version Packages pull request consumes the changesets, so it is the one change exempt from this check.
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          # Full history, so the base branch is available to compare against.
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.19.0
+      - name: Install locked dependencies (no browser download)
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Require a changeset when a package changes
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        # Fails when files under packages/ changed without a changeset. Add one with `npm run changeset`, or
+        # `npm run changeset -- --empty` when the change needs no release (docs/releasing.md).
+        run: npx changeset status --since="origin/$BASE_REF"

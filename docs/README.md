@@ -24,6 +24,7 @@ Start here if you are using Underglass or writing components for it.
 
 - [Architecture](architecture.md) and the GPU-first contract.
 - [Open issues](open-issues.md): known limits and unperformed validation.
-- [Change notes](changes/README.md): one file per pull request.
+- [Releasing](releasing.md): versions, changesets, the Release workflow and how to enable publishing.
+- [Change notes](changes/README.md): the notes written before Changesets, kept as history.
 - [GPU browser tests in CI](ci-gpu-runner.md): the self-hosted GPU runner.
 - [Archive](archive/): the phase-by-phase engineering history, measurements and verification records.

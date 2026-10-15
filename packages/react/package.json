@@ -1,6 +1,24 @@
 {
   "name": "@underglass/react",
   "version": "0.1.0",
+  "description": "React adapter for Underglass: GPU-presented layers over ordinary React controls and state.",
+  "keywords": [
+    "react",
+    "webgpu",
+    "html-in-canvas",
+    "gpu",
+    "canvas",
+    "ui"
+  ],
+  "homepage": "https://github.com/RaananW/underglass/tree/main/packages/react#readme",
+  "bugs": {
+    "url": "https://github.com/RaananW/underglass/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RaananW/underglass.git",
+    "directory": "packages/react"
+  },
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -24,7 +42,12 @@
       "import": "./dist/library/worker-thread.js"
     }
   },
-  "files": ["dist/library/*.js", "dist/library/*.d.ts", "docs/distribution.md"],
+  "files": [
+    "dist/library/*.js",
+    "dist/library/*.d.ts",
+    "docs/distribution.md",
+    "CHANGELOG.md"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "vite build && tsc -p tsconfig.json",
@@ -36,5 +59,9 @@
   "peerDependencies": {
     "react": "^18.3.1 || ^19.0.0",
     "react-dom": "^18.3.1 || ^19.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

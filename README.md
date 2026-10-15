@@ -209,7 +209,8 @@ Not qualified (see [open issues](docs/open-issues.md), SCOPE entries):
 - **Reference:** [API](docs/api.md), [effects contract](docs/effects.md), [worker](docs/worker.md),
   [distribution](docs/distribution.md).
 - **Contributing:** [CONTRIBUTING](CONTRIBUTING.md), [architecture](docs/architecture.md),
-  [open issues](docs/open-issues.md), and the [engineering archive](docs/archive/).
+  [releasing](docs/releasing.md), [open issues](docs/open-issues.md), and the
+  [engineering archive](docs/archive/).
 
 All documentation is indexed in [docs/README.md](docs/README.md).
 

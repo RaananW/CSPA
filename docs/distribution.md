@@ -8,6 +8,8 @@ The package is **not published, not production-ready**. The existing
 `@underglass/react@0.1.0` identity and `private: true` are retained;
 the project is licensed under Apache-2.0 (the tarball includes `LICENSE`).
 Do not publish, create a registry package or change visibility from this build.
+The release tooling (Changesets, the Release workflow) is in place but dormant;
+[releasing](releasing.md) describes it and the steps that would enable publishing.
 
 ## Build and install locally
 
@@ -59,9 +61,10 @@ exports are `/build`, `/experimental-worker` and `/experimental-worker/thread`.
 The React package depends on `@underglass/core` and never bundles it, so its
 entries import the core runtime from the installed package.
 CommonJS and internal subpath imports are unsupported. The React allowlist
-contains 13 members: manifest, README, `LICENSE`, this contract, four JS
-entries and their five declarations. The core allowlist contains 33 members:
-manifest, README, `LICENSE`, four JS entries and their required declaration graph. No source maps, tests, demos, evidence, profiles,
+contains 14 members: manifest, README, `LICENSE`, `CHANGELOG.md`, this
+contract, four JS entries and their five declarations. The core allowlist
+contains 34 members: manifest, README, `LICENSE`, `CHANGELOG.md`, four JS
+entries and their required declaration graph. No source maps, tests, demos, evidence, profiles,
 absolute local paths or app-owned worker/program assets ship.
 The default runtime still constructs WGSL internally without shader fetch.
 Compiled CSS and worker routes use literal build-generated shader artifacts;

@@ -1,18 +1,51 @@
 {
   "name": "@underglass/css-compiler",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Opt-in build-time compiler that turns selected CSS animations into Underglass GPU programs, with Vite and webpack integrations.",
+  "keywords": [
+    "webgpu",
+    "css",
+    "animation",
+    "vite-plugin",
+    "webpack-plugin"
+  ],
+  "homepage": "https://github.com/RaananW/underglass/tree/main/packages/css-compiler#readme",
+  "bugs": {
+    "url": "https://github.com/RaananW/underglass/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RaananW/underglass.git",
+    "directory": "packages/css-compiler"
+  },
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
-    ".": { "types": "./src/index.d.ts", "import": "./src/index.mjs" },
-    "./vite": { "types": "./src/vite.d.ts", "import": "./src/vite.mjs" },
-    "./webpack": { "types": "./src/webpack.d.ts", "import": "./src/webpack.mjs" },
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.mjs"
+    },
+    "./vite": {
+      "types": "./src/vite.d.ts",
+      "import": "./src/vite.mjs"
+    },
+    "./webpack": {
+      "types": "./src/webpack.d.ts",
+      "import": "./src/webpack.mjs"
+    },
     "./webpack-loader": "./src/webpack-loader.mjs",
-    "./client": { "types": "./src/client.d.ts" },
+    "./client": {
+      "types": "./src/client.d.ts"
+    },
     "./schema.json": "./schema.json"
   },
-  "files": ["src", "schema.json", "README.md"],
+  "files": [
+    "src",
+    "schema.json",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "dependencies": {
     "@underglass/core": "0.1.0",
     "magic-string": "1.4.3",
@@ -25,7 +58,15 @@
     "webpack": "^5.0.0"
   },
   "peerDependenciesMeta": {
-    "vite": { "optional": true },
-    "webpack": { "optional": true }
+    "vite": {
+      "optional": true
+    },
+    "webpack": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

@@ -403,8 +403,11 @@ request to one concern, and keep it mergeable:
   - Use **Create a merge commit** for a stacked pull request. With squash or
     rebase merges the rest of the stack keeps the old commits, so rebase it onto
     `main` after each merge.
-- **Write change notes as new files.** Add one file to [docs/changes](docs/changes/README.md)
-  instead of appending to a shared "Changes" list in the docs.
+- **Add a changeset when a package changes.** Run `npm run changeset` and commit the
+  file it writes in `.changeset/`; it becomes the package's changelog entry and sets
+  the version bump. Use `npm run changeset -- --empty` when users see no difference.
+  CI fails a pull request that changes `packages/` without one. Changes outside
+  `packages/` need none. See [releasing](docs/releasing.md).
 - **Add tests in new files when practical.** Browser suites and playground pages
   are discovered by glob (`tests/browser/*.test.mjs`, `examples/playground/*.html`),
   so adding one touches no shared list. Appending to the end of a busy test file

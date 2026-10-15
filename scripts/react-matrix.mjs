@@ -52,7 +52,7 @@ const sourceSha256 = sourceHash.digest("hex");
 // `node_modules` and the Vite cache are excluded so the copy builds and resolves independently.
 if (!isPrimary) {
   await mkdir(destination, { recursive: true });
-  for (const path of ["packages", "examples", "tests", "scripts", "vite.config.ts", "package-lock.json", "docs/distribution.md"]) {
+  for (const path of ["packages", "examples", "tests", "scripts", ".changeset", "vite.config.ts", "package-lock.json", "docs/distribution.md"]) {
     await cp(resolve(path), resolve(destination, path), {
       recursive: true, filter: path => !["dist", "node_modules", "owned-vite-cache"].includes(basename(path)),
     });

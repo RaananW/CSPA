@@ -4,7 +4,14 @@
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
-  "workspaces": ["packages/core", "packages/react", "packages/vue", "packages/css-compiler", "examples/playground", "examples/showcase"],
+  "workspaces": [
+    "packages/core",
+    "packages/react",
+    "packages/vue",
+    "packages/css-compiler",
+    "examples/playground",
+    "examples/showcase"
+  ],
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "npm run build:library && npm run build --workspace @underglass/playground",
@@ -16,6 +23,8 @@
     "pack:library": "npm pack --workspace @underglass/core --workspace @underglass/react --workspace @underglass/vue",
     "prepack": "node -e \"throw new Error('Tooling root is not the release package; use npm run pack:library')\"",
     "test:package": "node scripts/package-consumer.mjs",
+    "changeset": "changeset",
+    "version-packages": "changeset version && npm install --package-lock-only --ignore-scripts --no-audit --no-fund",
     "preview": "vite preview --host 127.0.0.1",
     "test": "npm run test:unit && npm run build && node scripts/test-browser.mjs",
     "test:unit": "node --test tests/unit/*.unit.test.mjs",
@@ -30,19 +39,20 @@
     "validate:release": "node scripts/release-validation.mjs"
   },
   "devDependencies": {
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "@changesets/cli": "3.0.3",
     "@playwright/test": "1.64.0",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "pngjs": "7.0.0",
-    "typescript": "7.0.2",
-    "vue": "3.5.43",
-    "vite": "8.3.4",
-    "webpack": "5.111.1",
-    "sass": "1.105.1",
     "css-loader": "7.1.5",
+    "pngjs": "7.0.0",
+    "postcss-loader": "8.2.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "sass": "1.105.1",
     "sass-loader": "17.0.1",
-    "postcss-loader": "8.2.1"
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vue": "3.5.43",
+    "webpack": "5.111.1"
   }
 }

@@ -20,17 +20,17 @@ const coreDeclarations = [
 const reactDeclarations = ["build", "experimental-worker", "index", "react", "worker-thread"];
 /** Sorted package-relative paths that every packed `@underglass/react` archive must contain, and nothing else. */
 export const packageFiles = [
-  "package.json", "README.md", "LICENSE", "docs/distribution.md", ...entries,
+  "package.json", "README.md", "LICENSE", "CHANGELOG.md", "docs/distribution.md", ...entries,
   ...reactDeclarations.map(name => `dist/library/${name}.d.ts`),
 ].sort();
 /** Sorted package-relative paths that every packed `@underglass/core` archive must contain, and nothing else. */
 export const corePackageFiles = [
-  "package.json", "README.md", "LICENSE", ...entries,
+  "package.json", "README.md", "LICENSE", "CHANGELOG.md", ...entries,
   ...coreDeclarations.map(name => `dist/library/${name}.d.ts`),
 ].sort();
 
 /** Sorted package-relative paths that every packed `@underglass/vue` archive must contain, and nothing else. */
-export const vuePackageFiles = ["package.json", "README.md", "LICENSE", "dist/library/index.js", "dist/library/index.d.ts"].sort();
+export const vuePackageFiles = ["package.json", "README.md", "LICENSE", "CHANGELOG.md", "dist/library/index.js", "dist/library/index.d.ts"].sort();
 
 /**
  * Asserts that `files` (the `files` array of an `npm pack --json` result, entries with `path` and `size`)

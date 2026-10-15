@@ -1,0 +1,13 @@
+{
+  "$schema": "../node_modules/@changesets/config/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "format": false,
+  "fixed": [["@underglass/core", "@underglass/react", "@underglass/vue", "@underglass/css-compiler"]],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": ["@underglass/playground", "@underglass/showcase"],
+  "privatePackages": { "version": true, "tag": false }
+}
