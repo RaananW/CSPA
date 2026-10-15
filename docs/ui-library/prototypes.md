@@ -55,7 +55,13 @@ preferred spot is elsewhere, the scale is re-centred so that spot becomes the 50
 
 ## Known prototype limits
 
-- **Metal:** there is no environment map, so knobs and keys are glossy plastic rather than metal.
+- **Environment:** the Objects level reflects a studio generated in code (`studio.ts`): mostly dark, with a key
+  softbox at the upper left, a fill at the right and a strip overhead. `/ui-proto-env-check.html` shows it on mirror
+  balls. A real studio HDR would look richer; the token `environment.source` accepts one.
+- **Text anti-aliasing:** captured text (Relief and Objects) is drawn with greyscale anti-aliasing, while the CSS
+  presentation uses the platform's, often LCD subpixel on Windows, which looks slightly sharper. This is how the
+  browser captures HTML into a canvas, not a Strata setting. Key labels at the Objects level are screen-locked, so
+  they map one texel to one pixel like Relief.
 - **Shadow mismatch:** Objects shadows come from a coarse shadow map and are a little lighter than
   the Relief shadows.
 - **Engines:** each GPU panel has its own engine and device here. Underglass uses one shared engine.

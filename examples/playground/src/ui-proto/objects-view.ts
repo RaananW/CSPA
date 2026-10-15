@@ -64,6 +64,10 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
 
   const origin = { x: (width - face.offsetWidth) / 2, y: (height - face.offsetHeight) / 2 };
   const world = (x: number, y: number, z = 0): [number, number, number] => [origin.x + x - width / 2, height / 2 - (origin.y + y), z];
+  // Screen-locked geometry for raised parts: a point at height h is pre-scaled towards the vanishing point by
+  // (D − h) / D, so it projects exactly onto the face-local pixel it came from. Key labels then map one texel to one
+  // pixel (no resampling blur), and raised tops never drift outside their native control.
+  const locked = (x: number, y: number, z = 0): [number, number, number] => { const [wx, wy] = world(x, y); const scale = (distance + z) / distance; return [wx * scale, wy * scale, z]; };
   const rectOf = (element: HTMLElement): Rect => ({ ...offsetWithin(element, face), width: element.offsetWidth, height: element.offsetHeight });
   const radiusOf = (element: Element) => parseFloat(getComputedStyle(element).borderTopLeftRadius) || 0;
   const extent = { width: face.offsetWidth, height: face.offsetHeight };
@@ -137,15 +141,15 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
     for (const button of buttons) {
       const r = rectOf(button), t = look.taper, radius = radiusOf(button);
       const material = glowing(controlPbr(button.classList.contains("primary") ? palette.accent : palette.secondary));
-      const sides = add(frustum(engine, world, "key", r, radius, look.keyHeight, t, flip), material);
+      const sides = add(frustum(engine, locked, "key", r, radius, look.keyHeight, t, flip), material);
       const topRect = { x: r.x + t, y: r.y + t, width: r.width - 2 * t, height: r.height - 2 * t };
-      const top = add(cap(engine, world, "key-top", topRect, Math.max(1, radius - t), look.keyHeight + 0.05, extent, flip), unlit(), false);
+      const top = add(cap(engine, locked, "key-top", topRect, Math.max(1, radius - t), look.keyHeight + 0.05, extent, flip), unlit(), false);
       // The coat and metal also reflect the studio environment on the key's sides; the finish zones on the top use
       // the same profile as Relief and CSS, clear of the centred label.
       const finishMaterial = createShaderMaterial({ name: "strata-finish", vertexSource: finishVertex, fragmentSource: finishFragment, attributes: ["position", "uv"],
         uniforms: ["world", "view", "projection", { name: "recipe", type: "vec4<f32>", defaultValue: [recipe.roughness, recipe.metallic, recipe.coat, recipe.coatRoughness] }],
         needAlphaBlending: true, blendMode: "alpha", backFaceCulling: false, depthWrite: false });
-      const overlay = cap(engine, world, "key-finish", topRect, Math.max(1, radius - t), look.keyHeight + 0.12,
+      const overlay = cap(engine, locked, "key-finish", topRect, Math.max(1, radius - t), look.keyHeight + 0.12,
         (x, y) => [(x - topRect.x) / topRect.width, (y - topRect.y) / topRect.height], flip);
       overlay.material = finishMaterial as unknown as Material;
       addToScene(scene, overlay);
@@ -155,7 +159,7 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
     for (const field of fields) {
       const h = Math.max(1.5, look.keyHeight * 0.3);
       const material = glowing(controlPbr(palette.secondary));
-      movers.push({ meshes: [add(band(engine, world, "bezel", rectOf(field), radiusOf(field), 4, h, Math.min(1.2, h / 2), flip), material)], control: field, material, travel: 0, lift: 0 });
+      movers.push({ meshes: [add(band(engine, locked, "bezel", rectOf(field), radiusOf(field), 4, h, Math.min(1.2, h / 2), flip), material)], control: field, material, travel: 0, lift: 0 });
     }
     const toggles = switches.map(input => {
       const box = rectOf(input.parentElement as HTMLElement);
