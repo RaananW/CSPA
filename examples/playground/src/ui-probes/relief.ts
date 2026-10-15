@@ -11,6 +11,7 @@
  * so the panel's own shadow can fall outside its box, while hit geometry stays the box.
  */
 import { bufferUsage, firstPaint, hitAt, offsetWithin, startProbe, type DrawableCanvas, type Point } from "./common.ts";
+import { reliefTokens } from "./tokens.ts";
 
 const canvas = document.getElementById("stage") as DrawableCanvas;
 const face = document.getElementById("face") as HTMLElement;
@@ -18,14 +19,7 @@ const status = document.getElementById("status")!;
 const materialToggle = document.getElementById("material") as HTMLInputElement;
 const controls = [...face.querySelectorAll<HTMLElement>("[data-relief]")];
 const cssWidth = 640, cssHeight = 420;
-// Relief tokens for the probe (Phase 1 sets the real values).
-const tokens = {
-  light: [-0.45, -0.6, 0.66] as const, // key light from the top left, towards the viewer
-  interiorMax: 0.04, // largest brightness change on a face interior (keeps text contrast)
-  outset: 40, bevel: 6, shadowStrength: 0.32,
-  panelHeight: 10, raisedHeight: 3, wellDepth: 2,
-  accent: [37 / 255, 99 / 255, 235 / 255] as const,
-};
+const tokens = reliefTokens;
 const capacity = 1100;
 const floatsPerPrimitive = 12;
 
@@ -79,7 +73,7 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
     let hover = primitive.state.x;
     let pressed = primitive.state.y;
     var height = primitive.shape.y;
-    if (raised) { height = height * (1 + 0.6 * hover) * (1 - 0.75 * pressed); }
+    if (raised) { height = height * (1 + ${tokens.hoverHeight - 1} * hover) * (1 - ${1 - tokens.pressHeight} * pressed); }
     let d = distanceTo(p, primitive);
     if (raised && d > 0) {
       // Cast shadow: the shape moved away from the light by its height, softened with height.
@@ -101,7 +95,7 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
         shade += (dot(normal, light) - light.z) * 0.55;
       } else {
         // Face interiors only brighten on hover and darken on press, within the interior budget.
-        interior *= 1 + clamp(0.04 * hover - 0.06 * pressed, -u.light.w, u.light.w);
+        interior *= 1 + clamp(${tokens.hoverLift} * hover - ${tokens.pressSink} * pressed, -u.light.w, u.light.w);
       }
     }
     if (primitive.state.z > 0.5 && d > 0.5 && d < 3.5) { glow = 1; }
@@ -157,7 +151,7 @@ async function start() {
     values.set([cssWidth, cssHeight, face.offsetWidth, face.offsetHeight], 16);
     values.set([...tokens.light, tokens.interiorMax], 20);
     values.set([tokens.outset, tokens.bevel, tokens.shadowStrength, material ? 1 : 0], 24);
-    values.set([data.length / floatsPerPrimitive, ...tokens.accent], 28);
+    values.set([data.length / floatsPerPrimitive, ...tokens.accent.map(channel => channel / 255)], 28);
     device.queue.writeBuffer(uniforms, 0, values);
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bindGroup!);
