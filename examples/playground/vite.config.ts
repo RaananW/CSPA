@@ -1,6 +1,7 @@
 // Vite config for the playground. Every `*.html` file in this directory is a page and a build input,
-// and `@underglass/react` and `@underglass/core` resolve to the library sources so the pages run against
-// the working tree without a build, sharing one copy of the core runtime with the engineering deep imports.
+// and `@underglass/react`, `@underglass/vue` and `@underglass/core` resolve to the library sources so the
+// pages run against the working tree without a build, sharing one copy of the core runtime with the
+// engineering deep imports.
 import { defineConfig } from "vite";
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -14,11 +15,19 @@ export default defineConfig({
     // Exact matches: a bare string key would also rewrite the subpath entries.
     alias: [
       { find: /^@underglass\/react$/, replacement: resolve(root, "../../packages/underglass/src/index.ts") },
+      { find: /^@underglass\/vue$/, replacement: resolve(root, "../../packages/vue/src/index.ts") },
       { find: /^@underglass\/core$/, replacement: resolve(root, "../../packages/core/src/index.ts") },
       { find: /^@underglass\/core\/experimental-worker$/, replacement: resolve(root, "../../packages/core/src/experimental-worker.ts") },
     ],
-    // Force a single copy of React so the library and the pages share hooks and context.
-    dedupe: ["react", "react-dom"],
+    // Force a single copy of React and of Vue so the libraries and the pages share hooks, context and injection.
+    dedupe: ["react", "react-dom", "vue"],
+  },
+  // Vue's compile-time feature flags for its bundler build; the Vue page uses render functions, not the
+  // Options API, and ships no devtools hooks.
+  define: {
+    __VUE_OPTIONS_API__: "false",
+    __VUE_PROD_DEVTOOLS__: "false",
+    __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: "false",
   },
   build: {
     outDir: "dist",

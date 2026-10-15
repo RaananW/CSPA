@@ -21,7 +21,10 @@ UI framework. `packages/underglass` (`@underglass/react`) is the React adapter:
 it owns the React bindings and the experimental worker's React controller,
 depends on `@underglass/core` (never bundles it, so every adapter on a page
 shares one core and one engine) and re-exports its public root, build and
-worker-thread entries unchanged. Neither may depend on playground or tests.
+worker-thread entries unchanged. `packages/vue` (`@underglass/vue`) is the Vue 3
+adapter over the same core, with the same dependency rule. No library package may
+depend on playground or tests. Every adapter must pass the shared framework
+contract in `tests/helpers/framework-contract.mjs`.
 The private `packages/css-compiler` workspace owns the
 build-only JSON analyzer and Vite/webpack integration, not another UI runtime.
 `examples/playground` owns the engineering HTML entries, app/demo/historical-probe source

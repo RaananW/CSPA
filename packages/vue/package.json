@@ -1,0 +1,27 @@
+{
+  "name": "@underglass/vue",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./dist/library/index.js",
+  "types": "./dist/library/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/library/index.d.ts",
+      "import": "./dist/library/index.js"
+    }
+  },
+  "files": ["dist/library/*.js", "dist/library/*.d.ts"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.json",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@underglass/core": "0.1.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  }
+}

@@ -79,7 +79,7 @@ export async function copyDependencies(source, destination) {
     filter: async path => {
       if (excludedDependencies.has(basename(path))) return false;
       // npm workspace aliases (package name -> repository directory) that may legitimately be symlinks.
-      const workspace = { "@underglass/core": "packages/core", "@underglass/react": "packages/underglass", "@underglass/playground": "examples/playground",
+      const workspace = { "@underglass/core": "packages/core", "@underglass/react": "packages/underglass", "@underglass/vue": "packages/vue", "@underglass/playground": "examples/playground",
         "@underglass/showcase": "examples/showcase", "@underglass/css-compiler": "packages/css-compiler" };
       for (const [name, target] of Object.entries(workspace)) {
         if (path === join(source, name) && (await lstat(path)).isSymbolicLink()) {

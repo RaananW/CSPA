@@ -44,6 +44,7 @@ worker backend.
 | `@underglass/react/experimental-worker` | `mountWorkerCanvasApp`, `WorkerSurface` and public worker types. Essential/native-control geometry is fixed; only inert decoration animates. |
 | `@underglass/react/experimental-worker/thread` | `startWorkerCompositor(self)` for an application-owned module worker. React, DOM/layout and native capture remain main-thread. |
 | `@underglass/core` | The framework-neutral runtime for framework adapters and plain-DOM applications: `CanvasRuntime`, `compileStyle` (typed `Layout`/`Appearance` to a `CompiledStyle` of complete string values), `affine`/`pivot`, plus every helper and type `@underglass/react` re-exports. Imports no UI framework. |
+| `@underglass/vue` | The Vue 3 adapter (`vue@^3.5` peer): `mountCanvasApp(options, RootComponent, rootProps?)`, `Surface`, `Box`, `NativeScroll`, `NativeOverlay`, `Presence` (emits `complete`), `useSurfaceRef`, `useGPUHost`, `useNativeOverlayHost`, plus the same core helpers and types `@underglass/react` re-exports. See the [frameworks guide](guide/frameworks.md). |
 | `@underglass/core/build`, `/experimental-worker`, `/experimental-worker/thread` | Framework-neutral originals of the React package's `/build` and `/experimental-worker/thread` entries, and the worker protocol and capture primitives the React worker controller builds on. |
 
 Compiled and worker runtime routes consume prebuilt shaders; the default

@@ -1,5 +1,5 @@
 /**
- * The exact file allowlists of the packed `@underglass/react` and `@underglass/core` archives.
+ * The exact file allowlists of the packed `@underglass/react`, `@underglass/core` and `@underglass/vue` archives.
  *
  * Not run directly: imported by `package-consumer.mjs` (`npm run test:package`), `release-validation.mjs`,
  * `worker-validation.mjs` and `tests/unit/package.unit.test.mjs`, which compare `npm pack --json` file
@@ -28,6 +28,9 @@ export const corePackageFiles = [
   "package.json", "README.md", "LICENSE", ...entries,
   ...coreDeclarations.map(name => `dist/library/${name}.d.ts`),
 ].sort();
+
+/** Sorted package-relative paths that every packed `@underglass/vue` archive must contain, and nothing else. */
+export const vuePackageFiles = ["package.json", "README.md", "LICENSE", "dist/library/index.js", "dist/library/index.d.ts"].sort();
 
 /**
  * Asserts that `files` (the `files` array of an `npm pack --json` result, entries with `path` and `size`)

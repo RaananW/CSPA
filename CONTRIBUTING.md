@@ -2,11 +2,13 @@
 
 ## Workspace ownership
 
-`packages/core/package.json` (the framework-neutral runtime) and
-`packages/underglass/package.json` (the React adapter, which depends on core)
-are the release manifests; keep library source independent of
-playground/tests, and never import a UI framework from `packages/core`. The private root owns tools and stable
-scripts, while `examples/playground` owns app dependencies, HTML and Vite/TS
+`packages/core/package.json` (the framework-neutral runtime),
+`packages/underglass/package.json` (the React adapter) and
+`packages/vue/package.json` (the Vue adapter) are the release manifests; both
+adapters depend on core. Keep library source independent of playground/tests,
+and never import a UI framework from `packages/core`. A new adapter must pass
+the shared contract in `tests/helpers/framework-contract.mjs`. The private root
+owns tools and stable scripts, while `examples/playground` owns app dependencies, HTML and Vite/TS
 configuration. Use root `npm run build:library`, `npm run build`,
 `npm run test:unit`, `npm run test:browser` and `npm run pack:library`.
 Browser selectors now live under `tests/browser`; units and shared helpers
@@ -333,7 +335,7 @@ closes its own randomly allocated strict-port previews and browser profiles.
 Its actual npm-installed tarball consumers have no workspace/source aliases,
 matching declared React/types, strict Bundler/NodeNext declarations and
 flagged/unflagged production native/GPU pixel checks. Prepack builds only
-`packages/core/dist/library` and `packages/underglass/dist/library`; playground builds use
+`packages/core/dist/library`, `packages/underglass/dist/library` and `packages/vue/dist/library`; playground builds use
 `examples/playground/dist/` and cannot replace library output. No generated output belongs in Git.
 Curated versioned verdicts are read-only. Raw historical evidence is externally
 archived, not available in the current checkout; never reconstruct or regenerate
