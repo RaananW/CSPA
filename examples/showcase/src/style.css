@@ -195,6 +195,9 @@ h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: .98; letter-spacing: -.04
 .studio:focus { outline: none; }
 .studio-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
 .studio-head h2 { margin-bottom: 8px; }
+.studio-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.example-switch { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 750; color: var(--ink-soft); }
+.example-switch select { max-width: 260px; background: white; border: 1.5px solid #ddd5e3; padding: 8px 12px; border-radius: 12px; font-size: 14px; }
 .studio-detail { max-width: 860px; color: var(--muted); font-size: 15px; line-height: 1.7; margin: 0 0 20px; }
 .mode-pill { display: inline-flex; align-items: center; gap: 8px; background: #f0ecf4; color: var(--ink-soft); padding: 9px 15px; border-radius: 99px; white-space: nowrap; font-weight: 750; font-size: 13px; }
 .mode-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: #a79cb6; }
@@ -429,6 +432,7 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
   .studio { padding: 16px; border-radius: 22px; }
   .why-gpu { grid-template-columns: 1fr; }
   .studio-head { flex-wrap: wrap; }
+  .studio-actions { justify-content: flex-start; }
   .control-bar { padding: 14px; }
   .section-heading { flex-wrap: wrap; align-items: flex-start; }
   .count-pill { margin-bottom: 0; }
