@@ -10,6 +10,7 @@ Start here if you are using Underglass or writing components for it.
 4. [Effects](guide/effects.md): built-in effects and your own WGSL.
 5. [Building components](guide/components.md): the standard for components that work in Underglass.
 6. [Troubleshooting](guide/troubleshooting.md): every fallback reason and its fix.
+7. [Other frameworks and plain DOM](guide/frameworks.md): the core runtime without React, and writing an adapter.
 
 ## Reference
 

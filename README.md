@@ -203,7 +203,8 @@ Not qualified (see [open issues](docs/open-issues.md), SCOPE entries):
 
 - **Guide:** [getting started](docs/guide/getting-started.md), [concepts](docs/guide/concepts.md),
   [motion](docs/guide/motion.md), [effects](docs/guide/effects.md),
-  [building components](docs/guide/components.md) and [troubleshooting](docs/guide/troubleshooting.md).
+  [building components](docs/guide/components.md), [troubleshooting](docs/guide/troubleshooting.md)
+  and [other frameworks and plain DOM](docs/guide/frameworks.md).
 - **Reference:** [API](docs/api.md), [effects contract](docs/effects.md), [worker](docs/worker.md),
   [distribution](docs/distribution.md).
 - **Contributing:** [CONTRIBUTING](CONTRIBUTING.md), [architecture](docs/architecture.md),
