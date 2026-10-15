@@ -68,9 +68,9 @@ async function inputs(directory) {
       else records.push({ path: child, sha256: hash(await readFile(join(directory, child))) });
     }
   }
-  for (const path of ["packages/core/src", "packages/underglass/src", "fixtures/worker/app"]) await visit(path);
-  for (const path of ["packages/underglass/package.json", "packages/underglass/README.md",
-    "packages/underglass/vite.config.ts", "packages/core/package.json", "packages/core/README.md",
+  for (const path of ["packages/core/src", "packages/react/src", "fixtures/worker/app"]) await visit(path);
+  for (const path of ["packages/react/package.json", "packages/react/README.md",
+    "packages/react/vite.config.ts", "packages/core/package.json", "packages/core/README.md",
     "packages/core/vite.config.ts", "docs/distribution.md", "scripts/worker-validation.mjs",
     "package.json", "package-lock.json"]) records.push({ path, sha256: hash(await readFile(join(directory, path))) });
   return records;
@@ -152,7 +152,7 @@ try {
   await assertPhysicalTree(tree);
   assert.deepEqual(await inputs(tree), report.inputs, "Physical worker source inputs differ");
   const node = process.execPath, vite = join(tree, "node_modules/vite/bin/vite.js"), tsc = join(tree, "node_modules/typescript/bin/tsc");
-  const library = join(tree, "packages/underglass"), coreLibrary = join(tree, "packages/core");
+  const library = join(tree, "packages/react"), coreLibrary = join(tree, "packages/core");
   const archiveDir = join(run, "archive"); await mkdir(archiveDir);
   // Pack a library and extract the archive into the copy's `node_modules`, so the fixture uses the
   // published file set rather than the workspace sources. Returns the archive record for the report.

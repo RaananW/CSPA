@@ -14,7 +14,7 @@ export default defineConfig({
   resolve: {
     // Exact matches: a bare string key would also rewrite the subpath entries.
     alias: [
-      { find: /^@underglass\/react$/, replacement: resolve(root, "../../packages/underglass/src/index.ts") },
+      { find: /^@underglass\/react$/, replacement: resolve(root, "../../packages/react/src/index.ts") },
       { find: /^@underglass\/vue$/, replacement: resolve(root, "../../packages/vue/src/index.ts") },
       { find: /^@underglass\/core$/, replacement: resolve(root, "../../packages/core/src/index.ts") },
       { find: /^@underglass\/core\/experimental-worker$/, replacement: resolve(root, "../../packages/core/src/experimental-worker.ts") },

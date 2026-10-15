@@ -17,7 +17,7 @@ The private root npm workspace is tooling, not a second library package.
 `packages/core` (`@underglass/core`) owns the framework-neutral runtime: the
 shared engine, renderer, mount boundary, enrollment, motion, effects, typed
 style compiler, build generators and the worker protocol/thread. It imports no
-UI framework. `packages/underglass` (`@underglass/react`) is the React adapter:
+UI framework. `packages/react` (`@underglass/react`) is the React adapter:
 it owns the React bindings and the experimental worker's React controller,
 depends on `@underglass/core` (never bundles it, so every adapter on a page
 shares one core and one engine) and re-exports its public root, build and
@@ -214,7 +214,7 @@ functional proof and benchmark interpretation.
 
 | Module | Responsibility |
 | --- | --- |
-| `packages/underglass/src/index.ts`, `react.tsx` | Intentional typed API, explicit root bootstrap, context, enrollment and fixed native overlay portal |
+| `packages/react/src/index.ts`, `react.tsx` | Intentional typed API, explicit root bootstrap, context, enrollment and fixed native overlay portal |
 | `packages/core/src/enrollment.ts` | Original-element ref enrollment options and typed pre-mutation refusal codes |
 | `packages/core/src/runtime.ts` | Stable registry, per-layer controller motion, layout/environment policies and observer ownership |
 | `packages/core/src/affine.ts`, `compiler.ts` | Canonical invertible transforms and narrow authoring-to-browser-style compilation |

@@ -98,7 +98,7 @@ try {
   await copyDependencies(join(root, "node_modules"), join(tree, "node_modules"));
   await assertPhysicalTree(tree);
   const node = process.execPath, vite = join(tree, "node_modules/vite/bin/vite.js"), tsc = join(tree, "node_modules/typescript/bin/tsc");
-  const library = join(tree, "packages/underglass"), coreLibrary = join(tree, "packages/core");
+  const library = join(tree, "packages/react"), coreLibrary = join(tree, "packages/core");
   const archives = join(run, "archives");
   await mkdir(archives);
   const archive = async prefix => join(archives, (await readdir(archives)).find(name => name.startsWith(prefix)));

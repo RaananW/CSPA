@@ -108,7 +108,7 @@ The playground page `vanilla.html` is a complete example.
 ## Writing an adapter
 
 A framework adapter has three jobs. The React adapter
-(`packages/underglass/src/react.tsx`) and the Vue adapter (`packages/vue/src/index.ts`)
+(`packages/react/src/react.tsx`) and the Vue adapter (`packages/vue/src/index.ts`)
 each show them in about 250 lines:
 
 1. **Mount once.** Construct a `CanvasRuntime` with the hosts and a

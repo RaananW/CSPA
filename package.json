@@ -4,7 +4,7 @@
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
-  "workspaces": ["packages/core", "packages/underglass", "packages/vue", "packages/css-compiler", "examples/playground", "examples/showcase"],
+  "workspaces": ["packages/core", "packages/react", "packages/vue", "packages/css-compiler", "examples/playground", "examples/showcase"],
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "npm run build:library && npm run build --workspace @underglass/playground",
@@ -22,7 +22,7 @@
     "test:compiler": "npm run build:library && node scripts/compiler-validation.mjs",
     "test:worker": "node scripts/worker-validation.mjs",
     "test:browser": "npm run build && node scripts/test-browser.mjs",
-    "typecheck": "tsc -p packages/core/tsconfig.json && tsc -p packages/underglass/tsconfig.json --noEmit && tsc -p packages/vue/tsconfig.json --noEmit && tsc -p examples/playground/tsconfig.json --noEmit && tsc -p examples/showcase/tsconfig.json --noEmit",
+    "typecheck": "tsc -p packages/core/tsconfig.json && tsc -p packages/react/tsconfig.json --noEmit && tsc -p packages/vue/tsconfig.json --noEmit && tsc -p examples/playground/tsconfig.json --noEmit && tsc -p examples/showcase/tsconfig.json --noEmit",
     "probe": "node scripts/browser-probe.mjs",
     "test:react18": "node scripts/react-matrix.mjs",
     "test:react19": "node scripts/react-matrix.mjs --primary",

@@ -9,7 +9,7 @@ User-facing behaviour is described in [docs/guide](docs/guide/getting-started.md
 
 - `packages/core`: the framework-neutral runtime (`@underglass/core`); it must never import a UI framework.
 - `packages/vue`: the Vue 3 adapter (`@underglass/vue`), which depends on core.
-- `packages/underglass`: the React adapter (`@underglass/react`), which depends on core. Core and the
+- `packages/react`: the React adapter (`@underglass/react`), which depends on core. Core and the
   adapters are the only packages that are packed.
 - `packages/css-compiler`: the opt-in build-time CSS compiler.
 - `examples/playground`: engineering pages and probes; `examples/showcase`: the public gallery.

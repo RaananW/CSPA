@@ -33,7 +33,7 @@ assert.ok(["build-only", "dom", "native"].includes(lane), "Usage: node scripts/r
 const executable = process.env.CANVAS_BROWSER_EXECUTABLE;
 if (lane !== "build-only" && executable) await access(executable);
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
-const manifest = JSON.parse(await readFile("packages/underglass/package.json", "utf8"));
+const manifest = JSON.parse(await readFile("packages/react/package.json", "utf8"));
 assert.equal(manifest.private, true); assert.equal(manifest.version, "0.1.0");
 // The framework-neutral runtime the React package depends on; validated and packed alongside it.
 const coreManifest = JSON.parse(await readFile("packages/core/package.json", "utf8"));
@@ -72,7 +72,7 @@ async function records(directory) {
   return entries;
 }
 async function sourceRecords() {
-  return [...await records(join(root, "packages/core/src")), ...await records(join(root, "packages/underglass/src")),
+  return [...await records(join(root, "packages/core/src")), ...await records(join(root, "packages/react/src")),
     ...await records(join(root, "examples/playground/src"))];
 }
 // Source hashes taken now and compared at the end, to prove the run did not change the code it validated.
@@ -80,14 +80,14 @@ const sourceBefore = await sourceRecords();
 // Every file that defines the run (sources, manifests, configs, fixtures, scripts, tests, workflows) is
 // hashed up front and re-hashed in the `finally` block; any change fails the run.
 const inputs = [...sourceBefore, ...await Promise.all(["package.json", "package-lock.json", "fixtures/react18/package.json",
-  "fixtures/react18/package-lock.json", "packages/underglass/package.json", "packages/underglass/README.md",
+  "fixtures/react18/package-lock.json", "packages/react/package.json", "packages/react/README.md",
   "examples/playground/package.json", "README.md", "docs/distribution.md", "docs/showcase.md", "examples/playground/todo.html",
-  "examples/playground/tsconfig.json", "packages/underglass/tsconfig.json", "packages/underglass/vite.config.ts",
+  "examples/playground/tsconfig.json", "packages/react/tsconfig.json", "packages/react/vite.config.ts",
   "packages/core/package.json", "packages/core/README.md", "packages/core/tsconfig.json", "packages/core/vite.config.ts",
   "examples/playground/vite.config.ts", "vite.config.ts", "tests/browser/playwright.config.mjs",
   "fixtures/package-consumer/todo-main.tsx", "fixtures/package-consumer/tsconfig.json", "fixtures/package-consumer/public-types.ts",
   "scripts/release-validation.mjs", "scripts/release-policy.mjs", "scripts/release-pilot.mjs",
-  "packages/underglass/scripts/prepare-package.mjs", "tests/unit/release.unit.test.mjs", ".github/workflows/private-release.yml",
+  "packages/react/scripts/prepare-package.mjs", "tests/unit/release.unit.test.mjs", ".github/workflows/private-release.yml",
   ".github/workflows/showcase-pages.yml"].map(async path => ({ path, sha256: sha(await readFile(path)) })))];
 inputs.push(...await records(join(root, "examples/showcase/src")));
 for (const path of ["package.json", "tsconfig.json", "vite.config.ts", "site-policy.mjs", "index.html"]) {
@@ -189,13 +189,13 @@ try {
     const tsc = join(peer, "node_modules/typescript/bin/tsc");
     const vite = join(peer, "node_modules/vite/bin/vite.js");
     const playground = join(peer, "examples/playground");
-    const library = join(peer, "packages/underglass");
+    const library = join(peer, "packages/react");
     const coreLibrary = join(peer, "packages/core");
     const unitPaths = (await readdir(join(peer, "tests/unit"))).filter(path => path.endsWith(".unit.test.mjs")).map(path => `tests/unit/${path}`);
     await command(["--test", ...unitPaths], peer, `react${major}-units`);
     // Build a source-mode pilot: the packaged todo entry rewritten to import the library from source.
     await writeFile(join(playground, "source-pilot.tsx"), (await readFile(join(peer, "fixtures/package-consumer/todo-main.tsx"), "utf8"))
-      .replace('"@underglass/react"', '"../../packages/underglass/src"').replaceAll('"./task/', '"./src/apps/todo/'));
+      .replace('"@underglass/react"', '"../../packages/react/src"').replaceAll('"./task/', '"./src/apps/todo/'));
     await writeFile(join(playground, "source-pilot.html"), (await readFile(join(playground, "todo.html"), "utf8")).replace("/src/demo/todo-demo.tsx", "/source-pilot.tsx"));
     await writeFile(join(peer, "source-pilot.config.mjs"), 'import config from "./examples/playground/vite.config.ts"; import {resolve} from "node:path"; export default {...config,cacheDir:resolve("owned-vite-cache"),build:{...config.build,target:"esnext",rollupOptions:{input:[...config.build.rollupOptions.input,resolve("examples/playground/source-pilot.html")]}}};');
     await command([tsc, "-p", "examples/playground/tsconfig.json"], peer, `react${major}-source-types`);
@@ -234,7 +234,7 @@ try {
     await copyDependencies(join(peer, "node_modules"), join(consumer, "node_modules"));
     const installed = await extract(archive, join(consumer, "node_modules"), manifest.name);
     const installedCore = join(consumer, "node_modules", coreManifest.name);
-    assert.equal(sha(await readFile(join(installed, "package.json"))), sha(await readFile(join(root, "packages/underglass/package.json"))),
+    assert.equal(sha(await readFile(join(installed, "package.json"))), sha(await readFile(join(root, "packages/react/package.json"))),
       "Fresh public package must retain the exact current manifest, independent of the physical test peer");
     assert.equal(sha(await readFile(join(installedCore, "package.json"))), sha(await readFile(join(root, "packages/core/package.json"))),
       "Fresh core package must retain the exact current manifest, independent of the physical test peer");

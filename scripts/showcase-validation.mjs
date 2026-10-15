@@ -84,7 +84,7 @@ try {
   await assertPhysicalTree(tree);
   const vite = join(tree, "node_modules/vite/bin/vite.js");
   const tsc = join(tree, "node_modules/typescript/bin/tsc");
-  const library = join(tree, "packages/underglass");
+  const library = join(tree, "packages/react");
   const site = join(tree, "examples/showcase");
   await command(["--test", "tests/unit/showcase.unit.test.mjs", "tests/unit/workspace.unit.test.mjs", "tests/unit/release.unit.test.mjs"], tree, "focused-units");
   // Install a freshly built library into the copy's `node_modules` under its public package name, so the

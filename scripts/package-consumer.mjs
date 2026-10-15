@@ -39,7 +39,7 @@ const reuseDependencies = process.argv.includes("--reuse-dependencies");
 const todoCase = process.argv.includes("--todo-case");
 const primary = JSON.parse(await readFile("package.json", "utf8"));
 const playground = JSON.parse(await readFile("examples/playground/package.json", "utf8"));
-const library = resolve("packages/underglass");
+const library = resolve("packages/react");
 const releasePackage = JSON.parse(await readFile(join(library, "package.json"), "utf8"));
 // The framework-neutral runtime the React package depends on; packed and installed alongside it.
 const coreLibrary = resolve("packages/core");
@@ -50,8 +50,8 @@ const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 // SHA-256 of every file that this script must leave untouched: manifests, lockfiles, library and
 // playground sources, the consumer fixture and the curated evidence. Compared before and after the run.
 async function fingerprints() {
-  const paths = ["package.json", "packages/underglass/package.json", "packages/underglass/README.md", "package-lock.json", "fixtures/react18/package.json", "fixtures/react18/package-lock.json",
-    "packages/underglass/tsconfig.json", "packages/underglass/vite.config.ts", "packages/core/package.json", "packages/core/README.md",
+  const paths = ["package.json", "packages/react/package.json", "packages/react/README.md", "package-lock.json", "fixtures/react18/package.json", "fixtures/react18/package-lock.json",
+    "packages/react/tsconfig.json", "packages/react/vite.config.ts", "packages/core/package.json", "packages/core/README.md",
     "packages/core/tsconfig.json", "packages/core/vite.config.ts", ...curatedEvidence];
   async function visit(directory) {
     for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -61,7 +61,7 @@ async function fingerprints() {
       else paths.push(path);
     }
   }
-  await visit("packages/underglass/src"); await visit("packages/core/src"); await visit("examples/playground/src");
+  await visit("packages/react/src"); await visit("packages/core/src"); await visit("examples/playground/src");
   await visit("fixtures/package-consumer");
   return Object.fromEntries(await Promise.all(paths.map(async path => [path, hash(await readFile(path))])));
 }
