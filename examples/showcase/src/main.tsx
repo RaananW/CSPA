@@ -153,7 +153,14 @@ function App() {
       <section className={`studio ${gpu ? "is-gpu" : ""}`} id="studio" ref={studio} tabIndex={-1} aria-labelledby="studio-title-heading">
         <div className="studio-head">
           <div><p className="eyebrow">LIVE STUDIO · {current.number}</p><h2 id="studio-title-heading">{current.title}</h2></div>
-          <span className={`mode-pill ${gpu ? "active" : ""}`}><span className="dot" aria-hidden="true" />{gpu ? "GPU active" : disposed ? "Disposed" : "Ordinary DOM"}</span>
+          <div className="studio-actions">
+            {/* Switches examples without scrolling back to the catalog; the hash change does the rest. */}
+            <label className="example-switch">Example
+              <select aria-label="Example" value={selected} disabled={disposed} onChange={event => { location.hash = `#/${event.target.value}`; }}>
+                {examples.map(example => <option key={example.id} value={example.id}>{example.number} · {example.title}</option>)}
+              </select></label>
+            <span className={`mode-pill ${gpu ? "active" : ""}`}><span className="dot" aria-hidden="true" />{gpu ? "GPU active" : disposed ? "Disposed" : "Ordinary DOM"}</span>
+          </div>
         </div>
         <p className="studio-detail">{current.detail}</p>
         <div className="control-bar">
