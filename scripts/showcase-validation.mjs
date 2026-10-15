@@ -494,6 +494,12 @@ try {
       await page.locator('a[href="#/motion"].example-card').focus();
       await page.keyboard.press("Enter");
       await studioButton("Play layer journey").waitFor();
+      // The studio's own picker switches examples in place, through the same hash route.
+      assert.equal(await page.getByLabel("Example", { exact: true }).inputValue(), "motion");
+      await page.getByLabel("Example", { exact: true }).selectOption("effects");
+      await studioButton("Apply chromatic effect").waitFor();
+      assert.equal(await page.evaluate(() => location.hash), "#/effects");
+      assert.equal(await page.locator(".example-card[aria-current]").getAttribute("href"), "#/effects");
       await page.evaluate(() => scrollTo(0, 0));
       await page.screenshot({ path: join(run, `${lane}-desktop.png`) });
       // Mobile viewport: no horizontal overflow and a single site header.
