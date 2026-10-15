@@ -1,7 +1,7 @@
 # Example showcase and GitHub Pages preparation
 
 The private `examples/showcase` npm workspace is a React SPA using the public
-Underglass package. Its catalog opens seven live examples in the same app. The
+Underglass package. Its catalog opens eight live examples in the same app. The
 engineering playground remains separate; raw reports, probes, test evidence and
 private fixtures are not served.
 
@@ -14,6 +14,7 @@ private fixtures are not served.
 | `#/tasks` Small tasks | The maintained task component reused unchanged from `examples/playground`. |
 | `#/pond` Webcam pond (experimental) | An optional camera image is mirrored onto a koi pond. The pond floor, text typed into a native input, CSS-animated fish and the camera `<video>` are one decorative layer under a continuous ripple (refraction) and the custom `showcase-pond` WGSL water shader (caustics, depth, glints). A native, rotated lily-pad layer feeds the fish. |
 | `#/fluent` Fluent release board | Stock Fluent UI v9 components (`@fluentui/react-components`), one `FluentProvider` inside each layer and `PortalMountNodeProvider` pointing Fluent's menus, dropdowns, tooltips and dialog at the overlay host. Cards are thrown between lanes on JavaScript springs (`setTransform` per frame) that keep the release velocity. Transition effects run on the live components: archiving burns a card away (custom `showcase-burn` WGSL), adding one materialises it, its editor (a full Fluent form) grows out of the card under ripple, chromatic and dissolve, a hard throw lands with a shockwave, and released cards warp into the poster. Content is inert only while an effect runs. |
+| `#/compare` GPU or CSS? | Six jobs done twice, side by side: the best CSS technique in the left pane (`compare-css`), Underglass in the right pane (the decorative art layer). Glowing tiles (box-shadow/border-radius keyframes vs a custom WGSL over one capture), ripple (SVG turbulence displacement vs the ripple effect), channel split (three filtered, screen-blended copies vs chromatic), burn away (SVG noise threshold mask vs a custom WGSL burn), recolouring 2,052 heat-map cells (one custom property and `color-mix()` per cell vs a custom WGSL colour map over a grey capture) and frosted glass, where CSS wins because Underglass shaders cannot blur. A meter shows main-thread rendering work per frame (the gap between `requestAnimationFrame` and a message posted from it) and the frame rate; **Animate** runs both sides, one side or neither. In ordinary DOM the right pane shows the raw capture without its shader. |
 
 Under the stage, a **Why the GPU here** panel (from `src/catalog.ts`) states what the
 GPU path does in that example and, next to it, what CSS alone would do, including where

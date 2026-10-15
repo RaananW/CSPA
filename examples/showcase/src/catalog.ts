@@ -106,6 +106,19 @@ export const examples = [
       ],
       css: "CSS can fade, scale and move a component, and View Transitions can morph between snapshots, but nothing in CSS burns, refracts or splits the channels of live, rendered controls. An animated mask-image with a noise texture comes closest to a dissolve, without the glowing edge or displacement, and View Transition snapshots are frozen pictures. Here the effect runs on the real component's current pixels.",
     } },
+  { id: "compare", number: "08", title: "GPU or CSS?", category: "Comparison",
+    summary: "Six jobs done twice, side by side: the best CSS technique on the left, Underglass on the right, with a frame meter. One of them is a job where CSS wins.",
+    detail: "Pick a comparison, then animate one side at a time and watch the meter. The left pane is CSS: keyframes, SVG filters, color-mix() and backdrop-filter. The right pane is Underglass: one capture of the same HTML and a shader. In ordinary DOM the right pane shows that raw capture.",
+    accent: "versus", tags: ["CSS vs GPU", "Frame meter", "Honest"],
+    gpu: {
+      headline: "The GPU wins when pixels change but content doesn't.",
+      points: [
+        "Glowing tiles and the 2,052-cell heat map look the same on both sides. CSS re-styles or repaints every element each frame; Underglass captures once and runs one shader pass.",
+        "Ripple, channel split and burn are effects CSS can only approximate, with SVG filters re-rendered every frame or with three copies of the content.",
+        "Frosted glass is the honest counter-example: backdrop-filter and transform keyframes are already composited by the browser, and Underglass can't blur at all.",
+      ],
+      css: "Animate transform and opacity with CSS whenever you can: the browser composites them, often off the main thread, with no capture. Reach for Underglass when the effect needs per-pixel work CSS doesn't have, or when many elements change only in how they look.",
+    } },
 ] as const satisfies readonly { id: string; gpu: GPUReason; [key: string]: unknown }[];
 
 /** The id of one catalog example, such as `"layers"` or `"pond"`. */
