@@ -31,6 +31,7 @@ never silently relaxed.
 15. [Theming and configuration](#15-theming-and-configuration)
 16. [Presentation levels and adjust policy](#16-presentation-levels-and-adjust-policy)
 17. [Component anatomy template](#17-component-anatomy-template)
+18. [Distribution and frameworks](#18-distribution-and-frameworks)
 
 Units: lengths are CSS pixels. Angles are degrees. Colours are sRGB 0–255 unless a section says
 linear. "At 50%" means at the default depth.
@@ -413,8 +414,47 @@ Every component has an anatomy page under `docs/ui-library/components/` with the
 9. **CSS presentation:** the recipe it uses, and any component-specific rules.
 10. **Tests:** plain DOM, GPU (stays on, fresh pixels, native hits), accessibility, parity.
 
+## 18. Distribution and frameworks
+
+Strata is **standalone-first**. The language lives in framework-neutral layers; framework
+packages are thin bindings that render the same markup and wire the same behaviour.
+
+| Layer | Subpath | Contents | Depends on |
+| --- | --- | --- | --- |
+| Tokens | `@underglass/ui/tokens` | The token JSON, the typed token runtime, theme creation, validation | Nothing |
+| HTML + CSS | `@underglass/ui/css` | The stylesheet: class names, custom properties, relief and face modes. Works with no JavaScript. | Nothing |
+| Behaviour | `@underglass/ui/dom` | Plain-DOM behaviour where native elements need help (tabs, menus, dialogs, roving focus), state sync, scope attributes | Nothing |
+| GPU | `@underglass/ui/gpu` | Relief, Objects and Scene levels, adjust policy | `@underglass/core` (optional peer) |
+| React | `@underglass/ui/react` | Components and `StrataProvider` / `StrataScope` | `react` (optional peer) |
+| Vue | `@underglass/ui/vue` | The same components and providers for Vue 3 | `vue` (optional peer) |
+| Astro | `@underglass/ui/astro` | `.astro` components that render the markup on the server | `astro` (optional peer) |
+
+- **One package, one version.** Framework dependencies are optional peers, so an application
+  installs only what it uses.
+- **One markup contract.** Each component's anatomy page (section 17) defines its DOM: elements,
+  classes, attributes and ARIA. Every binding renders exactly that markup, so a plain HTML page, a
+  React app, a Vue app and an Astro site look and behave the same. Binding tests compare the
+  rendered DOM with the contract.
+- **Order:** React first, then Vue, then Astro. Other stacks (Svelte, Solid, Angular, server
+  templates) use the markup with `/css` and `/dom`; more bindings can follow.
+- **Server rendering.** The markup and CSS render on the server with no JavaScript, so pages are
+  readable and usable before scripts load. Astro components do exactly that. Behaviour and GPU
+  presentation attach in the browser: through the plain-DOM runtime, or through React or Vue
+  islands (`client:only`, as the [frameworks guide](../guide/frameworks.md) describes for
+  Underglass). This gives Strata server rendering even though Underglass's own mounting is
+  client-only (SCOPE-003 in the open issues).
+- **No Web Components as the shared layer.** Strata relies on real native elements in the light
+  DOM for forms, labels, focus order and ARIA relationships, which shadow roots make harder (form
+  association and ARIA references do not cross shadow boundaries without extra machinery). Shadow
+  DOM drawing in HTML-in-Canvas was reported fixed in Chromium
+  ([WICG #116](https://github.com/WICG/html-in-canvas/issues/116), closed 2026-08-11), but neither
+  Underglass nor Strata has probed it on the installed build. Light-DOM markup with small bindings
+  is simpler and more robust.
+
 ## Change log
 
 - 2026-10-15: first draft. Depth at 50%, light from the top left (323°, 41°), light theme with
   a blue accent, and dark theme. The configuration model is "everything configurable within
   invariants".
+- 2026-10-15: added section 18: standalone-first layers, one markup contract, React, Vue and Astro
+  bindings, and server rendering.
