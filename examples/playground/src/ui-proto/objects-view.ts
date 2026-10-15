@@ -4,14 +4,14 @@
  * bases are the native controls: a rounded tapered key per button (the captured face on its top), a sliding knob in
  * a track for the switch, and a bezel just inside the text field. A key light with a soft PCF shadow map and a
  * hemispheric fill light them. Native events drive travel, throw, hover and focus without a new capture.
- * `update()` rebuilds the scene on the same engine from the current look and palette (for live tuning); control
- * states live outside the scene, so a rebuild keeps them.
+ * `update()` swaps the scene's meshes, materials, light and clear colour for the current look and palette (for live
+ * tuning); control states live outside the meshes, so an update keeps them.
  */
 import {
   addToScene, createBox, createCapsule, createDirectionalLight, createDynamicTexture, createEngine, createFreeCamera,
   createHemisphericLight, createPbrMaterial, createPcfDirectionalShadowGenerator, createSceneContext, createSphere,
-  disposeMeshGpu, markMaterialUboDirty, registerSceneWithShadowSupport, renderFrame, setPbrEmissive,
-  setPbrUnlit, setShadowOnly, setShadowTaskCasterMeshes, unregisterScene, vec3,
+  markMaterialUboDirty, registerSceneWithShadowSupport, removeFromScene, renderFrame, setPbrEmissive,
+  setPbrUnlit, setShadowOnly, setShadowTaskCasterMeshes, vec3,
   type Material, type Mesh, type PbrMaterialProps,
 } from "@babylonjs/lite";
 import { offsetWithin, type DrawableCanvas } from "../ui-probes/common.ts";
@@ -56,24 +56,30 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
   const states = new Map<HTMLElement, ControlState>([...buttons, ...fields, ...switches].map(control => [control, { hover: 0, pressed: 0, focus: 0, depth: 0 }]));
   const knobs = new Map<HTMLInputElement, number>(switches.map(input => [input, input.checked ? 1 : 0]));
 
-  /** Builds and registers a scene for the current look and palette. */
+  // One scene for the canvas's lifetime: the surface takes its clear from the scene registered first, so tuning
+  // changes swap meshes, materials and the light in place instead of registering a new scene.
+  const scene = createSceneContext(engine);
+  scene.imageProcessing = { exposure: 1, contrast: 1, toneMappingEnabled: false };
+  const camera = createFreeCamera(vec3(0, 0, -distance), vec3(0, 0, 0));
+  camera.nearPlane = 1; camera.farPlane = 20000;
+  camera.fov = 2 * Math.atan(height / 2 / distance);
+  scene.camera = camera;
+  const initialLight = currentLook().light;
+  // Lite's light direction is the way light travels: away from the light, in world axes (y up, +z away).
+  const light = createDirectionalLight([-initialLight[0], initialLight[1], initialLight[2]], 1.6);
+  const ambient = createHemisphericLight([0, 0, -1], 0.55);
+  // Soft shadows: PCF on a deliberately coarse map, so its filter spans a few CSS pixels (a cheap penumbra).
+  const shadows = createPcfDirectionalShadowGenerator(engine, light, { mapSize: shadowMap, bias: 5e-4, normalBias: 0.05 });
+  light.shadowGenerator = shadows;
+  addToScene(scene, light); addToScene(scene, ambient);
+  let registered = false;
+
+  /** Adds meshes for the current look and palette to the scene, and points the light and clear colour at them. */
   async function build() {
     const look = currentLook(), palette = currentPalette();
-    const scene = createSceneContext(engine);
     const [r, g, b] = palette.stage.map(channel => channel / 255);
     scene.clearColor = { r: r!, g: g!, b: b!, a: 1 };
-    scene.imageProcessing = { exposure: 1, contrast: 1, toneMappingEnabled: false };
-    const camera = createFreeCamera(vec3(0, 0, -distance), vec3(0, 0, 0));
-    camera.nearPlane = 1; camera.farPlane = 20000;
-    camera.fov = 2 * Math.atan(height / 2 / distance);
-    scene.camera = camera;
-    // Lite's light direction is the way light travels: away from the light, in world axes (y up, +z away).
-    const light = createDirectionalLight([-look.light[0], look.light[1], look.light[2]], 1.6);
-    const ambient = createHemisphericLight([0, 0, -1], 0.55);
-    // Soft shadows: PCF on a deliberately coarse map, so its filter spans a few CSS pixels (a cheap penumbra).
-    const shadows = createPcfDirectionalShadowGenerator(engine, light, { mapSize: shadowMap, bias: 5e-4, normalBias: 0.05 });
-    light.shadowGenerator = shadows;
-    addToScene(scene, light); addToScene(scene, ambient);
+    light.direction.set(-look.light[0], look.light[1], look.light[2]);
 
     const meshes: Mesh[] = [], casters: Mesh[] = [];
     const add = (mesh: Mesh, material: Partial<PbrMaterialProps>, cast = true) => { mesh.material = asMaterial(material); addToScene(scene, mesh); meshes.push(mesh); if (cast) casters.push(mesh); return mesh; };
@@ -121,8 +127,8 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
       return { input, box, knob, trackMaterial, knobHeight: Math.max(3, look.keyHeight * 0.45) };
     });
     setShadowTaskCasterMeshes(shadows, casters);
-    await registerSceneWithShadowSupport(scene);
-    return { scene, meshes, movers, toggles, glows, palette };
+    if (!registered) { await registerSceneWithShadowSupport(scene); registered = true; }
+    return { meshes, movers, toggles, glows, palette };
   }
 
   let built: Awaited<ReturnType<typeof build>> | undefined;
@@ -180,10 +186,8 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
       const next = await build();
       const previous = built;
       built = next;
-      // `disposeScene` would also release the capture texture the next scene shares, so only the old scene's
-      // meshes are retired; its small per-scene resources (shadow map, uniforms) stay until the page closes.
-      // Acceptable for a tuning page; core needs an explicit ownership model for shared textures.
-      if (previous) { unregisterScene(previous.scene); for (const mesh of previous.meshes) disposeMeshGpu(mesh); }
+      // The previous meshes leave the scene after the new ones are in, so no frame shows an empty panel.
+      if (previous) for (const mesh of previous.meshes) removeFromScene(scene, mesh);
       step();
       request();
     });
