@@ -332,6 +332,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let submittedGeneration = -1;
   // A native paint has been requested and not yet delivered; guarded by a 1500 ms watchdog in `requestPaint`.
   let paintRequested = false;
+  // Native paints that completed a capture and draw. `settle` uses it to tell a paint it was waiting for from a
+  // newer one requested by content that keeps changing.
+  let completedPaints = 0;
   // Layer membership or order changed and `reconcile` has not run yet; drawing is skipped until it does.
   let membershipPending = false;
   let paintTimer: ReturnType<typeof setTimeout> | undefined;
@@ -663,10 +666,16 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     }
     scheduleCapture();
   }
-  /** Waits until scheduled frames, lifecycle work, successor preparation and paint requests are idle (3000 ms cap). */
+  /**
+   * Waits until scheduled frames, lifecycle work, successor preparation and the paint already requested are done
+   * (3000 ms cap). Once a paint has completed during the wait, a still-requested paint is newer work from content
+   * that keeps changing (a requestAnimationFrame loop, a video): it does not hold settling, or a page that never
+   * stops updating could never admit.
+   */
   async function settle() {
     const deadline = performance.now() + 3000;
-    while (scheduled || work || preparation || paintRequested || pending) {
+    const paints = completedPaints;
+    while (scheduled || work || preparation || pending || paintRequested && completedPaints === paints) {
       if (performance.now() > deadline) throw new Error("Native refresh did not settle within 3000 ms");
       if (work) await work;
       else if (preparation) await preparation;
@@ -929,7 +938,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         admittedCustom = layers.map(customOf);
       }
       dirty.clear();
+      const frames = metrics.gpuFrames;
       draw();
+      if (metrics.gpuFrames > frames) completedPaints++;
       if (resized) requestPaint();
       if (previous && previous !== successor) retire(previous);
     } finally {
@@ -1350,7 +1361,14 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     }, invalidate: queueCapture, draw,
     reconcile,
     // The layer set or layout moved: refresh native geometry now and skip drawing until `reconcile` runs.
-    reconcileGeometry: () => { membershipPending = true; current = options.layers(); geometry(); },
+    reconcileGeometry: () => {
+      // Only a real membership change (a layer joined, left, was replaced or moved in order) needs the full
+      // reconcile before drawing. A content or layout change keeps the same layers: `draw` already refuses
+      // incomplete coverage, and a stuck flag would skip every frame after admission.
+      const next = options.layers();
+      if (next.length !== current.length || next.some((layer, index) => layer.id !== current[index]!.id || layer.element !== current[index]!.element)) membershipPending = true;
+      current = next; geometry();
+    },
     acceptsCustom: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)] === definition,
     phase: () => mode, version: () => generation, resume: scheduleCapture,
     frameBounded: () => frameBounds === "bounded",
