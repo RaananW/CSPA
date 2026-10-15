@@ -43,13 +43,14 @@ Requirements:
 | Auto-adjust | Stepping down from Objects to Relief on a slow device is an **opt-in policy** that the app enables, with a diagnostic each time it acts. Never silent, never a DOM fallback. |
 | Phase 1 | Includes rough GPU prototypes, so the language is judged from pictures. They are prototypes, not finished components. |
 | Names | Design language **Strata**, package `@underglass/ui`. |
-| Package shape | **One package** with subpath exports (`/tokens`, `/css`, `/dom`, `/react`, `/vue`, `/gpu`) and optional peers, so the design language versions as one unit. |
-| Frameworks | Plain HTML and CSS for every stack; framework-neutral behaviour; React bindings first, Vue second. |
+| Package shape | **One package** with subpath exports (`/tokens`, `/css`, `/dom`, `/gpu`, `/react`, `/vue`, `/astro`) and optional peers, so the design language versions as one unit and an app installs only the framework it uses. |
+| Frameworks | **Standalone-first, not React-first.** Tokens, HTML and CSS, behaviour and GPU integration are framework-neutral; thin bindings render the same markup. React first, Vue second, and Astro components that render the markup on the server, with islands or the plain-DOM runtime for interaction. Other stacks use the markup and the plain-DOM runtime. No Web Components as the shared layer. See the [design language](design-language.md#18-distribution-and-frameworks). |
 | Accessibility | WCAG 2.2 AA and WAI-ARIA Authoring Practices, fully supported and tested, with automated checking (axe) as a test dependency. |
 | Dialog and Drawer | Enrolled top-level panels (`role="dialog"`, `aria-modal`, inert background), so the highest elevation gets GPU depth, provided they pass the same native focus and keyboard tests as `<dialog>`. |
 | Meshes | Generated in code from tokens (parametric), so object proportions follow the tokens. No authored mesh assets. |
 | Look (2026-10-15, from the prototypes) | Between the subtle (A) and medium (B) prototypes, leaning strongly to B. Depth is a **setting**: 0% = A, 50% = B, 100% = C, blending every depth token continuously. The default is 50%, centred on the chosen look ([tuning page](prototypes.md#tuning-page)). |
 | Light and theme | **Configurable per application**, with defaults: light from the top left (azimuth 323°, elevation 41°), light theme, neutral greys, blue accent. Dark theme alongside. |
+| Configurability | **As much as possible.** Every token is configurable within a validated range, in layers: defaults, application theme, runtime updates, subtree scopes, component props and visitor preferences. A short list of invariants is validated, never silently relaxed: one light per application, the footprint and taper rule, contrast on lit faces, visible focus, target size, reduced motion and elevation order. See the [design language](design-language.md#15-theming-and-configuration). |
 
 ## Constraints that shape the language
 
@@ -123,7 +124,7 @@ T0  Spec + tokens        design-language docs, tokens (JSON), generated CSS vari
 T1  HTML + CSS           class-based styles for plain markup; no JavaScript required
 T2  Behaviour            framework-neutral state sync and keyboard behaviour where native
                          elements need help (tabs, menus); plain DOM
-T3  Framework bindings   React first, Vue second; thin, render the T1 markup
+T3  Framework bindings   React first, Vue second, Astro; thin, render the T1 markup
 T4  GPU presentation     over @underglass/core: panel enrollment, material, relief and
                          object passes, depth motion, adjust policy
 ```
@@ -267,20 +268,22 @@ prototypes' look is accepted.
 
 ## Phase 2: tokens and the CSS foundation (T0, T1)
 
-- Token build: JSON to CSS custom properties, typed TypeScript exports and GPU/mesh
-  parameters. Contrast and shadow derivation run at build time and fail the build on a
-  violated rule.
+- Token runtime: the JSON tokens resolve, per layer and scope, to CSS custom properties
+  (`--strata-*`), typed TypeScript values and GPU and mesh parameters, **at runtime**, so
+  every setting can change live. A validator reports invariant breaks in development (strict mode
+  throws). The token unit test checks the defaults on every change.
 - Class-based CSS for plain HTML (Bootstrap-style: `ug-button`, `ug-button--accent`,
   states through native pseudo-classes and ARIA attributes).
 - Two CSS modes in one stylesheet: *relief* (CSS paints depth) and *face* (flat faces
-  for the GPU), switched by a root attribute.
+  for the GPU), switched by a root attribute. The relief recipe is computed in CSS with `calc()`
+  from the custom properties, so a theme change restyles without regenerating CSS.
 - CSS 3D transforms for panel motion in the fallback, respecting reduced motion.
 
 ## Phase 3: components (T2, T3)
 
 Native elements first, following [Building components](../guide/components.md): a ref
 to the root, `class` and `style` passthrough, a portal container for anything that
-floats, and no boundary transforms. React bindings first, Vue second.
+floats, and no boundary transforms. React bindings first, Vue second, then Astro components.
 
 | Tier | Components |
 | --- | --- |
@@ -301,8 +304,8 @@ Underglass, its WAI-ARIA Authoring Practices pattern, and the automated
    primitives and mesh anchors from `data-ug-face` markers inside it; state sync from
    pointer, focus and ARIA attributes; the presentation-mode switch; presentation levels;
    the adjust policy; depth transitions built on core motion and presence.
-3. **Bindings.** Thin React and Vue wrappers over the integration, plus a plain-DOM
-   entry, matching the repo's adapter pattern.
+3. **Bindings.** Thin React and Vue wrappers over the integration, Astro components with
+   client-side attachment, and a plain-DOM entry, matching the repo's adapter pattern.
 4. **Overlays.** Tooltip, Menu, Popover and Select popups stay in the overlay host and
    use the CSS relief recipe. Dialog and Drawer are enrolled top-level panels with
    `role="dialog"`, `aria-modal`, focus containment, Escape to close, focus return and
@@ -362,7 +365,7 @@ manual gate, as it already is for Underglass.
 
 Per [AGENTS.md](../../AGENTS.md#verifying-a-change):
 
-- **Plain DOM:** every component without Underglass, in plain HTML, React and Vue, with
+- **Plain DOM:** every component without Underglass, in plain HTML, React, Vue and Astro, with
   real pointer and keyboard input, not `element.click()`.
 - **GPU:** for every component, state and level, GPU stays active, pixels are fresh,
   native hits land on the original control (never on mesh-only pixels), and state
@@ -384,7 +387,8 @@ packages/ui/                 @underglass/ui (new package)
   tokens/                    JSON source of truth
   src/css/                   T1 stylesheets (generated variables + component CSS)
   src/dom/                   T2 framework-neutral behaviour
-  src/react/, src/vue/       T3 bindings (optional peers)
+  src/react/, src/vue/,      T3 bindings (optional peers)
+  src/astro/
   src/gpu/                   T4 integration (optional peer @underglass/core)
 docs/ui-library/             plan, design-language spec, component anatomy pages
 examples/playground/         P0 probes and Phase 1 prototypes
