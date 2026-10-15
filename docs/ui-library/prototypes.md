@@ -54,5 +54,3 @@ preferred spot is elsewhere, the scale is re-centred so that spot becomes the 50
 - **Engines:** each GPU panel has its own engine and device here. Underglass uses one shared engine.
 - **Themes:** the tuning page has a first dark theme; its highlight strengths still need tuning (the CSS
   highlight rim is too bright on dark). High contrast comes with the tokens.
-- **Rebuild leftovers:** the tuning page rebuilds the Objects scene on each change and keeps the old scene's
-  small resources until the page closes, because Lite's scene disposal also releases the shared capture.

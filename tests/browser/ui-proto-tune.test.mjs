@@ -28,6 +28,14 @@ test("Strata tuning redraws every presentation from the settings and keeps nativ
   for (const name of ["relief", "objects", "css"]) expect(difference(medium[name], subtle[name]), `${name} redraws for depth 0`).toBeGreaterThan(0.01);
   expect(page.url()).toContain("depth=0");
 
+  // A light change re-lights the objects in place: the stage around the panel keeps its colour (no black clear).
+  for (const azimuth of [200, 90]) {
+    await page.evaluate(value => window.strataTuning.set({ azimuth: value }), azimuth);
+    await page.waitForTimeout(600);
+    const png = await shot("objects");
+    expect([...png.data.subarray(0, 3)], `objects stage colour after light from ${azimuth}°`).toEqual([255, 255, 255]);
+  }
+
   await page.evaluate(() => window.strataTuning.set({ depth: 0.45, theme: "dark" }));
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${directory}/proto-tune-dark.png`, fullPage: true });
