@@ -1,0 +1,954 @@
+{
+  "$description": "Strata design tokens. Defaults per docs/ui-library/design-language.md. Values with `anchors` blend with `depth` (0%, 50%, 100%); `min`/`max` are validated ranges; `scope: false` means application-level only.",
+  "depth": {
+    "$type": "number",
+    "$value": 0.5,
+    "$description": "Depth setting: 0 = subtle, 0.5 = medium (default), 1 = bold.",
+    "$extensions": {
+      "dev.underglass.strata": {
+        "min": 0,
+        "max": 1,
+        "scope": true
+      }
+    }
+  },
+  "light": {
+    "azimuth": {
+      "$type": "number",
+      "$value": 323,
+      "$description": "Where the light comes from, degrees clockwise from the top of the screen.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 359,
+          "scope": false
+        }
+      }
+    },
+    "elevation": {
+      "$type": "number",
+      "$value": 41,
+      "$description": "Light height above the panel plane, degrees.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 20,
+          "max": 80,
+          "scope": false
+        }
+      }
+    },
+    "intensity": {
+      "$type": "number",
+      "$value": 1.6,
+      "$description": "Key light strength (Objects level).",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0.5,
+          "max": 3,
+          "scope": false
+        }
+      }
+    },
+    "ambient": {
+      "$type": "number",
+      "$value": 0.55,
+      "$description": "Fill light strength (Objects level).",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0.2,
+          "max": 1,
+          "scope": false
+        }
+      }
+    },
+    "colour": {
+      "$type": "color",
+      "$value": "#ffffff",
+      "$description": "Key light colour (Objects level).",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "scope": false
+        }
+      }
+    }
+  },
+  "camera": {
+    "distance": {
+      "$type": "dimension",
+      "$value": "1600px",
+      "$description": "Minimum camera distance; validation raises it to satisfy the taper rule.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 400,
+          "scope": false
+        }
+      }
+    },
+    "tiltMax": {
+      "$type": "number",
+      "$value": 25,
+      "$description": "Largest panel tilt, degrees.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 60,
+          "scope": true
+        }
+      }
+    }
+  },
+  "elevation": {
+    "ground": {
+      "$type": "dimension",
+      "$value": "0px",
+      "$description": "Page background and wells.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            0,
+            0,
+            0
+          ],
+          "scope": true
+        }
+      }
+    },
+    "raised": {
+      "$type": "dimension",
+      "$value": "3px",
+      "$description": "Controls on a panel.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            2,
+            3,
+            5
+          ],
+          "scope": true
+        }
+      }
+    },
+    "floating": {
+      "$type": "dimension",
+      "$value": "10px",
+      "$description": "Panels, cards, toolbars.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            6,
+            10,
+            16
+          ],
+          "scope": true
+        }
+      }
+    },
+    "overlay": {
+      "$type": "dimension",
+      "$value": "16px",
+      "$description": "Menus, popovers, tooltips.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            9.6,
+            16,
+            25.6
+          ],
+          "scope": true
+        }
+      }
+    },
+    "modal": {
+      "$type": "dimension",
+      "$value": "24px",
+      "$description": "Dialogs, drawers.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            14.4,
+            24,
+            38.4
+          ],
+          "scope": true
+        }
+      }
+    },
+    "well": {
+      "$type": "dimension",
+      "$value": "2px",
+      "$description": "Depth of wells (fields, tracks).",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            1.5,
+            2,
+            3
+          ],
+          "scope": true
+        }
+      }
+    }
+  },
+  "bevel": {
+    "width": {
+      "$type": "dimension",
+      "$value": "6px",
+      "$description": "Width of the bevel band.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            4,
+            6,
+            9
+          ],
+          "scope": true,
+          "min": 2,
+          "max": 12
+        }
+      }
+    },
+    "gain": {
+      "$type": "number",
+      "$value": 0.55,
+      "$description": "How strongly bevel normals catch and lose the light.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            0.3,
+            0.55,
+            0.75
+          ],
+          "scope": true,
+          "min": 0,
+          "max": 1.5
+        }
+      }
+    },
+    "profile": {
+      "$type": "string",
+      "$value": "quarter-round",
+      "$description": "Bevel cross-section: quarter-round, chamfer or cove.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "scope": false,
+          "options": [
+            "quarter-round",
+            "chamfer",
+            "cove"
+          ]
+        }
+      }
+    }
+  },
+  "shadow": {
+    "strength": {
+      "$type": "number",
+      "$value": 0.32,
+      "$description": "Darkness of cast shadows.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            0.18,
+            0.32,
+            0.42
+          ],
+          "scope": true,
+          "min": 0,
+          "max": 0.8
+        }
+      }
+    }
+  },
+  "interior": {
+    "max": {
+      "$type": "number",
+      "$value": 0.04,
+      "$description": "Largest brightness change on a face interior (keeps text contrast).",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 0.1,
+          "scope": true
+        }
+      }
+    }
+  },
+  "state": {
+    "hoverHeight": {
+      "$type": "number",
+      "$value": 1.6,
+      "$description": "Height multiplier on hover.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 1,
+          "max": 3,
+          "scope": true
+        }
+      }
+    },
+    "pressHeight": {
+      "$type": "number",
+      "$value": 0.25,
+      "$description": "Height multiplier while pressed.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 1,
+          "scope": true
+        }
+      }
+    },
+    "hoverLift": {
+      "$type": "number",
+      "$value": 0.04,
+      "$description": "Interior brightening on hover (clamped by interior.max).",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 0.1,
+          "scope": true
+        }
+      }
+    },
+    "pressSink": {
+      "$type": "number",
+      "$value": 0.06,
+      "$description": "Interior darkening while pressed (clamped by interior.max).",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 0.1,
+          "scope": true
+        }
+      }
+    }
+  },
+  "object": {
+    "keyHeight": {
+      "$type": "dimension",
+      "$value": "8px",
+      "$description": "Height of keys (Objects level).",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            4,
+            8,
+            12
+          ],
+          "scope": true,
+          "min": 0,
+          "max": 24
+        }
+      }
+    },
+    "keyTravel": {
+      "$type": "dimension",
+      "$value": "6px",
+      "$description": "Key travel on press.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            3,
+            6,
+            9
+          ],
+          "scope": true,
+          "min": 0
+        }
+      }
+    },
+    "taper": {
+      "$type": "dimension",
+      "$value": "3px",
+      "$description": "Inset of raised tops; validated to be at least the perspective drift.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            2,
+            3,
+            4
+          ],
+          "scope": true
+        }
+      }
+    },
+    "roughness": {
+      "$type": "number",
+      "$value": 0.45,
+      "$description": "Surface roughness.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            0.8,
+            0.45,
+            0.3
+          ],
+          "scope": true,
+          "min": 0,
+          "max": 1
+        }
+      }
+    },
+    "sheen": {
+      "$type": "number",
+      "$value": 0.1,
+      "$description": "Metallic sheen.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "anchors": [
+            0.05,
+            0.1,
+            0.25
+          ],
+          "scope": true,
+          "min": 0,
+          "max": 1
+        }
+      }
+    }
+  },
+  "radius": {
+    "small": {
+      "$type": "dimension",
+      "$value": "4px",
+      "$description": "Chips, checkboxes.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 12,
+          "scope": true
+        }
+      }
+    },
+    "control": {
+      "$type": "dimension",
+      "$value": "8px",
+      "$description": "Buttons, fields.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 20,
+          "scope": true
+        }
+      }
+    },
+    "panel": {
+      "$type": "dimension",
+      "$value": "14px",
+      "$description": "Panels, cards, dialogs.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 32,
+          "scope": true
+        }
+      }
+    },
+    "pill": {
+      "$type": "dimension",
+      "$value": "999px",
+      "$description": "Switch tracks, badges.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "scope": true
+        }
+      }
+    }
+  },
+  "colour": {
+    "stage": {
+      "$type": "color",
+      "$value": "#ffffff",
+      "$description": "Page background.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#ffffff",
+            "dark": "#181a1f"
+          },
+          "scope": true
+        }
+      }
+    },
+    "panel": {
+      "$type": "color",
+      "$value": "#e9ebef",
+      "$description": "Panel faces.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#e9ebef",
+            "dark": "#2c3038"
+          },
+          "scope": true
+        }
+      }
+    },
+    "field": {
+      "$type": "color",
+      "$value": "#ffffff",
+      "$description": "Field and well interiors.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#ffffff",
+            "dark": "#1e2128"
+          },
+          "scope": true
+        }
+      }
+    },
+    "secondary": {
+      "$type": "color",
+      "$value": "#f7f8fa",
+      "$description": "Secondary controls.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#f7f8fa",
+            "dark": "#3e434e"
+          },
+          "scope": true
+        }
+      }
+    },
+    "text": {
+      "$type": "color",
+      "$value": "#1c1e24",
+      "$description": "Body text.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#1c1e24",
+            "dark": "#e8eaf0"
+          },
+          "scope": true
+        }
+      }
+    },
+    "muted": {
+      "$type": "color",
+      "$value": "#5a5e68",
+      "$description": "Secondary text.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#5a5e68",
+            "dark": "#a8aeba"
+          },
+          "scope": true
+        }
+      }
+    },
+    "accent": {
+      "$type": "color",
+      "$value": "#2563eb",
+      "$description": "Primary actions, selection, focus.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#2563eb",
+            "dark": "#6091ff"
+          },
+          "scope": true
+        }
+      }
+    },
+    "success": {
+      "$type": "color",
+      "$value": "#15803d",
+      "$description": "Positive status.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#15803d",
+            "dark": "#4ac478"
+          },
+          "scope": true
+        }
+      }
+    },
+    "warning": {
+      "$type": "color",
+      "$value": "#b45309",
+      "$description": "Caution.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#b45309",
+            "dark": "#f5a63c"
+          },
+          "scope": true
+        }
+      }
+    },
+    "danger": {
+      "$type": "color",
+      "$value": "#c42b2b",
+      "$description": "Destructive actions, errors.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#c42b2b",
+            "dark": "#ff7878"
+          },
+          "scope": true
+        }
+      }
+    },
+    "info": {
+      "$type": "color",
+      "$value": "#2563eb",
+      "$description": "Information.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#2563eb",
+            "dark": "#6091ff"
+          },
+          "scope": true
+        }
+      }
+    },
+    "track": {
+      "$type": "color",
+      "$value": "#cdd1d9",
+      "$description": "Unfilled tracks.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#cdd1d9",
+            "dark": "#4e5460"
+          },
+          "scope": true
+        }
+      }
+    },
+    "knob": {
+      "$type": "color",
+      "$value": "#fcfcfd",
+      "$description": "Knobs and thumbs.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#fcfcfd",
+            "dark": "#eceef2"
+          },
+          "scope": true
+        }
+      }
+    }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "$value": [
+        "system-ui",
+        "sans-serif"
+      ],
+      "$description": "Text.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "scope": true
+        }
+      }
+    },
+    "mono": {
+      "$type": "fontFamily",
+      "$value": [
+        "ui-monospace",
+        "monospace"
+      ],
+      "$description": "Code.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "scope": true
+        }
+      }
+    },
+    "size": {
+      "caption": {
+        "$type": "dimension",
+        "$value": "12px",
+        "$description": "caption text size.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "min": 10,
+            "max": 64,
+            "scope": true
+          }
+        }
+      },
+      "small": {
+        "$type": "dimension",
+        "$value": "13px",
+        "$description": "small text size.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "min": 10,
+            "max": 64,
+            "scope": true
+          }
+        }
+      },
+      "body": {
+        "$type": "dimension",
+        "$value": "14px",
+        "$description": "body text size.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "min": 10,
+            "max": 64,
+            "scope": true
+          }
+        }
+      },
+      "subtitle": {
+        "$type": "dimension",
+        "$value": "16px",
+        "$description": "subtitle text size.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "min": 10,
+            "max": 64,
+            "scope": true
+          }
+        }
+      },
+      "title": {
+        "$type": "dimension",
+        "$value": "18px",
+        "$description": "title text size.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "min": 10,
+            "max": 64,
+            "scope": true
+          }
+        }
+      },
+      "headline": {
+        "$type": "dimension",
+        "$value": "22px",
+        "$description": "headline text size.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "min": 10,
+            "max": 64,
+            "scope": true
+          }
+        }
+      },
+      "display": {
+        "$type": "dimension",
+        "$value": "28px",
+        "$description": "display text size.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "min": 10,
+            "max": 64,
+            "scope": true
+          }
+        }
+      }
+    },
+    "weight": {
+      "regular": {
+        "$type": "fontWeight",
+        "$value": 400,
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "strong": {
+        "$type": "fontWeight",
+        "$value": 600,
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      }
+    },
+    "lineHeight": {
+      "body": {
+        "$type": "number",
+        "$value": 1.45,
+        "$description": "Body line height.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "min": 1,
+            "max": 2,
+            "scope": true
+          }
+        }
+      },
+      "heading": {
+        "$type": "number",
+        "$value": 1.25,
+        "$description": "Heading line height.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "min": 1,
+            "max": 2,
+            "scope": true
+          }
+        }
+      }
+    }
+  },
+  "space": {
+    "base": {
+      "$type": "dimension",
+      "$value": "4px",
+      "$description": "Spacing unit; space.1 to space.10 are 0.5, 1, 2, 3, 4, 5, 6, 8, 10, 12 units.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 2,
+          "max": 8,
+          "scope": true
+        }
+      }
+    }
+  },
+  "density": {
+    "$type": "string",
+    "$value": "comfortable",
+    "$description": "compact (28 px controls), comfortable (34), spacious (40).",
+    "$extensions": {
+      "dev.underglass.strata": {
+        "scope": true,
+        "options": [
+          "compact",
+          "comfortable",
+          "spacious"
+        ]
+      }
+    }
+  },
+  "motion": {
+    "fast": {
+      "$type": "duration",
+      "$value": "120ms",
+      "$description": "Hover, press, focus.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 400,
+          "scope": true
+        }
+      }
+    },
+    "normal": {
+      "$type": "duration",
+      "$value": "200ms",
+      "$description": "Switch throw, key travel, small panels.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 600,
+          "scope": true
+        }
+      }
+    },
+    "slow": {
+      "$type": "duration",
+      "$value": "320ms",
+      "$description": "Panels through depth.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 1000,
+          "scope": true
+        }
+      }
+    },
+    "easing": {
+      "standard": {
+        "$type": "cubicBezier",
+        "$value": [
+          0.2,
+          0,
+          0,
+          1
+        ],
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "press": {
+        "$type": "cubicBezier",
+        "$value": [
+          0.3,
+          0,
+          0.6,
+          1
+        ],
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      }
+    }
+  },
+  "focus": {
+    "width": {
+      "$type": "dimension",
+      "$value": "3px",
+      "$description": "Focus indicator width; at least 2.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 2,
+          "max": 6,
+          "scope": true
+        }
+      }
+    },
+    "offset": {
+      "$type": "dimension",
+      "$value": "0.5px",
+      "$description": "Focus indicator offset outside the shape.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 4,
+          "scope": true
+        }
+      }
+    }
+  },
+  "target": {
+    "min": {
+      "$type": "dimension",
+      "$value": "24px",
+      "$description": "Smallest interactive target (WCAG 2.5.8).",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 24,
+          "scope": false,
+          "invariant": true
+        }
+      }
+    }
+  },
+  "level": {
+    "$type": "string",
+    "$value": "relief",
+    "$description": "Presentation level: relief (default), objects, scene.",
+    "$extensions": {
+      "dev.underglass.strata": {
+        "scope": true,
+        "options": [
+          "relief",
+          "objects",
+          "scene"
+        ]
+      }
+    }
+  }
+}

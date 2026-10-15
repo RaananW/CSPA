@@ -50,6 +50,7 @@ Requirements:
 | Meshes | Generated in code from tokens (parametric), so object proportions follow the tokens. No authored mesh assets. |
 | Look (2026-10-15, from the prototypes) | Between the subtle (A) and medium (B) prototypes, leaning strongly to B. Depth is a **setting**: 0% = A, 50% = B, 100% = C, blending every depth token continuously. The default is 50%, centred on the chosen look ([tuning page](prototypes.md#tuning-page)). |
 | Light and theme | **Configurable per application**, with defaults: light from the top left (azimuth 323°, elevation 41°), light theme, neutral greys, blue accent. Dark theme alongside. |
+| Configurability | **As much as possible.** Every token is configurable within a validated range, in layers: defaults, application theme, runtime updates, subtree scopes, component props and visitor preferences. A short list of invariants is validated, never silently relaxed: one light per application, the footprint and taper rule, contrast on lit faces, visible focus, target size, reduced motion and elevation order. See the [design language](design-language.md#15-theming-and-configuration). |
 
 ## Constraints that shape the language
 
@@ -267,13 +268,15 @@ prototypes' look is accepted.
 
 ## Phase 2: tokens and the CSS foundation (T0, T1)
 
-- Token build: JSON to CSS custom properties, typed TypeScript exports and GPU/mesh
-  parameters. Contrast and shadow derivation run at build time and fail the build on a
-  violated rule.
+- Token runtime: the JSON tokens resolve, per layer and scope, to CSS custom properties
+  (`--strata-*`), typed TypeScript values and GPU and mesh parameters, **at runtime**, so
+  every setting can change live. A validator reports invariant breaks in development (strict mode
+  throws). The token unit test checks the defaults on every change.
 - Class-based CSS for plain HTML (Bootstrap-style: `ug-button`, `ug-button--accent`,
   states through native pseudo-classes and ARIA attributes).
 - Two CSS modes in one stylesheet: *relief* (CSS paints depth) and *face* (flat faces
-  for the GPU), switched by a root attribute.
+  for the GPU), switched by a root attribute. The relief recipe is computed in CSS with `calc()`
+  from the custom properties, so a theme change restyles without regenerating CSS.
 - CSS 3D transforms for panel motion in the fallback, respecting reduced motion.
 
 ## Phase 3: components (T2, T3)
