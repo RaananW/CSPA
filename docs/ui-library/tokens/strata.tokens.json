@@ -1125,7 +1125,21 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#cdd1d9",
-            "dark": "#4e5460"
+            "dark": "#343842"
+          },
+          "scope": true
+        }
+      }
+    },
+    "edge": {
+      "$type": "color",
+      "$value": "#767c88",
+      "$description": "Boundaries of wells, tracks and knobs: at least 3:1 against the lit panel.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "themes": {
+            "light": "#767c88",
+            "dark": "#848b9a"
           },
           "scope": true
         }
