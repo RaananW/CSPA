@@ -171,7 +171,8 @@ controls". This is written as an architecture note in the first core PR.
 ## Phase 0: upstream check and feasibility probes
 
 Required by [AGENTS.md](../../AGENTS.md) before any capture, geometry or presentation
-work. Each probe is a playground page plus a browser test. Phase 0 runs **alongside**
+work. Each probe is a playground page plus a browser test; results are in the
+[Phase 0 report](phase0.md). Phase 0 runs **alongside**
 the Phase 1 prototypes, which share its pages.
 
 | Probe | Question | Pass condition |
@@ -417,7 +418,8 @@ These are design questions the spec or a phase answers, not open plan decisions:
   Phase 1 prototypes.
 - The adjust policy's default thresholds, settled by P0.4 measurements.
 - The mesh budget and relief primitive budget, settled by P0.3 and P0.4.
-- Whether panel tilt at rest is allowed, settled by P0.1.
+- ~~Whether panel tilt at rest is allowed, settled by P0.1.~~ Settled: allowed. P0.1 passed
+  on Canary 158 ([Phase 0 report](phase0.md#p01-projective-hits)).
 
 ## Pull request sequence
 
