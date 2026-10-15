@@ -51,6 +51,23 @@ test("Strata tuning redraws every presentation from the settings and keeps nativ
   expect([...objects.data.subarray(index, index + 3)], "captured panel colour in the Objects view").toEqual([233, 235, 239]);
   await page.evaluate(() => window.strataTuning.setMaterial("matte"));
 
+  // Light from the lower left (230°, 46° high): the panel's shadow falls up and to the right, continuously along the
+  // whole top edge, in Relief and Objects (the Objects level once used a shadow map that cut and detached it).
+  await page.evaluate(() => window.strataTuning.set({ azimuth: 230, elevation: 46 }));
+  await page.waitForTimeout(900);
+  for (const name of ["relief", "objects"]) {
+    const face = await page.locator(`.${name} .face`).boundingBox();
+    const stage = await page.locator(`.${name} .stage`).boundingBox();
+    const png = await shot(name);
+    const gaps = [];
+    for (let fraction = 0.15; fraction <= 0.9; fraction += 0.05) {
+      const x = Math.round(face.x - stage.x + face.width * fraction), y = Math.round(face.y - stage.y - 3);
+      const i = (y * png.width + x) * 4, value = (png.data[i] + png.data[i + 1] + png.data[i + 2]) / 3;
+      if (value > 243) gaps.push({ fraction: +fraction.toFixed(2), value: Math.round(value) });
+    }
+    expect(gaps, `${name}: shadow along the top edge`).toEqual([]);
+  }
+
   // A light change re-lights the objects in place: the stage around the panel keeps its colour (no black clear).
   for (const azimuth of [200, 90]) {
     await page.evaluate(value => window.strataTuning.set({ azimuth: value }), azimuth);
