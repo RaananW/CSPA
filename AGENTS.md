@@ -52,5 +52,7 @@ User-facing behaviour is described in [docs/guide](docs/guide/getting-started.md
 
 - Work on a branch and open a PR to `main`. Keep one concern per PR, and stack dependent PRs on each other's
   branches. Follow [CONTRIBUTING.md#pull-requests](CONTRIBUTING.md#pull-requests).
-- Add a change note in [docs/changes](docs/changes/README.md) for behaviour, API or tooling changes.
+- Add a changeset (`npm run changeset`, or `-- --empty` when users see no difference) to every PR that changes
+  `packages/`; CI enforces it. Never edit versions or `CHANGELOG.md` by hand, and never publish: see
+  [docs/releasing.md](docs/releasing.md).
 - [Open issues](docs/open-issues.md) records known limits and unperformed validation.

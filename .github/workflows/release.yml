@@ -1,0 +1,175 @@
+name: Release
+
+# Versions and publishes the library packages with Changesets (docs/releasing.md). Dormant until the
+# repository variable RELEASES_ENABLED is "true". Then each push to main either opens or updates the
+# "Version Packages" pull request (pending changesets), publishes the packages whose version is not on
+# npm yet, or does nothing. Packages with "private": true are versioned but never published, so this
+# workflow cannot publish anything until a package's "private" flag is removed.
+#
+# Publishing also requires the self-hosted GPU runner (repository variable GPU_RUNNER, see
+# docs/ci-gpu-runner.md): hosted runners cannot run the GPU browser suite, and a release must not ship
+# having passed only ordinary DOM. The publish job runs in the "npm" environment, which can require
+# an approval, and uses npm trusted publishing (no npm token is stored).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Reset permissions; each job declares only what it needs.
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  select-mode:
+    name: Select release mode
+    if: vars.RELEASES_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.select-mode.outputs.mode }}
+      publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.19.0
+      - name: Install locked dependencies (no browser download)
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      # "version" when changesets are pending, "publish" when a public package's version is not on npm,
+      # otherwise "none".
+      - name: Select Changesets mode
+        id: select-mode
+        uses: changesets/action/select-mode@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+
+  version:
+    name: Open or update the Version Packages pull request
+    needs: select-mode
+    if: needs.select-mode.outputs.mode == 'version'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.19.0
+      - name: Install locked dependencies (no browser download)
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Version packages
+        uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          # Also refreshes package-lock.json for the new workspace versions.
+          script: npm run version-packages
+
+  pack:
+    name: Validate and pack
+    needs: select-mode
+    if: needs.select-mode.outputs.mode == 'publish'
+    runs-on: ubuntu-latest
+    outputs:
+      pack-dir-artifact-id: ${{ steps.pack.outputs.pack-dir-artifact-id }}
+    permissions:
+      contents: read
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - name: Require the GPU runner
+        if: vars.GPU_RUNNER != 'true'
+        run: |
+          echo "::error::Publishing needs the self-hosted GPU runner for the browser suite (set GPU_RUNNER, see docs/ci-gpu-runner.md)."
+          exit 1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.19.0
+      - name: Install locked dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix fixtures/react18 --ignore-scripts --no-audit --no-fund
+      - name: Build
+        run: npm run build
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm run test:unit
+      - name: CSS compiler tests
+        run: node --test tests/compiler/*.test.mjs
+      - name: Exact archives for both React peers
+        run: node scripts/release-validation.mjs build-only
+      - name: Pack packages
+        id: pack
+        uses: changesets/action/pack@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          publish-plan-artifact-id: ${{ needs.select-mode.outputs.publish-plan-artifact-id }}
+
+  gpu:
+    name: GPU browser suite and installed consumers
+    needs: select-mode
+    if: needs.select-mode.outputs.mode == 'publish' && vars.GPU_RUNNER == 'true'
+    runs-on: [self-hosted, gpu]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.19.0
+      - name: Install locked dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm ci --prefix fixtures/react18 --ignore-scripts --no-audit --no-fund
+      - name: Probe WebGPU and HTML-in-Canvas
+        run: node scripts/ci-gpu-probe.mjs
+      - name: Build
+        run: npm run build
+      - name: Browser suite
+        run: node scripts/test-browser.mjs
+      - name: Installed-tarball consumers (React 18 and 19, flags on and off, DPR 1 and 2)
+        run: npm run test:package
+
+  publish:
+    name: Publish to npm
+    needs: [pack, gpu]
+    runs-on: ubuntu-latest
+    # Add required reviewers to this environment to approve each publish.
+    environment: npm
+    permissions:
+      contents: write # git tags and GitHub releases
+      id-token: write # npm trusted publishing and provenance
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24.19.0
+      - name: Use the npm that supports trusted publishing
+        run: npm install --global npm@11.17.0 --ignore-scripts
+      - name: Install locked dependencies (no browser download)
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Publish packages
+        uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          pack-dir-artifact-id: ${{ needs.pack.outputs.pack-dir-artifact-id }}

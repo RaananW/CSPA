@@ -20,15 +20,13 @@ test("the release identity belongs only to the library workspaces, not the tooli
   assert.match(root.scripts.prepack, /Tooling root is not the release package/);
   assert.deepEqual(root.workspaces, ["packages/core", "packages/react", "packages/vue", "packages/css-compiler", "examples/playground", "examples/showcase"]);
   assert.equal(core.name, "@underglass/core");
-  assert.equal(core.version, "0.1.0");
-  assert.equal(core.private, true);
   assert.deepEqual(Object.keys(core.exports), [".", "./build", "./experimental-worker", "./experimental-worker/thread"]);
   assert.equal(library.name, "@underglass/react");
-  assert.equal(library.version, "0.1.0");
-  assert.equal(library.private, true);
+  assert.equal(library.version, core.version);
   assert.deepEqual(Object.keys(library.exports), [".", "./build", "./experimental-worker", "./experimental-worker/thread"]);
+  // The example apps are never released and take whatever library version the workspace holds.
   assert.equal(playground.private, true);
-  assert.equal(playground.dependencies[library.name], library.version);
+  assert.equal(playground.dependencies[library.name], "*");
 });
 
 // The core runtime must stay framework-neutral, and every adapter must share it rather than bundle a copy.
@@ -42,7 +40,6 @@ test("the core package has no framework dependency and each adapter depends on i
   // The Vue adapter has exactly one framework peer, Vue, and no React.
   assert.equal(vue.name, "@underglass/vue");
   assert.equal(vue.version, core.version);
-  assert.equal(vue.private, true);
   assert.deepEqual(Object.keys(vue.exports), ["."]);
   assert.deepEqual(vue.dependencies, { [core.name]: core.version });
   assert.deepEqual(vue.peerDependencies, { vue: "^3.5.0" });
@@ -69,7 +66,7 @@ test("both committed lock lanes retain distinct actual React peer ownership", as
   assert.deepEqual(root["node_modules/@underglass/core"], { resolved: "packages/core", link: true });
   assert.deepEqual(root["node_modules/@underglass/react"], { resolved: "packages/react", link: true });
   assert.deepEqual(root["node_modules/@underglass/playground"], { resolved: "examples/playground", link: true });
-  for (const directory of ["packages/core", "packages/react"]) {
+  for (const directory of ["packages/core", "packages/react", "packages/vue", "packages/css-compiler"]) {
     const library = JSON.parse(await readFile(`${directory}/package.json`, "utf8"));
     assert.equal(root[directory].version, library.version);
     assert.deepEqual(root[directory].dependencies, library.dependencies);

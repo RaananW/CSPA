@@ -34,10 +34,11 @@ const executable = process.env.CANVAS_BROWSER_EXECUTABLE;
 if (lane !== "build-only" && executable) await access(executable);
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const manifest = JSON.parse(await readFile("packages/react/package.json", "utf8"));
-assert.equal(manifest.private, true); assert.equal(manifest.version, "0.1.0");
 // The framework-neutral runtime the React package depends on; validated and packed alongside it.
 const coreManifest = JSON.parse(await readFile("packages/core/package.json", "utf8"));
-assert.equal(coreManifest.private, true); assert.equal(coreManifest.version, manifest.version);
+// The libraries release in lockstep (`.changeset/config.json`), and the React package pins exactly that core.
+assert.equal(coreManifest.version, manifest.version, "Library versions must match");
+assert.equal(manifest.dependencies[coreManifest.name], coreManifest.version, "The React package must pin the current core version");
 // Release evidence lives in a git-ignored root; the run refuses to start if that root is not ignored.
 const parent = join(root, "evidence/phase14");
 assert.equal(process.env.CANVAS_RELEASE_ROOT, undefined, "Release root overrides are refused; prior archives are read-only");
@@ -160,7 +161,7 @@ try {
     const peer = join(directory, `react${major}`);
     await mkdir(peer);
     // Sources and configuration for the copy; `node_modules`, `dist` and Vite caches are not copied.
-    const copied = ["packages", "examples", "tests", "scripts", "vite.config.ts", "package-lock.json",
+    const copied = ["packages", "examples", "tests", "scripts", ".changeset", "vite.config.ts", "package-lock.json",
       "README.md", "docs/distribution.md", "docs/showcase.md", ".github/workflows/showcase-pages.yml"];
     for (const path of copied) await cp(join(root, path), join(peer, path), {
       recursive: true, filter: path => !["node_modules", "dist", "owned-vite-cache"].includes(basename(path)),
