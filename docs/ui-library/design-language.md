@@ -278,6 +278,10 @@ A surface's shadow follows from the light and its height. No component chooses i
   multiplies it by `state.pressHeight` (0.25).
 - **Outside the box:** shadows may fall outside a panel's box (the GPU outset, P0.5). They never
   receive hits.
+- **Analytic, everywhere.** Every caster in the language is a rounded footprint or a circle, so every
+  presentation draws shadows from this one formula: the Relief pass, a shader quad per caster at the Objects
+  level, and `box-shadow` in CSS. Shadow maps are reserved for free-form meshes at the Scene level; at the
+  Objects level their resolution, depth bias and fitted bounds cut and detach the shadow of a thin panel.
 
 ## 8. Colour
 
@@ -567,5 +571,6 @@ packages are thin bindings that render the same markup and wire the same behavio
   Objects and CSS, after the tuning page showed materials were too subtle to see.
 - 2026-10-15: screen-locked raised tops (section 6), the dark studio environment, and the captured-text
   anti-aliasing note (section 9).
+- 2026-10-15: shadows are analytic in every presentation (section 7).
 - 2026-10-15: added section 18: standalone-first layers, one markup contract, React, Vue and Astro
   bindings, and server rendering.
