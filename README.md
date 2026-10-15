@@ -136,6 +136,7 @@ framework-neutral runtime exported from `packages/core/src/index.ts`.
 | --- | --- |
 | `packages/core` | The framework-neutral runtime (private package `@underglass/core`): GPU engine, mount boundary, enrollment, motion, effects |
 | `packages/underglass` | The React adapter (private package `@underglass/react`): React bindings over core, ESM entry, declarations, prepack build |
+| `packages/vue` | The Vue 3 adapter (private package `@underglass/vue`): Vue components and composables over core ([guide](docs/guide/frameworks.md)) |
 | `packages/css-compiler` | Opt-in build-time CSS compiler with Vite/webpack adapters ([guide](packages/css-compiler/README.md)) |
 | `examples/playground` | Engineering HTML pages, demo apps and probes (Vite root) |
 | `examples/showcase` | Private public-facing React gallery |

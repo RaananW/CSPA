@@ -3,10 +3,10 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { packageFiles, corePackageFiles, validatePackageContents } from "../../scripts/package-policy.mjs";
+import { packageFiles, corePackageFiles, vuePackageFiles, validatePackageContents } from "../../scripts/package-policy.mjs";
 
 test("distribution allowlist rejects demos, evidence, source maps and private artifacts", () => {
-  for (const expected of [packageFiles, corePackageFiles]) {
+  for (const expected of [packageFiles, corePackageFiles, vuePackageFiles]) {
     const valid = expected.map(path => ({ path, size: 1 }));
     assert.doesNotThrow(() => validatePackageContents(valid, expected));
     for (const path of ["src/demo.tsx", "dist/library/index.js.map", "dist/library/extra.js",

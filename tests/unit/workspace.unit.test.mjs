@@ -18,7 +18,7 @@ test("the release identity belongs only to the library workspaces, not the tooli
   assert.equal(root.devDependencies["@radix-ui/react-dialog"], undefined);
   assert.equal(root.devDependencies["@babylonjs/lite-gl"], undefined);
   assert.match(root.scripts.prepack, /Tooling root is not the release package/);
-  assert.deepEqual(root.workspaces, ["packages/core", "packages/underglass", "packages/css-compiler", "examples/playground", "examples/showcase"]);
+  assert.deepEqual(root.workspaces, ["packages/core", "packages/underglass", "packages/vue", "packages/css-compiler", "examples/playground", "examples/showcase"]);
   assert.equal(core.name, "@underglass/core");
   assert.equal(core.version, "0.1.0");
   assert.equal(core.private, true);
@@ -31,13 +31,31 @@ test("the release identity belongs only to the library workspaces, not the tooli
   assert.equal(playground.dependencies[library.name], library.version);
 });
 
-// The core runtime must stay framework-neutral, and the React adapter must share it rather than bundle a copy.
-test("the core package has no framework dependency and the React package depends on it", async () => {
+// The core runtime must stay framework-neutral, and every adapter must share it rather than bundle a copy.
+test("the core package has no framework dependency and each adapter depends on it", async () => {
   const core = JSON.parse(await readFile("packages/core/package.json", "utf8"));
   const library = JSON.parse(await readFile("packages/underglass/package.json", "utf8"));
+  const vue = JSON.parse(await readFile("packages/vue/package.json", "utf8"));
   assert.equal(core.peerDependencies, undefined);
   for (const name of Object.keys(core.dependencies)) assert.doesNotMatch(name, /^(react|react-dom|vue|svelte|solid-js)$/);
   assert.deepEqual(library.dependencies, { [core.name]: core.version });
+  // The Vue adapter has exactly one framework peer, Vue, and no React.
+  assert.equal(vue.name, "@underglass/vue");
+  assert.equal(vue.version, core.version);
+  assert.equal(vue.private, true);
+  assert.deepEqual(Object.keys(vue.exports), ["."]);
+  assert.deepEqual(vue.dependencies, { [core.name]: core.version });
+  assert.deepEqual(vue.peerDependencies, { vue: "^3.5.0" });
+});
+
+// Framework-neutral sources must never import a UI framework: core imports none, the Vue adapter only Vue.
+test("core sources import no UI framework and the Vue adapter imports no React", async () => {
+  const { readdir } = await import("node:fs/promises");
+  for (const [directory, forbidden] of [["packages/core/src", /from "(react|react-dom|vue)(\/[^"]*)?"/], ["packages/vue/src", /from "(react|react-dom)(\/[^"]*)?"/]]) {
+    for (const file of await readdir(directory)) {
+      assert.doesNotMatch(await readFile(`${directory}/${file}`, "utf8"), forbidden, `${directory}/${file}`);
+    }
+  }
 });
 
 // The root lock pins React 19.3.0 and the React 18 fixture lock pins 18.3.1; each library's own lock entry must match its package.json.

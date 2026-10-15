@@ -268,7 +268,7 @@ try {
       `const api = await import(${JSON.stringify(manifest.name)}); const expected = ["GPUHost","Surface","Box","NativeScroll","NativeOverlay","Presence","useSurfaceRef","useNativeOverlayHost","useGPUHost","mountCanvasApp","createCanvasHosts","EnrollmentError","mountApplicationModule","defineEffect"].sort(); if (JSON.stringify(Object.keys(api).sort()) !== JSON.stringify(expected)) throw Error("Public runtime export contract changed"); console.log(Object.keys(api).sort());`],
       consumer, `react${major}-consumer-safe-import`);
     await command([vite, "build"], consumer, `react${major}-consumer-production`);
-    const peerResult = { major, version, sourceMode: "physical workspace library/playground copy; all ten production pages and task pilot", dependencyMode: "physical independent writable copy; optimizer caches excluded",
+    const peerResult = { major, version, sourceMode: "physical workspace library/playground copy; all production pages and task pilot", dependencyMode: "physical independent writable copy; optimizer caches excluded",
       archive: { sha256: sha(await readFile(archive)), bytes: (await readFile(archive)).length, members: installedRecords }, browsers: [] };
     result.peers.push(peerResult);
     // Browser lanes: serve the source-mode pilot (from the peer copy) and the packaged consumer app, and run

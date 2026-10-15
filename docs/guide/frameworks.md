@@ -1,13 +1,61 @@
 # Other frameworks and plain DOM
 
-Underglass is split in two. `@underglass/core` is the runtime: the GPU engine, the
-mount boundary, layers, motion and effects. It imports no UI framework.
-`@underglass/react` is a thin React adapter over it. Anything that can put elements
-in a `<div>` can use the core: plain DOM, another framework's adapter, or an Astro
-island that uses one of them.
+Underglass is split into a runtime and adapters. `@underglass/core` is the runtime:
+the GPU engine, the mount boundary, layers, motion and effects. It imports no UI
+framework. `@underglass/react` and `@underglass/vue` are thin adapters over it.
+Anything that can put elements in a `<div>` can use the core: plain DOM, a framework
+adapter, or an Astro island that uses one of them (with a `client:only` directive,
+since GPU presentation runs only in the browser).
 
 Everything in [Concepts](concepts.md) still holds. Layers are original elements, the
 GPU draws them, and native hit testing, focus and input stay on those elements.
+
+## Vue
+
+`@underglass/vue` is the Vue 3 adapter (`vue@^3.5`). It has the same components as
+the React package, written as Vue components:
+
+```ts
+import { createCanvasHosts, mountCanvasApp } from "@underglass/vue";
+import App from "./App.vue";
+
+const gpu = mountCanvasApp(createCanvasHosts(document.getElementById("stage")!), App);
+await gpu.enable();
+```
+
+```vue
+<script setup lang="ts">
+import { ref } from "vue";
+import { Surface, useGPUHost } from "@underglass/vue";
+
+const gpu = useGPUHost();
+const name = ref("Ada");
+</script>
+
+<template>
+  <Surface id="profile" origin="center"
+    :layout="{ x: 40, y: 40, width: 280, height: 160, padding: 16, direction: 'column', gap: 8 }"
+    :appearance="{ background: 'white', color: '#1d1b26', radius: 16 }">
+    <label for="name">Name</label>
+    <input id="name" v-model="name" />
+    <button @click="gpu.setTransform('profile', { rotation: 4 })">Tilt</button>
+  </Surface>
+</template>
+```
+
+- `mountCanvasApp(options, RootComponent, rootProps?)` creates the one persistent
+  Vue app. Pass `configure(app)` in the options to install plugins (a router, a
+  store) before it mounts.
+- `Surface`, `Box`, `NativeScroll`, `NativeOverlay` and `Presence` take the same
+  props as in React. `Presence` emits `complete` instead of calling `onComplete`.
+- `useSurfaceRef({ id })` returns a callback for `:ref`; bind it to your own
+  top-level element. The options may be a ref or getter.
+- `useGPUHost()` and `useNativeOverlayHost()` work in `setup`.
+- Vue re-applies every key of a `:style` object on each update. Never bind
+  `transform`, `opacity` or `transform-origin` on a layer element: the runtime
+  owns them while the GPU presents, and rewriting them turns GPU off.
+
+The playground page `vue.html` is a complete example.
 
 ## Plain DOM
 
@@ -59,8 +107,9 @@ The playground page `vanilla.html` is a complete example.
 
 ## Writing an adapter
 
-A framework adapter has three jobs, and the React adapter in
-`packages/underglass/src/react.tsx` shows each of them in about 200 lines:
+A framework adapter has three jobs. The React adapter
+(`packages/underglass/src/react.tsx`) and the Vue adapter (`packages/vue/src/index.ts`)
+each show them in about 250 lines:
 
 1. **Mount once.** Construct a `CanvasRuntime` with the hosts and a
    `mount(container, runtime)` callback that creates exactly one persistent framework
@@ -68,11 +117,15 @@ A framework adapter has three jobs, and the React adapter in
    GPU changes: the runtime moves the container with `moveBefore`, which keeps the
    framework's DOM and state.
 2. **Register layers.** For a typed layer component, render one `<section drawable>`
-   with `compileStyle(layout, appearance, true)` plus `transform-origin: 0 0`, then
-   call `runtime.register({ id, element, layout, transform, origin, decorative })`
-   once the element is in the DOM. Forward later changes with `runtime.update` and
+   styled with `compileStyle(layout, appearance, true)`, then call
+   `runtime.register({ id, element, layout, transform, origin, decorative })` once
+   the element is in the DOM. Forward later changes with `runtime.update` and
    `runtime.setOrigin`, and call the returned release when it unmounts. For refs to
-   the user's own elements, use `runtime.enroll(element, { id })`.
+   the user's own elements, use `runtime.enroll(element, { id })`. Never write
+   `transform`, `opacity` or `transform-origin` on a registered element: the runtime
+   owns them (it sets `transform-origin: 0 0` itself) and treats any rewrite as a
+   conflict that turns GPU off. Frameworks that re-apply a whole style object on
+   every update, like Vue, must leave those properties out of it.
 3. **Reconcile after each update.** Call `runtime.requestReconcile()` after the
    framework patches the DOM and before the browser paints (React's layout effects,
    Vue's post-flush hooks). Calls in one update coalesce into one GPU frame.
