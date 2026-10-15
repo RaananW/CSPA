@@ -416,8 +416,10 @@ These are design questions the spec or a phase answers, not open plan decisions:
 
 - Exact token values (light angles, heights, radii, palette), settled through the
   Phase 1 prototypes.
-- The adjust policy's default thresholds, settled by P0.4 measurements.
-- The mesh budget, settled by P0.4. (Relief primitives: settled at 256 per panel by P0.3,
+- The adjust policy's default thresholds, from measurements on a low-end GPU (P0.4 found no pressure
+  on a fast machine).
+- The draw-call budget per panel, once the Tier A objects exist. P0.4 showed instances are cheap
+  ([report](phase0.md#p04-object-pass)). (Relief primitives: settled at 256 per panel by P0.3,
   [Phase 0 report](phase0.md#p02-p03-and-p05-relief-material-pass-its-cost-and-the-shadow-outset).)
 - ~~Whether panel tilt at rest is allowed, settled by P0.1.~~ Settled: allowed. P0.1 passed
   on Canary 158 ([Phase 0 report](phase0.md#p01-projective-hits)).
