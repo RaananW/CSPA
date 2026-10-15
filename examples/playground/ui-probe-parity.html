@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata probe: CSS parity</title>
+  <style>
+    body { margin: 24px; background: white; color: black; font: 16px system-ui; }
+    /* Same stage and panel geometry as ui-probe-relief.html, but plain DOM: the relief comes from CSS. */
+    #stage { position: relative; width: 640px; height: 420px; overflow: hidden; background: white; }
+    #face { position: absolute; left: 100px; top: 70px; width: 440px; height: 280px; box-sizing: border-box; padding: 20px 24px;
+      border-radius: 16px; background: rgb(233, 235, 239); color: rgb(28, 30, 36); font: 15px system-ui; }
+    #face h2 { margin: 0 0 12px; font-size: 18px; }
+    #face label { display: block; margin: 0 0 6px; }
+    #face input[type="text"] { box-sizing: border-box; width: 100%; height: 36px; margin: 0 0 14px; padding: 0 10px;
+      border: 0; border-radius: 8px; background: rgb(255, 255, 255); color: rgb(28, 30, 36); font: inherit; outline: none; }
+    #face .check { display: flex; align-items: center; gap: 8px; }
+    #face input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: rgb(37, 99, 235); outline: none; }
+    #face .row { position: absolute; right: 24px; bottom: 20px; display: flex; gap: 12px; }
+    #face button { height: 36px; padding: 0 18px; border: 0; border-radius: 8px; background: rgb(247, 248, 250);
+      color: rgb(28, 30, 36); font: 600 15px system-ui; outline: none; cursor: pointer; }
+    #face button.accent { background: rgb(37, 99, 235); color: white; }
+    #status { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Strata probe P0.6: CSS parity</h1>
+  <p>The relief probe's panel in plain HTML and CSS. Bevels, wells, cast shadows, states and the focus edge come
+    from a CSS recipe generated from the same tokens as the GPU pass. See <code>docs/ui-library/phase0.md</code>.</p>
+  <div id="stage"><div id="face">
+    <h2>Account</h2>
+    <label for="name">Name</label>
+    <input id="name" type="text" value="Ada Lovelace" data-relief="well">
+    <label class="check"><input id="news" type="checkbox" data-relief="well"> Send me the newsletter</label>
+    <div class="row"><button id="cancel" type="button" data-relief="raised">Cancel</button><button id="save" class="accent" type="button" data-relief="raised">Save</button></div>
+  </div></div>
+  <pre id="status" role="status"></pre>
+  <script type="module" src="/src/ui-probes/parity.ts"></script>
+</body>
+</html>

@@ -11,7 +11,7 @@ does; it is not Underglass runtime support, which still has to be built and test
 | P0.3 Relief cost | **Measured** (2026-10-15): budget 256 primitives per panel |
 | P0.4 Object pass | **Passed** (2026-10-15), with a taper rule for raised parts |
 | P0.5 Shadow outset | **Passed** (2026-10-15) |
-| P0.6 CSS parity | Not started |
+| P0.6 CSS parity | **Passed** (2026-10-15): budget mean ≤ 2, p95 ≤ 10 luminance levels |
 
 ## P0.1 Projective hits
 
@@ -270,6 +270,75 @@ this drift; you cannot have one without the other. Largest drift over the probe 
 - **Flat panel only:** objects on a tilted panel, and the CSS fallback for objects, are not
   probed.
 - **Fast machine:** timing comes from one fast machine; low-end GPUs are not measured.
+
+## P0.6 CSS parity
+
+**Question.** How close can the plain HTML and CSS presentation get to the GPU relief when both come
+from the same tokens?
+
+**Answer: close.** Over the whole 640 by 420 stage, the tuned CSS recipe differs from the GPU render
+by a mean of 1.3 luminance levels (of 255) and 7 levels at the 95th percentile, in every state.
+That is the **parity budget**: mean ≤ 2, p95 ≤ 10. The remaining difference sits in the bevel bands,
+which CSS can only approximate with inset shadows.
+
+### Method
+
+- **Pages:** [`ui-probe-parity.html`](../../examples/playground/ui-probe-parity.html), source
+  [`src/ui-probes/parity.ts`](../../examples/playground/src/ui-probes/parity.ts). It is the relief
+  probe's panel in plain DOM, at the same position.
+- **One token source:** the relief tokens now live in
+  [`src/ui-probes/tokens.ts`](../../examples/playground/src/ui-probes/tokens.ts), used by both the
+  GPU pass and the CSS recipe.
+- **The CSS recipe**, generated from the tokens:
+  - Cast shadows use the same light and heights: offset `−light.xy / light.z · h`.
+  - Bevels and wells are inset light and dark edges along the light axis.
+  - Hover and press change the height and apply `filter: brightness()` within the interior
+    budget.
+  - Focus is a 3 px accent outline.
+- **Recipe constants:** these are constants of the approximation (edge strengths, offsets, blurs),
+  not design tokens. They were tuned by a coordinate-descent sweep against the GPU render at
+  DPR 1, which cut the difference from mean 2.71 / p95 23 to 1.29 / 7.
+- **Test:** [`tests/browser/ui-probe-parity.test.mjs`](../../tests/browser/ui-probe-parity.test.mjs).
+  It drives rest, hover, press and keyboard focus with real input on both pages, with reduced
+  motion so CSS transitions do not blur the comparison. It then compares the stages pixel by pixel
+  in luminance, writes difference images, and holds every state to the budget.
+
+### Results
+
+Chrome Canary 158.0.8106.0, Windows 11, DPR 1 and 2, headless and headful (same results). Values are
+mean / 95th percentile luminance difference.
+
+| State | Whole stage | Bevel bands | Panel shadow | Control shadows | Face | Control interiors |
+| --- | --- | --- | --- | --- | --- | --- |
+| Rest | 1.28 / 7 | 6.26 / 16.3 | 2.74 / 8 | 0.98 / 7 | 0.17 / 0 | 0.83 / 8.0 |
+| Hover | 1.31 / 7 | 6.52 / 16.9 | 2.74 / 8 | 1.21 / 7 | 0.17 / 0 | 0.63 / 4.8 |
+| Press | 1.26 / 7 | 6.05 / 16 | 2.74 / 8 | 0.79 / 6 | 0.17 / 0 | 0.88 / 5.0 |
+| Focus | 1.80 / 8 | 6.36 / 16.9 | 2.74 / 8 | 8.51 / 139 | 0.17 / 0 | 1.27 / 7.6 |
+
+The table shows DPR 1; DPR 2 is within 0.15 of every whole-stage value.
+
+### What this settles for the plan
+
+- **The static look is achievable in CSS.** The plan's decision that the CSS fallback is a complete
+  design system for the static look holds: at rest, hover and press the two presentations differ by
+  about 1 level on average.
+- **Parity budget for later tests:** every component state must stay within mean ≤ 2 and
+  p95 ≤ 10 luminance levels of its GPU render. The spec's token build generates the CSS recipe
+  from the tokens. The recipe constants are tuned once per renderer change, not per component.
+- **Focus edge:** the GPU probe's focus ring uses a hard distance threshold, so it is aliased and
+  steps along its top edge at DPR 1. That is the 139-level outlier in the control-shadow band. Core's
+  material pass must anti-alias edges (`smoothstep` on the distance), as CSS outlines are.
+
+### Limits
+
+- **Relief only:** the Objects level has no CSS parity target. Its fallback is the CSS relief by
+  design.
+- **One panel and theme:** one layout and one light theme were compared; dark and high-contrast
+  themes come with the Phase 1 tokens.
+- **Luminance only:** hue differences are not measured. The recipe changes no hues except shadow
+  darkness, which is neutral.
+- **Tuning scope:** the recipe was tuned on this panel at DPR 1; other component shapes may need
+  their own check, which the parity test provides.
 
 ## Upstream check
 
