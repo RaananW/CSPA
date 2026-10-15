@@ -10,13 +10,14 @@
 import {
   addToScene, createBox, createCapsule, createDirectionalLight, createDynamicTexture, createEngine, createFreeCamera,
   createHemisphericLight, createPbrMaterial, createPcfDirectionalShadowGenerator, createSceneContext, createSphere,
-  markMaterialUboDirty, registerSceneWithShadowSupport, removeFromScene, renderFrame, setPbrEmissive,
+  loadHdrEnvironment, markMaterialUboDirty, registerSceneWithShadowSupport, removeFromScene, renderFrame, setPbrClearCoat, setPbrEmissive,
   setPbrUnlit, setShadowOnly, setShadowTaskCasterMeshes, vec3,
   type Material, type Mesh, type PbrMaterialProps,
 } from "@babylonjs/lite";
 import { offsetWithin, type DrawableCanvas } from "../ui-probes/common.ts";
 import { band, cap, frustum, type Rect } from "./geometry.ts";
-import { palette as lightPalette, type LookTokens, type Palette } from "./variants.ts";
+import { studioUrl } from "./studio.ts";
+import { defaultMaterial, palette as lightPalette, type LookTokens, type MaterialRecipe, type Palette } from "./variants.ts";
 
 interface DrawableQueue extends GPUQueue { drawElementImageToTexture(source: { source: Element }, destination: { texture: GPUTexture }): void }
 const srgbToLinear = (value: number) => { const c = value / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
@@ -31,7 +32,9 @@ const flip = query.get("flip") !== "0";
 interface ControlState { hover: number; pressed: number; focus: number; depth: number }
 
 /** Mounts the objects level for `face` (a drawable child of `canvas`); `look` and `palette` may be live getters. */
-export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lookSource: LookTokens | (() => LookTokens), paletteSource: Palette | (() => Palette) = lightPalette as unknown as Palette) {
+export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lookSource: LookTokens | (() => LookTokens), paletteSource: Palette | (() => Palette) = lightPalette as unknown as Palette,
+  materialSource: MaterialRecipe | (() => MaterialRecipe) = defaultMaterial) {
+  const currentMaterial = () => (typeof materialSource === "function" ? materialSource() : materialSource);
   const currentLook = () => (typeof lookSource === "function" ? lookSource() : lookSource);
   const currentPalette = () => (typeof paletteSource === "function" ? paletteSource() : paletteSource);
   const width = canvas.clientWidth, height = canvas.clientHeight, dpr = window.devicePixelRatio;
@@ -67,11 +70,17 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
   const initialLight = currentLook().light;
   // Lite's light direction is the way light travels: away from the light, in world axes (y up, +z away).
   const light = createDirectionalLight([-initialLight[0], initialLight[1], initialLight[2]], 1.6);
-  const ambient = createHemisphericLight([0, 0, -1], 0.55);
+  // The studio environment adds fill light, so the hemispheric fill is lower than without it.
+  const ambient = createHemisphericLight([0, 0, -1], 0.3);
   // Soft shadows: PCF on a deliberately coarse map, so its filter spans a few CSS pixels (a cheap penumbra).
   const shadows = createPcfDirectionalShadowGenerator(engine, light, { mapSize: shadowMap, bias: 5e-4, normalBias: 0.05 });
   light.shadowGenerator = shadows;
   addToScene(scene, light); addToScene(scene, ambient);
+  // Reflections for glossy, coated and metal materials: the studio panorama generated in code, no asset.
+  const environment = studioUrl();
+  try { await loadHdrEnvironment(scene, environment, { skipSkybox: true, skipGround: true, faceSize: 128 }); } finally { URL.revokeObjectURL(environment); }
+  // Loading an environment resets image processing; unlit captured faces need it off to keep exact colours.
+  scene.imageProcessing = { exposure: 1, contrast: 1, toneMappingEnabled: false };
   let registered = false;
 
   /** Adds meshes for the current look and palette to the scene, and points the light and clear colour at them. */
@@ -84,7 +93,15 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
     const meshes: Mesh[] = [], casters: Mesh[] = [];
     const add = (mesh: Mesh, material: Partial<PbrMaterialProps>, cast = true) => { mesh.material = asMaterial(material); addToScene(scene, mesh); meshes.push(mesh); if (cast) casters.push(mesh); return mesh; };
     const unlit = () => { const material = createPbrMaterial({ doubleSided: true, baseColorTexture: capture }); setPbrUnlit(material); return material; };
-    const pbr = (colour: readonly number[], roughness = look.roughness, metallic = look.sheen) => createPbrMaterial({ baseColorFactor: linear(colour), metallicFactor: metallic, roughnessFactor: roughness, doubleSided: true });
+    const pbr = (colour: readonly number[], roughness = look.roughness, metallic = look.sheen) => createPbrMaterial({ baseColorFactor: linear(colour), metallicFactor: metallic, roughnessFactor: roughness, doubleSided: true, environmentIntensity: 0.6 });
+    // Controls use the configured material recipe: base roughness and metallic plus a clear coat (always present,
+    // so the coat extension is registered before the scene is first built).
+    const recipe = currentMaterial();
+    const controlPbr = (colour: readonly number[]) => {
+      const material = createPbrMaterial({ baseColorFactor: linear(colour), metallicFactor: recipe.metallic, roughnessFactor: recipe.roughness, doubleSided: true, environmentIntensity: 0.8 });
+      setPbrClearCoat(material, { isEnabled: true, intensity: recipe.coat, roughness: recipe.coatRoughness, indexOfRefraction: 1.5 });
+      return material;
+    };
     const shadowOnly = () => { const material = createPbrMaterial({ doubleSided: true }); setShadowOnly(material, { color: [0, 0, 0], opacity: look.shadowStrength * shadowOpacity }); return material; };
 
     // Backdrop catcher, panel slab, captured panel face and a catcher on it.
@@ -102,15 +119,17 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
     const movers: { meshes: Mesh[]; control: HTMLElement; material: Partial<PbrMaterialProps>; travel: number; lift: number }[] = [];
     for (const button of buttons) {
       const r = rectOf(button), t = look.taper, radius = radiusOf(button);
-      const material = glowing(pbr(button.classList.contains("primary") ? palette.accent : palette.secondary));
+      const material = glowing(controlPbr(button.classList.contains("primary") ? palette.accent : palette.secondary));
       const sides = add(frustum(engine, world, "key", r, radius, look.keyHeight, t, flip), material);
       const topRect = { x: r.x + t, y: r.y + t, width: r.width - 2 * t, height: r.height - 2 * t };
       const top = add(cap(engine, world, "key-top", topRect, Math.max(1, radius - t), look.keyHeight + 0.05, extent, flip), unlit(), false);
+      // The coat shows as real reflections of the studio environment on the key's sides and edges. A flat top facing
+      // the viewer reflects what is behind the viewer, so it carries no band at this level (Relief and CSS draw one).
       movers.push({ meshes: [sides, top], control: button, material, travel: look.keyTravel, lift: look.keyHeight * 0.25 });
     }
     for (const field of fields) {
       const h = Math.max(1.5, look.keyHeight * 0.3);
-      const material = glowing(pbr(palette.secondary));
+      const material = glowing(controlPbr(palette.secondary));
       movers.push({ meshes: [add(band(engine, world, "bezel", rectOf(field), radiusOf(field), 4, h, Math.min(1.2, h / 2), flip), material)], control: field, material, travel: 0, lift: 0 });
     }
     const toggles = switches.map(input => {
@@ -120,7 +139,7 @@ export async function mountObjects(canvas: DrawableCanvas, face: HTMLElement, lo
       track.rotation.set(0, 0, Math.PI / 2);
       track.scaling.set(1, 1, Math.max(0.15, look.keyHeight / box.height * 0.6));
       track.position.set(...world(box.x + box.width / 2, box.y + box.height / 2, 0));
-      const knobMaterial = glowing(pbr(palette.knob, Math.max(0.2, look.roughness - 0.2), look.sheen));
+      const knobMaterial = glowing(controlPbr(palette.knob));
       const knob = add(createSphere(engine, { diameter: box.height - 6, segments: 32 }), knobMaterial);
       knob.scaling.set(1, 1, Math.min(1, 0.35 + look.keyHeight / 20));
       movers.push({ meshes: [], control: input, material: knobMaterial, travel: 0, lift: 0 });

@@ -28,6 +28,22 @@ test("Strata tuning redraws every presentation from the settings and keeps nativ
   for (const name of ["relief", "objects", "css"]) expect(difference(medium[name], subtle[name]), `${name} redraws for depth 0`).toBeGreaterThan(0.01);
   expect(page.url()).toContain("depth=0");
 
+  // A material change (lacquer: a glass-coated finish) redraws every presentation, and the captured panel keeps its
+  // exact colour in the Objects view (the studio environment must not tone-map unlit faces).
+  await page.evaluate(() => window.strataTuning.set({ depth: 0.5 }));
+  await page.waitForTimeout(600);
+  const matte = { relief: await shot("relief"), objects: await shot("objects"), css: await shot("css") };
+  await page.evaluate(() => window.strataTuning.setMaterial("lacquer"));
+  await page.waitForTimeout(900);
+  for (const name of ["relief", "objects", "css"]) expect(difference(matte[name], await shot(name)), `${name} redraws for lacquer`).toBeGreaterThan(0.001);
+  expect(page.url()).toContain("mat=lacquer");
+  const panel = await page.locator("#name-objects").evaluate(element => { const face = element.closest(".face").getBoundingClientRect(); return { x: face.left + face.width - 40, y: face.top + 60 }; });
+  const objects = await shot("objects");
+  const stage = await page.locator(".objects .stage").boundingBox();
+  const index = (Math.round(panel.y - stage.y) * objects.width + Math.round(panel.x - stage.x)) * 4;
+  expect([...objects.data.subarray(index, index + 3)], "captured panel colour in the Objects view").toEqual([233, 235, 239]);
+  await page.evaluate(() => window.strataTuning.setMaterial("matte"));
+
   // A light change re-lights the objects in place: the stage around the panel keeps its colour (no black clear).
   for (const azimuth of [200, 90]) {
     await page.evaluate(value => window.strataTuning.set({ azimuth: value }), azimuth);

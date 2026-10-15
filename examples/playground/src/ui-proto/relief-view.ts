@@ -6,15 +6,16 @@
  * (`data-relief-control`, else the element itself) and only change the primitive buffer.
  */
 import { bufferUsage, firstPaint, offsetWithin, startProbe, type DrawableCanvas } from "../ui-probes/common.ts";
-import { palette as lightPalette, type LookTokens, type Palette } from "./variants.ts";
+import { defaultMaterial, materialPresets, palette as lightPalette, type LookTokens, type MaterialRecipe, type Palette } from "./variants.ts";
 
 const floatsPerPrimitive = 12;
 const capacity = 64;
 const outset = 40;
 
 const shader = /* wgsl */ `
-// look: (hover height gain, press height loss, bevel gain, hover lift); stage: (press sink, stage rgb).
-struct Uniforms { matrix: mat4x4f, canvas: vec2f, extent: vec2f, light: vec4f, params: vec4f, misc: vec4f, look: vec4f, stage: vec4f }
+// look: (hover height gain, press height loss, bevel gain, hover lift); stage: (press sink, stage rgb);
+// matte and material: (base roughness, metallic, coat strength, coat roughness) for panels and for controls.
+struct Uniforms { matrix: mat4x4f, canvas: vec2f, extent: vec2f, light: vec4f, params: vec4f, misc: vec4f, look: vec4f, stage: vec4f, matte: vec4f, material: vec4f }
 struct Primitive { rect: vec4f, shape: vec4f, state: vec4f }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 @group(0) @binding(1) var image: texture_2d<f32>;
@@ -49,6 +50,7 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
   var shade = 0.0;
   var interior = 1.0;
   var glow = 0.0;
+  var band = 0.0;
   for (var i = 0u; i < u32(u.misc.x); i++) {
     let primitive = primitives[i];
     let raised = primitive.shape.z < 0.5;
@@ -66,6 +68,7 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
     }
     let t = clamp(-d / u.params.y, 0, 1);
     let edge = 1 - smoothstep(-0.5, 0.5, d);
+    let recipe = select(u.matte, u.material, primitive.state.w > 0.5);
     if (t < 1) {
       let e = 0.5;
       let gradient = normalize(vec2f(distanceTo(p + vec2f(e, 0), primitive) - distanceTo(p - vec2f(e, 0), primitive),
@@ -73,14 +76,26 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
       let angle = (1 - t) * 1.2;
       let slope = select(-1.0, 1.0, raised);
       let normal = normalize(vec3f(gradient * slope * sin(angle), cos(angle)));
-      shade += (dot(normal, light) - light.z) * u.look.z * edge;
+      let halfway = normalize(light + vec3f(0, 0, 1));
+      let facing = max(dot(normal, halfway), 0.0);
+      // Base specular: a lobe that narrows as roughness falls; metal reflects more strongly.
+      let specular = pow(facing, mix(160.0, 6.0, recipe.x)) * (1 - recipe.x) * mix(0.35, 1.0, recipe.y);
+      // Clear coat: a sharp highlight plus a Fresnel rim where the bevel turns away from the viewer.
+      let fresnel = 0.04 + 0.96 * pow(1 - clamp(normal.z, 0, 1), 5);
+      let coat = recipe.z * (pow(facing, mix(90.0, 10.0, recipe.w)) * 0.9 + fresnel * 0.6);
+      shade += ((dot(normal, light) - light.z) * u.look.z * (1 + 0.5 * recipe.y) + specular * 0.7 + coat) * edge;
     } else {
-      interior *= 1 + clamp(u.look.w * hover - u.stage.x * pressed, -u.light.w, u.light.w);
+      // Face interiors (where text may sit): gloss and the coat's top highlight stay inside the interior budget.
+      let along = clamp((p.y - primitive.rect.y) / max(primitive.rect.w, 1.0), 0, 1);
+      let gloss = recipe.z * 0.02 + (1 - recipe.x) * 0.01;
+      interior *= 1 + clamp(u.look.w * hover - u.stage.x * pressed + gloss, -u.light.w, u.light.w);
+      // Coat band: the coat's reflection across the top quarter of a raised control's face, clear of centred labels.
+      if (primitive.state.w > 0.5) { band = max(band, recipe.z * 0.38 * (1 - smoothstep(0.08, 0.27, along)) * smoothstep(0.0, 0.04, along)); }
     }
     // Anti-aliased focus edge from 0.5 to 3.5 px outside the shape.
     if (primitive.state.z > 0.5) { glow = max(glow, smoothstep(0.0, 1.0, d) * (1 - smoothstep(3.0, 4.0, d))); }
   }
-  var lit = (base * interior + vec3f(shade)) * (1 - shadow);
+  var lit = mix((base * interior + vec3f(shade)) * (1 - shadow), vec3f(1), band);
   lit = mix(lit, u.misc.yzw, glow);
   return vec4f(clamp(lit, vec3f(0), vec3f(1)), 1);
 }
@@ -90,7 +105,9 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
  * Mounts the relief level for `face` (a drawable child of `canvas`). `look` and `palette` are read on every frame
  * (pass functions for live tuning); `update()` redraws with the current values without a new capture.
  */
-export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, lookSource: LookTokens | (() => LookTokens), paletteSource: Palette | (() => Palette) = lightPalette as unknown as Palette) {
+export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, lookSource: LookTokens | (() => LookTokens), paletteSource: Palette | (() => Palette) = lightPalette as unknown as Palette,
+  materialSource: MaterialRecipe | (() => MaterialRecipe) = defaultMaterial) {
+  const currentMaterial = () => (typeof materialSource === "function" ? materialSource() : materialSource);
   const currentLook = () => (typeof lookSource === "function" ? lookSource() : lookSource);
   const currentPalette = () => (typeof paletteSource === "function" ? paletteSource() : paletteSource);
   const width = canvas.clientWidth, height = canvas.clientHeight;
@@ -103,7 +120,7 @@ export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, loo
     fragment: { module, entryPoint: "fragmentMain", targets: [{ format: gpu.format }] },
     primitive: { topology: "triangle-strip" },
   });
-  const uniforms = device.createBuffer({ size: 160, usage: bufferUsage.UNIFORM | bufferUsage.COPY_DST });
+  const uniforms = device.createBuffer({ size: 192, usage: bufferUsage.UNIFORM | bufferUsage.COPY_DST });
   const storage = device.createBuffer({ size: capacity * floatsPerPrimitive * 4, usage: bufferUsage.STORAGE | bufferUsage.COPY_DST });
   const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
   let bindGroup: GPUBindGroup | undefined;
@@ -125,10 +142,10 @@ export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, loo
       // A control's focus edge is drawn once, around its outermost shape.
       const focus = state.focus && !element.parentElement?.closest("[data-relief]") ? 1 : 0;
       data.set([at.x, at.y, element.offsetWidth, element.offsetHeight, radius(element), well ? look.wellDepth : look.raisedHeight, well ? 1 : 0, 0,
-        state.hover, state.pressed, focus, 0], (index + 1) * floatsPerPrimitive);
+        state.hover, state.pressed, focus, well ? 0 : 1], (index + 1) * floatsPerPrimitive);
     });
     device.queue.writeBuffer(storage, 0, data);
-    const values = new Float32Array(40);
+    const values = new Float32Array(48);
     values.set(matrix.toFloat32Array(), 0);
     values.set([width, height, face.offsetWidth, face.offsetHeight], 16);
     values.set([...look.light, look.interiorMax], 20);
@@ -136,6 +153,9 @@ export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, loo
     values.set([data.length / floatsPerPrimitive, ...palette.accent.map(channel => channel / 255)], 28);
     values.set([look.hoverHeight - 1, 1 - look.pressHeight, look.bevelGain, look.hoverLift], 32);
     values.set([look.pressSink, ...palette.stage.map(channel => channel / 255)], 36);
+    const recipe = currentMaterial(), matte = materialPresets.matte!;
+    values.set([matte.roughness, matte.metallic, matte.coat, matte.coatRoughness], 40);
+    values.set([recipe.roughness, recipe.metallic, recipe.coat, recipe.coatRoughness], 44);
     device.queue.writeBuffer(uniforms, 0, values);
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bindGroup!);
