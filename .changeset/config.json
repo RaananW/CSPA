@@ -3,7 +3,7 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "format": false,
-  "fixed": [["@underglass/core", "@underglass/react", "@underglass/vue", "@underglass/css-compiler"]],
+  "fixed": [["@underglass/core", "@underglass/react", "@underglass/vue", "@underglass/css-compiler", "@underglass/ui"]],
   "linked": [],
   "access": "public",
   "baseBranch": "main",

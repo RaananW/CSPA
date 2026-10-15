@@ -1,0 +1,12 @@
+# @underglass/ui
+
+## 0.1.0
+
+Baseline development version. Never published; recorded here so the first published release has a
+starting point.
+
+- Strata design tokens (`@underglass/ui/tokens`, `@underglass/ui/tokens.json`): the W3C Design Tokens
+  source, depth and theme resolution, contrast helpers and validation against the design language's
+  invariants.
+- The token stylesheet (`@underglass/ui/css/tokens.css`): CSS custom properties with depth blending,
+  the light vector, light, dark and high-contrast themes, and density.

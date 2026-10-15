@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@underglass/react": "*",
+    "@underglass/ui": "*",
     "@underglass/vue": "*",
     "vue": "3.5.43",
     "@radix-ui/react-dialog": "1.2.0",

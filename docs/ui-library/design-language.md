@@ -4,7 +4,8 @@
 [Phase 0 report](phase0.md) proves what is technically possible, and the
 [prototypes](prototypes.md) settled the look. This document defines the language: its rules,
 its tokens with their defaults and allowed ranges, and how each presentation renders them. The
-machine-readable tokens are in [`tokens/strata.tokens.json`](tokens/strata.tokens.json).
+machine-readable tokens are in [`strata.tokens.json`](../../packages/ui/src/tokens/strata.tokens.json), in the
+`@underglass/ui` package.
 
 Strata is **configurable by design**. Almost every value below is a token that an application,
 a part of a page or a visitor's preference may change, within validated ranges. A short list of
@@ -311,6 +312,18 @@ themes beyond light and dark.
 | `knob` | 252, 252, 253 | 236, 238, 242 | Knobs and thumbs |
 | `edge` | 118, 124, 136 | 132, 139, 154 | Boundaries of wells, tracks and knobs |
 
+- **High-contrast themes:** `contrast` and `contrast-dark` take over from light and dark under
+  `prefers-contrast: more`, or when set explicitly. Surfaces (`stage`, `panel`, `field`, `secondary`,
+  `track`, `knob`) are white or black, text and `edge` are the opposite, and the bevel gain is 0.
+
+  | Role | `contrast` | `contrast-dark` |
+  | --- | --- | --- |
+  | `muted` | 46, 49, 56 | 215, 218, 224 |
+  | `accent`, `info` | 0, 64, 192 | 140, 180, 255 |
+  | `success` | 0, 100, 40 | 110, 220, 150 |
+  | `warning` | 138, 60, 0 | 255, 190, 90 |
+  | `danger` | 168, 20, 20 | 255, 150, 150 |
+
 - **Text on role colours** (`on-accent`, `on-success` and so on) is derived: white or near-black
   (16, 18, 22), whichever contrasts more.
 - **Lit contrast:** with the defaults, every role keeps at least 4.7:1 with its text at the
@@ -600,3 +613,5 @@ packages are thin bindings that render the same markup and wire the same behavio
   (section 17). From their review: the `edge` colour and non-text contrast rules, a darker dark-theme
   `track` (the accent fill reached only 2.5:1), objects for the remaining Tier A controls, wells that keep
   their depth on hover and press, cards at `raised`, and the inline-link target exemption.
+- 2026-10-16: the high-contrast themes `contrast` and `contrast-dark` (section 8). The token source moved to the
+  `@underglass/ui` package, which validates it and generates the token stylesheet.
