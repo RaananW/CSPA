@@ -1,14 +1,15 @@
 /**
- * Convenience scaffolding for the explicit mount boundary. `mountCanvasApp` requires empty,
- * connected, same-document sibling hosts outside every React root; `createCanvasHosts` builds
- * them inside an application-owned frame so callers do not hand-write the host styles.
+ * Convenience scaffolding for the explicit mount boundary. Mount functions (`mountCanvasApp`,
+ * `mountApplicationModule`) require empty, connected, same-document sibling hosts outside every
+ * framework root; `createCanvasHosts` builds them inside an application-owned frame so callers do
+ * not hand-write the host styles.
  */
 
-/** The adapter-owned hosts returned by `createCanvasHosts`, ready to pass to `mountCanvasApp`. */
+/** The adapter-owned hosts returned by `createCanvasHosts`, ready to pass to a mount function. */
 export interface CanvasHosts {
-  /** Owning WebGPU output canvas; in GPU mode the original React root is moved inside it. */
+  /** Owning WebGPU output canvas; in GPU mode the original application root is moved inside it. */
   outputCanvas: HTMLCanvasElement;
-  /** Holds the original React root before GPU admission and after recovery or `disable()`. */
+  /** Holds the original application root before GPU admission and after recovery or `disable()`. */
   ordinaryHost: HTMLDivElement;
   /** Empty host for `NativeOverlay` portals; native dialogs and popovers stay outside capture. */
   overlayHost: HTMLDivElement;

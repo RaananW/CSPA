@@ -8,9 +8,10 @@ import { readFile, writeFile } from "node:fs/promises";
 // The public runtime surface, by name: a change here is an API change.
 assert.deepEqual(Object.keys(runtime).sort(), ["Box", "EnrollmentError", "GPUHost", "NativeOverlay", "NativeScroll", "Presence", "Surface",
   "createCanvasHosts", "defineEffect", "mountApplicationModule", "mountCanvasApp", "useGPUHost", "useNativeOverlayHost", "useSurfaceRef"]);
-// The worker entries must not ship the main-thread shader builder or private engine fields.
-for (const entry of ["experimental-worker", "experimental-worker/thread"]) {
-  assert.doesNotMatch(await readFile(new URL(import.meta.resolve(`@underglass/react/${entry}`)), "utf8"),
+// The worker entries (the React adapter's and the core primitives they build on) must not ship the
+// main-thread shader builder or private engine fields.
+for (const name of ["@underglass/react", "@underglass/core"]) for (const entry of ["experimental-worker", "experimental-worker/thread"]) {
+  assert.doesNotMatch(await readFile(new URL(import.meta.resolve(`${name}/${entry}`)), "utf8"),
     /compositionShader|fn effectFragment|private _device/);
 }
 // Capacity 8 matches the largest layer count the fixture mounts.

@@ -7,7 +7,7 @@
  */
 import postcss from "postcss";
 import valueParser from "postcss-value-parser";
-import { affine, compileTimeline, parseTransform } from "@underglass/react/build";
+import { affine, compileTimeline, parseTransform } from "@underglass/core/build";
 import { validateConfig, readConfig } from "./config.mjs";
 import { generateModule } from "./generate.mjs";
 

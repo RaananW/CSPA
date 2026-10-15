@@ -8,6 +8,6 @@ declare module "virtual:underglass/compiled" {
    * Prebuilt WGSL compositor program and native-geometry samplers for every configured entry, in
    * `underglass.config.json` order. Produced by the Vite or webpack adapter at production build time.
    */
-  const compiled: import("@underglass/react").CompiledProgramSet;
+  const compiled: import("@underglass/core").CompiledProgramSet;
   export default compiled;
 }

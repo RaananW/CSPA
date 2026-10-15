@@ -87,14 +87,22 @@ try {
   const library = join(tree, "packages/underglass");
   const site = join(tree, "examples/showcase");
   await command(["--test", "tests/unit/showcase.unit.test.mjs", "tests/unit/workspace.unit.test.mjs", "tests/unit/release.unit.test.mjs"], tree, "focused-units");
+  // Install a freshly built library into the copy's `node_modules` under its public package name, so the
+  // showcase resolves it as a published package rather than a workspace link.
+  async function publish(directory, name) {
+    const installed = join(tree, "node_modules", name);
+    await mkdir(installed, { recursive: true });
+    await cp(join(directory, "package.json"), join(installed, "package.json"));
+    await cp(join(directory, "dist"), join(installed, "dist"), { recursive: true });
+  }
+  // Core first: the React library's declarations resolve the installed core package.
+  const coreLibrary = join(tree, "packages/core");
+  await command([vite, "build"], coreLibrary, "core-build");
+  await command([tsc, "-p", "tsconfig.json"], coreLibrary, "core-declarations");
+  await publish(coreLibrary, "@underglass/core");
   await command([vite, "build"], library, "library-build");
   await command([tsc, "-p", "tsconfig.json"], library, "library-declarations");
-  // Install the freshly built library into the copy's `node_modules` under its public package name, so the
-  // showcase resolves it as a published package rather than a workspace link.
-  const publicLibrary = join(tree, "node_modules/@underglass/react");
-  await mkdir(publicLibrary, { recursive: true });
-  await cp(join(library, "package.json"), join(publicLibrary, "package.json"));
-  await cp(join(library, "dist"), join(publicLibrary, "dist"), { recursive: true });
+  await publish(library, "@underglass/react");
   await command([tsc, "--noEmit"], site, "showcase-types");
   await command([vite, "build"], site, "showcase-project-build");
   await command([join(tree, "scripts/check-showcase-assets.mjs")], site, "showcase-output-guard");

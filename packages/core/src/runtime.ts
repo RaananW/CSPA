@@ -80,15 +80,24 @@ export interface RuntimeOptions extends Omit<MountBoundaryOptions, "mount"> {
   admissionPolicy?: AdmissionPolicy;
   /**
    * Called once, synchronously during construction, with the stable adapter-owned container. It mounts one
-   * React root there and returns that root's unmount, which final disposal calls exactly once.
+   * persistent framework root (React, Vue, plain DOM, ...) there and returns that root's unmount, which final
+   * disposal calls exactly once.
    */
   mount(container: HTMLDivElement, runtime: CanvasRuntime): () => void;
 }
 
 /**
- * Runtime controller for one mounted application. Its public methods form the `CanvasController`
- * (`react.tsx`), plus `register`, `enroll`, `update` and `requestReconcile`, which `Surface`, `useSurfaceRef`
- * and `GPUHost` call from layout effects. After `dispose()` the mutating methods throw `Runtime is disposed`.
+ * The narrow controller every mount function returns (`mountApplicationModule`, and `mountCanvasApp` in
+ * `@underglass/react`): enrollment, transforms, motion, effects and the `enable`/`disable`/`dispose`
+ * lifecycle. See `docs/api.md`.
+ */
+export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "setOrigin" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "ownCompiledAnimation" | "createMotion" | "advance" | "setRipple" | "setEffects">;
+
+/**
+ * Runtime controller for one mounted application. Its public methods form the `CanvasController`, plus
+ * `register`, `update`, `setOrigin`, `requestReconcile` and `overlayHost`, which framework adapters (the
+ * React `Surface`, `useSurfaceRef` and `GPUHost`) call after each commit. After `dispose()` the mutating
+ * methods throw `Runtime is disposed`.
  */
 export class CanvasRuntime {
   /** The shared renderer; undefined only while its creation runs the synchronous mount callback. */

@@ -44,20 +44,24 @@ is added. Earlier installed-consumer records below remain historical.
 
 ```sh
 npm run build:library
-npm pack --workspace @underglass/react --dry-run --json
-# Choose an ignored directory for the actual archive:
+npm pack --workspace @underglass/core --workspace @underglass/react --dry-run --json
+# Choose an ignored directory for the actual archives:
 npm run pack:library -- --pack-destination fixtures/package-consumer/workspaces
-# In a separate React application, install the actual generated .tgz:
-npm install /path/to/underglass-react-0.1.0.tgz
+# In a separate React application, install both generated .tgz files (the
+# React package depends on the framework-neutral core runtime):
+npm install /path/to/underglass-core-0.1.0.tgz /path/to/underglass-react-0.1.0.tgz
 ```
 
 Create the pack destination first. `prepack` rebuilds the intentional
 library entries with existing Vite and emits TypeScript declarations. The
 unchanged runtime root is ESM `@underglass/react`; additional explicit
 exports are `/build`, `/experimental-worker` and `/experimental-worker/thread`.
-CommonJS and internal subpath imports are unsupported. The current allowlist
-contains33 members: manifest, README, this contract, four JS entries and their
-required declaration graph. No source maps, tests, demos, evidence, profiles,
+The React package depends on `@underglass/core` and never bundles it, so its
+entries import the core runtime from the installed package.
+CommonJS and internal subpath imports are unsupported. The React allowlist
+contains 13 members: manifest, README, `LICENSE`, this contract, four JS
+entries and their five declarations. The core allowlist contains 33 members:
+manifest, README, `LICENSE`, four JS entries and their required declaration graph. No source maps, tests, demos, evidence, profiles,
 absolute local paths or app-owned worker/program assets ship.
 The default runtime still constructs WGSL internally without shader fetch.
 Compiled CSS and worker routes use literal build-generated shader artifacts;

@@ -7,7 +7,9 @@ User-facing behaviour is described in [docs/guide](docs/guide/getting-started.md
 
 ## Layout
 
-- `packages/underglass`: the library, the only package that is packed.
+- `packages/core`: the framework-neutral runtime (`@underglass/core`); it must never import a UI framework.
+- `packages/underglass`: the React adapter (`@underglass/react`), which depends on core. Core and the
+  adapters are the only packages that are packed.
 - `packages/css-compiler`: the opt-in build-time CSS compiler.
 - `examples/playground`: engineering pages and probes; `examples/showcase`: the public gallery.
 - `tests/unit`, `tests/browser`, `tests/compiler`, `tests/helpers`. The React 18 fixture is separately locked.

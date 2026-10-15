@@ -1,10 +1,10 @@
 /**
- * Unit tests for the 2D affine helpers in `packages/underglass/src/affine.ts` (transform composition,
+ * Unit tests for the 2D affine helpers in `packages/core/src/affine.ts` (transform composition,
  * inverse, pivot and CSS matrix output). Pure maths, no browser. Run with `npm run test:unit`.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { affine, inverse, pivot, point, cssMatrix } from "../../packages/underglass/src/affine.ts";
+import { affine, inverse, pivot, point, cssMatrix } from "../../packages/core/src/affine.ts";
 
 // Round trip: mapping a point forward and back through the inverse must return it within floating point error.
 test("canonical affine transform and inverse agree for rotation/scale/translation", () => {

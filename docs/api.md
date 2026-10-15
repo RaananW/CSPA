@@ -4,7 +4,9 @@
 external local archive, not files in this checkout. Only compact verdicts
 remain tracked; [archive access, hashes and reproduction](archive/archive-catalog.md).
 
-The intentional source entry point is `packages/underglass/src/index.ts`. This private
+The intentional source entry point is `packages/underglass/src/index.ts`, the
+React adapter; it re-exports the framework-neutral helpers and types of
+`@underglass/core` (`packages/core/src/index.ts`). This private
 experimental package has no published package name or stability promise.
 Do not import demo facades or internal renderer classes into application code.
 The private prepared tarball now exports the same API at
@@ -41,6 +43,8 @@ worker backend.
 | `@underglass/react/build` | Build-only compositor/animation generators, including `workerCompositorProgram(1..8)`. Do not import this entry into the compiled browser runtime. |
 | `@underglass/react/experimental-worker` | `mountWorkerCanvasApp`, `WorkerSurface` and public worker types. Essential/native-control geometry is fixed; only inert decoration animates. |
 | `@underglass/react/experimental-worker/thread` | `startWorkerCompositor(self)` for an application-owned module worker. React, DOM/layout and native capture remain main-thread. |
+| `@underglass/core` | The framework-neutral runtime for framework adapters and plain-DOM applications: `CanvasRuntime`, `compileStyle` (typed `Layout`/`Appearance` to a `CompiledStyle` of complete string values), `affine`/`pivot`, plus every helper and type `@underglass/react` re-exports. Imports no UI framework. |
+| `@underglass/core/build`, `/experimental-worker`, `/experimental-worker/thread` | Framework-neutral originals of the React package's `/build` and `/experimental-worker/thread` entries, and the worker protocol and capture primitives the React worker controller builds on. |
 
 Compiled and worker runtime routes consume prebuilt shaders; the default
 noncompiled route still generates WGSL internally. Device-specific pipeline

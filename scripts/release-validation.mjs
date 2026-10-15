@@ -1,5 +1,5 @@
 /**
- * Release validation of the `@underglass/react` package for both supported React peers (18.3.1 and 19.3.0).
+ * Release validation of the `@underglass/react` package (with the `@underglass/core` runtime it depends on) for both supported React peers (18.3.1 and 19.3.0).
  * For each peer it copies the repository into a clean workspace and runs the unit tests, typechecks, builds
  * the library and the playground, packs the library, checks the archive against the exact allowlist, installs
  * the archive into a fresh consumer app, typechecks and builds that app, and (for the `dom` and `native`
@@ -23,7 +23,7 @@ import { resolve, join, basename } from "node:path";
 import { createServer } from "node:net";
 import { arch, platform, release, cpus, totalmem } from "node:os";
 import { copyDependencies, assertPhysicalTree, prepareReleaseRoot, dependencyVersion } from "./release-policy.mjs";
-import { validatePackageContents, packageFiles } from "./package-policy.mjs";
+import { validatePackageContents, packageFiles, corePackageFiles } from "./package-policy.mjs";
 import { withPlatform, devNull, tarArgs } from "../tests/helpers/process.mjs";
 
 const root = resolve(".");
@@ -35,6 +35,9 @@ if (lane !== "build-only" && executable) await access(executable);
 const sha = bytes => createHash("sha256").update(bytes).digest("hex");
 const manifest = JSON.parse(await readFile("packages/underglass/package.json", "utf8"));
 assert.equal(manifest.private, true); assert.equal(manifest.version, "0.1.0");
+// The framework-neutral runtime the React package depends on; validated and packed alongside it.
+const coreManifest = JSON.parse(await readFile("packages/core/package.json", "utf8"));
+assert.equal(coreManifest.private, true); assert.equal(coreManifest.version, manifest.version);
 // Release evidence lives in a git-ignored root; the run refuses to start if that root is not ignored.
 const parent = join(root, "evidence/phase14");
 assert.equal(process.env.CANVAS_RELEASE_ROOT, undefined, "Release root overrides are refused; prior archives are read-only");
@@ -69,7 +72,8 @@ async function records(directory) {
   return entries;
 }
 async function sourceRecords() {
-  return [...await records(join(root, "packages/underglass/src")), ...await records(join(root, "examples/playground/src"))];
+  return [...await records(join(root, "packages/core/src")), ...await records(join(root, "packages/underglass/src")),
+    ...await records(join(root, "examples/playground/src"))];
 }
 // Source hashes taken now and compared at the end, to prove the run did not change the code it validated.
 const sourceBefore = await sourceRecords();
@@ -79,6 +83,7 @@ const inputs = [...sourceBefore, ...await Promise.all(["package.json", "package-
   "fixtures/react18/package-lock.json", "packages/underglass/package.json", "packages/underglass/README.md",
   "examples/playground/package.json", "README.md", "docs/distribution.md", "docs/showcase.md", "examples/playground/todo.html",
   "examples/playground/tsconfig.json", "packages/underglass/tsconfig.json", "packages/underglass/vite.config.ts",
+  "packages/core/package.json", "packages/core/README.md", "packages/core/tsconfig.json", "packages/core/vite.config.ts",
   "examples/playground/vite.config.ts", "vite.config.ts", "tests/browser/playwright.config.mjs",
   "fixtures/package-consumer/todo-main.tsx", "fixtures/package-consumer/tsconfig.json", "fixtures/package-consumer/public-types.ts",
   "scripts/release-validation.mjs", "scripts/release-policy.mjs", "scripts/release-pilot.mjs",
@@ -185,6 +190,7 @@ try {
     const vite = join(peer, "node_modules/vite/bin/vite.js");
     const playground = join(peer, "examples/playground");
     const library = join(peer, "packages/underglass");
+    const coreLibrary = join(peer, "packages/core");
     const unitPaths = (await readdir(join(peer, "tests/unit"))).filter(path => path.endsWith(".unit.test.mjs")).map(path => `tests/unit/${path}`);
     await command(["--test", ...unitPaths], peer, `react${major}-units`);
     // Build a source-mode pilot: the packaged todo entry rewritten to import the library from source.
@@ -194,36 +200,57 @@ try {
     await writeFile(join(peer, "source-pilot.config.mjs"), 'import config from "./examples/playground/vite.config.ts"; import {resolve} from "node:path"; export default {...config,cacheDir:resolve("owned-vite-cache"),build:{...config.build,target:"esnext",rollupOptions:{input:[...config.build.rollupOptions.input,resolve("examples/playground/source-pilot.html")]}}};');
     await command([tsc, "-p", "examples/playground/tsconfig.json"], peer, `react${major}-source-types`);
     await command([vite, "build", "--config", "source-pilot.config.mjs"], peer, `react${major}-production`);
+    // Pack a library without lifecycle scripts, require the file list (npm's report and the archive's own
+    // listing) to match `allowlist` exactly, and return the archive path.
+    async function pack(directory, allowlist, label) {
+      const packed = JSON.parse(await command(["pack", "--ignore-scripts", "--json", "--pack-destination", peer], directory, label, "npm"))[0];
+      validatePackageContents(packed.files, allowlist);
+      const archive = join(peer, packed.filename);
+      const members = execFileSync("tar", tarArgs(["-tzf", archive]), { encoding: "utf8" }).trim().split(/\r?\n/);
+      assert.deepEqual(members.map(path => path.replace(/^package\//, "")).sort(), allowlist);
+      return archive;
+    }
+    // Extracts `archive` as the physical package `name` under `modules`.
+    async function extract(archive, modules, name) {
+      const installed = join(modules, name);
+      await mkdir(installed, { recursive: true });
+      execFileSync("tar", tarArgs(["-xzf", archive, "--strip-components=1", "-C", installed]));
+      return installed;
+    }
+    // Core first, then installed into the peer as a physical package so the React build resolves it
+    // exactly as a downstream project would (the copied tree has no workspace links).
+    await command([vite, "build"], coreLibrary, `react${major}-core-library`);
+    await command([tsc, "-p", "tsconfig.json"], coreLibrary, `react${major}-core-declarations`);
+    const coreArchive = await pack(coreLibrary, corePackageFiles, `react${major}-core-pack`);
+    await extract(coreArchive, join(peer, "node_modules"), coreManifest.name);
     await command([vite, "build"], library, `react${major}-library`);
     await command([tsc, "-p", "tsconfig.json"], library, `react${major}-declarations`);
     await command([join(library, "scripts/prepare-package.mjs")], library, `react${major}-package-docs`);
-    // Pack the library without lifecycle scripts, and require the file list to match the allowlist exactly.
-    const output = await command(["pack", "--ignore-scripts", "--json", "--pack-destination", peer], library, `react${major}-pack`, "npm");
-    const packed = JSON.parse(output)[0];
-    validatePackageContents(packed.files);
-    const archive = join(peer, packed.filename);
-    const members = execFileSync("tar", tarArgs(["-tzf", archive]), { encoding: "utf8" }).trim().split(/\r?\n/);
-    assert.deepEqual(members.map(path => path.replace(/^package\//, "")).sort(), packageFiles);
-    // The consumer app installs the packed archive as a dependency, as a downstream project would.
+    const archive = await pack(library, packageFiles, `react${major}-pack`);
+    // The consumer app installs the packed archives as dependencies, as a downstream project would. The
+    // core archive arrives with the peer's dependencies, where it was extracted above.
     const consumer = join(peer, "consumer");
     await mkdir(consumer);
     await copyDependencies(join(peer, "node_modules"), join(consumer, "node_modules"));
-    const installed = join(consumer, "node_modules", manifest.name);
-    await mkdir(installed);
-    execFileSync("tar", tarArgs(["-xzf", archive, "--strip-components=1", "-C", installed]));
+    const installed = await extract(archive, join(consumer, "node_modules"), manifest.name);
+    const installedCore = join(consumer, "node_modules", coreManifest.name);
     assert.equal(sha(await readFile(join(installed, "package.json"))), sha(await readFile(join(root, "packages/underglass/package.json"))),
       "Fresh public package must retain the exact current manifest, independent of the physical test peer");
+    assert.equal(sha(await readFile(join(installedCore, "package.json"))), sha(await readFile(join(root, "packages/core/package.json"))),
+      "Fresh core package must retain the exact current manifest, independent of the physical test peer");
     const installedRecords = [];
-    // Every packed file must match the file built in the library directory byte for byte, and must not
+    // Every packed file must match the file built in its library directory byte for byte, and must not
     // contain local paths or probe/test hooks.
-    for (const path of packageFiles) {
-      const bytes = await readFile(join(installed, path));
-      assert.equal(sha(bytes), sha(await readFile(join(library, path))), `Exact archive member differs: ${path}`);
-      assert.ok(!/\/Users\/|session-state|integrationProbe|runtimeProbe/.test(bytes.toString()), `Package privacy violation: ${path}`);
-      installedRecords.push({ path, bytes: bytes.length, sha256: sha(bytes) });
+    for (const [packageRoot, built, allowlist, prefix] of [[installed, library, packageFiles, ""], [installedCore, coreLibrary, corePackageFiles, `${coreManifest.name}/`]]) {
+      for (const path of allowlist) {
+        const bytes = await readFile(join(packageRoot, path));
+        assert.equal(sha(bytes), sha(await readFile(join(built, path))), `Exact archive member differs: ${prefix}${path}`);
+        assert.ok(!/\/Users\/|session-state|integrationProbe|runtimeProbe/.test(bytes.toString()), `Package privacy violation: ${prefix}${path}`);
+        installedRecords.push({ path: `${prefix}${path}`, bytes: bytes.length, sha256: sha(bytes) });
+      }
     }
     await writeFile(join(consumer, "package.json"), JSON.stringify({ name: `private-release-react${major}`, version: "0.0.0", private: true, type: "module",
-      dependencies: { [manifest.name]: `file:${archive}`, react: version, "react-dom": version } }, null, 2));
+      dependencies: { [manifest.name]: `file:${archive}`, [coreManifest.name]: `file:${coreArchive}`, react: version, "react-dom": version } }, null, 2));
     for (const path of ["tsconfig.json", "public-types.ts"]) await cp(join(peer, "fixtures/package-consumer", path), join(consumer, path));
     await cp(join(peer, "fixtures/package-consumer/todo-main.tsx"), join(consumer, "main.tsx"));
     await writeFile(join(consumer, "index.html"), (await readFile(join(playground, "todo.html"), "utf8")).replace("/src/demo/todo-demo.tsx", "/main.tsx"));

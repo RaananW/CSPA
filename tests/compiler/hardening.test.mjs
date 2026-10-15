@@ -5,7 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { compileStylesheet } from "../../packages/css-compiler/src/index.mjs";
-import { sameEasing } from "../../packages/underglass/src/compiled.ts";
+import { sameEasing } from "../../packages/core/src/compiled.ts";
 
 // Minimal keyframes (translate and fade) named `name`.
 const frames = (name = "float") => `@keyframes ${name} {

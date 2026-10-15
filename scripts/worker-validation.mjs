@@ -1,7 +1,7 @@
 /**
  * Validation of the experimental worker presentation path (`@underglass/react/experimental-worker`, see
- * docs/worker.md). In an isolated copy of the repository it builds and packs the library, installs the
- * packed archive, builds the fixture app in `fixtures/worker/app`, and runs functional proofs in a real
+ * docs/worker.md). In an isolated copy of the repository it builds and packs `@underglass/core` and the
+ * library, installs both packed archives, builds the fixture app in `fixtures/worker/app`, and runs functional proofs in a real
  * browser (pixels, native input, rollback, media and DPR changes, refusals, cancellation, disposal),
  * followed by a CSS / main-thread / worker timing comparison.
  *
@@ -24,7 +24,7 @@ import { createServer } from "node:http";
 import { chromium } from "@playwright/test";
 import { PNG } from "pngjs";
 import { copyDependencies, assertPhysicalTree, assertPhysicalPath, assertBrowserIdentity, assertRuntimePeer } from "./release-policy.mjs";
-import { validatePackageContents } from "./package-policy.mjs";
+import { validatePackageContents, packageFiles, corePackageFiles } from "./package-policy.mjs";
 import { browserLaunchOptions } from "../tests/helpers/browser.mjs";
 import { withPlatform, devNull, tarArgs } from "../tests/helpers/process.mjs";
 
@@ -68,9 +68,10 @@ async function inputs(directory) {
       else records.push({ path: child, sha256: hash(await readFile(join(directory, child))) });
     }
   }
-  for (const path of ["packages/underglass/src", "fixtures/worker/app"]) await visit(path);
+  for (const path of ["packages/core/src", "packages/underglass/src", "fixtures/worker/app"]) await visit(path);
   for (const path of ["packages/underglass/package.json", "packages/underglass/README.md",
-    "packages/underglass/vite.config.ts", "docs/distribution.md", "scripts/worker-validation.mjs",
+    "packages/underglass/vite.config.ts", "packages/core/package.json", "packages/core/README.md",
+    "packages/core/vite.config.ts", "docs/distribution.md", "scripts/worker-validation.mjs",
     "package.json", "package-lock.json"]) records.push({ path, sha256: hash(await readFile(join(directory, path))) });
   return records;
 }
@@ -151,19 +152,26 @@ try {
   await assertPhysicalTree(tree);
   assert.deepEqual(await inputs(tree), report.inputs, "Physical worker source inputs differ");
   const node = process.execPath, vite = join(tree, "node_modules/vite/bin/vite.js"), tsc = join(tree, "node_modules/typescript/bin/tsc");
-  const library = join(tree, "packages/underglass");
+  const library = join(tree, "packages/underglass"), coreLibrary = join(tree, "packages/core");
+  const archiveDir = join(run, "archive"); await mkdir(archiveDir);
+  // Pack a library and extract the archive into the copy's `node_modules`, so the fixture uses the
+  // published file set rather than the workspace sources. Returns the archive record for the report.
+  async function packAndInstall(directory, name, allowlist, label) {
+    const packed = JSON.parse(await command("npm", ["pack", "--ignore-scripts", "--json", "--pack-destination", archiveDir], directory, `${label}-pack`))[0];
+    validatePackageContents(packed.files, allowlist);
+    const archive = join(archiveDir, packed.filename);
+    const installed = join(tree, "node_modules", name); await mkdir(installed, { recursive: true });
+    await command("tar", tarArgs(["-xzf", archive, "-C", installed, "--strip-components=1"], tree), tree, `${label}-extract`);
+    return { sha256: hash(await readFile(archive)), bytes: packed.size, members: packed.files.length };
+  }
+  // Core first: the React build and declarations resolve the installed core package.
+  await command(node, [vite, "build"], coreLibrary, "core-build");
+  await command(node, [tsc, "-p", "tsconfig.json"], coreLibrary, "core-types");
+  report.coreArchive = await packAndInstall(coreLibrary, "@underglass/core", corePackageFiles, "core-package");
   await command(node, [vite, "build"], library, "library-build");
   await command(node, [tsc, "-p", "tsconfig.json"], library, "library-types");
-  // Pack the library and extract the archive into the copy's `node_modules`, so the fixture uses the
-  // published file set rather than the workspace sources.
-  const archiveDir = join(run, "archive"); await mkdir(archiveDir);
   await command(node, ["scripts/prepare-package.mjs"], library, "package-guide");
-  const packed = JSON.parse(await command("npm", ["pack", "--ignore-scripts", "--json", "--pack-destination", archiveDir], library, "package-pack"))[0];
-  validatePackageContents(packed.files);
-  const archive = join(archiveDir, packed.filename);
-  report.archive = { sha256: hash(await readFile(archive)), bytes: packed.size, members: packed.files.length };
-  const installed = join(tree, "node_modules/@underglass/react"); await mkdir(installed, { recursive: true });
-  await command("tar", tarArgs(["-xzf", archive, "-C", installed, "--strip-components=1"], tree), tree, "extract-package");
+  report.archive = await packAndInstall(library, "@underglass/react", packageFiles, "package");
   const app = join(tree, "fixtures/worker/app");
   // The fixture precompiles its shader into `program.json` before the build; its size and capacity are
   // recorded in the report.

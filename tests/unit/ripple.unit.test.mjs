@@ -1,10 +1,10 @@
 /**
- * Unit test for `validateRipple` in `packages/underglass/src/ripple.ts`: parameter bounds and the
+ * Unit test for `validateRipple` in `packages/core/src/ripple.ts`: parameter bounds and the
  * `playing` default. Run with `npm run test:unit`.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateRipple } from "../../packages/underglass/src/ripple.ts";
+import { validateRipple } from "../../packages/core/src/ripple.ts";
 
 test("bounded decorative effect parameters reject atomically", () => {
   assert.deepEqual(validateRipple({ amplitude: 0, seconds: 10 }), { amplitude: 0, seconds: 10, playing: false });

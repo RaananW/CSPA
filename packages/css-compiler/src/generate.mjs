@@ -4,7 +4,7 @@
  * runtime's per-layer compositor program, plus matching JS samplers that drive native hit geometry.
  * The JS twins emulate f32 arithmetic with `Math.fround` so GPU motion and native geometry agree.
  */
-import { layerShader } from "@underglass/react/build";
+import { layerShader } from "@underglass/core/build";
 
 /** Formats a number as WGSL source; integers get a `.0` suffix so they are written as float literals. */
 const literal = value => Number.isInteger(value) ? `${value}.0` : String(value);
