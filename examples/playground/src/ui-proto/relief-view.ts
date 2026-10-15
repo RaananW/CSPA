@@ -6,14 +6,15 @@
  * (`data-relief-control`, else the element itself) and only change the primitive buffer.
  */
 import { bufferUsage, firstPaint, offsetWithin, startProbe, type DrawableCanvas } from "../ui-probes/common.ts";
-import { palette, type LookTokens } from "./variants.ts";
+import { palette as lightPalette, type LookTokens, type Palette } from "./variants.ts";
 
 const floatsPerPrimitive = 12;
 const capacity = 64;
 const outset = 40;
 
-const shader = (look: LookTokens) => /* wgsl */ `
-struct Uniforms { matrix: mat4x4f, canvas: vec2f, extent: vec2f, light: vec4f, params: vec4f, misc: vec4f }
+const shader = /* wgsl */ `
+// look: (hover height gain, press height loss, bevel gain, hover lift); stage: (press sink, stage rgb).
+struct Uniforms { matrix: mat4x4f, canvas: vec2f, extent: vec2f, light: vec4f, params: vec4f, misc: vec4f, look: vec4f, stage: vec4f }
 struct Primitive { rect: vec4f, shape: vec4f, state: vec4f }
 @group(0) @binding(0) var<uniform> u: Uniforms;
 @group(0) @binding(1) var image: texture_2d<f32>;
@@ -42,7 +43,7 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
   let p = in.local;
   let inside = all(p >= vec2f(0)) && all(p <= u.extent);
   let sample = textureSampleLevel(image, imageSampler, clamp(p / u.extent, vec2f(0), vec2f(1)), 0);
-  let base = mix(vec3f(1), sample.rgb, select(0.0, sample.a, inside));
+  let base = mix(u.stage.yzw, sample.rgb, select(0.0, sample.a, inside));
   let light = normalize(u.light.xyz);
   var shadow = 0.0;
   var shade = 0.0;
@@ -54,7 +55,7 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
     let hover = primitive.state.x;
     let pressed = primitive.state.y;
     var height = primitive.shape.y;
-    if (raised) { height = height * (1 + ${look.hoverHeight - 1} * hover) * (1 - ${1 - look.pressHeight} * pressed); }
+    if (raised) { height = height * (1 + u.look.x * hover) * (1 - u.look.y * pressed); }
     let d = distanceTo(p, primitive);
     if (raised && d > -1) {
       let offset = -light.xy / light.z * height;
@@ -72,9 +73,9 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
       let angle = (1 - t) * 1.2;
       let slope = select(-1.0, 1.0, raised);
       let normal = normalize(vec3f(gradient * slope * sin(angle), cos(angle)));
-      shade += (dot(normal, light) - light.z) * ${look.bevelGain} * edge;
+      shade += (dot(normal, light) - light.z) * u.look.z * edge;
     } else {
-      interior *= 1 + clamp(${look.hoverLift} * hover - ${look.pressSink} * pressed, -u.light.w, u.light.w);
+      interior *= 1 + clamp(u.look.w * hover - u.stage.x * pressed, -u.light.w, u.light.w);
     }
     // Anti-aliased focus edge from 0.5 to 3.5 px outside the shape.
     if (primitive.state.z > 0.5) { glow = max(glow, smoothstep(0.0, 1.0, d) * (1 - smoothstep(3.0, 4.0, d))); }
@@ -85,19 +86,24 @@ fn distanceTo(p: vec2f, primitive: Primitive) -> f32 {
 }
 `;
 
-/** Mounts the relief level for `face` (a drawable child of `canvas`) with the given look. */
-export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, look: LookTokens) {
+/**
+ * Mounts the relief level for `face` (a drawable child of `canvas`). `look` and `palette` are read on every frame
+ * (pass functions for live tuning); `update()` redraws with the current values without a new capture.
+ */
+export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, lookSource: LookTokens | (() => LookTokens), paletteSource: Palette | (() => Palette) = lightPalette as unknown as Palette) {
+  const currentLook = () => (typeof lookSource === "function" ? lookSource() : lookSource);
+  const currentPalette = () => (typeof paletteSource === "function" ? paletteSource() : paletteSource);
   const width = canvas.clientWidth, height = canvas.clientHeight;
   const gpu = await startProbe(canvas, width, height);
   const { device } = gpu;
-  const module = device.createShaderModule({ code: shader(look) });
+  const module = device.createShaderModule({ code: shader });
   const pipeline = device.createRenderPipeline({
     layout: "auto",
     vertex: { module, entryPoint: "vertexMain" },
     fragment: { module, entryPoint: "fragmentMain", targets: [{ format: gpu.format }] },
     primitive: { topology: "triangle-strip" },
   });
-  const uniforms = device.createBuffer({ size: 128, usage: bufferUsage.UNIFORM | bufferUsage.COPY_DST });
+  const uniforms = device.createBuffer({ size: 160, usage: bufferUsage.UNIFORM | bufferUsage.COPY_DST });
   const storage = device.createBuffer({ size: capacity * floatsPerPrimitive * 4, usage: bufferUsage.STORAGE | bufferUsage.COPY_DST });
   const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
   let bindGroup: GPUBindGroup | undefined;
@@ -109,6 +115,7 @@ export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, loo
   const radius = (element: Element) => parseFloat(getComputedStyle(element).borderTopLeftRadius) || 0;
 
   function encode(pass: GPURenderPassEncoder) {
+    const look = currentLook(), palette = currentPalette();
     const data = new Float32Array((1 + elements.length) * floatsPerPrimitive);
     data.set([0, 0, face.offsetWidth, face.offsetHeight, radius(face), look.panelHeight, 0, 0, 0, 0, 0, 0], 0);
     elements.forEach((element, index) => {
@@ -121,12 +128,14 @@ export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, loo
         state.hover, state.pressed, focus, 0], (index + 1) * floatsPerPrimitive);
     });
     device.queue.writeBuffer(storage, 0, data);
-    const values = new Float32Array(32);
+    const values = new Float32Array(40);
     values.set(matrix.toFloat32Array(), 0);
     values.set([width, height, face.offsetWidth, face.offsetHeight], 16);
     values.set([...look.light, look.interiorMax], 20);
     values.set([outset, look.bevel, look.shadowStrength, 1], 24);
     values.set([data.length / floatsPerPrimitive, ...palette.accent.map(channel => channel / 255)], 28);
+    values.set([look.hoverHeight - 1, 1 - look.pressHeight, look.bevelGain, look.hoverLift], 32);
+    values.set([look.pressSink, ...palette.stage.map(channel => channel / 255)], 36);
     device.queue.writeBuffer(uniforms, 0, values);
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bindGroup!);
@@ -155,5 +164,5 @@ export async function mountRelief(canvas: DrawableCanvas, face: HTMLElement, loo
   canvas.updateElementGeometry(face, { canvasTransform: matrix });
   await firstPaint(canvas);
   await drawing;
-  return { counts: () => ({ ...gpu.counts }), settle: () => drawing };
+  return { counts: () => ({ ...gpu.counts }), settle: () => drawing, update: () => redraw() };
 }

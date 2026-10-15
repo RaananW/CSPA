@@ -48,6 +48,8 @@ Requirements:
 | Accessibility | WCAG 2.2 AA and WAI-ARIA Authoring Practices, fully supported and tested, with automated checking (axe) as a test dependency. |
 | Dialog and Drawer | Enrolled top-level panels (`role="dialog"`, `aria-modal`, inert background), so the highest elevation gets GPU depth, provided they pass the same native focus and keyboard tests as `<dialog>`. |
 | Meshes | Generated in code from tokens (parametric), so object proportions follow the tokens. No authored mesh assets. |
+| Look (2026-10-15, from the prototypes) | Between the subtle (A) and medium (B) prototypes, leaning strongly to B. Depth is a **setting**: 0% = A, 50% = B, 100% = C, blending every depth token continuously. The default is 50%, centred on the chosen look ([tuning page](prototypes.md#tuning-page)). |
+| Light and theme | **Configurable per application**, with defaults: light from the top left (azimuth 323°, elevation 41°), light theme, neutral greys, blue accent. Dark theme alongside. |
 
 ## Constraints that shape the language
 
@@ -94,9 +96,10 @@ bevels and materials come from the same objects.
   land on the original `<button>` or `<input>`. The control's state drives the mesh
   (`checked` throws the lever), never the other way round.
 - **Depth is real but bounded.** Faces sit on a small set of discrete heights.
-- **One light for the whole application.** A fixed key light, ambient and rim light.
-  Its direction never changes with theme, level or component. This is the signature
-  of the language.
+- **One light for the whole application.** A key light, ambient and rim light. An
+  application may set the light's direction (default: top left), but every panel,
+  component and level in it shares that one light, and it never changes with theme or
+  state. One consistent light is the signature of the language.
 - **States are physical.** Hover lifts, press sinks, focus lights the edge, disabled
   turns matte and flat. On the GPU these are uniform changes, not recaptures, and a
   control's hit area never moves.
@@ -215,8 +218,9 @@ recipe and the accessibility limit.
 2. **Space.** World units mapped to CSS pixels, one fixed camera (focal length and
    vanishing point per stage), the elevation scale (for example 0 ground, 1 raised,
    2 floating, 3 overlay, 4 modal) and the maximum panel tilt.
-3. **Light.** Key light direction and elevation angle, ambient and rim intensities, and
-   how light and dark themes change intensity and colour but never direction.
+3. **Light.** The configurable key light (azimuth and elevation, with their allowed
+   ranges and the default), ambient and rim intensities, and how light and dark themes
+   change intensity and colour but never direction.
 4. **Materials.** A small closed PBR set: *matte* (default face), *glass* (accent;
    refractive on the GPU, frosted in CSS), *metal* (hardware: levers, knobs, rails) and
    *emissive* (indicators, focus edges). Each lists PBR parameters and the CSS recipe.
@@ -239,9 +243,10 @@ recipe and the accessibility limit.
 14. **Accessibility.** Contrast, a focus indicator that survives every presentation and
     forced colours, reduced motion, reduced transparency (glass turns matte), forced
     colours (the language flattens to a high-contrast 2D mode).
-15. **Theming.** Light, dark and high contrast; what a brand may change (colour, radius
-    within limits, accent material) and what is fixed (light direction, elevation
-    scale, bevel profile).
+15. **Theming.** Light, dark and high contrast; what an application may change (depth,
+    light direction, colour and accent, radius within limits) and what is fixed (the
+    elevation scale's structure, the bevel profile, one light per application). Every
+    configuration is checked for contrast on lit faces.
 16. **Presentation levels and adjust policy.** What each level adds, per-component
     overrides, and the opt-in adjust policy.
 17. **Component anatomy template.** For each component: object, faces, material,
