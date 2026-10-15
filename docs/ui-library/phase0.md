@@ -9,7 +9,7 @@ does; it is not Underglass runtime support, which still has to be built and test
 | P0.1 Projective hits | **Passed** (2026-10-15) |
 | P0.2 Material pass | **Passed** (2026-10-15), one token finding |
 | P0.3 Relief cost | **Measured** (2026-10-15): budget 256 primitives per panel |
-| P0.4 Object pass | Not started |
+| P0.4 Object pass | **Passed** (2026-10-15), with a taper rule for raised parts |
 | P0.5 Shadow outset | **Passed** (2026-10-15) |
 | P0.6 CSS parity | Not started |
 
@@ -166,6 +166,110 @@ Headful runs gave the same pattern (DPR 2: 4.9 / 7.6 ms at 261 primitives, 9.5 /
 - **Focus edge contrast:** measured at one point against the panel colour only.
 - **Timing:** queue-completion time is not GPU execution time. No `timestamp-query` measurement was
   made.
+
+## P0.4 Object pass
+
+**Question.** Can native controls be drawn as real 3D objects on the shared engine, using PBR materials,
+lights, shadow maps and many meshes, while clicks land only on the native controls?
+
+**Answer: yes.**
+- **Exactness:** native hits match the DOM layout, and no drawn key pixel falls outside its native
+  button.
+- **No recapture:** pressing, switching, sliding and keyboard focus move or light the objects
+  without a new capture.
+- **Cost:** 16,384 extra instanced meshes add well under 1 ms per frame.
+- **Design rule:** raised parts must be **tapered** by at least the perspective drift (below).
+
+### Method
+
+- Page: [`ui-probe-objects.html`](../../examples/playground/ui-probe-objects.html), source
+  [`src/ui-probes/objects.ts`](../../examples/playground/src/ui-probes/objects.ts).
+  Test: [`tests/browser/ui-probe-objects.test.mjs`](../../tests/browser/ui-probe-objects.test.mjs).
+- **Engine:** one Babylon Lite 1.33.0 WebGPU engine on the canvas. World units are canvas CSS pixels.
+  The panel's front is the z = 0 plane, and a perspective camera at distance D maps that plane 1:1
+  onto the canvas, so the panel's canvas transform is a plain translation.
+- **Capture:** each native `paint` uploads the panel with `drawElementImageToTexture` into an sRGB
+  dynamic texture, drawn unlit without tone mapping, so the HTML keeps its exact colours.
+- **Lighting:** a directional key light with a PCF shadow map, plus a hemispheric fill. The panel
+  is a slab that casts its own shadow, and shadow-only catchers sit on the panel and the
+  backdrop.
+- **Objects.** Each native control's box is the **base** of its object:
+  - **Button:** a tapered key whose top (inset by the taper) carries the captured label, and which
+    travels on press.
+  - **Switch** (`role="switch"` checkbox, `appearance: none`): a track and a knob that slides
+    when the checkbox changes.
+  - **Range input** (`appearance: none`): a rail and a puck placed from the native value.
+- **No recapture:** states come from native events and only move meshes or change material
+  values (`markMaterialUboDirty`).
+
+### Results
+
+Chrome Canary 158.0.8106.0, Windows 11, emulated DPR 1 and 2, headless and headful (same results).
+
+| Check | Result |
+| --- | --- |
+| Captured panel colour, unlit | (233, 235, 239), exact |
+| Native hits, 9,600 grid points | 0 mismatches (points within 2 px of a rounded edge are not judged) |
+| Key containment: 408 points 1.5, 3 and 5 px outside the native button | 0 drawn as key, 0 hit the button |
+| Press (real pointer) | Key travels 6 px; its cast shadow disappears from the sampled point; **0 captures** |
+| Switch (real click) | Native checkbox checked; knob drawn at the on position; **0 captures** |
+| Slider (real click, then arrow keys) | Native value 80, then 78; the puck follows within 1% |
+| Keyboard focus | Emissive glow on the focused knob |
+
+**Cost.** Each row is 120 animated frames, timed from `renderFrame` to `waitForGpuIdle`. That is
+not pure GPU time. The 18 draw calls stay constant because the extra meshes are thin instances.
+
+| Extra instanced meshes | DPR 1 mean / p95 (ms) | DPR 2 mean / p95 (ms) |
+| --- | --- | --- |
+| 0 | 3.5 / 4.8 | 3.9 / 5.1 |
+| 1,024 | 3.9 / 5.1 | 4.2 / 5.7 |
+| 16,384 | 4.3 / 5.8 | 4.1 / 5.4 |
+
+**Perspective drift.** A point at height h above the panel moves on screen by
+`r · h / (D − h)`, where r is its distance from the vanishing point. Seeing an object's sides *is*
+this drift; you cannot have one without the other. Largest drift over the probe panel, in CSS px:
+
+| Camera distance D | h = 2 | h = 4 | h = 8 | h = 12 | h = 16 |
+| --- | --- | --- | --- | --- | --- |
+| 800 | 0.65 | 1.31 | 2.63 | 3.97 | 5.32 |
+| 1,600 | 0.33 | 0.65 | 1.31 | 1.97 | 2.63 |
+| 2,400 | 0.22 | 0.44 | 0.87 | 1.31 | 1.75 |
+| 4,000 | 0.13 | 0.26 | 0.52 | 0.78 | 1.05 |
+
+### What this settles for the plan
+
+- **Objects level:** feasible as specified. The native element is the object's base, and meshes
+  are decoration driven by native state.
+- **Taper rule for the spec:** a raised part's top must be inset from its base by at least its
+  drift, so every drawn pixel of the object stays inside the native control. The probe uses
+  height 8, taper 3, D = 1,600 (drift 1.31).
+  - **Camera distance must scale with the stage:** D ≥ r · h / taper + h, where r is the stage's
+    half-diagonal.
+  - **Example:** a 1,920 by 1,080 stage (r ≈ 1,100) with h = 8 and taper 3 needs D ≥ 2,950.
+  - Parts that must stand taller (levers, knobs) sit inside a native control whose box covers
+    their whole travel.
+- **Mesh budget:** meshes are not the bottleneck when instanced: 16,384 extra instances cost under
+  1 ms here. The budget should count **draw calls** (distinct object kinds and materials), not
+  instances. The spec sets it per panel once the Tier A objects exist.
+- **Adjust policy:** this machine shows no pressure, so default thresholds need measurements on a
+  low-end GPU. Recorded as unperformed validation.
+- **Lite API notes for core:**
+  - An sRGB capture texture is needed for unlit HTML to keep its colours.
+  - Material values are re-uploaded only after `markMaterialUboDirty`.
+  - Emissive must be set before the scene is built.
+  - Screenshots complete over later frames.
+
+### Limits
+
+- **Browser capability only:** this is a raw Babylon Lite probe. Underglass core has no object
+  pass yet.
+- **No IBL:** there is no environment map, so "metal" parts are glossy dielectrics here. Real metal
+  needs an environment (Phase 1).
+- **Rough geometry:** the key is a tapered box without rounded edges; Lite has no rounded box, so
+  real objects need generated geometry.
+- **Flat panel only:** objects on a tilted panel, and the CSS fallback for objects, are not
+  probed.
+- **Fast machine:** timing comes from one fast machine; low-end GPUs are not measured.
 
 ## Upstream check
 

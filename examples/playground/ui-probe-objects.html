@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata probe: objects</title>
+  <style>
+    body { margin: 24px; background: white; color: black; font: 16px system-ui; }
+    #stage { display: block; width: 640px; height: 420px; border: 0; }
+    /* Face mode for the Objects level: the panel and the key labels are captured; the switch and the slider
+       paint nothing themselves (they stay native, focusable and hit-testable), and meshes draw them. */
+    #face { position: relative; width: 440px; height: 280px; box-sizing: border-box; padding: 20px 24px;
+      background: rgb(233, 235, 239); color: rgb(28, 30, 36); font: 15px system-ui; }
+    #face h2 { margin: 0 0 16px; font-size: 18px; }
+    #face .row { display: flex; align-items: center; gap: 16px; height: 44px; margin: 0 0 14px; }
+    #face .row label { width: 96px; }
+    #face input[type="checkbox"] { appearance: none; width: 56px; height: 28px; margin: 0; border-radius: 14px;
+      background: transparent; outline: none; cursor: pointer; }
+    #face input[type="range"] { appearance: none; width: 240px; height: 28px; margin: 0; background: transparent; outline: none; cursor: pointer; }
+    #face input[type="range"]::-webkit-slider-thumb { appearance: none; width: 28px; height: 28px; background: transparent; }
+    #face button { position: absolute; right: 24px; bottom: 20px; height: 40px; padding: 0 22px; border: 0; border-radius: 8px;
+      background: rgb(37, 99, 235); color: white; font: 600 15px system-ui; outline: none; cursor: pointer; }
+    #status { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Strata probe P0.4: objects</h1>
+  <p>Native controls drawn as 3D objects on the shared engine: a key that travels, a switch lever that
+    throws, a slider knob on a rail. The native control's box is the object's base, so clicks land on the
+    original element. See <code>docs/ui-library/phase0.md</code>.</p>
+  <canvas id="stage" content="drawable"><div id="face" drawable>
+    <h2>Controls</h2>
+    <div class="row"><label for="power">Power</label><input id="power" type="checkbox" role="switch" data-object="switch"></div>
+    <div class="row"><label for="level">Level</label><input id="level" type="range" min="0" max="100" value="30" data-object="slider"></div>
+    <button id="launch" type="button" data-object="key">Launch</button>
+  </div></canvas>
+  <p><label>Camera distance <input id="distance" type="range" min="600" max="4000" step="100" value="1600"></label>
+    <label>Extra meshes <input id="extra" type="range" min="0" max="512" step="16" value="0"></label></p>
+  <pre id="status" role="status"></pre>
+  <script type="module" src="/src/ui-probes/objects.ts"></script>
+</body>
+</html>
