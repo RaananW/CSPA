@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata tuning</title>
+  <style>
+    :root { --stage: 255 255 255; --panel: 233 235 239; --text: 28 30 36; --muted: 90 94 104; --field: 255 255 255;
+      --secondary: 247 248 250; --accent: 37 99 235; --on-accent: 255 255 255; --track: 205 209 217; --knob: 252 252 253; }
+    body { margin: 20px; background: rgb(var(--stage)); color: rgb(var(--text)); font: 15px system-ui; }
+    h1 { margin: 0 0 4px; font-size: 22px; }
+    .intro { max-width: 1340px; margin: 0 0 14px; color: rgb(var(--muted)); }
+    .controls { display: grid; grid-template-columns: repeat(3, max-content) 1fr; gap: 10px 28px; align-items: center; margin: 0 0 16px; max-width: 1360px; }
+    .controls label { display: flex; align-items: center; gap: 10px; }
+    .controls input[type=range] { width: 260px; accent-color: rgb(var(--accent)); }
+    .controls output { min-width: 3.5em; font-variant-numeric: tabular-nums; color: rgb(var(--muted)); }
+    .scale { grid-column: 1; display: flex; justify-content: space-between; width: 330px; margin: -8px 0 0 54px; font-size: 12px; color: rgb(var(--muted)); }
+    .row { display: grid; grid-template-columns: repeat(3, 440px); gap: 16px; }
+    .row h2 { margin: 0 0 2px; font-size: 16px; }
+    .row p { margin: 0 0 6px; font-size: 12px; color: rgb(var(--muted)); }
+    canvas.stage, div.stage { display: block; width: 440px; height: 300px; border: 0; background: rgb(var(--stage)); }
+    div.stage { position: relative; overflow: hidden; }
+    div.stage > .face { position: absolute; left: 40px; top: 35px; }
+    #readout { margin: 16px 0 0; font: 12px ui-monospace, monospace; white-space: pre-wrap; color: rgb(var(--muted)); max-width: 1360px; }
+    /* The panel: native controls in face mode, coloured from the theme variables. */
+    .face { position: relative; width: 360px; height: 230px; box-sizing: border-box; padding: 18px 20px; border-radius: 14px;
+      background: rgb(var(--panel)); color: rgb(var(--text)); font: 14px system-ui; }
+    .face h2 { margin: 0 0 10px; font-size: 17px; }
+    .face .field-label { display: block; margin: 0 0 6px; }
+    .face .field { box-sizing: border-box; display: block; width: 100%; height: 34px; margin: 0 0 14px; padding: 0 10px; border: 0;
+      border-radius: 8px; background: rgb(var(--field)); color: rgb(var(--text)); font: inherit; outline: none; }
+    .face .switch-row { display: flex; align-items: center; gap: 10px; }
+    .face .switch { position: relative; display: block; width: 44px; height: 24px; }
+    .face .switch-input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+    .face .track { position: absolute; inset: 0; border-radius: 12px; background: rgb(var(--track)); }
+    .face .knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 9px; background: rgb(var(--knob)); }
+    .face .switch-input:checked + .track { background: rgb(var(--accent)); }
+    .face .switch-input:checked + .track .knob { left: 23px; }
+    .face .actions { position: absolute; right: 20px; bottom: 18px; display: flex; gap: 10px; }
+    .face button { height: 34px; padding: 0 16px; border: 0; border-radius: 8px; font: 600 14px system-ui; outline: none; cursor: pointer; }
+    .face .secondary { background: rgb(var(--secondary)); color: rgb(var(--text)); }
+    .face .primary { background: rgb(var(--accent)); color: rgb(var(--on-accent)); }
+    .objects .face .track, .objects .face .knob { visibility: hidden; }
+  </style>
+</head>
+<body>
+  <h1>Strata tuning</h1>
+  <p class="intro">One panel in all three presentations, driven by the Strata settings. <b>Depth</b> blends the looks
+    continuously: 0% is A (subtle), 50% is B (medium), 100% is C (bold). The light direction, theme and accent are
+    settings too; the defaults are the proposed starting point. The URL keeps your settings, so you can share them.</p>
+  <div class="controls">
+    <label>Depth <input id="depth" type="range" min="0" max="100" step="1"><output for="depth"></output></label>
+    <label>Light from <input id="azimuth" type="range" min="0" max="359" step="1"><output for="azimuth"></output></label>
+    <label>Theme <select id="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <span></span>
+    <div class="scale"><span>A · subtle</span><span>B · medium</span><span>C · bold</span></div>
+    <label>Light height <input id="elevation" type="range" min="20" max="80" step="1"><output for="elevation"></output></label>
+    <label>Accent <input id="accent" type="color"> <button id="reset" type="button">Reset to defaults</button></label>
+  </div>
+  <div class="row" id="row"></div>
+  <pre id="readout" role="status"></pre>
+  <template id="panel"><div class="face">
+    <h2>Settings</h2>
+    <label class="field-label" for="name">Display name</label>
+    <input class="field" id="name" type="text" value="Ada Lovelace" data-relief="well">
+    <div class="switch-row"><span class="switch"><input class="switch-input" id="notify" type="checkbox" role="switch" checked><span class="track" data-relief="well" data-relief-control="notify"><span class="knob" data-relief="raised" data-relief-control="notify"></span></span></span><label for="notify">Notifications</label></div>
+    <div class="actions"><button class="secondary" type="button" data-relief="raised">Cancel</button><button class="primary" type="button" data-relief="raised">Save</button></div>
+  </div></template>
+  <script type="module" src="/src/ui-proto/tune.ts"></script>
+</body>
+</html>

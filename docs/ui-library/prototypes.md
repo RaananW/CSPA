@@ -32,10 +32,27 @@ the layout. Only how physical the look feels changes.
 4. **Palette.** Keep neutral greys with a blue accent, or use a brand colour?
 5. **Name.** Keep "Strata"?
 
+## Tuning page
+
+After the first review (2026-10-15) the choice was "between A and B, leaning strongly to B", with depth,
+light direction and theme as settings. `/ui-proto-tune.html` shows one panel as Relief, Objects and CSS only,
+driven live by:
+
+- **Depth:** 0% to 100%. 0% = A, 50% = B, 100% = C, blending bevel, shadows, heights, key travel, taper and gloss.
+- **Light from** (azimuth, default 323°, the top left) and **light height** (elevation, default 41°).
+- **Theme** (light or dark) and **accent** colour. Text on the accent switches between white and near-black
+  for contrast, and the readout reports the accent's text contrast at rest and when lit.
+
+The URL hash keeps the settings, so a configuration can be shared as a link. The default depth is 50%. If the
+preferred spot is elsewhere, the scale is re-centred so that spot becomes the 50% default.
+
 ## Known prototype limits
 
 - **Metal:** there is no environment map, so knobs and keys are glossy plastic rather than metal.
 - **Shadow mismatch:** Objects shadows come from a coarse shadow map and are a little lighter than
   the Relief shadows.
 - **Engines:** each GPU panel has its own engine and device here. Underglass uses one shared engine.
-- **Light theme only:** dark and high-contrast themes come with the tokens.
+- **Themes:** the tuning page has a first dark theme; its highlight strengths still need tuning (the CSS
+  highlight rim is too bright on dark). High contrast comes with the tokens.
+- **Rebuild leftovers:** the tuning page rebuilds the Objects scene on each change and keeps the old scene's
+  small resources until the page closes, because Lite's scene disposal also releases the shared capture.

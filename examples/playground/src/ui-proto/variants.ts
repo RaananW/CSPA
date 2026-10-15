@@ -36,7 +36,7 @@ export const looks: LookTokens[] = [
 
 /** Palette shared by all looks (sRGB 0-255). */
 export const palette = {
-  panel: [233, 235, 239], text: [28, 30, 36], field: [255, 255, 255], secondary: [247, 248, 250],
+  stage: [255, 255, 255], muted: [90, 94, 104], panel: [233, 235, 239], text: [28, 30, 36], field: [255, 255, 255], secondary: [247, 248, 250],
   accent: [37, 99, 235], onAccent: [255, 255, 255], track: [205, 209, 217], knob: [252, 252, 253],
 } as const;
 export const rgb = (colour: readonly number[]) => `rgb(${colour.join(", ")})`;
@@ -57,4 +57,61 @@ export function cssRelief(look: LookTokens, kind: "raised" | "well", height: num
   const layers = [`inset ${at(1, look.bevel * 0.56)} ${blur}px rgba(0, 0, 0, ${Math.min(1, 0.62 * e).toFixed(3)})`, `inset ${at(-1, look.bevel * 0.6)} ${blur}px rgba(255, 255, 255, ${Math.min(1, e).toFixed(3)})`];
   if (cast) { const offset = shadowOffset(look, height); layers.push(`${offset.x.toFixed(2)}px ${offset.y.toFixed(2)}px ${(1.9 * height + 1).toFixed(2)}px rgba(0, 0, 0, ${Math.min(1, look.shadowStrength * 1.56).toFixed(3)})`); }
   return layers.join(", ");
+}
+
+/**
+ * Tuning configuration (the agreed Phase 1 direction): one depth setting blends the looks continuously
+ * (0 = A subtle, 0.5 = B medium, 1 = C bold); the light direction, theme and accent are configurable too.
+ * The defaults are the starting point of the design language.
+ */
+export interface StrataConfig {
+  /** 0..1 along A → B → C. */
+  depth: number;
+  /** Where the light comes from, in degrees clockwise from the top of the screen (315 = top left). */
+  azimuth: number;
+  /** Light height above the panel plane, in degrees (90 = straight on). */
+  elevation: number;
+  theme: "light" | "dark";
+  accent: readonly [number, number, number];
+}
+export const defaultConfig: StrataConfig = { depth: 0.5, azimuth: 323, elevation: 41, theme: "light", accent: [37, 99, 235] };
+
+/** Direction towards the light in face-local axes (x right, y down, z towards the viewer). */
+export function lightFrom(azimuth: number, elevation: number): [number, number, number] {
+  const a = azimuth * Math.PI / 180, e = elevation * Math.PI / 180;
+  return [Math.sin(a) * Math.cos(e), -Math.cos(a) * Math.cos(e), Math.sin(e)];
+}
+
+const numericKeys = ["bevel", "shadowStrength", "panelHeight", "raisedHeight", "wellDepth", "interiorMax", "hoverLift", "pressSink",
+  "hoverHeight", "pressHeight", "bevelGain", "keyHeight", "keyTravel", "taper", "roughness", "sheen", "cssEdge"] as const;
+
+/** The look at `config`: depth blends A → B → C piecewise-linearly; the light comes from the configured angles. */
+export function lookAt(config: StrataConfig): LookTokens {
+  const depth = Math.min(1, Math.max(0, config.depth));
+  const [from, to, t] = depth <= 0.5 ? [looks[0]!, looks[1]!, depth / 0.5] : [looks[1]!, looks[2]!, (depth - 0.5) / 0.5];
+  const look = { ...from, name: `Depth ${Math.round(depth * 100)}%`, summary: "", light: lightFrom(config.azimuth, config.elevation) } as LookTokens;
+  for (const key of numericKeys) (look as unknown as Record<string, number>)[key] = from[key] + (to[key] - from[key]) * t;
+  return look;
+}
+
+export interface Palette {
+  stage: readonly number[]; panel: readonly number[]; text: readonly number[]; muted: readonly number[]; field: readonly number[];
+  secondary: readonly number[]; accent: readonly number[]; onAccent: readonly number[]; track: readonly number[]; knob: readonly number[];
+}
+const relativeLuminance = (colour: readonly number[]) => {
+  const channel = (value: number) => { const c = value / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * channel(colour[0]!) + 0.7152 * channel(colour[1]!) + 0.0722 * channel(colour[2]!);
+};
+export const contrastRatio = (a: readonly number[], b: readonly number[]) => {
+  const [high, low] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (high! + 0.05) / (low! + 0.05);
+};
+
+/** Theme palette with the configured accent; text on the accent is whichever of white or near-black reads better. */
+export function paletteFor(config: StrataConfig): Palette {
+  const base = config.theme === "dark"
+    ? { stage: [24, 26, 31], panel: [44, 48, 56], text: [232, 234, 240], muted: [168, 174, 186], field: [30, 33, 40], secondary: [62, 67, 78], track: [78, 84, 96], knob: [236, 238, 242] }
+    : { stage: [255, 255, 255], panel: [233, 235, 239], text: [28, 30, 36], muted: [90, 94, 104], field: [255, 255, 255], secondary: [247, 248, 250], track: [205, 209, 217], knob: [252, 252, 253] };
+  const onAccent = contrastRatio(config.accent, [255, 255, 255]) >= contrastRatio(config.accent, [16, 18, 22]) ? [255, 255, 255] : [16, 18, 22];
+  return { ...base, accent: config.accent, onAccent };
 }
