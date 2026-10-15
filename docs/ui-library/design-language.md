@@ -113,7 +113,7 @@ hard-code material values.
 | Layer | Parameters (range) | Objects (Babylon Lite PBR) | Relief (material pass) | CSS |
 | --- | --- | --- | --- | --- |
 | `base` | colour role; `roughness` 0–1; `metallic` 0–1 | Base colour, roughness, metallic | Bevel lighting plus a specular lobe whose width follows roughness | Face colour; low roughness adds a highlight gradient |
-| `coat` | `strength` 0–1; `roughness` 0–1; `ior` 1.3–1.8 | Clear coat (`setPbrClearCoat`), reflecting the environment on edges and sides | A sharp highlight and a Fresnel rim on the bevels, plus the **coat band** | An inset top highlight, an edge rim and the coat band as a gradient |
+| `coat` | `strength` 0–1; `roughness` 0–1; `ior` 1.3–1.8 | Clear coat (`setPbrClearCoat`), reflecting the environment on edges and sides, plus the [finish zones](#finish-zones) on key tops | A sharp highlight and a Fresnel rim on the bevels, plus the finish zones | An inset top highlight, an edge rim and the finish zones as a gradient |
 | `sheen` | `colour`; `strength` 0–1; `roughness` 0–1 | Sheen (`setPbrSheen`) | A soft brightening at grazing bevel angles | A soft inner glow |
 | `iridescence` | `strength` 0–1; `thickness` 100–1200 nm | Iridescence (`setPbrIridescence`) | A subtle hue shift on the bevels | Not rendered (the other layers still are) |
 | `transmission` | `strength` 0–1; `ior` 1–2.4; `tint` colour role; `frost` 0–1 | Transmission and refraction (`setPbrTransmission`) | A frosted tint over the panel; refraction of decorative backdrops through the Underglass effect path | `backdrop-filter: blur()` plus tint |
@@ -167,16 +167,25 @@ hard-code material values.
   - **CSS:** a custom material declares a CSS fallback, or inherits the nearest preset.
   - **Trust:** custom code is trusted application code, never built from user input.
 
-### Coat band
+### Finish zones
 
-A coat's most recognisable cue on a flat face is a reflection across its top.
-- **Where:** Relief and CSS draw it as the **coat band**, a brightening across the top quarter (3–27%) of
-  a raised control's face, at strength `coat × 0.38`.
-- **Contrast:** it is the one effect allowed above `interior.max` on a face, because centred single-line
-  labels never reach the top quarter. A component whose text can reach that band (multi-line or top-aligned
-  labels) turns it off, and its anatomy tests check that text boxes stay clear of it.
-- **Objects level:** a flat top facing the viewer reflects what is behind the viewer, so the coat shows only
-  as real reflections on the object's edges and sides; there is no band.
+A material must read at a glance, yet face interiors carry labels whose contrast is protected
+(`interior.max`). A centred single-line label sits between 35% and 65% of a raised control's
+face height. Finishes therefore work at full strength in the zones labels never reach. Every
+presentation renders them from one profile:
+
+| Zone | Height | Coat | Base gloss | Metal |
+| --- | --- | --- | --- | --- |
+| Top | 0–32% | Reflection band (3–26%), peak `coat × 0.6`, crisper as `coat.roughness` falls, with a dark horizon line (24–32%, `coat × 0.16`) | Sheen fading from the top, `max(0, 0.5 − roughness) × 0.8` | Bright half, `metallic × 0.4` |
+| Bottom | 70–100% | — | — | Dark half, `metallic × 0.36` |
+
+- **Relief:** the material pass applies the profile on raised controls.
+- **Objects:** a shader-material overlay on each key top applies the same profile over the
+  captured label, alongside the real reflections of the environment on the key's sides and edges.
+- **CSS:** the profile is sampled into a `background-image` gradient.
+- **Contrast rule:** the finish zones are the one place a face may change beyond `interior.max`.
+  A component whose text can reach a zone (multi-line, top-aligned or bottom-aligned labels) turns
+  that zone off, and its anatomy tests check that text boxes stay clear of the active zones.
 
 ### Environment
 
@@ -192,8 +201,8 @@ Reflections (metal, gloss, coat, glass) need an environment.
 - **Contrast holds.** Highlights, coats and custom shading reach full strength on bevels, edges,
   mesh sides and knobs. On face interiors, where text may sit, the material pass limits any
   brightness change to `interior.max`, whatever the material or custom code, so the contrast
-  invariant (section 8) holds. The coat band is the only exception, and only where text stays clear
-  of it (above).
+  invariant (section 8) holds. The [finish zones](#finish-zones) are the only exception, and only
+  where text stays clear of them.
 - **Colour only.** A material may change colour; it never moves pixels or hit areas.
 - **Preferences:**
   - `prefers-reduced-transparency`: `glass` becomes `matte`, and transmission is off.
@@ -542,5 +551,7 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-15: section 4 rewritten: open, layered materials (base, coat, sheen, iridescence,
   transmission, emissive), presets including `lacquer` (glass-coated), custom materials and custom
   shading, a generated studio environment, and contrast guardrails.
+- 2026-10-15: the coat band became the finish zones (top 0–32%, bottom 70–100%), shared by Relief,
+  Objects and CSS, after the tuning page showed materials were too subtle to see.
 - 2026-10-15: added section 18: standalone-first layers, one markup contract, React, Vue and Astro
   bindings, and server rendering.
