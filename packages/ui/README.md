@@ -46,5 +46,28 @@ from `data-strata-face` on that markup, lit from the configured light. `@undergl
 <button type="button" class="ug-button ug-button--accent" data-strata-face="raised">Save</button>
 ```
 
-Next: plain-DOM behaviour (`/dom`), the GPU presentation (`/gpu`) and React, Vue and Astro bindings, as the
+## Themes and scopes at runtime
+
+```ts
+import { createStrataTheme } from "@underglass/ui/tokens";
+import { applyStrataTheme, strataScope } from "@underglass/ui/dom";
+
+// An application theme, validated against every rule of the design language.
+const theme = createStrataTheme({ depth: 0.4, light: { azimuth: 45 }, colour: { accent: "#0f766e" } });
+const applied = applyStrataTheme(theme);         // report: "error" (default), "warn", "silent" or "throw"
+applied.update({ depth: 0.7 });                   // runtime change, on top of the theme in effect
+
+// A flatter, compact sidebar. Light tokens are application-only and are refused here.
+strataScope(document.querySelector("aside"), { depth: 0.2, density: "compact", size: "small" });
+
+// Themes serialise to W3C Design Tokens JSON.
+const json = theme.toJSON();
+```
+
+- **Theme layer:** an applied theme's stylesheet goes into the `strata.theme` cascade layer, above the defaults and
+  below the components, whichever stylesheet loads first.
+- **Scope colours:** colour overrides in a scope need the scope's `theme`, so their contrast can be checked. The
+  derived on- and -text colours are set with them.
+
+Next: Tier A components with React, Vue and Astro bindings, then the GPU presentation (`/gpu`), as the
 [plan](../../docs/ui-library/plan.md) describes.

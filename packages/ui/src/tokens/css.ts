@@ -34,8 +34,8 @@ const densities: Record<string, [number, number]> = { compact: [28, 12], comfort
 const genericFonts = new Set(["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace", "ui-rounded", "emoji", "math"]);
 const number = (value: number) => String(Math.round(value * 10000) / 10000);
 
-/** A token's literal CSS value. */
-function literal(token: Token, value: TokenValue = token.$value): string {
+/** A token's literal CSS value (`value` defaults to its `$value`). */
+export function literal(token: Token, value: TokenValue = token.$value): string {
   if (typeof value === "string" && /^\{[^}]+\}$/.test(value)) return `var(${cssVariable(value.slice(1, -1))})`;
   switch (token.$type) {
     case "fontFamily": return (Array.isArray(value) ? value : [String(value)]).map(name => (genericFonts.has(name) ? name : `"${name}"`)).join(", ");
@@ -75,7 +75,15 @@ function sizes(tokens: Token[]): [string, string[]][] {
 const block = (selector: string, lines: string[], indent = "  ") => `${indent}${selector} {\n${lines.map(line => `${indent}  ${line}`).join("\n")}\n${indent}}`;
 
 /** The token stylesheet for `source`. */
-export function tokensToCss(source: TokenGroup): string {
+/** The cascade layers, lowest first: defaults, an application's theme, then the components. */
+export const layerOrder = "@layer strata.tokens, strata.theme, strata.components;";
+
+export interface TokensCssOptions {
+  /** The cascade layer to write into: `strata.tokens` for the defaults, `strata.theme` for an application theme. */
+  layer?: "strata.tokens" | "strata.theme";
+}
+
+export function tokensToCss(source: TokenGroup, { layer = "strata.tokens" }: TokensCssOptions = {}): string {
   const tokens = flatten(source);
   const themes = themesOf(source);
   const isAlias = (token: Token) => typeof token.$value === "string" && token.$value.startsWith("{");
@@ -132,7 +140,9 @@ export function tokensToCss(source: TokenGroup): string {
 
   const parts = [
     "/* @underglass/ui tokens, generated from strata.tokens.json by tokensToCss. Do not edit. */",
-    "@layer strata.tokens {",
+    // The order statement first, so the layers rank the same whichever stylesheet the page loads first.
+    layerOrder,
+    `@layer ${layer} {`,
     block(":root", [...root, `--strata-control-height: ${densities.comfortable![0]}px;`, `--strata-panel-padding: ${densities.comfortable![1]}px;`]),
     block(":root, [data-strata-scope], [data-strata-depth], [data-strata-theme]", scoped),
     "  @supports (x: attr(x type(*))) {",

@@ -535,6 +535,12 @@ Each depth token has three anchors, at 0%, 50% and 100% (the A, B and C prototyp
 - **No fallback:** a configuration change never switches GPU off.
 - **Serialisation:** a theme serialises to the W3C Design Tokens format, so it can be shared,
   versioned and loaded at runtime.
+- **API:** `createStrataTheme(input)` builds and validates a theme (layer 2); `applyStrataTheme(theme)` writes it
+  into the `strata.theme` cascade layer, between the defaults and the components, and its `update` applies runtime
+  changes (layer 3); `strataScope(element, overrides)` applies scope overrides (layer 4). Invalid configuration is
+  reported as an error by default; strict mode (`report: "throw"`, or `strict` when building a theme) throws.
+- **Scope colours:** a scope that overrides colour roles names its theme, so contrast is checked against that
+  theme's surfaces; the derived on- and -text colours are set with them.
 
 ## 16. Presentation levels and adjust policy
 
@@ -634,4 +640,6 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-16: review of the specimen: lower relief (`shadow.strength` 0.24 at 50%, panels at 8), a switch knob
   that keeps its colour (ringed in `on-accent` when on), a tinted face for toggle buttons that are on, and a 2 px
   `edge` outline on raised faces in the high-contrast themes (`outline.width`).
+- 2026-10-16: the theme runtime API (section 15): `createStrataTheme`, `applyStrataTheme`, `strataScope`, and the
+  `strata.theme` cascade layer.
 - 2026-10-16: component sizes (`size.*`, `data-strata-size`, section 13); checkbox, radio and switch default to 20 px.

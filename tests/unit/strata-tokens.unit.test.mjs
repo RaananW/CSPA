@@ -109,3 +109,39 @@ test("validation requires an outline wherever a theme turns the bevel off", () =
   source.outline.width.$extensions[NS].themes["contrast-dark"] = "0px";
   assert.ok(messages(source).includes("outline.width (contrast-dark): must be at least 1 px where the bevel gain is 0"), messages(source).join("; "));
 });
+
+test("an application theme applies its changes over the defaults and validates them", async () => {
+  const { createStrataTheme, loadStrataTheme, StrataThemeError } = await import("../../packages/ui/src/tokens/index.ts");
+  const theme = createStrataTheme({ depth: 0.4, light: { azimuth: 45 }, colour: { accent: "#0f766e" }, roles: { buttonPrimary: "lacquer" } });
+  assert.deepEqual(theme.issues, []);
+  const values = resolve(theme.source, { depth: 0.4 });
+  assert.equal(values.depth, 0.4);
+  assert.equal(values["light.azimuth"], 45);
+  assert.equal(values["colour.accent"], "#0f766e");
+  assert.equal(resolve(theme.source, { theme: "dark" })["colour.accent"], "#6091ff", "a plain colour sets the light theme only");
+  assert.equal(values["material.roles.buttonPrimary"], "lacquer");
+  // The defaults are untouched, and the theme's stylesheet goes into the theme layer.
+  assert.equal(resolve(strataTokens)["light.azimuth"], 323);
+  assert.match(theme.css(), /@layer strata\.theme \{/);
+  assert.match(theme.css(), /--strata-light-azimuth: 45;/);
+  // Serialisation round-trips through JSON.
+  const loaded = loadStrataTheme(JSON.parse(JSON.stringify(theme.toJSON())));
+  assert.deepEqual(loaded.issues, []);
+  assert.equal(resolve(loaded.source)["colour.accent"], "#0f766e");
+  // Per-theme colours, explicit tokens (which replace the depth blend) and new anchors.
+  const custom = createStrataTheme({ colour: { accent: { light: "#1d4ed8", dark: "#7aa2ff" } }, tokens: { "elevation.raised": "4px" }, anchors: { "object.keyHeight": [3, 6, 10] } });
+  assert.deepEqual(custom.issues, []);
+  assert.equal(resolve(custom.source, { theme: "dark" })["colour.accent"], "#7aa2ff");
+  assert.equal(resolve(custom.source, { depth: 0 })["elevation.raised"], "4px");
+  assert.equal(resolve(custom.source, { depth: 1 })["object.keyHeight"], "10px");
+  // Runtime updates build on a theme.
+  const updated = createStrataTheme({ depth: 0.9 }, { base: theme });
+  assert.equal(resolve(updated.source)["light.azimuth"], 45);
+  assert.equal(resolve(updated.source).depth, 0.9);
+  // Broken rules are reported, and strict mode throws.
+  const bad = createStrataTheme({ colour: { accent: "#9fd3ff", sky: "#fff" }, tokens: { "radius.control": "40px", "nope.x": 1 }, anchors: { "radius.small": [1, 2, 3] } });
+  const found = bad.issues.map(({ path, message }) => `${path}: ${message}`);
+  for (const expected of ["nope.x: is not a Strata token", "colour.sky: is not a Strata colour role", "radius.small: is not a depth-blended token", "radius.control: default 40 is above the maximum 20"]) assert.ok(found.includes(expected), `${expected} in ${found.join("; ")}`);
+  assert.ok(found.some(issue => /colour \(light\): the focus colour on the panel/.test(issue)));
+  assert.throws(() => createStrataTheme({ depth: 3 }, { strict: true }), StrataThemeError);
+});

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata theme runtime check</title>
+  <style>
+    body { margin: 20px; font: 14px var(--strata-font-family); background: var(--strata-colour-stage); color: var(--strata-colour-text); }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 360px)); gap: 24px; }
+  </style>
+</head>
+<body>
+  <p>Diagnostic: <code>applyStrataTheme</code> and <code>strataScope</code> from <code>@underglass/ui/dom</code> on a live page.
+    The browser test drives them through <code>window.strataThemeCheck</code>.</p>
+  <div class="grid">
+    <section class="ug-panel" data-strata-face="raised" aria-label="Application">
+      <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" id="app-button">Save</button>
+      <a class="ug-link" href="#" id="app-link">Link</a>
+    </section>
+    <div id="scope">
+      <section class="ug-panel" data-strata-face="raised" aria-label="Scope">
+        <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" id="scope-button">Save</button>
+        <label class="ug-checkbox"><input class="ug-checkbox__input" data-strata-face="well" type="checkbox" id="scope-check"><span class="ug-checkbox__mark" data-strata-face="mark" aria-hidden="true"></span><span class="ug-checkbox__label">Option</span></label>
+      </section>
+    </div>
+  </div>
+  <script type="module">
+    import { applyStrataTheme, strataScope } from "@underglass/ui/dom";
+    import { createStrataTheme } from "@underglass/ui/tokens";
+
+    // The theme sheet is applied before the stylesheet loads: the layer order must still put the theme above the
+    // defaults.
+    const applied = applyStrataTheme({}, { report: "silent" });
+    await import("@underglass/ui/css");
+    let scope;
+    const style = (id, property) => getComputedStyle(document.getElementById(id)).getPropertyValue(property).trim();
+    window.strataThemeCheck = {
+      update: input => applied.update(input).issues,
+      replace: input => applied.update(createStrataTheme(input)).issues,
+      remove: () => applied.remove(),
+      scope: (overrides, report = "silent") => { scope?.remove(); scope = strataScope(document.getElementById("scope"), overrides, { base: applied.theme, report }); return scope.issues; },
+      clearScope: () => scope?.remove(),
+      attributes: () => Object.fromEntries([...document.getElementById("scope").attributes].map(({ name, value }) => [name, value])),
+      style,
+      variable: (id, name) => style(id, name),
+    };
+  </script>
+</body>
+</html>

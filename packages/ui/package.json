@@ -28,6 +28,10 @@
       "import": "./dist/tokens/index.js"
     },
     "./tokens.json": "./dist/tokens.json",
+    "./dom": {
+      "types": "./dist/dom/index.d.ts",
+      "import": "./dist/dom/index.js"
+    },
     "./css": "./dist/css/strata.css",
     "./css/tokens.css": "./dist/css/tokens.css",
     "./css/components.css": "./dist/css/components.css"
@@ -35,6 +39,9 @@
   "files": [
     "dist/tokens/*.js",
     "dist/tokens/*.d.ts",
+    "dist/dom/*.js",
+    "dist/dom/*.d.ts",
+    "dist/*.js",
     "dist/tokens.json",
     "dist/css/*.css",
     "CHANGELOG.md"
