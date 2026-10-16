@@ -8,7 +8,7 @@ import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
   Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
-  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
+  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar,
 } from "@underglass/ui/vue";
 
 const close = () => h("svg", { viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" }, [h("path", { d: "M4 4l8 8M12 4l-8 8" })]);
@@ -41,6 +41,9 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("chip.md", [h(Chip, null, { default: text("Design") }), h(Chip, { defaultPressed: true }, { default: text("Remote") }), h(Chip, { onRemove: () => {} }, { default: text("ada@example.com") })]),
   contract("message-bar.md", h(MessageBar, { intent: "warning", title: "Storage almost full", onDismiss: () => {} }, {
     default: text("You have used 95% of your space."), actions: () => h(Button, null, { default: text("Upgrade") }),
+  })),
+  contract("toolbar.md", h(Toolbar, { label: "Formatting" }, {
+    default: () => [h(ToggleButton, null, { default: text("Bold") }), h(ToggleButton, null, { default: text("Italic") }), h(Divider, { orientation: "vertical" }), h(Button, null, { default: text("Undo") })],
   })),
   contract("pagination.md", h(Pagination, { page: 4, count: 10, href: (page: number) => `/items?page=${page}` })),
   contract("skeleton.md", [h(Skeleton, { shape: "circle" }), h(Skeleton, { lines: 3 }), h(Skeleton, { shape: "rect", width: "100%", height: 120 })]),
@@ -247,6 +250,13 @@ const App = defineComponent({
               h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
                 h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
+              h(Toolbar, { label: "Editing", id: "live-toolbar" }, {
+                default: () => [
+                  h(Button, { id: "tool-cut" }, { default: text("Cut") }), h(Button, { id: "tool-copy", disabled: true }, { default: text("Copy") }),
+                  h(Button, { id: "tool-paste", "aria-disabled": "true" }, { default: text("Paste") }),
+                  h(Divider, { orientation: "vertical" }), h(ToggleButton, { id: "tool-wrap" }, { default: text("Wrap") }),
+                ],
+              }),
               h(Pagination, { id: "live-pagination", page: page.value, count: 12, "onUpdate:page": (value: number) => { page.value = value; } }),
               h(Breadcrumb, { id: "live-breadcrumb", items: [{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }] }),
             ]),

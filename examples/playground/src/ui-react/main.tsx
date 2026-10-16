@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
+import { Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -100,6 +100,9 @@ function Contracts() {
         <MessageBar intent="warning" title="Storage almost full" actions={<Button>Upgrade</Button>} onDismiss={() => {}}>You have used 95% of your space.</MessageBar>
       </div>
       <div data-contract="pagination.md"><Pagination page={4} count={10} href={page => `/items?page=${page}`} /></div>
+      <div data-contract="toolbar.md">
+        <Toolbar label="Formatting"><ToggleButton>Bold</ToggleButton><ToggleButton>Italic</ToggleButton><Divider orientation="vertical" /><Button>Undo</Button></Toolbar>
+      </div>
       <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
   );
@@ -259,6 +262,10 @@ function App() {
           <div id="loading-region" aria-busy="true" style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Skeleton id="skeleton-circle" shape="circle" /><Skeleton id="skeleton-lines" lines={2} style={{ flex: 1 }} />
           </div>
+          <Toolbar label="Editing" id="live-toolbar">
+            <Button id="tool-cut">Cut</Button><Button id="tool-copy" disabled>Copy</Button><Button id="tool-paste" aria-disabled="true">Paste</Button>
+            <Divider orientation="vertical" /><ToggleButton id="tool-wrap">Wrap</ToggleButton>
+          </Toolbar>
           <Pagination id="live-pagination" page={page} count={12} onPageChange={setPage} />
           <Breadcrumb id="live-breadcrumb" items={[{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }]} />
         </section>
