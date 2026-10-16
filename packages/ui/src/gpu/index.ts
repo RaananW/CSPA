@@ -253,10 +253,12 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
     const control = element.matches(interactive) ? element : element.closest("label")?.querySelector("input, select, textarea") ?? element;
     const target = control.closest("label") ?? control;
     const preview = `${element.getAttribute("data-strata-preview") ?? ""} ${control.getAttribute("data-strata-preview") ?? ""}`.split(/\s+/);
+    // Only a control takes hover and press: a card, a plinth or any other surface under the pointer stays where it is.
+    const isControl = control.matches(interactive);
     return {
-      hover: target.matches(":hover") || preview.includes("hover"),
+      hover: (isControl && target.matches(":hover")) || preview.includes("hover"),
       // A toggle that is on holds its key down (design language section 6: it latches at its travel).
-      pressed: control.matches(":active, [aria-pressed='true']") || preview.includes("active"),
+      pressed: (isControl && control.matches(":active, [aria-pressed='true']")) || preview.includes("active"),
       focus: control.matches(":focus-visible") || preview.includes("focus"),
       disabled: control.matches(":disabled, [aria-disabled='true']"),
     };

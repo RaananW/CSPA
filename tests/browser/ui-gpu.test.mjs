@@ -99,6 +99,37 @@ test("Strata panels are GPU-presented in face mode with a scene from their marku
   expect(errors).toEqual([]);
 });
 
+test("only controls take hover and press on the GPU: a card or a plinth under the pointer stays where it is", async ({ page }) => {
+  await ready(page);
+  await page.evaluate(async () => {
+    window.strataGpuProbe.panel().insertAdjacentHTML("beforeend", `<article class="ug-card" data-strata-face="raised" id="gpu-card" style="margin-top:12px"><p style="margin:0">A card</p></article>
+      <div class="ug-button-group" role="group" aria-label="View" data-strata-face="raised" id="gpu-plinth" style="margin-top:12px"><button type="button" class="ug-button" data-strata-face="raised" id="gpu-list"><span class="ug-button__label">List</span></button></div>`);
+    window.strataGpuProbe.refresh();
+    await window.strataGpuProbe.controller.settle();
+  });
+  const state = async selector => (await primitiveOf(page, selector)).state;
+  // Hovering and pressing on a card changes nothing in its scene entry.
+  const card = await page.locator("#gpu-card").boundingBox();
+  await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+  expect(await state("#gpu-card")).toMatchObject({ hover: false, pressed: false });
+  await page.mouse.down();
+  expect(await state("#gpu-card")).toMatchObject({ hover: false, pressed: false });
+  await page.mouse.up();
+  // On a button in a plinth, the button is hovered and pressed; the plinth is not.
+  const button = await page.locator("#gpu-list").boundingBox();
+  await page.mouse.move(button.x + button.width / 2, button.y + button.height / 2);
+  expect(await state("#gpu-list")).toMatchObject({ hover: true });
+  expect(await state("#gpu-plinth")).toMatchObject({ hover: false, pressed: false });
+  await page.mouse.down();
+  expect(await state("#gpu-list")).toMatchObject({ hover: true, pressed: true });
+  expect(await state("#gpu-plinth")).toMatchObject({ hover: false, pressed: false });
+  await page.mouse.up();
+  // A preview still shows a state on any face, for specimens.
+  await page.evaluate(() => document.getElementById("gpu-card").setAttribute("data-strata-preview", "hover"));
+  expect(await state("#gpu-card")).toMatchObject({ hover: true });
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+});
+
 test("ordinary DOM gives the CSS relief back, and GPU returns to face mode", async ({ page }) => {
   await ready(page);
   await page.evaluate(async () => { await window.strataGpuProbe.controller.disable(); window.strataGpuProbe.refresh(); });
