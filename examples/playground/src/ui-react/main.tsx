@@ -5,14 +5,18 @@
  * `window.strataBinding`.
  */
 import "@underglass/ui/css";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Badge, Button, ButtonGroup, Card, Checkbox, Divider, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider, Spinner, StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
+import { Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider, Spinner, StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
 /** Each anatomy page's markup example, rendered by the binding. */
 function Contracts() {
+  // A Dialog and a Drawer render only while open, so the test opens them (`window.strataOverlays`) to compare.
+  const [overlays, setOverlays] = useState(false);
+  const [dialogHost, setDialogHost] = useState<HTMLElement | null>(null), [drawerHost, setDrawerHost] = useState<HTMLElement | null>(null);
+  useEffect(() => { Object.assign(window, { strataOverlays: setOverlays }); }, []);
   return (
     <div id="contracts" hidden>
       <div data-contract="button.md"><Button variant="accent" icon={null}>Save</Button></div>
@@ -49,12 +53,29 @@ function Contracts() {
       <div data-contract="progress-bar.md"><label htmlFor="upload">Upload</label><ProgressBar id="upload" value={40} max={100} /></div>
       <div data-contract="card.md"><Card title="Latency" titleId="card-1-title" footer={null}>…</Card></div>
       <div data-contract="panel.md"><Panel title="Settings" titleId="settings-title" /></div>
+      <div data-contract="dialog.md" ref={setDialogHost}>
+        {dialogHost && (
+          <Dialog open={overlays} container={dialogHost} title="Discard changes?" titleId="discard-title" description="Your edits will be lost." descriptionId="discard-description"
+            actions={<Button data-strata-close="">Keep editing</Button>} />
+        )}
+      </div>
+      <div data-contract="drawer.md" ref={setDrawerHost}>
+        {drawerHost && (
+          <Drawer open={overlays} container={drawerHost} title="Filters" titleId="filters-title" description="Narrow the list." descriptionId="filters-description"
+            actions={<Button data-strata-close="">Done</Button>} />
+        )}
+      </div>
       <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
   );
 }
 
+/** What the dialog check reads: the live Dialog's panel (the forwarded ref) and the reasons it was asked to close. */
+const strataDialog = { panel: null as HTMLElement | null, reasons: [] as string[] };
+Object.assign(window, { strataDialog });
+
 function App() {
+  const [liveOpen, setLiveOpen] = useState(false);
   const [clicks, setClicks] = useState({ save: 0, blocked: 0, disabled: 0, close: 0, submit: 0 });
   const [italic, setItalic] = useState(true);
   const [email, setEmail] = useState("");
@@ -140,7 +161,18 @@ function App() {
             <Button id="scoped">Scoped</Button>
           </section>
         </StrataScope>
+        <section className="ug-panel" data-strata-face="raised" aria-label="Overlays">
+          <Button id="open-live" onClick={() => setLiveOpen(true)}>Open live dialog</Button>
+        </section>
       </main>
+      <Dialog
+        ref={element => { strataDialog.panel = element; }}
+        open={liveOpen} onClose={reason => { strataDialog.reasons.push(reason); setLiveOpen(false); }}
+        title="Live dialog" description="Controlled by state." className="extra" id="live-dialog"
+        actions={<Button id="live-done" onClick={() => setLiveOpen(false)}>Done</Button>}
+      >
+        <TextField aria-label="Live field" id="live-field" />
+      </Dialog>
     </StrataProvider>
   );
 }

@@ -123,6 +123,64 @@
   :where(.ug-card__body) { min-width: 0; }
   :where(.ug-card__footer) { display: flex; flex-wrap: wrap; gap: var(--strata-space-3); }
 
+  /* ---- Overlays: Dialog and Drawer are top-level panels at the modal level, over a scrim ---- */
+
+  /* Panel and scrim are siblings in the same container, scrim first; a later pair stacks above an earlier one. */
+  :where(.ug-scrim) {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background-color: color-mix(in srgb, black 40%, transparent);
+    transition: opacity var(--strata-motion-slow) var(--strata-motion-easing-standard);
+  }
+  @starting-style { :where(.ug-scrim) { opacity: 0; } }
+  :where(.ug-scrim)[data-strata-closing] { opacity: 0; }
+  :where(.ug-scrim, .ug-dialog, .ug-drawer)[hidden] { display: none; }
+
+  :where(.ug-dialog, .ug-drawer) {
+    --_h: var(--strata-elevation-modal);
+    position: fixed;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    gap: var(--strata-space-4);
+  }
+  /* Centred, never wider or taller than the viewport; the body scrolls, the title and actions stay. */
+  :where(.ug-dialog) {
+    inset: 0;
+    margin: auto;
+    width: min(32rem, calc(100vw - 2 * var(--strata-space-5)));
+    height: fit-content;
+    max-height: calc(100dvh - 2 * var(--strata-space-5));
+  }
+  :where(.ug-dialog__title, .ug-drawer__title) {
+    margin: 0;
+    font-size: var(--strata-font-size-subtitle);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: var(--strata-font-line-height-heading);
+  }
+  :where(.ug-dialog__body, .ug-drawer__body) { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; }
+  :where(.ug-dialog__description, .ug-drawer__description) { margin: 0 0 var(--strata-space-3); }
+  :where(.ug-dialog__actions, .ug-drawer__actions) { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--strata-space-3); }
+
+  /*
+   * On a stage (a root that presents Strata on the GPU, marked by the GPU helper) overlays fill the stage, not the
+   * viewport, and stack in document order: a GPU layer carries no z-index.
+   */
+  :where([data-strata-stage]) > :is(.ug-scrim, .ug-dialog, .ug-drawer) { position: absolute; z-index: auto; }
+  :where([data-strata-stage]) > .ug-dialog { width: min(32rem, calc(100% - 2 * var(--strata-space-5))); max-height: calc(100% - 2 * var(--strata-space-5)); }
+  :where([data-strata-stage]) > :is(.ug-drawer--start, .ug-drawer--end) { width: min(24rem, calc(100% - 2 * var(--strata-space-5))); }
+  :where([data-strata-stage]) > :is(.ug-drawer--top, .ug-drawer--bottom) { max-height: calc(100% - 2 * var(--strata-space-5)); }
+  /* Under the GPU a scrim is a layer: the GPU fades it, so its CSS opacity stays put. */
+  :where([data-strata-mode="face"]).ug-scrim { opacity: 1 !important; transition: none !important; }
+  /* A drawer sits on one edge of the viewport and is square on that edge. */
+  :where(.ug-drawer--start, .ug-drawer--end) { inset-block: 0; width: min(24rem, calc(100vw - 2 * var(--strata-space-5))); }
+  :where(.ug-drawer--top, .ug-drawer--bottom) { inset-inline: 0; height: fit-content; max-height: calc(100dvh - 2 * var(--strata-space-5)); }
+  :where(.ug-drawer--start) { inset-inline-start: 0; border-start-start-radius: 0; border-end-start-radius: 0; }
+  :where(.ug-drawer--end) { inset-inline-end: 0; border-start-end-radius: 0; border-end-end-radius: 0; }
+  :where(.ug-drawer--top) { inset-block-start: 0; border-start-start-radius: 0; border-start-end-radius: 0; }
+  :where(.ug-drawer--bottom) { inset-block-end: 0; border-end-start-radius: 0; border-end-end-radius: 0; }
+
   /* ---- Buttons ---- */
 
   :where(.ug-button, .ug-icon-button, .ug-toggle-button) {
@@ -640,6 +698,7 @@
   @media (prefers-reduced-motion: reduce) {
     :where([data-strata-face], .ug-checkbox__mark, .ug-radio__dot, .ug-switch__knob, .ug-switch__input) { transition: none; }
     :where(.ug-spinner__arc) { animation: none; }
+    :where(.ug-scrim) { transition: none; }
     :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-progress:indeterminate) {
@@ -660,6 +719,7 @@
   @media (forced-colors: active) {
     :where([data-strata-face]) { box-shadow: none; background-image: none; filter: none; }
     :where(.ug-panel, .ug-card) { border: 1px solid CanvasText; }
+    :where(.ug-scrim) { forced-color-adjust: none; }
     :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group) { border: 1px solid ButtonBorder; }
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }

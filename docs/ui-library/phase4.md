@@ -193,10 +193,20 @@ Implemented: `attachStrataGpu(controller)`, and `useStrataGpu` for React and Vue
 - **A core bug, fixed separately:** building the helper showed that layers laid out at fractional sizes never
   admitted (#78).
 
+- **Depth transitions:** `strataEnter` and `strataLeave` move a presented panel with core's `transition` (scale for
+  depth, tilt and opacity, about the panel's centre) while its scene height travels from `elevation.modal`. The panel
+  is inert while it moves, and reduced motion makes the change instant.
+
 - **Panel helper:** enrolls each `.ug-panel` as a layer, collects its `data-strata-face` primitives, syncs state
   from pointer, focus and ARIA, and switches the subtree to `data-strata-mode="face"`.
 - **Tokens:** applies the resolved tokens as material parameters, with uniform updates for depth and light.
 - **Bindings:** React and Vue get it as an opt-in prop or hook. Astro gets it through a client-side attachment.
+- **Overlays:** the root is a stage (`data-strata-stage`). Dialog and Drawer rendered into it are presented as their own
+  panels while open (relief at `elevation.modal`, entering through depth), over a scrim enrolled as a plain layer and
+  faded by core. `showStrataDialog` hands them to the stage as they show and takes them back before they hide, in the
+  same task, because a presented layer must never be hidden. Their accessibility snapshot matches a native
+  `<dialog>` (#86) and is the same on the GPU, so the plan's fallback to `<dialog>` is not needed. Tooltip, Menu,
+  Popover and Select popups stay in the overlay host.
 
 ## Decisions (accepted 2026-10-16)
 

@@ -3,7 +3,8 @@
  * enrolled with `@underglass/core` and presented on the GPU with core's relief material. It proves that GPU stays on
  * with face mode set, that the scene follows the panel's markup, tokens and states (hover, press, focus, checked,
  * value), that pixels stay fresh and native input reaches the controls, that the outset shows the panel's shadow,
- * and that returning to ordinary DOM gives the CSS relief back. Pixels are decoded from `#frame` screenshots.
+ * that returning to ordinary DOM gives the CSS relief back, and that panel motion moves the panel through depth on the
+ * GPU. Pixels are decoded from `#frame` screenshots.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
 import { mkdir } from "node:fs/promises";
@@ -51,8 +52,8 @@ test("Strata panels are GPU-presented in face mode with a scene from their marku
   expect(initial.layers).toEqual(["gpu-panel"]);
   expect(initial.face).toBe("face");
   expect(initial.materials).toEqual([expect.objectContaining({ id: "gpu-panel", kind: "relief" })]);
-  // Panel, field, checkbox well and mark, switch well and knob, slider groove and knob, three buttons, spinner ring.
-  expect(initial.faces).toEqual(["raised", "well", "well", "mark", "well", "knob", "groove", "knob", "raised", "raised", "raised", "ring"]);
+  // Panel, field, checkbox well and mark, switch well and knob, slider groove and knob, four buttons, spinner ring.
+  expect(initial.faces).toEqual(["raised", "well", "well", "mark", "well", "knob", "groove", "knob", "raised", "raised", "raised", "raised", "ring"]);
   // Token values resolve through the stylesheet: depth 50% in the light theme.
   expect(initial.scene).toMatchObject({ light: { azimuth: 323, elevation: 41 }, bevel: { width: 6, gain: 0.55, profile: "quarter-round" },
     shadow: { strength: 0.24 }, interior: { max: 0.04 }, backdrop: "#ffffff", focus: { colour: "#2563eb", width: 3, offset: 0.5 } });
@@ -117,4 +118,126 @@ test("ordinary DOM gives the CSS relief back, and GPU returns to face mode", asy
   const detached = await page.evaluate(() => { window.strataGpuProbe.detach(); const state = window.strataGpuProbe.controller.state();
     return { layers: state.layers.length, materials: state.materials.length, face: window.strataGpuProbe.panel().getAttribute("data-strata-mode") }; });
   expect(detached).toEqual({ layers: 0, materials: 0, face: null });
+});
+
+test("panel motion carries a presented panel through depth on the GPU, inert while it moves", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  const box = await page.evaluate(() => { const panel = window.strataGpuProbe.panel(); return { x: panel.offsetLeft, y: panel.offsetTop, w: panel.offsetWidth, h: panel.offsetHeight }; });
+  // A point on the panel's face, clear of its controls, and the backdrop beside it.
+  const face = [box.x + box.w - 30, box.y + 20];
+  const resting = await snap(page, "motion-resting");
+  const restingFace = resting(...face);
+  expect(Math.abs(luma(restingFace) - luma(resting(20, 20)))).toBeGreaterThan(4);
+
+  // Leaving, tilted: the layer moves through depth while the panel is inert, and its scene rises towards the modal level.
+  await page.evaluate(() => { window.leaving = window.strataGpuProbe.leave({ tilt: 12 }); });
+  await page.waitForFunction(() => { const layer = window.strataGpuProbe.controller.state().layers[0]; return layer.transform.opacity < 0.9 && layer.transform.opacity > 0.1; });
+  const moving = await page.evaluate(() => {
+    const probe = window.strataGpuProbe, layer = probe.controller.state().layers[0];
+    probe.refresh();
+    return { mode: probe.controller.state().mode, inert: probe.panel().inert, motion: probe.panel().getAttribute("data-strata-motion"),
+      origin: layer.origin, transform: layer.transform, height: probe.scene().primitives[0].height };
+  });
+  expect(moving).toMatchObject({ mode: "gpu", inert: true, motion: null, origin: "center" });
+  expect(moving.transform.tiltX).toBeGreaterThan(0);
+  expect(moving.transform.scaleX).toBeGreaterThan(1);
+  // The scene height travels from the panel's own level (8) towards the modal one (24) on the motion's easing.
+  expect(moving.height).toBeGreaterThan(9);
+  expect(moving.height).toBeLessThan(24);
+  await page.evaluate(() => window.leaving);
+  const left = await page.evaluate(() => {
+    const probe = window.strataGpuProbe, state = probe.controller.state();
+    return { mode: state.mode, inert: probe.panel().inert, motion: probe.panel().getAttribute("data-strata-motion"), opacity: state.layers[0].transform.opacity };
+  });
+  expect(left).toEqual({ mode: "gpu", inert: true, motion: "leave", opacity: 0 });
+  // Nothing of the panel is drawn: its face shows the backdrop.
+  const gone = await snap(page, "motion-left");
+  expect(Math.abs(luma(gone(...face)) - luma(gone(20, 20)))).toBeLessThan(2);
+
+  // Entering again brings the same pixels back, and native input reaches the controls once it has settled.
+  await page.evaluate(() => window.strataGpuProbe.enter({ tilt: 12 }));
+  const entered = await page.evaluate(() => {
+    const probe = window.strataGpuProbe, state = probe.controller.state();
+    probe.refresh();
+    return { mode: state.mode, inert: probe.panel().inert, motion: probe.panel().getAttribute("data-strata-motion"), transform: state.layers[0].transform,
+      height: probe.scene().primitives[0].height };
+  });
+  expect(entered).toMatchObject({ mode: "gpu", inert: false, motion: null, transform: { opacity: 1, scaleX: 1, scaleY: 1 }, height: 8 });
+  expect(entered.transform.tiltX ?? 0).toBe(0);
+  const back = await snap(page, "motion-entered");
+  expect(back(...face).every((channel, index) => Math.abs(channel - restingFace[index]) <= 2)).toBe(true);
+  await page.locator("#gpu-save").click();
+  expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test("under reduced motion, panel motion on the GPU is instant", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await ready(page);
+  const result = await page.evaluate(async () => {
+    const probe = window.strataGpuProbe, started = performance.now();
+    await probe.leave({ tilt: 12 });
+    const left = { opacity: probe.controller.state().layers[0].transform.opacity, motion: probe.panel().getAttribute("data-strata-motion") };
+    await probe.enter();
+    return { left, ms: performance.now() - started, mode: probe.controller.state().mode, opacity: probe.controller.state().layers[0].transform.opacity, inert: probe.panel().inert };
+  });
+  expect(result.left).toEqual({ opacity: 0, motion: "leave" });
+  expect(result).toMatchObject({ mode: "gpu", opacity: 1, inert: false });
+  expect(result.ms).toBeLessThan(250);
+});
+
+test("a Dialog rendered into the root is its own GPU panel over a faded scrim, modal, and let go before it hides", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  const before = await snap(page, "dialog-before");
+  const panelBox = await page.evaluate(() => { const panel = window.strataGpuProbe.panel(); return { x: panel.offsetLeft, y: panel.offsetTop, w: panel.offsetWidth, h: panel.offsetHeight }; });
+  const onPanel = [panelBox.x + panelBox.w - 30, panelBox.y + 20];
+  // Opened by a real click through the GPU: the scrim and the dialog become layers in the same task, so GPU never
+  // leaves, and the dialog enters through depth on the GPU.
+  await page.locator("#gpu-open").click();
+  await page.waitForFunction(() => document.activeElement?.id === "gpu-dialog-cancel");
+  const open = await page.evaluate(async () => {
+    const probe = window.strataGpuProbe;
+    await probe.controller.settle();
+    const state = probe.controller.state(), dialog = probe.dialog();
+    return { mode: state.mode, layers: state.layers.map(layer => layer.id), materials: state.materials.map(material => `${material.id}:${material.kind}`),
+      face: dialog.getAttribute("data-strata-mode"), centred: [dialog.offsetLeft * 2 + dialog.offsetWidth, dialog.offsetTop * 2 + dialog.offsetHeight],
+      stage: [probe.panel().parentElement.offsetWidth, probe.panel().parentElement.offsetHeight], inert: probe.panel().inert, zIndex: getComputedStyle(dialog).zIndex };
+  });
+  expect(open.mode).toBe("gpu");
+  expect(open.layers).toEqual(["gpu-panel", expect.stringMatching(/^strata-scrim-/), "gpu-dialog"]);
+  expect(open.materials).toEqual(["gpu-panel:relief", "gpu-dialog:relief"]);
+  expect(open).toMatchObject({ face: "face", inert: true, zIndex: "auto" });
+  // Centred on the stage (the Underglass root), not the viewport.
+  expect(Math.abs(open.centred[0] - open.stage[0])).toBeLessThanOrEqual(1);
+  expect(Math.abs(open.centred[1] - open.stage[1])).toBeLessThanOrEqual(1);
+  // Pixels are fresh: the scrim dims the panel behind the dialog.
+  await page.waitForFunction(() => window.strataGpuProbe.controller.state().layers.every(layer => (layer.transform.opacity ?? 1) === 1));
+  const dimmed = await snap(page, "dialog-open");
+  expect(luma(dimmed(...onPanel))).toBeLessThan(luma(before(...onPanel)) - 40);
+  // The accessibility tree is the same as in ordinary DOM.
+  const gpuTree = await page.locator("#gpu-dialog").ariaSnapshot();
+  // A real click on Delete lands on the drawn button and closes the dialog; both layers are let go before they hide.
+  const remove = await page.locator("#gpu-dialog-delete").boundingBox();
+  await page.mouse.click(remove.x + remove.width / 2, remove.y + remove.height / 2);
+  await page.waitForFunction(() => !window.strataGpuProbe.dialog());
+  const closed = await page.evaluate(() => { const probe = window.strataGpuProbe, state = probe.controller.state();
+    return { mode: state.mode, layers: state.layers.map(layer => layer.id), closes: probe.closes(), active: document.activeElement?.id, inert: probe.panel().inert }; });
+  expect(closed).toEqual({ mode: "gpu", layers: ["gpu-panel"], closes: ["delete"], active: "gpu-open", inert: false });
+  // Escape closes it too, and focus returns to the opener.
+  await page.locator("#gpu-open").click();
+  await page.waitForFunction(() => document.activeElement?.id === "gpu-dialog-cancel");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !window.strataGpuProbe.dialog());
+  expect(await page.evaluate(() => ({ mode: window.strataGpuProbe.controller.state().mode, closes: window.strataGpuProbe.closes(), active: document.activeElement?.id })))
+    .toEqual({ mode: "gpu", closes: ["delete", "escape"], active: "gpu-open" });
+  // In ordinary DOM the same dialog has the same accessibility tree.
+  await page.evaluate(() => window.strataGpuProbe.controller.disable());
+  await page.locator("#gpu-open").click();
+  await page.waitForFunction(() => document.activeElement?.id === "gpu-dialog-cancel");
+  expect(await page.locator("#gpu-dialog").ariaSnapshot()).toBe(gpuTree);
+  expect(errors).toEqual([]);
 });

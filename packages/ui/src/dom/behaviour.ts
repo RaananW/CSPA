@@ -5,9 +5,12 @@
  *   dispatches a bubbling `strata-pressed-change` event with `{ pressed }`;
  * - a click on a Strata button with `aria-disabled="true"` is stopped before any other listener sees it, so the
  *   control stays focusable without activating;
- * - a checkbox with `data-strata-indeterminate` gets the `indeterminate` property, which has no attribute.
+ * - a checkbox with `data-strata-indeterminate` gets the `indeterminate` property, which has no attribute;
+ * - a click on `[data-strata-open="id"]` shows the Dialog or Drawer with that id (`showStrataDialog`), and a click on a
+ *   `[data-strata-close]` inside an open one closes it.
  * The React and Vue bindings do the same themselves, so they need none of this.
  */
+import { showStrataDialog, type DialogHandle } from "./dialog.ts";
 
 const attached = new WeakMap<Document | HTMLElement, () => void>();
 
@@ -15,6 +18,9 @@ const attached = new WeakMap<Document | HTMLElement, () => void>();
 export interface PressedChange {
   pressed: boolean;
 }
+
+/** The plain-markup dialogs this module has opened, by panel. */
+const opened = new WeakMap<HTMLElement, DialogHandle>();
 
 const buttons = ".ug-button, .ug-icon-button, .ug-toggle-button";
 
@@ -46,11 +52,26 @@ export function attachStrata(root: Document | HTMLElement = document): () => voi
     button.setAttribute("aria-pressed", String(pressed));
     button.dispatchEvent(new CustomEvent<PressedChange>("strata-pressed-change", { bubbles: true, detail: { pressed } }));
   };
+  const open = (event: Event) => {
+    const opener = (event.target as Element | null)?.closest?.("[data-strata-open]");
+    const panel = opener && document.getElementById(opener.getAttribute("data-strata-open") ?? "");
+    if (!panel || event.defaultPrevented || opener.getAttribute("aria-disabled") === "true" || (opener as HTMLButtonElement).disabled) return;
+    opened.set(panel, showStrataDialog(panel, { onClose: () => void opened.get(panel)?.close(), closeOnScrim: panel.hasAttribute("data-strata-close-on-scrim") }));
+  };
+  const close = (event: Event) => {
+    const closer = (event.target as Element | null)?.closest?.("[data-strata-close]");
+    const panel = closer?.closest<HTMLElement>(".ug-dialog, .ug-drawer");
+    if (panel && !panel.hidden) void opened.get(panel)?.close();
+  };
   root.addEventListener("click", block, true);
+  root.addEventListener("click", open);
+  root.addEventListener("click", close);
   root.addEventListener("click", toggle);
   const detach = () => {
     root.removeEventListener("click", block, true);
     root.removeEventListener("click", toggle);
+    root.removeEventListener("click", open);
+    root.removeEventListener("click", close);
     attached.delete(root);
   };
   attached.set(root, detach);

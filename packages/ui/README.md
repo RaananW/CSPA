@@ -126,8 +126,10 @@ await strataLeave(panel);           // out through depth; inert meanwhile, invis
 await strataEnter(panel, { tilt: 8 }); // back in, tilted 8° while moving
 ```
 
-Instant under `prefers-reduced-motion`. In face mode (GPU on) the CSS motion is off; the GPU presentation moves the
-panel.
+Instant under `prefers-reduced-motion`. In face mode (GPU on) the same calls move the panel on the GPU:
+`attachStrataGpu` hands it to core's `transition`, which scales, tilts and fades the layer about its centre as the CSS
+motion does, while the panel's relief height travels from the modal level so its shadow follows. Native hits follow
+the moving panel, and it stays inert until it has entered.
 
 ## React
 
@@ -187,6 +189,42 @@ The same 19 components, rendered to HTML on the server with no JavaScript. Contr
 and RadioGroup renders its radios from `options`. ToggleButton state, `aria-disabled` and checkbox `indeterminate`
 come from `attachStrata` (`@underglass/ui/dom`), which the components load. For plain HTML or other server templates,
 call `attachStrata()` yourself. Astro 7.3 is an optional peer.
+
+## Dialog and Drawer
+
+`Dialog` and `Drawer` are modal top-level panels at `elevation.modal`, following the APG modal dialog pattern. They
+are Strata panels, not `<dialog>` elements, so the GPU presentation can enroll them like any panel. Each renders a
+`<section role="dialog" aria-modal="true">` and a `.ug-scrim` before it, into a container (the page body by default),
+never inside a layer. Closed, React and Vue render nothing and plain HTML and Astro render both with `hidden`.
+With `attachStrataGpu`, render them into the Underglass root (`container={controller.container}`): there they fill
+the stage and are presented on the GPU while open, over a scrim the GPU fades.
+
+```tsx
+import { Button, Dialog, Drawer } from "@underglass/ui/react";
+
+<Dialog open={open} onClose={() => setOpen(false)} title="Discard changes?" description="Your edits will be lost."
+  actions={<Button variant="accent" onClick={discard}>Discard</Button>}>…</Dialog>
+<Drawer open={filters} onClose={() => setFilters(false)} side="start" title="Filters">…</Drawer>
+```
+
+```html
+<button data-strata-open="help">Help</button>
+<!-- Astro: <Dialog id="help" title="Help">…<Fragment slot="actions"><Button data-strata-close="">Close</Button></Fragment></Dialog> -->
+```
+
+```ts
+import { showStrataDialog } from "@underglass/ui/dom";
+
+const dialog = showStrataDialog(panel, { onClose: reason => dialog.close(), closeOnScrim: true });
+await dialog.close();               // reason is "escape", "scrim" or "close"
+```
+
+`showStrataDialog` is the one implementation behind every binding: it makes the rest of the page `inert` (each prior
+value restored exactly), moves focus to `initialFocus`, the `[autofocus]` descendant or the first tabbable element,
+returns it to the opener, closes on Escape (only the topmost of nested dialogs), and runs the panel motion. A scrim click
+closes only with `closeOnScrim`, as a native `<dialog>` does. In plain HTML, `data-strata-open="id"` opens a panel and
+`data-strata-close` inside it closes it (`attachStrata`). Anatomy: [Dialog](../../docs/ui-library/components/dialog.md),
+[Drawer](../../docs/ui-library/components/drawer.md).
 
 Next: the GPU presentation (`/gpu`), as the
 [plan](../../docs/ui-library/plan.md) describes.

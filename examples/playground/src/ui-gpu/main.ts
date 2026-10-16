@@ -7,6 +7,7 @@
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
 import { attachStrataGpu, type StrataGpu } from "@underglass/ui/gpu";
+import { showStrataDialog, strataEnter, strataLeave, type DialogHandle, type PanelMotionOptions } from "@underglass/ui/dom";
 
 const markup = `
   <h2 id="gpu-title" style="margin:0 0 12px;font-size:18px">Account</h2>
@@ -25,6 +26,7 @@ const markup = `
     <button type="button" class="ug-button" data-strata-face="raised" id="gpu-cancel"><span class="ug-button__label">Cancel</span></button>
     <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" id="gpu-save"><span class="ug-button__label">Save</span></button>
     <button type="button" class="ug-button" data-strata-face="raised" id="gpu-disabled" disabled><span class="ug-button__label">Disabled</span></button>
+    <button type="button" class="ug-button" data-strata-face="raised" id="gpu-open"><span class="ug-button__label">Delete…</span></button>
     <span class="ug-spinner ug-spinner--md" role="status" data-strata-face="ring"><span class="ug-spinner__arc" aria-hidden="true"></span><span class="ug-spinner__label">Saving</span></span>
   </div>
   <p id="gpu-count" style="margin:12px 0 0">Saved 0 times</p>`;
@@ -32,6 +34,40 @@ const markup = `
 const params = new URLSearchParams(location.search);
 const host = (id: string) => document.getElementById(id)!;
 let panel!: HTMLElement;
+let root!: HTMLElement;
+let dialog: { panel: HTMLElement; handle: DialogHandle } | undefined;
+const closes: string[] = [];
+/**
+ * Opens a Strata Dialog as a top-level panel of the Underglass root, as the React and Vue bindings do with `container`:
+ * its scrim and panel are added as root children, so `attachStrataGpu` presents the dialog as its own GPU panel.
+ */
+function openDialog() {
+  const scrim = document.createElement("div");
+  scrim.className = "ug-scrim";
+  scrim.setAttribute("aria-hidden", "true");
+  const section = document.createElement("section");
+  section.className = "ug-panel ug-dialog";
+  section.id = "gpu-dialog";
+  Object.assign(section, { tabIndex: -1 });
+  for (const [name, value] of [["role", "dialog"], ["aria-modal", "true"], ["aria-labelledby", "gpu-dialog-title"], ["data-strata-face", "raised"], ["data-strata-elevation", "modal"]]) section.setAttribute(name, value);
+  section.innerHTML = `<h2 class="ug-dialog__title" id="gpu-dialog-title">Delete the account?</h2>
+    <div class="ug-dialog__body"><p style="margin:0">This cannot be undone.</p></div>
+    <div class="ug-dialog__actions">
+      <button type="button" class="ug-button" data-strata-face="raised" id="gpu-dialog-cancel"><span class="ug-button__label">Cancel</span></button>
+      <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" id="gpu-dialog-delete"><span class="ug-button__label">Delete</span></button>
+    </div>`;
+  root.append(scrim, section);
+  const close = async (reason: string) => {
+    closes.push(reason);
+    await dialog?.handle.close();
+    scrim.remove(); section.remove();
+    dialog = undefined;
+  };
+  const handle = showStrataDialog(section, { onClose: reason => void close(reason) });
+  section.querySelector("#gpu-dialog-cancel")!.addEventListener("click", () => void close("cancel"));
+  section.querySelector("#gpu-dialog-delete")!.addEventListener("click", () => void close("delete"));
+  dialog = { panel: section, handle };
+}
 let saves = 0;
 // Declared before mounting: the runtime may report status while it mounts.
 let strata: StrataGpu | undefined;
@@ -49,6 +85,8 @@ const controller: CanvasController = mountApplicationModule({
   Object.assign(panel.style, compileStyle({ x: 60, y: 50, width: 520 }, {}, true));
   panel.innerHTML = markup;
   container.append(panel);
+  root = container;
+  panel.querySelector("#gpu-open")!.addEventListener("click", openDialog);
   panel.querySelector("#gpu-save")!.addEventListener("click", () => { saves++; panel.querySelector("#gpu-count")!.textContent = `Saved ${saves} times`; });
   return () => container.replaceChildren();
 } });
@@ -65,10 +103,15 @@ window.strataGpuProbe = {
   scene: () => strata?.scene(panel),
   refresh: () => strata?.refresh(),
   detach: () => { strata?.detach(); strata = undefined; },
+  enter: options => strataEnter(panel, options),
+  dialog: () => dialog?.panel, closes: () => [...closes],
+  leave: options => strataLeave(panel, options),
 };
 declare global {
   interface Window { strataGpuProbe: {
     controller: CanvasController; panel(): HTMLElement; saves(): number;
     scene(): ReturnType<StrataGpu["scene"]>; refresh(): void; detach(): void;
+    enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
+    dialog(): HTMLElement | undefined; closes(): string[];
   } }
 }

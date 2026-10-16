@@ -10,7 +10,7 @@
  */
 import { test, expect } from "../helpers/current-browser.mjs";
 import AxeBuilder from "@axe-core/playwright";
-import { canonicalScript, expectContracts } from "../helpers/strata-contract.mjs";
+import { canonicalScript, expectContracts, expectOpenOverlayContracts } from "../helpers/strata-contract.mjs";
 
 const bindings = ["react", "vue"];
 const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -25,6 +25,8 @@ for (const binding of bindings) test(`Strata ${binding} components render their 
 
   // Markup contracts.
   await expectContracts(page, expect);
+  // A Dialog and a Drawer render only while open.
+  await expectOpenOverlayContracts(page, expect);
 
   // Button: pointer and keyboard activate once each; type="button" never submits the form.
   const save = page.locator("#save");
@@ -123,6 +125,54 @@ for (const binding of bindings) test(`Strata ${binding} components render their 
     expect(undecided, `undecided contrast, ${theme}`).toEqual([]);
     await page.evaluate(() => { delete document.documentElement.dataset.strataMode; });
   }
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Dialog is modal, controlled by open, and keeps focus and inert state`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const opener = page.locator("#open-live");
+  const dialog = page.getByRole("dialog", { name: "Live dialog" });
+  const inert = () => page.evaluate(() => [...document.querySelectorAll("[inert]")].map(element => element.id || element.localName));
+  // Closed, it renders nothing.
+  await expect(page.locator("#live-dialog")).toHaveCount(0);
+  await expect(page.locator(".ug-scrim")).toHaveCount(0);
+
+  // Open: the panel and its scrim are body children, focus moves in, the app behind is inert, and the ref, class and
+  // attributes reach the panel.
+  await opener.click();
+  await expect(dialog).toBeVisible();
+  await expect(page.locator("#live-field")).toBeFocused();
+  await expect(dialog).toHaveAccessibleDescription("Controlled by state.");
+  expect(await dialog.evaluate(element => ({
+    parent: element.parentElement === document.body, scrim: element.previousElementSibling?.className, modal: element.getAttribute("aria-modal"),
+    className: element.className, ref: element === window.strataDialog.panel || element === window.strataBinding.liveDialog,
+  }))).toEqual({ parent: true, scrim: "ug-scrim", modal: "true", className: expect.stringContaining("ug-panel ug-dialog"), ref: true });
+  await expect(dialog).toHaveClass(/extra/);
+  expect(await inert()).toEqual(["root"]);
+  // Tab stays inside.
+  for (let step = 0; step < 6; step++) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => !document.activeElement?.closest("#root"))).toBe(true);
+  }
+  // Escape asks to close; the app sets open to false, the panel leaves and unmounts, and focus returns to the opener.
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#live-dialog")).toHaveCount(0);
+  await expect(opener).toBeFocused();
+  expect(await inert()).toEqual([]);
+  expect(await page.evaluate(() => window.strataDialog.reasons)).toEqual(["escape"]);
+
+  // A close button that sets open to false closes it the same way, and it opens again.
+  await opener.click();
+  await expect(page.locator("#live-field")).toBeFocused();
+  await page.locator("#live-done").click();
+  await expect(page.locator("#live-dialog")).toHaveCount(0);
+  await expect(opener).toBeFocused();
+  expect(await inert()).toEqual([]);
+  await opener.click();
+  await expect(dialog).toBeVisible();
   await context.close();
 });
 
