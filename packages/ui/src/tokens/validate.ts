@@ -62,10 +62,12 @@ export function validateTokens(source: TokenGroup): Issue[] {
     const check = (label: string, ratio: number, minimum: number) => { if (ratio < minimum) report(`colour (${theme})`, `${label} is ${ratio.toFixed(2)}:1, under ${minimum}:1`); };
     const panel = colour("panel"), edge = colour("edge"), accent = colour("accent"), track = colour("track"), knob = colour("knob");
     for (const factor of lit) {
-      check(`text on the panel at ×${factor}`, contrast(colour("text"), scale(panel, factor)), text);
-      check(`muted text on the panel at ×${factor}`, contrast(colour("muted"), scale(panel, factor)), text);
-      for (const role of ["accent", "success", "warning", "danger", "info"]) {
-        check(`text on ${role} at ×${factor}`, contrast(onColour(colour(role)), scale(colour(role), factor)), text);
+      // The rendering model changes a face interior and the text on it by one factor (rendering model, section
+      // 2.9), so text is checked both as captured and at the same factor as its face.
+      const pairs: [string, Rgb, Rgb][] = [["text on the panel", colour("text"), panel], ["muted text on the panel", colour("muted"), panel],
+        ...["accent", "success", "warning", "danger", "info"].map((role): [string, Rgb, Rgb] => [`text on ${role}`, onColour(colour(role)), colour(role)])];
+      for (const [label, foreground, face] of pairs) {
+        check(`${label} at ×${factor}`, Math.min(contrast(foreground, scale(face, factor)), contrast(scale(foreground, factor), scale(face, factor))), text);
       }
       check(`the edge on the panel at ×${factor}`, contrast(edge, scale(panel, factor)), nonText);
     }

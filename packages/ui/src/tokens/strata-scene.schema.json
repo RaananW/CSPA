@@ -1,0 +1,453 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/RaananW/underglass/blob/main/packages/ui/src/tokens/strata-scene.schema.json",
+  "title": "Strata scene, version 1",
+  "description": "One layer at one moment, for the Strata rendering model (docs/ui-library/rendering-model.md). Lengths are layer-local CSS px, x right and y down; angles are degrees; colours are sRGB #rrggbb. Every value is already resolved for a depth and theme.",
+  "type": "object",
+  "required": [
+    "format",
+    "version",
+    "extent",
+    "backdrop",
+    "light",
+    "bevel",
+    "shadow",
+    "interior",
+    "state",
+    "focus",
+    "materials",
+    "primitives"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "strata-scene"
+    },
+    "version": {
+      "const": 1
+    },
+    "extent": {
+      "description": "The layer's size: its border box.",
+      "type": "object",
+      "required": [
+        "width",
+        "height"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "$ref": "#/$defs/length"
+        },
+        "height": {
+          "$ref": "#/$defs/length"
+        }
+      }
+    },
+    "outset": {
+      "description": "Room drawn outside the extent, for shadows only. It never takes hits. Defaults to 0 on every side.",
+      "type": "object",
+      "required": [
+        "top",
+        "right",
+        "bottom",
+        "left"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "top": {
+          "$ref": "#/$defs/length"
+        },
+        "right": {
+          "$ref": "#/$defs/length"
+        },
+        "bottom": {
+          "$ref": "#/$defs/length"
+        },
+        "left": {
+          "$ref": "#/$defs/length"
+        }
+      }
+    },
+    "backdrop": {
+      "description": "The colour under the layer; conformance renders over it.",
+      "$ref": "#/$defs/colour"
+    },
+    "light": {
+      "description": "The one key light (design language section 3).",
+      "type": "object",
+      "required": [
+        "azimuth",
+        "elevation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "azimuth": {
+          "description": "Where the light comes from, clockwise from the top of the screen.",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360
+        },
+        "elevation": {
+          "description": "Height of the light above the panel plane.",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 90
+        }
+      }
+    },
+    "bevel": {
+      "type": "object",
+      "required": [
+        "width",
+        "gain",
+        "profile"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "$ref": "#/$defs/length"
+        },
+        "gain": {
+          "type": "number",
+          "minimum": 0
+        },
+        "profile": {
+          "enum": [
+            "quarter-round",
+            "chamfer",
+            "cove"
+          ]
+        }
+      }
+    },
+    "shadow": {
+      "type": "object",
+      "required": [
+        "strength"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "strength": {
+          "$ref": "#/$defs/unit"
+        }
+      }
+    },
+    "interior": {
+      "description": "The contrast budget on face interiors.",
+      "type": "object",
+      "required": [
+        "max"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "max": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.1
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "required": [
+        "hoverHeight",
+        "pressHeight",
+        "hoverLift",
+        "pressSink"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "hoverHeight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "pressHeight": {
+          "type": "number",
+          "minimum": 0
+        },
+        "hoverLift": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.1
+        },
+        "pressSink": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 0.1
+        }
+      }
+    },
+    "focus": {
+      "type": "object",
+      "required": [
+        "colour",
+        "width",
+        "offset"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "colour": {
+          "$ref": "#/$defs/colour"
+        },
+        "width": {
+          "$ref": "#/$defs/length"
+        },
+        "offset": {
+          "$ref": "#/$defs/length"
+        }
+      }
+    },
+    "materials": {
+      "description": "Materials by name, as numeric layers. Colours come from the captured content.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/material"
+      }
+    },
+    "primitives": {
+      "description": "Relief primitives, back to front: a later primitive sits on an earlier one.",
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/primitive"
+      }
+    }
+  },
+  "$defs": {
+    "length": {
+      "type": "number",
+      "minimum": 0
+    },
+    "unit": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "colour": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    },
+    "material": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "roughness": {
+              "$ref": "#/$defs/unit"
+            },
+            "metallic": {
+              "$ref": "#/$defs/unit"
+            }
+          },
+          "description": "Defaults: roughness 1, metallic 0."
+        },
+        "coat": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "strength": {
+              "$ref": "#/$defs/unit"
+            },
+            "roughness": {
+              "$ref": "#/$defs/unit"
+            },
+            "ior": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 3
+            }
+          },
+          "description": "Defaults: strength 0, roughness 0, ior 1.5."
+        },
+        "emissive": {
+          "description": "An emissive material (strength above 0) is unlit; it still casts. Default strength 0.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "strength": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 4
+            }
+          }
+        },
+        "sheen": {
+          "description": "Reserved in version 1: accepted and ignored.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "strength": {
+              "$ref": "#/$defs/unit"
+            },
+            "roughness": {
+              "$ref": "#/$defs/unit"
+            }
+          }
+        },
+        "iridescence": {
+          "description": "Reserved in version 1: accepted and ignored.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "strength": {
+              "$ref": "#/$defs/unit"
+            },
+            "thickness": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "transmission": {
+          "description": "Reserved in version 1: accepted and ignored.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "strength": {
+              "$ref": "#/$defs/unit"
+            },
+            "ior": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 3
+            },
+            "frost": {
+              "$ref": "#/$defs/unit"
+            }
+          }
+        }
+      }
+    },
+    "primitive": {
+      "type": "object",
+      "required": [
+        "face",
+        "rect",
+        "height",
+        "material"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "face": {
+          "enum": [
+            "raised",
+            "well",
+            "groove",
+            "knob",
+            "mark",
+            "ring",
+            "flat"
+          ]
+        },
+        "rect": {
+          "description": "[x, y, width, height] of the element's border box.",
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/length"
+            },
+            {
+              "$ref": "#/$defs/length"
+            }
+          ]
+        },
+        "radius": {
+          "description": "Corner radius, clamped to half the shorter side. A knob is always fully round.",
+          "$ref": "#/$defs/length"
+        },
+        "height": {
+          "description": "Height above the face for raised parts; depth below it for wells (reserved in version 1).",
+          "$ref": "#/$defs/length"
+        },
+        "material": {
+          "description": "A key of the scene's materials.",
+          "type": "string"
+        },
+        "finish": {
+          "description": "Whether the material's finish zones apply.",
+          "type": "boolean"
+        },
+        "state": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hover": {
+              "type": "boolean"
+            },
+            "pressed": {
+              "type": "boolean"
+            },
+            "focus": {
+              "type": "boolean"
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "ring": {
+          "description": "For the ring face only: the annulus thickness and its arc, in degrees clockwise from the top.",
+          "type": "object",
+          "required": [
+            "thickness",
+            "start",
+            "sweep",
+            "colour"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "thickness": {
+              "$ref": "#/$defs/length"
+            },
+            "start": {
+              "type": "number",
+              "minimum": -360,
+              "maximum": 360
+            },
+            "sweep": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 360
+            },
+            "colour": {
+              "$ref": "#/$defs/colour"
+            }
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "face": {
+            "const": "ring"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "ring"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "ring"
+          ]
+        }
+      }
+    }
+  }
+}
