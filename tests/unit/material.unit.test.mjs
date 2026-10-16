@@ -6,18 +6,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { defineEffect, validateMaterial, materialUniforms, MATERIAL_INTERIOR_CEILING } from "../../packages/core/src/effects.ts";
 
-// `composition.ts` imports siblings as `./x.js`, which only exist as `.ts` in the source tree.
+// Core's sources import siblings as `./x.js`, which only exist as `.ts` in the source tree.
 const sourceImports = registerHooks({
   resolve(specifier, context, next) {
-    if (context.parentURL?.endsWith("/core/src/composition.ts") && specifier.startsWith("./") && specifier.endsWith(".js")) {
+    if (context.parentURL?.includes("/core/src/") && specifier.startsWith("./") && specifier.endsWith(".js")) {
       return next(specifier.replace(/\.js$/, ".ts"), context);
     }
     return next(specifier, context);
   },
 });
+const { defineEffect, validateMaterial, materialUniforms, MATERIAL_INTERIOR_CEILING } = await import("../../packages/core/src/effects.ts");
 const { layerShader, passShaders } = await import("../../packages/core/src/composition.ts");
+const { reliefUniforms, validateReliefScene, RELIEF_VEC4S } = await import("../../packages/core/src/relief.ts");
 const { LAYER_PASS_FLOATS } = await import("../../packages/core/src/compiled.ts");
 sourceImports.deregister();
 
@@ -73,8 +74,55 @@ test("a pass's custom definitions are interned, so equal pairs compare by identi
   assert.equal(passShaders(), undefined);
   assert.equal(passShaders(effect, definition), passShaders(effect, definition));
   assert.notEqual(passShaders(effect, definition), passShaders(effect));
-  assert.deepEqual(passShaders(undefined, definition), { effect: undefined, material: definition });
+  assert.deepEqual(passShaders(undefined, definition), { effect: undefined, material: definition, relief: false });
   const both = layerShader(effect, undefined, definition).fragmentWGSL;
   assert.match(both, /fn custom0\(/);
   assert.match(both, /fn material0\(/);
+});
+
+// The built-in relief material takes the Strata scene format, so every conformance scene must pass core's check.
+test("core's relief material accepts every conformance scene and refuses broken ones by path", async () => {
+  const { readFileSync } = await import("node:fs");
+  const suite = JSON.parse(readFileSync(new URL("../../packages/ui/conformance/relief-1.json", import.meta.url), "utf8"));
+  const relief = { kind: "relief", bounds: "layer", interaction: "material", media: "identity", fallback: "static" };
+  for (const entry of suite.cases) {
+    const valid = validateMaterial({ ...relief, scene: entry.scene });
+    assert.equal(valid.scene.primitives.length, entry.scene.primitives.length, entry.name);
+  }
+  const scene = suite.cases.find(entry => entry.name === "ring").scene;
+  const broken = (change, pattern) => { const copy = structuredClone(scene); change(copy); assert.throws(() => validateMaterial({ ...relief, scene: copy }), pattern); };
+  broken(copy => { copy.version = 2; }, /version 1 strata-scene/);
+  broken(copy => { copy.interior.max = 0.2; }, /interior\.max/);
+  broken(copy => { copy.bevel.profile = "ogee"; }, /bevel\.profile/);
+  broken(copy => { copy.primitives[0].face = "bump"; }, /primitives\[0\]\.face/);
+  broken(copy => { copy.primitives[0].material = "chrome"; }, /primitives\[0\]\.material/);
+  broken(copy => { delete copy.primitives[1].ring; }, /primitives\[1\]\.ring/);
+  broken(copy => { copy.primitives[0].ring = copy.primitives[1].ring; }, /only for the ring face/);
+  broken(copy => { copy.primitives = Array.from({ length: 257 }, () => copy.primitives[0]); }, /at most 256/);
+  broken(copy => { for (let index = 0; index < 17; index++) copy.materials[`m${index}`] = {}; }, /more than 16 materials/);
+  assert.deepEqual([...materialUniforms(validateMaterial({ ...relief, scene }), -1)].slice(0, 2).map(value => Math.round(value * 1e6) / 1e6), [2, 0.04]);
+});
+
+test("the relief binding packs derived values per primitive, and relief passes add binding 3", async () => {
+  const { readFileSync } = await import("node:fs");
+  const suite = JSON.parse(readFileSync(new URL("../../packages/ui/conformance/relief-1.json", import.meta.url), "utf8"));
+  const scene = validateReliefScene(suite.cases.find(entry => entry.name === "button-states").scene);
+  const values = reliefUniforms(scene);
+  assert.equal(values.length, RELIEF_VEC4S * 4);
+  assert.ok(RELIEF_VEC4S * 16 <= 65536, "fits WebGPU's guaranteed uniform binding size");
+  assert.equal(reliefUniforms(scene), values, "packed once per scene object");
+  const primitive = index => [...values.slice((5 + 16 * 2 + index * 6) * 4, (5 + 16 * 2 + (index + 1) * 6) * 4)].map(value => Math.round(value * 1e4) / 1e4);
+  // Header: light vector, then bevel width 6, gain 0.55, quarter-round, strength 0.24, interior 0.04, counts.
+  assert.deepEqual([...values.slice(3, 8)].map(value => Math.round(value * 1e4) / 1e4), [6, 0.55, 0, 0.24, 0.04]);
+  assert.deepEqual([...values.slice(17, 19)], [5, 7]);
+  // The hovered button (index 2): band 6, cast height 3 × 1.6; the pressed one 3 × 0.25; the disabled one nothing.
+  assert.deepEqual(primitive(2).slice(4, 12), [8, 6, 4.8, 0, 1, 0, 0, 0]);
+  assert.deepEqual(primitive(3).slice(5, 7), [6, 0.75]);
+  assert.deepEqual(primitive(4).slice(5, 12), [0, 0, 0, 0, 0, 0, 1]);
+  const shader = layerShader(undefined, undefined, "relief");
+  assert.deepEqual(shader.bindings.at(-1), { binding: 3, kind: "uniform", uniformByteLength: RELIEF_VEC4S * 16, visibility: 2 });
+  assert.match(shader.fragmentWGSL, /fn reliefShade\(p: vec2f, captured: vec4f\) -> vec4f/);
+  assert.match(shader.fragmentWGSL, /if \(state\[14\]\.x == 2\.0\) \{ sample = reliefShade\(local, sample\); \}/);
+  assert.equal(passShaders(undefined, "relief"), passShaders(undefined, "relief"));
+  assert.deepEqual(passShaders(undefined, "relief"), { effect: undefined, material: undefined, relief: true });
 });

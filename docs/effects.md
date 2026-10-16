@@ -102,6 +102,15 @@ exactly its parameters, and `interior: { max }` within 0..0.1.
   luma (Rec. 709 weights, encoded sRGB) as a factor, clamps it to
   `1 ± min(max, 0.1)` and scales the captured colour by it. The captured colour
   never reaches the material, so text and face move together.
+- `kind: "relief"` is core's built-in implementation of the
+  [Strata Rendering Model](ui-library/rendering-model.md), version 1. Its descriptor carries a `scene` in the
+  model's scene format (`@underglass/ui/scene.schema.json`) instead of a definition: light, bevel, shadow, interior
+  budget, state multipliers, focus edge, up to 16 materials as numeric layers, and up to 256 relief primitives in
+  layer-local CSS px. The pass gets a second uniform binding (binding 3, about 25 KB) holding the scene, with each
+  primitive's derived values computed on the CPU. `handle.update(scene)` replaces the scene (states, rectangles,
+  primitives added or removed) without recompiling. Its decoded GPU pixels pass the model's conformance suite
+  (`tests/browser/relief.test.mjs`). Face interiors are guarded as section 2.9 of the model defines; the layer's
+  own box bounds the drawing until the shadow outset lands.
 - One pass may hold a custom effect and a custom material; a new definition is
   compiled as a successor while the previous frame keeps presenting.
 - Replacement resolves the previous handle as `replaced`. The material survives

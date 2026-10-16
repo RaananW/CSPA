@@ -142,8 +142,8 @@ export interface ShadingTerms {
   dark: number;
   /** Focus edge coverage (section 2.10). */
   edge: number;
-  /** Ring arcs over the content, in scene order (section 2.7). */
-  arcs: { colour: Rgb01; coverage: number }[];
+  /** Ring arcs as one overlay over the content (section 2.7): premultiplied colour and its alpha. */
+  arc: { colour: Rgb01; alpha: number };
 }
 
 /** The model's terms at a layer-local point. */
@@ -154,7 +154,7 @@ export function shadingTerms(scene: StrataScene, x: number, y: number): ShadingT
   const m = scene.interior.max;
   const { offset, width } = scene.focus;
   let shade = 0, offsets = 0, shadow = 0, band = 0, dark = 0, edge = 0, inside = false, clearance = Infinity;
-  const arcs: ShadingTerms["arcs"] = [];
+  let arcColour = [0, 0, 0], arcAlpha = 0;
   for (const shape of shapes) {
     const d = distance(shape, x, y);
     const state = shape.primitive.state ?? {};
@@ -163,7 +163,7 @@ export function shadingTerms(scene: StrataScene, x: number, y: number): ShadingT
     // 2.4 Occlusion: a primitive hides the bevel light, interior offset, finish and arcs of those beneath it.
     const cover = 1 - smoothstep(-0.5, 0.5, d);
     shade *= 1 - cover; offsets *= 1 - cover; band *= 1 - cover; dark *= 1 - cover;
-    for (const arc of arcs) arc.coverage *= 1 - cover;
+    arcColour = arcColour.map(channel => channel * (1 - cover)); arcAlpha *= 1 - cover;
     if (shape.lit && shape.band > 0) {
       const s = clamp(-d / shape.band, 0, 1);
       // A knob is all bevel (a dome); it has no interior.
@@ -190,7 +190,10 @@ export function shadingTerms(scene: StrataScene, x: number, y: number): ShadingT
       }
     }
     if (shape.face === "ring" && shape.primitive.ring && !state.disabled) {
-      arcs.push({ colour: rgb(shape.primitive.ring.colour), coverage: (1 - smoothstep(-0.5, 0.5, d)) * arcCoverage(shape, x, y) });
+      // Each arc goes over the overlay so far, back to front.
+      const coverage = cover * arcCoverage(shape, x, y), colour = rgb(shape.primitive.ring.colour);
+      arcColour = arcColour.map((channel, index) => channel * (1 - coverage) + colour[index]! * coverage);
+      arcAlpha += coverage * (1 - arcAlpha);
     }
     if (shape.height > 0) {
       // 2.8 Cast shadow: the shape moved away from the light by its height, softened over 2h + 1 px, outside the shape only.
@@ -205,7 +208,7 @@ export function shadingTerms(scene: StrataScene, x: number, y: number): ShadingT
     interior: 1 + clamp(offsets, -m, m),
     shadow,
     guard: inside ? smoothstep(0, guardRamp, clearance) : 0,
-    band, dark, edge, arcs,
+    band, dark, edge, arc: { colour: arcColour as unknown as Rgb01, alpha: arcAlpha },
   };
 }
 
@@ -221,8 +224,8 @@ export function shadePoint(scene: StrataScene, captured: CapturedColour, x: numb
   const m = scene.interior.max, k = clamp(terms.interior * (1 - terms.shadow), 1 - m, 1 + m);
   return [r, g, b].map((c, channel) => {
     let content = mix((c * terms.interior + terms.shade) * (1 - terms.shadow), c * k, terms.guard);
-    for (const arc of terms.arcs) content = mix(content, arc.colour[channel]!, arc.coverage);
-    content = mix(mix(content, 1, terms.band), 0, terms.dark);
+    content = content * (1 - terms.arc.alpha) + terms.arc.colour[channel]!;
+    content = clamp(mix(mix(content, 1, terms.band), 0, terms.dark), 0, 1);
     const over = content * a + backdrop[channel]! * (1 - a) * (1 - terms.shadow);
     return clamp(mix(over, focus[channel]!, terms.edge), 0, 1);
   }) as unknown as Rgb01;

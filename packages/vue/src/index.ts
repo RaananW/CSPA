@@ -21,7 +21,7 @@ export type {
   CanvasController, CanvasHosts, EnrollmentOptions, EnrollmentErrorCode, Transform, TransformOrigin, Affine, Point,
   Layout, Appearance, AdmissionPolicy, RuntimeOptions, CanvasStatus, AnimationPlayback, ReleaseOptions, CSSAnimationSource,
   CompiledAnimation, CompiledProgramSet, Ripple, ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle,
-  EffectResult, MaterialDescriptor, MaterialHandle, MotionKeyframe, MotionTiming, MotionDescriptor, MotionHandle, TransitionHandle, TransitionResult, CoordinatedMotion,
+  EffectResult, MaterialDescriptor, MaterialHandle, CustomMaterial, ReliefMaterial, ReliefScene, ReliefPrimitive, ReliefSceneMaterial, MotionKeyframe, MotionTiming, MotionDescriptor, MotionHandle, TransitionHandle, TransitionResult, CoordinatedMotion,
 } from "@underglass/core";
 
 // Carries the runtime from `mountCanvasApp` to every component and composable below.

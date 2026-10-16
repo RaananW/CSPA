@@ -175,7 +175,8 @@ An implementation may take `∇d` analytically, or by central differences with a
 implementation uses differences of exactly 0.5 px.
 
 **Occlusion.** Primitives are visited back to front. On reaching primitive `i`, every term accumulated so far is
-multiplied by `1 − αᵢ`: the bevel light (2.5), the interior offset and finish (2.6), and the ring arcs (2.7). A
+multiplied by `1 − αᵢ`: the bevel light (2.5), the interior offset and finish (2.6), and the arc overlay's colour and
+alpha (2.7). A
 primitive therefore hides the relief of those beneath it. Cast shadows (2.8) and the focus edge (2.10) are not
 occluded.
 
@@ -234,6 +235,13 @@ A ring paints its arc in `ring.colour`, unlit and over the content. A disabled r
    ```
 
    A sweep of 360 gives `arcᵢ = αᵢ`.
+5. **Overlay:** arcs accumulate back to front into one overlay, a premultiplied colour `A` and an alpha `β`, both
+   starting at 0:
+
+   ```text
+   A = A · (1 − arcᵢ) + ring.colour · arcᵢ
+   β = β + arcᵢ · (1 − β)
+   ```
 
 The arc's angle is a scene value. Turning it needs no recapture.
 
@@ -310,8 +318,8 @@ Per channel, with `c` the captured channel:
 
 ```text
 content = mix((c · K + shade) · (1 − S),  c · k,  w)        guard (2.9)
-content = mix(content, arc colour, arcᵢ)                     each ring, back to front (2.7)
-content = mix(mix(content, 1, band), 0, dark)                finish (2.6)
+content = content · (1 − β) + A                              arc overlay (2.7)
+content = clamp(mix(mix(content, 1, band), 0, dark), 0, 1)   finish (2.6)
 out     = content · a + B · (1 − a) · (1 − S)                over the backdrop
 out     = clamp(mix(out, E, edge), 0, 1)                     focus edge (2.10)
 ```
@@ -368,8 +376,10 @@ The cases cover:
 
 **What it means to conform.** A renderer conforms to version 1 when, for every case, it does the following:
 
-1. Presents the case's capture as the layer's content, and renders the scene over its backdrop at any device scale.
-2. Decodes the pixel that contains each sample point.
+1. Presents the case's capture as the layer's content, and renders the scene over its backdrop at a device scale of 1
+   (one device pixel per CSS px).
+2. Decodes the pixel whose centre is each sample point. Sample points are pixel centres: a bevel changes by several
+   units per pixel, so a half-pixel offset alone would exceed the tolerance.
 3. Matches `expect` within `tolerance` (3, in 0–255 units) on every channel.
 
 Sample points stay at least 1.5 px from any edge of the captured content, so the result does not depend on how a
@@ -406,6 +416,13 @@ renderer anti-aliases the capture.
 
 ## Change log
 
+- 2026-10-16: writing core's GPU implementation settled three details. None changes an expected colour in the suite
+  except the sample positions:
+  - **Sample points are pixel centres** at a device scale of 1, because a bevel changes by several units per pixel.
+  - **Ring arcs accumulate as one overlay** (2.7), so occlusion scales one colour and one alpha. A single arc, the
+    only kind the suite has, is unchanged.
+  - **Content is clamped to 0–1 before compositing** (2.11), so a partly transparent pixel cannot carry an
+    over-bright value into the composite.
 - 2026-10-16: version 1 (Relief): the scene format, the shading model, the reference implementation in
   `@underglass/ui/tokens`, and the first conformance suite. It formalises the P0.2 prototype's shader with these
   changes:

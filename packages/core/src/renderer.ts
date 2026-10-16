@@ -26,6 +26,7 @@ import { completeCoverage, type CaptureCoverage } from "./publication.js";
 import { createMountBoundary, type MountBoundaryOptions } from "./mount-boundary.js";
 import { configuredDevice, observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "./device-lifecycle.js";
 import { layerBlend, layerShader, layerUniforms, passShaders, type PassShaders } from "./composition.js";
+import { RELIEF_VEC4S, reliefUniforms } from "./relief.js";
 import { createAdmissionProbe, verifyFrameBounds, verifyProbeGeometry, verifyProbePixels, type FrameBounds } from "./admission.js";
 import type { Ripple } from "./ripple.js";
 import type { ApplicationEffect, EffectDescriptor, MaterialDescriptor } from "./effects.js";
@@ -225,12 +226,16 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       return program;
     }
     metrics.shaderSourceGenerations++;
-    return layerShader(custom?.effect, undefined, custom?.material);
+    return layerShader(custom?.effect, undefined, custom?.relief ? "relief" : custom?.material);
   }
-  /** The layer's trusted custom effect and material definitions, if it has either. */
+  /** The layer's trusted custom effect and its material (a custom definition or the built-in relief), if any. */
   function customOf(layer: EnrolledLayer) {
-    return passShaders(layer.effects?.().find(value => value.kind === "custom")?.definition, layer.material?.()?.definition);
+    const material = layer.material?.();
+    return passShaders(layer.effects?.().find(value => value.kind === "custom")?.definition,
+      material?.kind === "relief" ? "relief" : material?.definition);
   }
+  // Written to a relief pass whose layer no longer has a relief material, until the pass is rebuilt.
+  const noRelief = new Float32Array(RELIEF_VEC4S * 4);
   /**
    * Creates one layer's effect wrapper, bound to `layer.texture`, and a non-clearing renderer for it on the
    * engine's primary surface. The pass is not registered; `present` does that. If renderer creation throws,
@@ -301,7 +306,11 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     const size = options.size();
     layers.forEach((layer, index) => {
       const pass = passes[index]!;
-      setEffectUniforms(pass.effect, layerUniforms(layer, size.dpr, size, shift, shade, pass.custom, !!options.compiled));
+      const block = layerUniforms(layer, size.dpr, size, shift, shade, pass.custom, !!options.compiled);
+      if (pass.custom?.relief) {
+        const material = layer.material?.();
+        setEffectUniforms(pass.effect, { 2: block, 3: material?.kind === "relief" ? reliefUniforms(material.scene) : noRelief });
+      } else setEffectUniforms(pass.effect, block);
     });
   }
   // Last native geometry clearing per element, and whether its transform read back as identity (null: unknown).
@@ -1372,7 +1381,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       current = next; geometry();
     },
     acceptsCustom: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)]?.effect === definition,
-    acceptsMaterial: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)]?.material === definition,
+    acceptsMaterial: (id: string, material: ApplicationEffect | "relief") => {
+      const shaders = admittedCustom[layers.findIndex(layer => layer.id === id)];
+      return material === "relief" ? shaders?.relief === true : shaders?.material === material;
+    },
     phase: () => mode, version: () => generation, resume: scheduleCapture,
     frameBounded: () => frameBounds === "bounded",
     pause: () => {

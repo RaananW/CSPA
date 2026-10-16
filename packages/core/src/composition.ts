@@ -12,6 +12,7 @@ import { validateGeometry } from "./native.js";
 import type { Ripple } from "./ripple.js";
 import { effectUniforms, materialUniforms, MATERIAL_INTERIOR_CEILING, type EffectDescriptor, type ApplicationEffect, type MaterialDescriptor } from "./effects.js";
 import { LAYER_BLOCK_FLOATS, LAYER_PASS_FLOATS, type CompiledMotion } from "./compiled.js";
+import { RELIEF_VEC4S, reliefWGSL } from "./relief.js";
 
 /**
  * What the compositor reads from a layer. Optional members are absent for layers without that
@@ -40,18 +41,19 @@ const BLOCK = LAYER_BLOCK_FLOATS;
 const BLOCK_VEC4S = BLOCK / 4;
 
 /**
- * The custom WGSL a layer pass is built with: its effect chain's definition and its material's. Interned by
- * `passShaders`, so passes built for the same pair compare with `===`.
+ * What a layer pass is built with beyond the plain layer program: its effect chain's custom definition, and its
+ * material, either a custom definition or the built-in relief (which adds the relief uniform binding). Interned by
+ * `passShaders`, so passes built for the same combination compare with `===`.
  */
-export interface PassShaders { readonly effect?: ApplicationEffect; readonly material?: ApplicationEffect }
-const interned = new Map<ApplicationEffect | undefined, Map<ApplicationEffect | undefined, PassShaders>>();
-/** The interned pair for `effect` and `material`, or undefined when the pass needs neither. */
-export function passShaders(effect?: ApplicationEffect, material?: ApplicationEffect): PassShaders | undefined {
+export interface PassShaders { readonly effect?: ApplicationEffect; readonly material?: ApplicationEffect; readonly relief: boolean }
+const interned = new Map<ApplicationEffect | undefined, Map<ApplicationEffect | "relief" | undefined, PassShaders>>();
+/** The interned combination for `effect` and `material`, or undefined when the pass needs neither. */
+export function passShaders(effect?: ApplicationEffect, material?: ApplicationEffect | "relief"): PassShaders | undefined {
   if (!effect && !material) return undefined;
   let row = interned.get(effect);
   if (!row) interned.set(effect, row = new Map());
   let shaders = row.get(material);
-  if (!shaders) row.set(material, shaders = Object.freeze({ effect, material }));
+  if (!shaders) row.set(material, shaders = Object.freeze({ effect, material: material === "relief" ? undefined : material, relief: material === "relief" }));
   return shaders;
 }
 
@@ -111,7 +113,7 @@ export function compositionUniforms(layers: CompositeLayer[], dpr: number, shift
  * to `emit`. Its uniforms start at `state[base]`; `playback` is the compiled slot.
  */
 function layerBody(index: number, base: number, playback: number | undefined, custom: readonly (ApplicationEffect | undefined)[],
-  decorativeAnimation: boolean, emit: (alpha: string) => string, materials: readonly (ApplicationEffect | undefined)[] = []) {
+  decorativeAnimation: boolean, emit: (alpha: string) => string, materials: readonly (ApplicationEffect | undefined)[] = [], relief = false) {
   return `{
       var local = vec2f(dot(state[${base}].xyz, vec3f(p, 1.0)),
         dot(state[${base + 1}].xyz, vec3f(p, 1.0)));
@@ -173,6 +175,8 @@ function layerBody(index: number, base: number, playback: number | undefined, cu
           let factor = clamp(2.0 * dot(lit.rgb, vec3f(0.2126, 0.7152, 0.0722)), 1.0 - budget, 1.0 + budget);
           sample = vec4f(min(sample.rgb * factor, vec3f(1.0)), sample.a);
         }` : ""}
+        ${relief ? `// The built-in relief material (Strata Rendering Model), shading the scene in the relief binding.
+        if (state[${base + 11}].x == 2.0) { sample = reliefShade(local, sample); }` : ""}
         for (var operation = 0u; operation < 3u; operation++) {
           let control = state[${base + 4}u + operation * 2u];
           let parameters = state[${base + 5}u + operation * 2u];
@@ -265,6 +269,8 @@ const LAYER_HEADER = 12;
 if (LAYER_PASS_FLOATS !== LAYER_HEADER + BLOCK + 4) throw new Error("Per-layer uniform layout mismatch");
 /** GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT; literal so the shader can be generated outside a browser. */
 const VERTEX_AND_FRAGMENT = 3;
+/** GPUShaderStage.FRAGMENT. */
+const FRAGMENT = 2;
 /** Straight-alpha source-over onto the opaque output: the GPU equivalent of mix(dst, src, alpha). */
 export const layerBlend: GPUBlendState = {
   color: { srcFactor: "src-alpha", dstFactor: "one-minus-src-alpha", operation: "add" },
@@ -276,14 +282,16 @@ export const layerBlend: GPUBlendState = {
  * single triangle covering the layer's canvas-space bounding box, so a layer only
  * shades the pixels it can touch; fragments outside the layer are discarded.
  */
-export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string, material?: ApplicationEffect): Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL" | "vertexWGSL"> {
+export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string, material?: ApplicationEffect | "relief"): Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL" | "vertexWGSL"> {
   const definitions = custom ? [custom] : [];
-  const materials = material ? [material] : [];
+  const relief = material === "relief";
+  const materials = material && material !== "relief" ? [material] : [];
   return {
     bindings: [
       { binding: 0, kind: "texture", name: "layer0" },
       { binding: 1, kind: "sampler", textureBinding: "layer0" },
       { binding: 2, kind: "uniform", uniformByteLength: LAYER_PASS_FLOATS * 4, visibility: VERTEX_AND_FRAGMENT },
+      ...(relief ? [{ binding: 3, kind: "uniform" as const, uniformByteLength: RELIEF_VEC4S * 16, visibility: FRAGMENT }] : []),
     ],
     vertexWGSL: `struct EffectVertexOutput { @builtin(position) position: vec4f, @location(0) uv: vec2f };
       @vertex fn effectFullscreenVertex(@builtin(vertex_index) vertex: u32) -> EffectVertexOutput {
@@ -297,7 +305,7 @@ export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string, m
         output.uv = corner;
         return output;
       }`,
-    fragmentWGSL: `${compiledWGSL ?? ""}${customDeclarations(definitions)}${customDeclarations(materials, "material")}
+    fragmentWGSL: `${compiledWGSL ?? ""}${customDeclarations(definitions)}${customDeclarations(materials, "material")}${relief ? reliefWGSL : ""}
       @group(0) @binding(0) var layer0: texture_2d<f32>;
       @group(0) @binding(1) var sampler0: sampler;${helpers}
       @group(0) @binding(2) var<uniform> state: array<vec4f, ${LAYER_PASS_FLOATS / 4}>;
@@ -305,7 +313,7 @@ export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string, m
         let p = input.position.xy / state[0].x;
         ${layerBody(0, LAYER_HEADER / 4, compiledWGSL ? (LAYER_HEADER + BLOCK) / 4 : undefined, definitions, false,
           alpha => `let rgb = mix(sample.rgb, sample.bgr, state[0].y);
-        return vec4f(rgb, ${alpha});`, materials)}
+        return vec4f(rgb, ${alpha});`, materials, relief)}
         discard;
         return vec4f(0.0);
       }`,
@@ -321,7 +329,8 @@ export function layerUniforms(layer: CompositeLayer, dpr: number, frame: { width
   const values = new Float32Array(LAYER_PASS_FLOATS);
   // The per-layer pass only binds its own custom effect and material, so each slot is 0 when it matches and -1 otherwise.
   const definition = layer.effects?.().find(value => value.kind === "custom")?.definition;
-  const material = layer.material?.()?.definition;
+  const assigned = layer.material?.();
+  const material = assigned?.kind === "custom" ? assigned.definition : undefined;
   const { matrix, clip, motion } = writeLayerBlock(values, LAYER_HEADER, layer, shift, shaders?.effect && definition === shaders.effect ? 0 : -1, compiled,
     shaders?.material && material === shaders.material ? 0 : -1);
   if (compiled) values.set([motion ? motion.index + 1 : 0, motion?.phase ?? 0, 0, 0], LAYER_HEADER + BLOCK);

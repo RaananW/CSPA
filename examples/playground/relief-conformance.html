@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Relief conformance</title>
+  <style>
+    body { margin: 24px; background: white; color: black; font: 16px system-ui; }
+    [hidden] { display: none !important; }
+    #frame { position: relative; width: 480px; height: 240px; background: white; }
+    #output, #ordinary { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #output { pointer-events: none; }
+    #status { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Relief conformance</h1>
+  <p>Core's built-in <code>relief</code> material rendering one case of the Strata Rendering Model's conformance suite
+    (<code>@underglass/ui/conformance/relief-1.json</code>), with the case's capture painted as plain DOM. The page
+    uses <code>@underglass/core</code> only.</p>
+  <div id="frame"><canvas id="output" hidden></canvas><div id="ordinary"></div><div id="overlay"></div></div>
+  <pre id="status" role="status"></pre>
+  <script type="module" src="/src/demo/relief-conformance.ts"></script>
+</body>
+</html>

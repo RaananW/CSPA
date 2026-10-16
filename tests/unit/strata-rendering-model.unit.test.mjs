@@ -158,7 +158,7 @@ test("the contrast guard changes text and face by one factor within interior.max
     for (let y = 0.5; y < scene.extent.height; y += 1.5) {
       for (let x = 0.5; x < scene.extent.width; x += 1.5) {
         const terms = shadingTerms(scene, x, y);
-        if (terms.guard < 1 || terms.band || terms.dark || terms.edge || terms.arcs.some(arc => arc.coverage)) continue;
+        if (terms.guard < 1 || terms.band || terms.dark || terms.edge || terms.arc.alpha) continue;
         const input = captured(x, y), output = shadePoint(scene, captured, x, y);
         const factors = [0, 1, 2].filter(channel => input[channel] > 0.05 && output[channel] < 1).map(channel => output[channel] / input[channel]);
         for (const factor of factors) {

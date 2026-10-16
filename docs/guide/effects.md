@@ -110,6 +110,13 @@ material.cancel();
 - Custom materials need WebGPU and cannot be combined with build-time compiled
   programs, like custom effects.
 
+The built-in `relief` material is the other kind. Instead of WGSL it takes a scene in
+the [Strata Rendering Model](../ui-library/rendering-model.md)'s format: relief
+primitives (raised keys, wells, grooves, knobs, rings) lit from one light, with bevels,
+shadows, finishes and focus edges. Strata's GPU presentation builds these scenes for
+you; `handle.update(scene)` changes states such as hover and press without
+recompiling.
+
 ## Transition effects on interactive layers
 
 A layer with real controls can carry an effect **while it is in a transition**:

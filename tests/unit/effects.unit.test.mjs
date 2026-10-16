@@ -4,8 +4,17 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { defineEffect, validateEffects, effectUniforms } from "../../packages/core/src/effects.ts";
+import { registerHooks } from "node:module";
 import { evidenceDirectory, validateEvidenceRoot } from "../helpers/evidence.mjs";
+
+// Core's sources import siblings as `./x.js`, which only exist as `.ts` in the source tree.
+const sourceImports = registerHooks({
+  resolve(specifier, context, next) {
+    return next(context.parentURL?.includes("/core/src/") && specifier.startsWith("./") && specifier.endsWith(".js") ? specifier.replace(/\.js$/, ".ts") : specifier, context);
+  },
+});
+const { defineEffect, validateEffects, effectUniforms } = await import("../../packages/core/src/effects.ts");
+sourceImports.deregister();
 
 // Shared fields of a valid effect; individual cases override one field to break it.
 const common = { bounds: "layer", interaction: "decorative", media: "identity", fallback: "static", time: { seconds: 0 } };

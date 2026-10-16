@@ -2,8 +2,8 @@
  * The Strata rendering model's conformance suite (`docs/ui-library/rendering-model.md`, part 4). Each case is a scene,
  * the content captured under it (rounded rectangles painted in order over transparent) and sample points. The
  * expected colours come from the reference implementation; `tests/unit/strata-rendering-model.unit.test.mjs` checks
- * the key points by hand. A backend conforms when its decoded pixels at every sample, composited over the scene's
- * backdrop, are within the tolerance of the expected colour on every channel.
+ * the key points by hand. A backend conforms when, rendering at a device scale of 1 over the scene's backdrop, its
+ * decoded pixel at every sample (a pixel centre) is within the tolerance of the expected colour on every channel.
  *
  * `buildConformance()` writes the suite that ships as `@underglass/ui/conformance/relief-1.json`.
  */
@@ -236,7 +236,8 @@ export function buildConformance(source: TokenGroup = strataSource): Conformance
   const cases = conformanceCases(source).map(entry => {
     const captured = capturedFrom(entry.capture);
     const samples = entry.samples.map(sample => {
-      const at = sample.at.map(value => Math.round(value * 1000) / 1000) as [number, number];
+      // The centre of the device pixel containing the point, at a device scale of 1: what a renderer evaluates.
+      const at = sample.at.map(value => Math.floor(value) + 0.5) as [number, number];
       const colour = shadePoint(entry.scene, captured, ...at);
       return { at, note: sample.note, expect: toHex(colour.map(channel => channel * 255) as unknown as [number, number, number]) };
     });
@@ -246,7 +247,7 @@ export function buildConformance(source: TokenGroup = strataSource): Conformance
     format: "strata-conformance",
     model: "strata-scene/1",
     tolerance: conformanceTolerance,
-    description: "Strata rendering model, version 1: Relief. Paint each case's capture (rounded rectangles in order, over transparent) as the layer's content, render the scene over its backdrop, and compare each sample's decoded pixel with `expect`: every channel within `tolerance` (0–255).",
+    description: "Strata rendering model, version 1: Relief. Paint each case's capture (rounded rectangles in order, over transparent) as the layer's content, render the scene over its backdrop at a device scale of 1 (one device pixel per CSS px), and compare the decoded pixel whose centre is each sample's `at` with `expect`: every channel within `tolerance` (0–255).",
     cases,
   };
 }

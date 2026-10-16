@@ -167,7 +167,8 @@ test("invalid materials are refused without changing anything", async ({ page })
       ["budget over the ceiling", "primary", { ...base, interior: { max: 0.2 } }],
       ["unregistered definition", "primary", { ...base, definition: { ...definition } }],
       ["parameter schema", "primary", { ...base, parameters: { other: 1 } }],
-      ["kind", "primary", { ...base, kind: "relief" }],
+      ["kind", "primary", { ...base, kind: "bump" }],
+      ["relief without a scene", "primary", { ...base, kind: "relief" }],
     ]) {
       try { window.runtimeProbe.material(id, descriptor); failures[name] = "accepted"; } catch (error) { failures[name] = String(error); }
     }
@@ -180,6 +181,7 @@ test("invalid materials are refused without changing anything", async ({ page })
   expect(refusals.failures["unregistered definition"]).toMatch(/defineEffect/);
   expect(refusals.failures["parameter schema"]).toMatch(/schema/);
   expect(refusals.failures.kind).toMatch(/Unsupported material kind/);
+  expect(refusals.failures["relief without a scene"]).toMatch(/Relief scene/);
   expect(refusals).toMatchObject({ materials: 0, mode: "gpu" });
   near((await snap(page, "refused"))(45, 340), primary);
 });
