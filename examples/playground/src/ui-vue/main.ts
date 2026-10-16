@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
+  Accordion, AccordionItem, Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
   Spinner, StrataProvider, StrataScope, Switch, Tab, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/vue";
 
@@ -35,6 +35,13 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
     default: () => [h(Radio, { value: "free" }, { default: text("Free") }), h(Radio, { value: "pro" }, { default: text("Pro") })],
   })),
   contract("switch.md", h(Switch, { name: "wifi" }, { default: text("Wi-Fi") })),
+  contract("list.md", h(List, { label: "Mailboxes" }, {
+    default: () => [
+      h(ListItem, { href: "/inbox", current: "page", primary: "Inbox", secondary: "12 unread", end: "Now" }, { start: () => [] }),
+      h(ListItem, { primary: "Archive", button: true }),
+      h(ListItem, { primary: "Storage", secondary: "4.2 GB of 15 GB used" }),
+    ],
+  })),
   contract("accordion.md", h(Accordion, { name: "faq" }, {
     default: () => [
       h(AccordionItem, { title: "Shipping", defaultOpen: true }, { default: () => h("p", null, "Orders ship within two days.") }),
@@ -83,6 +90,7 @@ const App = defineComponent({
     const clicks = reactive({ save: 0, blocked: 0, disabled: 0, close: 0, submit: 0 });
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
+    const rows = reactive({ archive: 0, locked: 0 });
     const choices = reactive({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
     const buttonRef = ref<{ $el: HTMLElement } | null>(null), inputRef = ref<{ input: HTMLInputElement } | null>(null), wrappedRef = ref<{ input: HTMLInputElement } | null>(null);
     const count = (key: keyof typeof clicks) => () => { clicks[key]++; };
@@ -98,6 +106,7 @@ const App = defineComponent({
         get tab() { return tab.value; },
         setTab: (value: string) => { tab.value = value; },
         get faq() { return { ...toRaw(faq) }; },
+        get rows() { return { ...toRaw(rows) }; },
         setFaq: (value: { delivery: boolean; warranty: boolean }) => { Object.assign(faq, value); },
       },
     });
@@ -192,6 +201,16 @@ const App = defineComponent({
                   h(TabList, { label: "Manual" }, { default: () => [h(Tab, { value: "one" }, { default: text("One") }), h(Tab, { value: "two" }, { default: text("Two") })] }),
                   h(TabPanel, { value: "one" }, { default: text("First.") }),
                   h(TabPanel, { value: "two" }, { default: text("Second.") }),
+                ],
+              }),
+            ]),
+            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Lists" }, [
+              h(List, { label: "Folders", id: "live-list" }, {
+                default: () => [
+                  h(ListItem, { href: "#inbox", current: "page", primary: "Inbox", secondary: "12 unread", end: "Now" }),
+                  h(ListItem, { id: "archive-row", primary: "Archive", onClick: () => { rows.archive++; } }),
+                  h(ListItem, { id: "locked-row", primary: "Locked", disabled: true, onClick: () => { rows.locked++; } }),
+                  h(ListItem, { id: "storage-row", primary: "Storage", secondary: "4.2 GB of 15 GB used" }),
                 ],
               }),
             ]),

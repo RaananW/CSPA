@@ -646,6 +646,71 @@
   :where(.ug-accordion__body) > :first-child { margin-top: 0; }
   :where(.ug-accordion__body) > :last-child { margin-bottom: 0; }
 
+  /* ---- List ---- */
+
+  /* One raised slab of rows; an actionable row's link or button fills it. Separators are the next row's top border. */
+  :where(.ug-list) {
+    --_finish: var(--strata-finish-role-control);
+    display: block;
+    box-sizing: border-box;
+    margin: 0;
+    padding: var(--strata-space-1) 0;
+    border-radius: var(--strata-radius-control);
+    list-style: none;
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+  }
+  :where(.ug-list__item) { position: relative; display: flex; align-items: center; margin: 0; padding: 0; }
+  :where(.ug-list__item + .ug-list__item)::before {
+    content: "";
+    position: absolute;
+    inset: 0 var(--strata-space-5) auto;
+    border-top: 1px solid color-mix(in srgb, var(--strata-colour-edge) 50%, transparent);
+  }
+  :where(.ug-list__item, .ug-list__action) {
+    gap: var(--strata-space-4);
+    box-sizing: border-box;
+    min-height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
+  }
+  :where(.ug-list__item):not(:has(> .ug-list__action)) { padding: var(--strata-space-2) var(--strata-space-5); }
+  :where(.ug-list__action) {
+    position: relative;
+    display: flex;
+    flex: 1;
+    align-items: center;
+    min-width: 0;
+    margin: 0;
+    padding: var(--strata-space-2) var(--strata-space-5);
+    border: 0;
+    border-radius: var(--strata-radius-small);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :where(.ug-list__action):is(:hover, [data-strata-preview~="hover"]):not(:disabled) { background-color: color-mix(in srgb, var(--strata-colour-text) 6%, transparent); }
+  :where(.ug-list__action):is(:active, [data-strata-preview~="active"]):not(:disabled) { background-color: color-mix(in srgb, var(--strata-colour-text) 10%, transparent); }
+  :where(.ug-list__action):is(:focus-visible, [data-strata-preview~="focus"]) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: calc(-1 * var(--strata-focus-width));
+  }
+  :where(.ug-list__action:disabled) { color: color-mix(in srgb, var(--strata-colour-text) 38%, transparent); cursor: not-allowed; }
+  :where(.ug-list__action[aria-current]:not([aria-current="false"])) {
+    background-color: color-mix(in srgb, var(--strata-colour-accent) 10%, transparent);
+    box-shadow: inset 3px 0 0 var(--strata-colour-accent);
+    font-weight: var(--strata-font-weight-strong);
+  }
+  :where(.ug-list__start) { display: inline-grid; flex: none; place-items: center; width: 1.25em; height: 1.25em; }
+  :where(.ug-list__start) > svg { width: 100%; height: 100%; }
+  :where(.ug-list__text) { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+  :where(.ug-list__primary) { overflow-wrap: anywhere; }
+  /* Set apart by size, in the text colour: muted text meets 4.5:1 only on the panel colour, not on the slab or a tinted row. */
+  :where(.ug-list__secondary, .ug-list__end) { font-size: var(--strata-font-size-small); }
+  :where(.ug-list__end) { flex: none; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -859,6 +924,9 @@
     :where(.ug-spinner__arc) { forced-color-adjust: none; border-color: CanvasText; border-top-color: Highlight; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-accordion__item) { border: 1px solid CanvasText; }
+    :where(.ug-list) { border: 1px solid CanvasText; }
+    :where(.ug-list__item + .ug-list__item)::before { border-top-color: CanvasText; }
+    :where(.ug-list__action[aria-current]:not([aria-current="false"])) { forced-color-adjust: none; box-shadow: inset 3px 0 0 Highlight; background: Canvas; color: CanvasText; }
     :where(.ug-accordion__chevron) { border-color: ButtonText; }
     :where(.ug-tabs__rail) { forced-color-adjust: none; background: CanvasText; height: 1px; }
     :where(.ug-tabs--vertical) :where(.ug-tabs__rail) { width: 1px; height: auto; }

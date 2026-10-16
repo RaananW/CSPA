@@ -1,0 +1,19 @@
+---
+/**
+ * List (anatomy page `list.md`): a native `<ul role="list">` on one raised slab. Rows are ListItem components.
+ */
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  /** The list's accessible name (`aria-label`). */
+  label?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, size, material, level, class: className, ...rest } = Astro.props;
+---
+<ul class={classes("ug-list", className)} role="list" data-strata-face="raised" aria-label={label} {...strataAttributes({ size, material, level })} {...rest}><slot /></ul>
