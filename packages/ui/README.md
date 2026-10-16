@@ -69,6 +69,26 @@ const json = theme.toJSON();
 - **Scope colours:** colour overrides in a scope need the scope's `theme`, so their contrast can be checked. The
   derived on- and -text colours are set with them.
 
+## Rendering model
+
+The Relief look is specified independently of any engine in the
+[Strata Rendering Model](../../docs/ui-library/rendering-model.md). This package ships its scene format, a reference
+implementation and its conformance suite:
+
+```ts
+import { sceneSettings, shadePoint, strataTokens, validateScene } from "@underglass/ui/tokens";
+
+const scene = { format: "strata-scene", version: 1, extent: { width: 200, height: 120 },
+  ...sceneSettings(strataTokens, { depth: 0.5, theme: "light" }),
+  primitives: [{ face: "raised", rect: [0, 0, 200, 120], radius: 14, height: 8, material: "matte" }] };
+validateScene(scene);                                                       // [] when valid
+const colour = shadePoint(scene, () => [0.91, 0.92, 0.94, 1], 100, 60);    // sRGB, 0–1
+```
+
+- **`@underglass/ui/scene.schema.json`:** the scene format as a JSON Schema.
+- **`@underglass/ui/conformance/relief-1.json`:** scenes, sample points and expected colours. A renderer conforms
+  when its decoded pixels are within 3 (of 255) on every channel.
+
 ## Panel motion
 
 ```ts

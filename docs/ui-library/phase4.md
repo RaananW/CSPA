@@ -31,19 +31,18 @@ Decision 3 makes Strata's look data, not shader code. That data, and what it mea
 names no engine, shading language or graphics API. Underglass's WGSL is then one implementation of it, and a later
 engine (WebGL, a native renderer, a different WebGPU engine) can be another, judged by the same tests.
 
-The standard is a new normative document, `docs/ui-library/rendering-model.md`. It has four parts:
+The standard is [`rendering-model.md`](rendering-model.md) (version 1, Relief; step 0). It has four parts:
 
 1. **The scene format:** a versioned JSON description of one layer, validated by a JSON Schema. It holds:
    - the layer extent;
-   - the one light (direction, intensity, ambient and colour);
-   - depth;
+   - the one light's direction;
    - the bevel (width, gain and profile);
    - the shadow strength and the interior budget;
    - the materials, as numeric layer parameters (base, coat, sheen, iridescence, transmission, emissive);
    - the primitives: shape, rectangle in layer-local CSS px, radius, height, material and state.
 
    The token source (W3C Design Tokens) already describes the theme. The scene format is what one layer needs at one
-   moment, resolved from the tokens and the DOM.
+   moment, resolved from the tokens (for a depth and theme) and the DOM.
 2. **The shading model, as mathematics:**
    - coordinate systems (CSS px, y down, z towards the viewer);
    - each shape's signed distance;
@@ -81,9 +80,15 @@ correct. Each also gets a headful Canary check, and a changeset for `@underglass
 
 ### 0. The Strata Rendering Model
 
-Before any core change: `rendering-model.md`, the scene JSON Schema, the reference implementation and the
-conformance suite, with unit tests. Docs and `@underglass/ui/tokens` only, so core is untouched. Step 2 then
-implements it in WGSL and runs the suite against decoded GPU pixels.
+Before any core change: [`rendering-model.md`](rendering-model.md), the scene JSON Schema, the reference
+implementation and the conformance suite, with unit tests. Docs and `@underglass/ui/tokens` only, so core is
+untouched. Step 2 then implements it in WGSL and runs the suite against decoded GPU pixels.
+
+Writing it settled one detail of step 1's contrast guard. A per-channel clamp to the captured colour is not enough:
+it lets a glyph brighten while the face around it darkens, which takes some default pairs under 4.5:1. The guard is
+therefore one factor per point, computed from geometry and state and never from the captured colour
+([rendering model 2.9](rendering-model.md#29-the-contrast-guard)). The token validator now checks text and face
+scaled together.
 
 ### 1. Material interaction and a second chain
 
@@ -98,8 +103,11 @@ implements it in WGSL and runs the suite against decoded GPU pixels.
   separately. `setMaterial(id, descriptor)` returns a handle like `setEffects` does, and replacing one chain never
   touches the other. In the shader, the material runs first, then the existing chain.
 - **Contrast guard in the shader:**
-  - Inside the layer, beyond `bevel` px from any relief primitive's edge, the material's output is clamped to within
-    `interiorMax` of the captured colour, in linear light. That is where text lives.
+  - Inside the layer, beyond `bevel` px (plus a 2 px ramp) from any relief primitive's edge, the output is the
+    captured colour times one factor within `1 ± interiorMax`, as the rendering model's guard defines it (2.9). That
+    is where text lives.
+  - A custom material's interior output is reduced to that form: core takes the factor from the material's result
+    on a neutral input, so the captured colour cannot make text and face move apart.
   - The clamp sits in core's shader, not in the material's code, so no material can break text contrast.
   - `interiorMax` is a per-layer uniform with a hard ceiling of 0.1, matching the token's validated range.
 - **Uniform layout:** 8 more floats per layer for the material slot (the kind code and 4 parameters), plus the

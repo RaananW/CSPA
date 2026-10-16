@@ -202,7 +202,8 @@ Reflections (metal, gloss, coat, glass) need an environment.
 - **Contrast holds.** Highlights, coats and custom shading reach full strength on bevels, edges,
   mesh sides and knobs. On face interiors, where text may sit, the material pass limits any
   brightness change to `interior.max`, whatever the material or custom code, so the contrast
-  invariant (section 8) holds. The [finish zones](#finish-zones) are the only exception, and only
+  invariant (section 8) holds. The change is one factor for the face and its text alike
+  ([rendering model 2.9](rendering-model.md#29-the-contrast-guard)). The [finish zones](#finish-zones) are the only exception, and only
   where text stays clear of them.
 - **Colour only.** A material may change colour; it never moves pixels or hit areas.
 - **Preferences:**
@@ -655,3 +656,6 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-16: the theme runtime API (section 15): `createStrataTheme`, `applyStrataTheme`, `strataScope`, and the
   `strata.theme` cascade layer.
 - 2026-10-16: component sizes (`size.*`, `data-strata-size`, section 13); checkbox, radio and switch default to 20 px.
+- 2026-10-16: the Relief look is specified engine-neutrally in the [Strata Rendering Model](rendering-model.md).
+  Interior changes are one factor for a face and its text (section 4, guardrails), and the token validator checks
+  text and face scaled together.

@@ -28,6 +28,8 @@
       "import": "./dist/tokens/index.js"
     },
     "./tokens.json": "./dist/tokens.json",
+    "./scene.schema.json": "./src/tokens/strata-scene.schema.json",
+    "./conformance/relief-1.json": "./conformance/relief-1.json",
     "./dom": {
       "types": "./dist/dom/index.d.ts",
       "import": "./dist/dom/index.js"
@@ -62,6 +64,7 @@
     "src/dom/*.ts",
     "src/tokens/*.ts",
     "src/tokens/*.json",
+    "conformance/*.json",
     "CHANGELOG.md"
   ],
   "sideEffects": [
@@ -69,7 +72,8 @@
   ],
   "scripts": {
     "build": "vite build && tsc -p tsconfig.json && node scripts/build-css.mjs",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "build:conformance": "node scripts/build-conformance.mjs"
   },
   "peerDependencies": {
     "react": "^18.3.1 || ^19.0.0",

@@ -1,0 +1,2915 @@
+{
+  "format": "strata-conformance",
+  "model": "strata-scene/1",
+  "tolerance": 3,
+  "description": "Strata rendering model, version 1: Relief. Paint each case's capture (rounded rectangles in order, over transparent) as the layer's content, render the scene over its backdrop, and compare each sample's decoded pixel with `expect`: every channel within `tolerance` (0–255).",
+  "cases": [
+    {
+      "name": "panel",
+      "description": "A floating panel: its interior, its four bevels and its shadow cast into the outset.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 200,
+          "height": 120
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              200,
+              120
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            200,
+            120
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            100,
+            60
+          ],
+          "note": "interior: captured × (1 + gloss)",
+          "expect": "#eaecf0"
+        },
+        {
+          "at": [
+            100,
+            2
+          ],
+          "note": "top bevel, towards the light: brighter",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            100,
+            118
+          ],
+          "note": "bottom bevel, away from the light: darker",
+          "expect": "#909296"
+        },
+        {
+          "at": [
+            2,
+            60
+          ],
+          "note": "left bevel",
+          "expect": "#fbfdff"
+        },
+        {
+          "at": [
+            198,
+            60
+          ],
+          "note": "right bevel",
+          "expect": "#9fa1a5"
+        },
+        {
+          "at": [
+            100,
+            121
+          ],
+          "note": "full shadow just below the panel: backdrop × (1 − strength)",
+          "expect": "#c2c2c2"
+        },
+        {
+          "at": [
+            100,
+            130
+          ],
+          "note": "shadow falling off",
+          "expect": "#d7d7d7"
+        },
+        {
+          "at": [
+            100,
+            -12
+          ],
+          "note": "outset on the light side: backdrop",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            -20,
+            -20
+          ],
+          "note": "outset corner: backdrop",
+          "expect": "#ffffff"
+        }
+      ]
+    },
+    {
+      "name": "button-states",
+      "description": "Four buttons at rest, hovered, pressed and disabled: height, interior light and shadow by state.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 320,
+          "height": 80
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              320,
+              80
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "raised",
+            "rect": [
+              16,
+              24,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true
+          },
+          {
+            "face": "raised",
+            "rect": [
+              92,
+              24,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true,
+            "state": {
+              "hover": true
+            }
+          },
+          {
+            "face": "raised",
+            "rect": [
+              168,
+              24,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true,
+            "state": {
+              "pressed": true
+            }
+          },
+          {
+            "face": "raised",
+            "rect": [
+              244,
+              24,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true,
+            "state": {
+              "disabled": true
+            }
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            320,
+            80
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            16,
+            24,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        },
+        {
+          "rect": [
+            92,
+            24,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        },
+        {
+          "rect": [
+            168,
+            24,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        },
+        {
+          "rect": [
+            244,
+            24,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            48,
+            40
+          ],
+          "note": "rest: interior",
+          "expect": "#f8f9fb"
+        },
+        {
+          "at": [
+            48,
+            26
+          ],
+          "note": "rest: top bevel",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            48,
+            59
+          ],
+          "note": "rest: shadow below",
+          "expect": "#bbbcc0"
+        },
+        {
+          "at": [
+            124,
+            40
+          ],
+          "note": "hover: interior",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            124,
+            26
+          ],
+          "note": "hover: top bevel",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            124,
+            59
+          ],
+          "note": "hover: shadow below",
+          "expect": "#b3b5b8"
+        },
+        {
+          "at": [
+            200,
+            40
+          ],
+          "note": "pressed: interior",
+          "expect": "#edeef0"
+        },
+        {
+          "at": [
+            200,
+            26
+          ],
+          "note": "pressed: top bevel",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            200,
+            59
+          ],
+          "note": "pressed: shadow below",
+          "expect": "#eaecf0"
+        },
+        {
+          "at": [
+            276,
+            40
+          ],
+          "note": "disabled: interior",
+          "expect": "#f7f8fa"
+        },
+        {
+          "at": [
+            276,
+            26
+          ],
+          "note": "disabled: top bevel",
+          "expect": "#f7f8fa"
+        },
+        {
+          "at": [
+            276,
+            59
+          ],
+          "note": "disabled: shadow below",
+          "expect": "#eaecf0"
+        }
+      ]
+    },
+    {
+      "name": "well-and-groove",
+      "description": "A field well and a metal groove: the inverted bevel is dark nearest the light.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 200,
+          "height": 96
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              200,
+              96
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "well",
+            "rect": [
+              20,
+              16,
+              160,
+              32
+            ],
+            "radius": 8,
+            "height": 2,
+            "material": "matte"
+          },
+          {
+            "face": "groove",
+            "rect": [
+              20,
+              68,
+              160,
+              8
+            ],
+            "radius": 4,
+            "height": 2,
+            "material": "metal"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            200,
+            96
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            20,
+            16,
+            160,
+            32
+          ],
+          "radius": 8,
+          "colour": "#ffffff"
+        },
+        {
+          "rect": [
+            20,
+            68,
+            160,
+            8
+          ],
+          "radius": 4,
+          "colour": "#cdd1d9"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            100,
+            32
+          ],
+          "note": "well interior",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            100,
+            18
+          ],
+          "note": "well top bevel, nearest the light: darker",
+          "expect": "#a6a6a6"
+        },
+        {
+          "at": [
+            100,
+            46
+          ],
+          "note": "well bottom bevel: brighter",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            100,
+            72
+          ],
+          "note": "groove centre, all bevel at 8 px high",
+          "expect": "#ced2db"
+        },
+        {
+          "at": [
+            100,
+            58
+          ],
+          "note": "panel interior between them",
+          "expect": "#eaecf0"
+        }
+      ]
+    },
+    {
+      "name": "knob",
+      "description": "A satin knob on a groove: a dome lit from the light, casting onto the groove, hiding the groove's bevel under it.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 120,
+          "height": 64
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              120,
+              64
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "groove",
+            "rect": [
+              12,
+              28,
+              96,
+              8
+            ],
+            "radius": 4,
+            "height": 2,
+            "material": "metal"
+          },
+          {
+            "face": "knob",
+            "rect": [
+              48,
+              20,
+              24,
+              24
+            ],
+            "height": 3,
+            "material": "satin"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            120,
+            64
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            12,
+            28,
+            96,
+            8
+          ],
+          "radius": 4,
+          "colour": "#cdd1d9"
+        },
+        {
+          "rect": [
+            48,
+            20,
+            24,
+            24
+          ],
+          "radius": 12,
+          "colour": "#fcfcfd"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            60,
+            32
+          ],
+          "note": "knob centre: flat top of the dome",
+          "expect": "#fefeff"
+        },
+        {
+          "at": [
+            54,
+            25
+          ],
+          "note": "knob, towards the light",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            67,
+            39
+          ],
+          "note": "knob, away from the light",
+          "expect": "#7e7e7f"
+        },
+        {
+          "at": [
+            70,
+            46
+          ],
+          "note": "the knob's shadow, below and right of it",
+          "expect": "#cbcdd0"
+        }
+      ]
+    },
+    {
+      "name": "ring",
+      "description": "A ring groove with an accent arc over its first quarter, clockwise from the top.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 80,
+          "height": 80
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              80,
+              80
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "ring",
+            "rect": [
+              16,
+              16,
+              48,
+              48
+            ],
+            "height": 2,
+            "material": "matte",
+            "ring": {
+              "thickness": 6,
+              "start": 0,
+              "sweep": 90,
+              "colour": "#2563eb"
+            }
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            80,
+            80
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            16,
+            16,
+            48,
+            48
+          ],
+          "radius": 24,
+          "colour": "#cdd1d9"
+        },
+        {
+          "rect": [
+            22,
+            22,
+            36,
+            36
+          ],
+          "radius": 18,
+          "colour": "#e9ebef"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            54.849,
+            25.151
+          ],
+          "note": "on the arc, at 45°: the arc colour",
+          "expect": "#2563eb"
+        },
+        {
+          "at": [
+            25.151,
+            54.849
+          ],
+          "note": "on the ring, at 225°: the groove",
+          "expect": "#cdd1d9"
+        },
+        {
+          "at": [
+            40,
+            40
+          ],
+          "note": "inside the ring: panel interior",
+          "expect": "#eaecf0"
+        }
+      ]
+    },
+    {
+      "name": "focus",
+      "description": "A focused button: the focus edge from offset to offset + width outside the shape.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 112,
+          "height": 64
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              112,
+              64
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "raised",
+            "rect": [
+              24,
+              16,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true,
+            "state": {
+              "focus": true
+            }
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            112,
+            64
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            24,
+            16,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            22,
+            32
+          ],
+          "note": "2 px outside the left edge: the focus colour",
+          "expect": "#2563eb"
+        },
+        {
+          "at": [
+            16,
+            32
+          ],
+          "note": "8 px outside the left edge: no edge",
+          "expect": "#eaecf0"
+        },
+        {
+          "at": [
+            56,
+            32
+          ],
+          "note": "interior",
+          "expect": "#f8f9fb"
+        }
+      ]
+    },
+    {
+      "name": "finish",
+      "description": "Finish zones on lacquer and metal buttons: the coat's reflection band at the top, metal's dark half at the bottom.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 176,
+          "height": 64
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              176,
+              64
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "raised",
+            "rect": [
+              16,
+              8,
+              64,
+              48
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "lacquer",
+            "finish": true
+          },
+          {
+            "face": "raised",
+            "rect": [
+              96,
+              8,
+              64,
+              48
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "metal",
+            "finish": true
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            176,
+            64
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            16,
+            8,
+            64,
+            48
+          ],
+          "radius": 8,
+          "colour": "#2563eb"
+        },
+        {
+          "rect": [
+            96,
+            8,
+            64,
+            48
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            48,
+            13.76
+          ],
+          "note": "lacquer, top zone: the reflection band",
+          "expect": "#2f6df5"
+        },
+        {
+          "at": [
+            48,
+            32
+          ],
+          "note": "lacquer, centre: interior budget only",
+          "expect": "#2666f1"
+        },
+        {
+          "at": [
+            128,
+            13.76
+          ],
+          "note": "metal, top zone: the bright half",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            128,
+            32
+          ],
+          "note": "metal, centre",
+          "expect": "#f9fafc"
+        },
+        {
+          "at": [
+            128,
+            49.28
+          ],
+          "note": "metal, bottom zone: the dark half",
+          "expect": "#c4c5c6"
+        }
+      ]
+    },
+    {
+      "name": "emissive",
+      "description": "An emissive mark is unlit: no bevel light and no interior change, but it still casts.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 96,
+          "height": 48
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              96,
+              48
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "mark",
+            "rect": [
+              24,
+              16,
+              48,
+              16
+            ],
+            "radius": 4,
+            "height": 2,
+            "material": "emissive"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            96,
+            48
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            24,
+            16,
+            48,
+            16
+          ],
+          "radius": 4,
+          "colour": "#2563eb"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            48,
+            24
+          ],
+          "note": "centre: the captured colour",
+          "expect": "#2563eb"
+        },
+        {
+          "at": [
+            48,
+            18
+          ],
+          "note": "edge band: still the captured colour",
+          "expect": "#2563eb"
+        },
+        {
+          "at": [
+            48,
+            34
+          ],
+          "note": "its shadow below",
+          "expect": "#e0e2e5"
+        }
+      ]
+    },
+    {
+      "name": "contrast-guard",
+      "description": "A hovered button's shadow over a label on the panel: beyond the bevel band plus the ramp, darkening stops at interior.max, uniformly for text and face.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 112,
+          "height": 80
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              112,
+              80
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "raised",
+            "rect": [
+              24,
+              8,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true,
+            "state": {
+              "hover": true
+            }
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            112,
+            80
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            24,
+            8,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        },
+        {
+          "rect": [
+            40,
+            46,
+            32,
+            8
+          ],
+          "colour": "#1c1e24"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            44,
+            49
+          ],
+          "note": "label 9 px below the button, past the bevel band and the ramp: text × (1 − interior.max)",
+          "expect": "#1b1d23"
+        },
+        {
+          "at": [
+            76,
+            49
+          ],
+          "note": "panel beside the label: panel × (1 − interior.max)",
+          "expect": "#e0e2e5"
+        },
+        {
+          "at": [
+            56,
+            43
+          ],
+          "note": "3 px below the button, inside the bevel band: the shadow, unguarded",
+          "expect": "#b3b5b8"
+        }
+      ]
+    },
+    {
+      "name": "light-direction",
+      "description": "The light from the bottom right (azimuth 135°, elevation 30°): bevels and the shadow flip.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 112,
+          "height": 64
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 135,
+          "elevation": 30
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              112,
+              64
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "raised",
+            "rect": [
+              24,
+              16,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            112,
+            64
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            24,
+            16,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            56,
+            18
+          ],
+          "note": "top bevel, away from the light: darker",
+          "expect": "#a4a5a7"
+        },
+        {
+          "at": [
+            56,
+            46
+          ],
+          "note": "bottom bevel, towards the light: brighter",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            56,
+            13
+          ],
+          "note": "the shadow above the button",
+          "expect": "#b4b6b9"
+        }
+      ]
+    },
+    {
+      "name": "profile-quarter-round",
+      "description": "The quarter-round bevel profile on a raised button.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 112,
+          "height": 64
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              112,
+              64
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "raised",
+            "rect": [
+              24,
+              16,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            112,
+            64
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            24,
+            16,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            56,
+            17
+          ],
+          "note": "top bevel near the edge",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            56,
+            20
+          ],
+          "note": "top bevel, middle",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            56,
+            46
+          ],
+          "note": "bottom bevel, middle",
+          "expect": "#9e9fa1"
+        }
+      ]
+    },
+    {
+      "name": "profile-chamfer",
+      "description": "The chamfer bevel profile on a raised button.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 112,
+          "height": 64
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "chamfer"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              112,
+              64
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "raised",
+            "rect": [
+              24,
+              16,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            112,
+            64
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            24,
+            16,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            56,
+            17
+          ],
+          "note": "top bevel near the edge",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            56,
+            20
+          ],
+          "note": "top bevel, middle",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            56,
+            46
+          ],
+          "note": "bottom bevel, middle",
+          "expect": "#b7b8ba"
+        }
+      ]
+    },
+    {
+      "name": "profile-cove",
+      "description": "The cove bevel profile on a raised button.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 112,
+          "height": 64
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "cove"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              112,
+              64
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "raised",
+            "rect": [
+              24,
+              16,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            112,
+            64
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            24,
+            16,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            56,
+            17
+          ],
+          "note": "top bevel near the edge",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            56,
+            20
+          ],
+          "note": "top bevel, middle",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            56,
+            46
+          ],
+          "note": "bottom bevel, middle",
+          "expect": "#cfd0d2"
+        }
+      ]
+    },
+    {
+      "name": "dark",
+      "description": "The dark theme: a panel, an accent button and a well.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 200,
+          "height": 96
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#181a1f",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#6091ff",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              200,
+              96
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "raised",
+            "rect": [
+              16,
+              16,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 3,
+            "material": "matte",
+            "finish": true
+          },
+          {
+            "face": "well",
+            "rect": [
+              16,
+              60,
+              168,
+              24
+            ],
+            "radius": 8,
+            "height": 2,
+            "material": "matte"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            200,
+            96
+          ],
+          "radius": 14,
+          "colour": "#2c3038"
+        },
+        {
+          "rect": [
+            16,
+            16,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#6091ff"
+        },
+        {
+          "rect": [
+            16,
+            60,
+            168,
+            24
+          ],
+          "radius": 8,
+          "colour": "#1e2128"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            48,
+            32
+          ],
+          "note": "button interior",
+          "expect": "#6192ff"
+        },
+        {
+          "at": [
+            48,
+            18
+          ],
+          "note": "button top bevel",
+          "expect": "#81b2ff"
+        },
+        {
+          "at": [
+            100,
+            72
+          ],
+          "note": "well interior",
+          "expect": "#1e2128"
+        },
+        {
+          "at": [
+            100,
+            62
+          ],
+          "note": "well top bevel",
+          "expect": "#000000"
+        },
+        {
+          "at": [
+            140,
+            32
+          ],
+          "note": "panel interior",
+          "expect": "#2c3038"
+        }
+      ]
+    }
+  ]
+}
