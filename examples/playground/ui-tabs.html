@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata tabs check</title>
+</head>
+<body>
+  <main id="page" class="ug-panel" data-strata-face="raised" style="margin: 24px; display: grid; gap: 24px">
+    <h1 style="margin: 0">Strata tabs check</h1>
+    <!-- The anatomy page markup (tabs.md), wired by attachStrata. -->
+    <section aria-label="Horizontal">
+      <div class="ug-tabs">
+        <div class="ug-tabs__list" role="tablist" aria-label="Account">
+          <span class="ug-tabs__rail" data-strata-face="groove" aria-hidden="true"></span>
+          <button class="ug-tab" type="button" role="tab" id="account-tab-profile" aria-selected="true" aria-controls="account-panel-profile">
+            <span class="ug-tab__label">Profile</span>
+            <span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span>
+          </button>
+          <button class="ug-tab" type="button" role="tab" id="account-tab-security" aria-selected="false" aria-controls="account-panel-security" tabindex="-1">
+            <span class="ug-tab__label">Security</span>
+            <span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span>
+          </button>
+          <button class="ug-tab" type="button" role="tab" id="account-tab-billing" aria-selected="false" aria-controls="account-panel-billing" tabindex="-1" disabled>
+            <span class="ug-tab__label">Billing</span>
+            <span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="ug-tabs__panel" role="tabpanel" id="account-panel-profile" aria-labelledby="account-tab-profile" tabindex="0">
+          <p>Your name and photo.</p>
+        </div>
+        <div class="ug-tabs__panel" role="tabpanel" id="account-panel-security" aria-labelledby="account-tab-security" tabindex="0" hidden>
+          <p>Your password and two-step sign-in.</p>
+        </div>
+        <div class="ug-tabs__panel" role="tabpanel" id="account-panel-billing" aria-labelledby="account-tab-billing" tabindex="0" hidden>
+          <p>Your plan and invoices.</p>
+        </div>
+      </div>
+    </section>
+    <!-- Vertical, with manual activation: the arrows only move focus until Enter or Space. -->
+    <section aria-label="Vertical">
+      <div class="ug-tabs ug-tabs--vertical">
+        <div class="ug-tabs__list" role="tablist" aria-label="Settings" aria-orientation="vertical" data-strata-activation="manual">
+          <span class="ug-tabs__rail" data-strata-face="groove" aria-hidden="true"></span>
+          <button class="ug-tab" type="button" role="tab" id="settings-tab-general" aria-selected="true" aria-controls="settings-panel-general"><span class="ug-tab__label">General</span><span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span></button>
+          <button class="ug-tab" type="button" role="tab" id="settings-tab-privacy" aria-selected="false" aria-controls="settings-panel-privacy" tabindex="-1"><span class="ug-tab__label">Privacy</span><span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span></button>
+          <button class="ug-tab" type="button" role="tab" id="settings-tab-help" aria-selected="false" aria-controls="settings-panel-help" tabindex="-1"><span class="ug-tab__label">Help</span><span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span></button>
+        </div>
+        <div class="ug-tabs__panel" role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general" tabindex="0"><p>General panel.</p></div>
+        <div class="ug-tabs__panel" role="tabpanel" id="settings-panel-privacy" aria-labelledby="settings-tab-privacy" tabindex="0" hidden><p>Privacy panel.</p></div>
+        <div class="ug-tabs__panel" role="tabpanel" id="settings-panel-help" aria-labelledby="settings-tab-help" tabindex="0" hidden><p>Help panel.</p></div>
+      </div>
+    </section>
+    <!-- Right to left: the arrows are reversed. -->
+    <section aria-label="Right to left" dir="rtl">
+      <div class="ug-tabs">
+        <div class="ug-tabs__list" role="tablist" aria-label="Rtl">
+          <span class="ug-tabs__rail" data-strata-face="groove" aria-hidden="true"></span>
+          <button class="ug-tab" type="button" role="tab" id="rtl-tab-one" aria-selected="true" aria-controls="rtl-panel-one"><span class="ug-tab__label">One</span><span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span></button>
+          <button class="ug-tab" type="button" role="tab" id="rtl-tab-two" aria-selected="false" aria-controls="rtl-panel-two" tabindex="-1"><span class="ug-tab__label">Two</span><span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span></button>
+          <button class="ug-tab" type="button" role="tab" id="rtl-tab-three" aria-selected="false" aria-controls="rtl-panel-three" tabindex="-1"><span class="ug-tab__label">Three</span><span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span></button>
+        </div>
+        <div class="ug-tabs__panel" role="tabpanel" id="rtl-panel-one" aria-labelledby="rtl-tab-one" tabindex="0"><p>One panel.</p></div>
+        <div class="ug-tabs__panel" role="tabpanel" id="rtl-panel-two" aria-labelledby="rtl-tab-two" tabindex="0" hidden><p>Two panel.</p></div>
+        <div class="ug-tabs__panel" role="tabpanel" id="rtl-panel-three" aria-labelledby="rtl-tab-three" tabindex="0" hidden><p>Three panel.</p></div>
+      </div>
+    </section>
+    <p><button type="button" class="ug-button" data-strata-face="raised" id="after"><span class="ug-button__label">After the tabs</span></button></p>
+  </main>
+  <script type="module" src="/src/ui-tabs/main.ts"></script>
+</body>
+</html>

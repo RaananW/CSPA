@@ -29,3 +29,5 @@ export { Dialog, Drawer } from "./Overlay.tsx";
 export type { DialogCloseReason, DialogProps, DrawerProps } from "./Overlay.tsx";
 export { useStrataGpu } from "./Gpu.tsx";
 export type { CardProps, PanelProps } from "./Surface.tsx";
+export { Tab, TabList, TabPanel, Tabs } from "./Tabs.tsx";
+export type { TabListProps, TabPanelProps, TabProps, TabsProps } from "./Tabs.tsx";

@@ -1,7 +1,7 @@
 /**
  * `@underglass/ui/astro`: Strata's Tier A components as Astro components, rendered to HTML on the server with no
  * JavaScript. They render the same markup as the React and Vue bindings. Astro has no component context, so controls
- * take the Field props themselves and RadioGroup renders its radios from `options`. The few behaviours native
+ * take the Field props themselves, RadioGroup renders its radios from `options` and Tabs its tabs from `tabs`. The few behaviours native
  * elements need (ToggleButton state, aria-disabled, checkbox indeterminate) come from `attachStrata`, which the
  * components load.
  */
@@ -25,6 +25,7 @@ export { default as Spinner } from "./Spinner.astro";
 export { default as StrataProvider } from "./StrataProvider.astro";
 export { default as StrataScope } from "./StrataScope.astro";
 export { default as Switch } from "./Switch.astro";
+export { default as Tabs } from "./Tabs.astro";
 export { default as TextArea } from "./TextArea.astro";
 export { default as TextField } from "./TextField.astro";
 export { default as ToggleButton } from "./ToggleButton.astro";

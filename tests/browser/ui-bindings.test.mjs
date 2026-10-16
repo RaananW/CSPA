@@ -1,11 +1,11 @@
 /**
- * Browser test of the Strata Tier A bindings, run against `@underglass/ui/react` (page `ui-react.html`) and
+ * Browser test of the Strata Tier A bindings and Tabs, run against `@underglass/ui/react` (page `ui-react.html`) and
  * `@underglass/ui/vue` (page `ui-vue.html`), which render the same components with the same ids, names and state,
  * with no Underglass:
  * - each component renders exactly the markup example on its anatomy page (`docs/ui-library/components`), compared
  *   as canonical DOM (tags, attributes, class sets and text);
  * - real pointer and keyboard input on every control, with Field state, refs and attribute passthrough;
- * - roles, names and values of the surfaces and status components;
+ * - roles, names and values of the surfaces and status components; Tabs follow their value and take the arrow keys;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -304,5 +304,45 @@ for (const binding of bindings) test(`Strata ${binding} surfaces and status comp
   expect(await upload.evaluate(element => element.position)).toBeCloseTo(0.4, 5);
   const sync = main.getByRole("progressbar", { name: "Syncing" });
   expect(await sync.evaluate(element => [element.hasAttribute("value"), element.position])).toEqual([false, -1]);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Tabs follow their value, report changes and take the arrow keys`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const list = page.getByRole("tablist", { name: "Preferences" });
+  const selected = () => page.evaluate(() => ({ value: window.strataBinding.tab, tab: document.querySelector("#live-tabs-tab-general")?.closest("[role='tablist']").querySelector("[aria-selected='true']")?.id,
+    panels: [...document.querySelectorAll("[id^='live-tabs-panel-']")].filter(panel => !panel.hidden).map(panel => panel.id) }));
+  expect(await selected()).toEqual({ value: "general", tab: "live-tabs-tab-general", panels: ["live-tabs-panel-general"] });
+  // A click selects through onChange (v-model); the controlled value drives the markup.
+  await list.getByRole("tab", { name: "Privacy" }).click();
+  expect(await selected()).toEqual({ value: "privacy", tab: "live-tabs-tab-privacy", panels: ["live-tabs-panel-privacy"] });
+  await expect(page.getByRole("tabpanel", { name: "Privacy" })).toHaveText("Privacy settings.");
+  // Arrows move focus and select, skipping the disabled tab; End and Home too.
+  await page.keyboard.press("ArrowRight");
+  await expect(list.getByRole("tab", { name: "Help" })).toBeFocused();
+  expect(await selected()).toEqual({ value: "help", tab: "live-tabs-tab-help", panels: ["live-tabs-panel-help"] });
+  await page.keyboard.press("Home");
+  await expect(list.getByRole("tab", { name: "General" })).toBeFocused();
+  expect((await selected()).value).toBe("general");
+  await page.keyboard.press("End");
+  expect((await selected()).value).toBe("help");
+  // Only the selected tab is in the tab order.
+  expect(await list.getByRole("tab").evaluateAll(tabs => tabs.map(tab => tab.tabIndex))).toEqual([-1, -1, -1, 0]);
+  // Setting the value from outside selects that tab.
+  await page.evaluate(() => window.strataBinding.setTab("privacy"));
+  await expect(list.getByRole("tab", { name: "Privacy" })).toHaveAttribute("aria-selected", "true");
+  // Vertical with manual activation: Down moves focus, Enter selects.
+  const manual = page.getByRole("tablist", { name: "Manual" });
+  await expect(manual).toHaveAttribute("aria-orientation", "vertical");
+  await manual.getByRole("tab", { name: "One" }).focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(manual.getByRole("tab", { name: "Two" })).toBeFocused();
+  await expect(manual.getByRole("tab", { name: "Two" })).toHaveAttribute("aria-selected", "false");
+  await page.keyboard.press("Enter");
+  await expect(manual.getByRole("tab", { name: "Two" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel", { name: "Two" })).toHaveText("Second.");
   await context.close();
 });

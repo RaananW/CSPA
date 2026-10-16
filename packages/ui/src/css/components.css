@@ -53,7 +53,7 @@
 
   /* Focus: an accent outline just outside the shape, in every presentation. */
   :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-text-field, .ug-text-area, .ug-text-field__wrap,
-    .ug-checkbox__input, .ug-radio__input, .ug-switch__input, .ug-slider, .ug-link, .ug-panel, .ug-card):is(:focus-visible, [data-strata-preview~="focus"]) {
+    .ug-checkbox__input, .ug-radio__input, .ug-switch__input, .ug-slider, .ug-link, .ug-panel, .ug-card, .ug-tab, .ug-tabs__panel):is(:focus-visible, [data-strata-preview~="focus"]) {
     outline: var(--strata-focus-width) solid var(--strata-colour-accent);
     outline-offset: var(--strata-focus-offset);
   }
@@ -532,6 +532,71 @@
   }
   :where(.ug-slider:disabled) { opacity: 0.38; cursor: not-allowed; }
 
+  /* ---- Tabs ---- */
+
+  /* A row of flat tabs over a rail (a groove); the selected tab's indicator (a mark) stands in the rail under it. */
+  :where(.ug-tabs) { display: block; }
+  :where(.ug-tabs__list) {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--strata-space-1);
+    padding-bottom: 4px;
+  }
+  :where(.ug-tabs__rail, .ug-tab__indicator) {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: var(--strata-radius-pill);
+    pointer-events: none;
+  }
+  :where(.ug-tabs__rail) {
+    inset: auto 0 0 0;
+    height: 4px;
+    background-color: var(--strata-colour-track);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / calc(0.3 * var(--_gain)));
+  }
+  :where(.ug-tab) {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: var(--strata-target-min);
+    min-height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
+    margin: 0 0 -4px;
+    padding: 0 var(--strata-space-4) 4px;
+    border: 0;
+    border-radius: var(--strata-radius-small);
+    background: transparent;
+    color: var(--strata-colour-muted);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-control-font);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: 1;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :where(.ug-tab):is(:hover, :active, [aria-selected="true"], [data-strata-preview~="hover"]):not(:disabled) { color: var(--strata-colour-text); }
+  :where(.ug-tab:disabled) { color: color-mix(in srgb, var(--strata-colour-muted) 38%, transparent); cursor: not-allowed; }
+  :where(.ug-tab__label) { min-width: 0; }
+  :where(.ug-tab__indicator) {
+    display: none;
+    inset: auto var(--strata-space-2) 0;
+    height: 4px;
+    background-color: var(--strata-colour-accent);
+    box-shadow: calc(var(--strata-shadow-dx) * 1.5px) calc(var(--strata-shadow-dy) * 1.5px) 2px rgb(0 0 0 / calc(var(--strata-shadow-strength) * 1.2));
+  }
+  :where(.ug-tab[aria-selected="true"] > .ug-tab__indicator) { display: block; }
+  :where(.ug-tabs__panel) { padding-block: var(--strata-space-4); border-radius: var(--strata-radius-small); }
+  :where(.ug-tabs__panel[hidden]) { display: none; }
+  /* Vertical: the tabs stack at the start, with the rail and indicators along their end edge. */
+  :where(.ug-tabs--vertical) { display: flex; align-items: flex-start; gap: var(--strata-space-4); }
+  :where(.ug-tabs--vertical) > :where(.ug-tabs__list) { flex-direction: column; flex-wrap: nowrap; padding: 0 4px 0 0; }
+  :where(.ug-tabs--vertical) :where(.ug-tabs__rail) { inset: 0 0 0 auto; width: 4px; height: auto; }
+  :where(.ug-tabs--vertical) :where(.ug-tab) { justify-content: flex-start; margin: 0 -4px 0 0; padding: 0 calc(var(--strata-space-4) + 4px) 0 var(--strata-space-4); }
+  :where(.ug-tabs--vertical) :where(.ug-tab__indicator) { inset: var(--strata-space-2) 0 var(--strata-space-2) auto; width: 4px; height: auto; }
+  :where(.ug-tabs--vertical) > :where(.ug-tabs__panel) { flex: 1; min-width: 0; padding-block: 0; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -744,6 +809,11 @@
     :where(.ug-progress)::-moz-progress-bar { background-color: Highlight; }
     :where(.ug-spinner__arc) { forced-color-adjust: none; border-color: CanvasText; border-top-color: Highlight; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+    :where(.ug-tabs__rail) { forced-color-adjust: none; background: CanvasText; height: 1px; }
+    :where(.ug-tabs--vertical) :where(.ug-tabs__rail) { width: 1px; height: auto; }
+    :where(.ug-tab) { color: ButtonText; }
+    :where(.ug-tab:disabled) { color: GrayText; }
+    :where(.ug-tab__indicator) { forced-color-adjust: none; background: Highlight; box-shadow: none; }
     :where(.ug-divider) { border-top-color: CanvasText; border-bottom: 0; }
     :where(.ug-divider--vertical) { border-left-color: CanvasText; border-right: 0; }
     :where(.ug-badge) { border-color: CanvasText; }

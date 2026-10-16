@@ -1,5 +1,5 @@
 /**
- * Strata React check page (`ui-react.html`): the Tier A components from `@underglass/ui/react`, in plain React
+ * Strata React check page (`ui-react.html`): the Tier A components and Tabs from `@underglass/ui/react`, in plain React
  * with no Underglass. `#contracts` renders each component exactly as its anatomy page's markup example, so the browser
  * test can compare them; the panels below are live controls the test drives with real input through
  * `window.strataBinding`.
@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider, Spinner, StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
+import { Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -65,6 +65,18 @@ function Contracts() {
             actions={<Button data-strata-close="">Done</Button>} />
         )}
       </div>
+      <div data-contract="tabs.md">
+        <Tabs id="account" defaultValue="profile">
+          <TabList label="Account">
+            <Tab value="profile">Profile</Tab>
+            <Tab value="security">Security</Tab>
+            <Tab value="billing" disabled>Billing</Tab>
+          </TabList>
+          <TabPanel value="profile"><p>Your name and photo.</p></TabPanel>
+          <TabPanel value="security"><p>Your password and two-step sign-in.</p></TabPanel>
+          <TabPanel value="billing"><p>Your plan and invoices.</p></TabPanel>
+        </Tabs>
+      </div>
       <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
   );
@@ -80,12 +92,13 @@ function App() {
   const [italic, setItalic] = useState(true);
   const [email, setEmail] = useState("");
   const [accent, setAccent] = useState<string | undefined>(undefined);
+  const [tab, setTab] = useState("general");
   const [choices, setChoices] = useState({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
   const choose = <K extends keyof typeof choices>(key: K, value: (typeof choices)[K]) => setChoices(current => ({ ...current, [key]: value }));
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -161,6 +174,28 @@ function App() {
             <Button id="scoped">Scoped</Button>
           </section>
         </StrataScope>
+        <section className="ug-panel" data-strata-face="raised" aria-label="Tabs">
+          <Tabs id="live-tabs" value={tab} onChange={setTab}>
+            <TabList label="Preferences">
+              <Tab value="general">General</Tab>
+              <Tab value="privacy">Privacy</Tab>
+              <Tab value="advanced" disabled>Advanced</Tab>
+              <Tab value="help">Help</Tab>
+            </TabList>
+            <TabPanel value="general">General settings.</TabPanel>
+            <TabPanel value="privacy">Privacy settings.</TabPanel>
+            <TabPanel value="advanced">Advanced settings.</TabPanel>
+            <TabPanel value="help">Help and feedback.</TabPanel>
+          </Tabs>
+          <Tabs id="manual-tabs" defaultValue="one" orientation="vertical" activation="manual">
+            <TabList label="Manual">
+              <Tab value="one">One</Tab>
+              <Tab value="two">Two</Tab>
+            </TabList>
+            <TabPanel value="one">First.</TabPanel>
+            <TabPanel value="two">Second.</TabPanel>
+          </Tabs>
+        </section>
         <section className="ug-panel" data-strata-face="raised" aria-label="Overlays">
           <Button id="open-live" onClick={() => setLiveOpen(true)}>Open live dialog</Button>
         </section>
