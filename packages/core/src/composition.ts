@@ -10,7 +10,7 @@
 import type { EffectWrapperOptions } from "@babylonjs/lite";
 import { homography, invertRows, validateGeometry } from "./native.js";
 import type { Ripple } from "./ripple.js";
-import { effectUniforms, materialUniforms, MATERIAL_INTERIOR_CEILING, type EffectDescriptor, type ApplicationEffect, type MaterialDescriptor } from "./effects.js";
+import { effectUniforms, isSceneMaterial, materialUniforms, MATERIAL_INTERIOR_CEILING, type EffectDescriptor, type ApplicationEffect, type MaterialDescriptor } from "./effects.js";
 import { LAYER_BLOCK_FLOATS, LAYER_PASS_FLOATS, type CompiledMotion } from "./compiled.js";
 import { RELIEF_VEC4S, reliefWGSL } from "./relief.js";
 
@@ -106,8 +106,8 @@ function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeL
   const material = layer.material?.();
   values.set(materialUniforms(material, materialIndex), offset + 44);
   // Relief passes read the drawn rectangle from vec4 12; hits keep using the clip alone.
-  const draw = drawRectangle(clip, layer.extent, material?.kind === "relief" ? material.scene.outset : undefined);
-  if (material?.kind === "relief") values.set([draw.x0, draw.y0, draw.x1, draw.y1], offset + 48);
+  const draw = drawRectangle(clip, layer.extent, isSceneMaterial(material) ? material.scene.outset : undefined);
+  if (isSceneMaterial(material)) values.set([draw.x0, draw.y0, draw.x1, draw.y1], offset + 48);
   // vec4 13: the inverse's projective row, (0, 0, 1) for an affine layer.
   values.set([...(rows ? rows[2] : [0, 0, 1]), 0], offset + 52);
   return { matrix, clip, motion, draw };

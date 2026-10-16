@@ -18,7 +18,7 @@ const sourceImports = registerHooks({
 });
 const { defineEffect, validateMaterial, materialUniforms, MATERIAL_INTERIOR_CEILING } = await import("../../packages/core/src/effects.ts");
 const { layerShader, passShaders, drawRectangle } = await import("../../packages/core/src/composition.ts");
-const { reliefUniforms, validateReliefScene, RELIEF_VEC4S } = await import("../../packages/core/src/relief.ts");
+const { reliefDegraded, reliefUniforms, validateReliefScene, RELIEF_VEC4S } = await import("../../packages/core/src/relief.ts");
 const { LAYER_PASS_FLOATS } = await import("../../packages/core/src/compiled.ts");
 sourceImports.deregister();
 
@@ -111,7 +111,7 @@ test("the relief binding packs derived values per primitive, and relief passes a
   assert.equal(values.length, RELIEF_VEC4S * 4);
   assert.ok(RELIEF_VEC4S * 16 <= 65536, "fits WebGPU's guaranteed uniform binding size");
   assert.equal(reliefUniforms(scene), values, "packed once per scene object");
-  const primitive = index => [...values.slice((5 + 16 * 2 + index * 6) * 4, (5 + 16 * 2 + (index + 1) * 6) * 4)].map(value => Math.round(value * 1e4) / 1e4);
+  const primitive = index => [...values.slice((6 + 16 * 2 + index * 6) * 4, (6 + 16 * 2 + (index + 1) * 6) * 4)].map(value => Math.round(value * 1e4) / 1e4);
   // Header: light vector, then bevel width 6, gain 0.55, quarter-round, strength 0.24, interior 0.04, counts.
   assert.deepEqual([...values.slice(3, 8)].map(value => Math.round(value * 1e4) / 1e4), [6, 0.55, 0, 0.24, 0.04]);
   assert.deepEqual([...values.slice(17, 19)], [5, 7]);
@@ -139,4 +139,43 @@ test("a relief outset grows the drawn rectangle only on sides the clip does not 
   assert.deepEqual(drawRectangle({ x: 0, y: 0, width: 200, height: 120 }, extent), { x0: 0, y0: 0, x1: 200, y1: 120 });
   // A viewport cutting the left and bottom sides: those stay cut, the others grow.
   assert.deepEqual(drawRectangle({ x: 30, y: -5, width: 400, height: 90 }, extent, outset), { x0: 30, y0: -10, x1: 220, y1: 85 });
+});
+
+// The objects material takes version 2 scenes: every Objects conformance scene must pass core's check.
+test("core's objects material accepts every Objects conformance scene, packs objects and reports Relief equivalents", async () => {
+  const { readFileSync } = await import("node:fs");
+  const suite = JSON.parse(readFileSync(new URL("../../packages/ui/conformance/objects-2.json", import.meta.url), "utf8"));
+  const objects = { kind: "objects", bounds: "layer", interaction: "material", media: "identity", fallback: "static" };
+  for (const entry of suite.cases) {
+    const valid = validateMaterial({ ...objects, scene: entry.scene });
+    assert.equal(valid.scene.primitives.length, entry.scene.primitives.length, entry.name);
+    assert.deepEqual(reliefDegraded(valid.scene).map(item => item.index), entry.name === "relief-equivalents" ? [1, 2] : [], entry.name);
+  }
+  const scene = suite.cases.find(entry => entry.name === "switch").scene;
+  const broken = (change, pattern) => { const copy = structuredClone(scene); change(copy); assert.throws(() => validateMaterial({ ...objects, scene: copy }), pattern); };
+  broken(copy => { copy.version = 1; }, /version 2 strata-scene/);
+  broken(copy => { delete copy.camera; }, /camera/);
+  broken(copy => { copy.primitives[2].object = "lever"; }, /primitives\[2\]\.object/);
+  broken(copy => { delete copy.primitives[2].colour; }, /primitives\[2\]\.colour/);
+  broken(copy => { copy.primitives[1].travel = 2; }, /travel is only for keys and marks/);
+  // A relief material refuses objects; an objects material refuses version 1.
+  assert.throws(() => validateMaterial({ ...objects, kind: "relief", scene: { ...scene, version: 1, camera: undefined, environment: undefined } }), /version 2 scene/);
+  assert.deepEqual([...materialUniforms(validateMaterial({ ...objects, scene }), -1)].slice(0, 2).map(value => Math.round(value * 1e6) / 1e6), [2, 0.04]);
+
+  // Packing: the camera and environment in the header; the well a solid (code 7) with its heights; the knob a dome (9).
+  const values = reliefUniforms(validateReliefScene(scene, 2));
+  assert.deepEqual([...values.slice(20, 24)].map(value => Math.round(value * 1e4) / 1e4), [1600, -100, 32, 0.6]);
+  const entry = index => [...values.slice((6 + 16 * 2 + index * 6) * 4, (6 + 16 * 2 + (index + 1) * 6) * 4)].map(value => Math.round(value * 1e4) / 1e4);
+  assert.deepEqual(entry(1).slice(4, 8), [14, 2, 0, 7]);
+  assert.deepEqual(entry(1).slice(14, 16), [8, 5]);
+  assert.deepEqual(entry(2).slice(4, 8), [12, 12, 10, 9]);
+  assert.deepEqual(entry(2).slice(14, 16), [5, 15]);
+  // The Relief equivalents: the knob packs as a relief knob (face 3) keeping its colour (flag 2); the key as raised.
+  const fallback = suite.cases.find(item => item.name === "relief-equivalents").scene;
+  const packed = reliefUniforms(validateReliefScene(fallback, 2));
+  const at = index => [...packed.slice((6 + 16 * 2 + index * 6) * 4, (6 + 16 * 2 + (index + 1) * 6) * 4)];
+  assert.equal(at(1)[7], 3);
+  assert.equal(at(1)[23], 2);
+  assert.equal(at(2)[7], 0);
+  assert.ok(RELIEF_VEC4S * 16 <= 65536);
 });
