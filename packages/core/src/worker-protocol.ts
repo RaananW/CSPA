@@ -6,6 +6,9 @@
  */
 import type { EffectWrapperOptions } from "@babylonjs/lite";
 import type { ElementSnapshot } from "./native.js";
+import { LAYER_BLOCK_FLOATS } from "./compiled.js";
+
+export { LAYER_BLOCK_FLOATS };
 
 /**
  * Prebuilt compositor shader for the worker, generated at build time by `workerCompositorProgram`.
@@ -22,7 +25,7 @@ export type WorkerAnimation = "none" | "opacity" | "ripple";
 export type WorkerSnapshot = ElementSnapshot & Transferable;
 /**
  * One frame sent to the worker. `uniforms` is the compositor uniform block (4 header floats plus
- * 44 per layer); `images` are the freshly captured layer snapshots to upload, which are transferred
+ * `LAYER_BLOCK_FLOATS` per layer); `images` are the freshly captured layer snapshots to upload, which are transferred
  * to the worker. `probe` marks an admission probe frame.
  */
 export interface WorkerFrame {
@@ -76,7 +79,7 @@ export function validateWorkerProgram(program: WorkerProgram) {
   }
   const uniform = program.shader.bindings.at(-1)!;
   if (!uniform || uniform.kind !== "uniform" || uniform.binding !== program.capacity * 2
-    || uniform.uniformByteLength !== (4 + program.capacity * 44) * 4) throw new Error("Invalid worker uniform layout");
+    || uniform.uniformByteLength !== (4 + program.capacity * LAYER_BLOCK_FLOATS) * 4) throw new Error("Invalid worker uniform layout");
 }
 /**
  * Throws unless `frame` is within bounds: integer sizes up to `maxDimension` and 2,000,000 pixels,
@@ -86,7 +89,7 @@ export function validateWorkerProgram(program: WorkerProgram) {
 export function validateWorkerFrame(frame: WorkerFrame, capacity: number, maxDimension: number) {
   if (![frame.width, frame.height].every(value => Number.isInteger(value) && value > 0 && value <= maxDimension)
     || frame.width * frame.height > 2_000_000 || !(frame.uniforms instanceof Float32Array)
-    || frame.uniforms.length !== 4 + capacity * 44 || !frame.uniforms.every(Number.isFinite)
+    || frame.uniforms.length !== 4 + capacity * LAYER_BLOCK_FLOATS || !frame.uniforms.every(Number.isFinite)
     || frame.uniforms[0]! <= 0 || !Array.isArray(frame.images) || frame.images.length > capacity) {
     throw new Error("Invalid bounded worker frame");
   }

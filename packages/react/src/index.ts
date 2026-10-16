@@ -13,6 +13,6 @@ export type {
   CanvasController, CanvasHosts, EnrollmentOptions, EnrollmentErrorCode, Transform, TransformOrigin, Affine, Point,
   Layout, Appearance, LocalApplicationModule, AdmissionPolicy, LayerDefinition, RuntimeOptions, CanvasStatus,
   AnimationPlayback, ReleaseOptions, CSSAnimationSource, CompiledAnimation, CompiledProgramSet, Ripple,
-  ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult,
+  ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult, MaterialDescriptor, MaterialHandle,
   MotionKeyframe, MotionTiming, MotionDescriptor, MotionHandle, TransitionHandle, TransitionResult, CoordinatedMotion,
 } from "@underglass/core";

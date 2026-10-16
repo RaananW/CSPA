@@ -92,6 +92,10 @@ scaled together.
 
 ### 1. Material interaction and a second chain
 
+Implemented: `setMaterial`, a 52-float layer block and compiled program sets at version 3. A material holds one
+custom colour definition. In this step the whole layer is the guarded face, because relief primitives arrive in
+step 2.
+
 - **New interaction `"material"`:**
   - It is allowed on interactive layers at rest, with content left fully interactive (not inert).
   - It is colour-only: a chain with `interaction: "material"` may contain only colour operations (`custom` with

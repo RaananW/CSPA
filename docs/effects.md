@@ -88,6 +88,27 @@ decoration and resolve active handles as `fallback`. Static fallback is not
 claimed to reproduce a shader with CSS. Unmount disposes enrollment handles.
 Normal native content invalidation stays enabled.
 
+## Materials
+
+`setMaterial(id, descriptor)` installs a persistent, colour-only material on any
+enrolled layer, interactive or decorative, and returns a handle (`finished`,
+`state`, `update`, `cancel`, `dispose`). The descriptor declares
+`bounds: "layer"`, `interaction: "material"`, `media: "identity"`,
+`fallback: "static"`, `kind: "custom"` with a `defineEffect` definition and
+exactly its parameters, and `interior: { max }` within 0..0.1.
+
+- The layer pass applies the material before the effect chain. It evaluates the
+  definition on a neutral input `(0.5, 0.5, 0.5, 1)`, takes twice the result's
+  luma (Rec. 709 weights, encoded sRGB) as a factor, clamps it to
+  `1 ± min(max, 0.1)` and scales the captured colour by it. The captured colour
+  never reaches the material, so text and face move together.
+- One pass may hold a custom effect and a custom material; a new definition is
+  compiled as a successor while the previous frame keeps presenting.
+- Replacement resolves the previous handle as `replaced`. The material survives
+  DOM presentation and readmission; unenrollment and runtime disposal resolve it as
+  `disposed`. `runtimeResources.materials` counts active materials and
+  `state().materials` lists them.
+
 ## Trusted custom authoring
 
 `defineEffect` freezes the schema and requires `geometry: "color"`,

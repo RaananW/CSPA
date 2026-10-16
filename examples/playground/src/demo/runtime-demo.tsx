@@ -2,13 +2,13 @@
  * Entry for `runtime.html` (typed shared runtime and native interaction): the main specimen for the browser
  * suite. It renders typed `Surface`/`Box`/`NativeScroll` layers containing real controls (controlled and
  * uncontrolled inputs, nested components, a dialog and a popover in `NativeOverlay`) and exposes
- * `window.runtimeProbe` so tests can enable/disable GPU, animate a layer and inspect state. Query flags change
+ * `window.runtimeProbe` so tests can enable/disable GPU, animate a layer, set effects and materials and inspect state. Query flags change
  * the specimen: `?strict`, `?auto`, `?dom`, `?scroll`, `?clip`, `?childclip`, `?oversized`, `?zero`, `?nested`,
  * `?editing`, `?transparent`, `?budget`, `?many=N`, `?thirdId=`.
  */
 import { Profiler, version, useState, useEffect, useRef, type ProfilerOnRenderCallback } from "react";
 import { createRoot, flushSync } from "./react-root";
-import { mountCanvasApp, Surface, Box, NativeOverlay, NativeScroll, type CanvasController, type EffectDescriptor, type EffectHandle, type Transform, type TransformOrigin } from "@underglass/react";
+import { mountCanvasApp, defineEffect, Surface, Box, NativeOverlay, NativeScroll, type ApplicationEffect, type CanvasController, type EffectDescriptor, type EffectHandle, type MaterialDescriptor, type MaterialHandle, type ParameterRange, type Transform, type TransformOrigin } from "@underglass/react";
 
 const params = new URLSearchParams(location.search);
 const commits = { count: 0, mounts: 0, cleanups: 0 };
@@ -169,6 +169,10 @@ window.runtimeProbe = { state, animate, dispose,
   transform: (id: string, transform: Transform) => controller.setTransform(id, transform),
   origin: (id: string, origin?: TransformOrigin) => controller.setOrigin(id, origin),
   effects: (id: string, chain: EffectDescriptor[]) => controller.setEffects(id, chain),
+  material: (id: string, material: MaterialDescriptor) => controller.setMaterial(id, material),
+  // Trusted test WGSL for custom effects and materials, one parameter `strength` unless `parameters` says otherwise.
+  define: (name: string, wgsl: string, parameters: Record<string, ParameterRange> = { strength: { min: -4, max: 4 } }) =>
+    defineEffect({ name, wgsl, parameters, geometry: "color", bounds: "layer", capabilities: ["webgpu"] }),
   invalidate: (id?: string) => controller.invalidate(id),
   async cycle() {
     const retired = await dispose();
@@ -222,5 +226,7 @@ declare global {
     settle(): Promise<void>; transform(id: string, transform: Transform): void;
     origin(id: string, origin?: TransformOrigin): void; invalidate(id?: string): void;
     effects(id: string, chain: EffectDescriptor[]): EffectHandle;
+    material(id: string, material: MaterialDescriptor): MaterialHandle;
+    define(name: string, wgsl: string, parameters?: Record<string, ParameterRange>): ApplicationEffect;
   } }
 }

@@ -168,3 +168,63 @@ export function effectUniforms(values: readonly EffectDescriptor[] = []) {
   });
   return result;
 }
+/**
+ * A persistent material on an enrolled layer, interactive or decorative. A material changes how the layer's
+ * pixels are lit and never moves them, so the layer's content stays fully interactive. Inside the layer the
+ * runtime keeps any change to one brightness factor per point within `interior.max`, the same for text and the
+ * face around it, so no material can break text contrast (Strata Rendering Model, section 2.9).
+ *
+ * `custom` evaluates the definition's WGSL on a neutral mid-grey input and takes the ratio of its luma to the
+ * input's as the factor; the captured colour itself never reaches it.
+ */
+export interface MaterialDescriptor {
+  kind: "custom";
+  definition: ApplicationEffect;
+  parameters: Record<string, number>;
+  bounds: "layer";
+  interaction: "material";
+  media: "identity";
+  fallback: "static";
+  /** The largest brightness change on the layer's interior: 0..0.1 (Strata's `interior.max`). */
+  interior: { max: number };
+}
+/**
+ * Handle for a layer's material, returned by `setMaterial`. A material persists across DOM and GPU presentation
+ * (ordinary DOM shows the original), and ends only when cancelled, disposed, replaced by a later `setMaterial`
+ * on the same layer, or when its layer or the runtime is released.
+ */
+export interface MaterialHandle {
+  /** Settles once, when the material stops applying. */
+  readonly finished: Promise<EffectResult>;
+  state(): { active: boolean; material: MaterialDescriptor };
+  /** Replaces the parameters (same schema) without recompiling. */
+  update(parameters: Record<string, number>): void;
+  cancel(): void;
+  dispose(): void;
+}
+/** The hard ceiling on a material's interior change, matching the Strata token's validated range. */
+export const MATERIAL_INTERIOR_CEILING = 0.1;
+/** Validates a material and returns a normalized copy (parameters in schema order). Throws on the first problem. */
+export function validateMaterial(value: MaterialDescriptor): MaterialDescriptor {
+  if (!value || value.bounds !== "layer" || value.interaction !== "material" || value.media !== "identity" || value.fallback !== "static"
+    || !value.parameters || !value.interior) throw new Error("Materials require layer bounds, material interaction, identity media and static DOM fallback");
+  if (value.kind !== "custom") throw new Error("Unsupported material kind");
+  if (!definitions.has(value.definition)) throw new Error("Custom materials must come from defineEffect");
+  const names = Object.keys(value.definition.parameters);
+  if (Object.keys(value.parameters).length !== names.length || Object.keys(value.parameters).some(name => !names.includes(name))) throw new Error("Material parameter keys must match the declared schema exactly");
+  const parameters = Object.fromEntries(names.map(name => [name, effectNumber(value.parameters[name]!, value.definition.parameters[name]!.min, value.definition.parameters[name]!.max, name)]));
+  const max = effectNumber(value.interior.max, 0, MATERIAL_INTERIOR_CEILING, "Material interior.max");
+  return { ...value, parameters, interior: { max } };
+}
+/**
+ * Packs a material into the 8 floats (two vec4s) of a layer's uniform block: control `(kind code, interior max,
+ * definition slot, 0)` with code custom 1 (0 is no material), then up to four parameters, zero-padded. `slot` is
+ * the index of the material's definition among those the pass was built with, or -1.
+ */
+export function materialUniforms(value: MaterialDescriptor | undefined, slot: number) {
+  const result = new Float32Array(8);
+  if (!value) return result;
+  const parameters = Object.keys(value.definition.parameters).map(name => value.parameters[name]!);
+  result.set([1, Math.min(value.interior.max, MATERIAL_INTERIOR_CEILING), slot, 0, ...parameters, ...Array(4 - parameters.length).fill(0)]);
+  return result;
+}

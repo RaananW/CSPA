@@ -25,10 +25,10 @@ import { capabilities, enableDrawable, isDrawableCanvas, isDrawableQueue, valida
 import { completeCoverage, type CaptureCoverage } from "./publication.js";
 import { createMountBoundary, type MountBoundaryOptions } from "./mount-boundary.js";
 import { configuredDevice, observeConfiguredDevice, waitForTeardown, type IdleOutcome } from "./device-lifecycle.js";
-import { layerBlend, layerShader, layerUniforms } from "./composition.js";
+import { layerBlend, layerShader, layerUniforms, passShaders, type PassShaders } from "./composition.js";
 import { createAdmissionProbe, verifyFrameBounds, verifyProbeGeometry, verifyProbePixels, type FrameBounds } from "./admission.js";
 import type { Ripple } from "./ripple.js";
-import type { ApplicationEffect, EffectDescriptor } from "./effects.js";
+import type { ApplicationEffect, EffectDescriptor, MaterialDescriptor } from "./effects.js";
 import type { CompiledMotion, CompiledProgramSet } from "./compiled.js";
 
 /**
@@ -55,6 +55,8 @@ export interface EnrolledLayer {
   effects?(): readonly EffectDescriptor[];
   /** `false` draws the layer with no effects (the runtime uses this for reduced motion). */
   effectsEnabled?(): boolean;
+  /** The layer's persistent material, packed into its uniforms and applied before its effects. */
+  material?(): MaterialDescriptor | undefined;
   /** Build-time compiled motion currently driving this layer, sampled in the shader. */
   compiledMotion?(): CompiledMotion | undefined;
 }
@@ -208,33 +210,33 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let tint = 0;
   let dx = 0;
   let previousFrame: number | undefined;
-  // The custom effect definition per presented layer, aligned with `layers`.
-  let admittedCustom: (ApplicationEffect | undefined)[] = [];
+  // The custom effect and material definitions per presented layer, aligned with `layers`.
+  let admittedCustom: (PassShaders | undefined)[] = [];
   /**
    * The layer pass shader: the first precompiled program when `options.compiled` is set (runtime custom
-   * effects are refused then), otherwise WGSL generated for `custom`.
+   * effects and materials are refused then), otherwise WGSL generated for `custom`.
    */
-  function shaderFor(custom: ApplicationEffect | undefined) {
+  function shaderFor(custom: PassShaders | undefined) {
     if (options.compiled) {
-      if (custom) throw new Error("Compiled programs do not include runtime custom effect definitions");
+      if (custom) throw new Error("Compiled programs do not include runtime custom effect or material definitions");
       const program = options.compiled.programs[0];
       if (!program) throw new Error("Compiled layer program missing");
       metrics.precompiledShaderSelections++;
       return program;
     }
     metrics.shaderSourceGenerations++;
-    return layerShader(custom);
+    return layerShader(custom?.effect, undefined, custom?.material);
   }
-  /** The layer's trusted custom effect definition, if its effect chain has one. */
+  /** The layer's trusted custom effect and material definitions, if it has either. */
   function customOf(layer: EnrolledLayer) {
-    return layer.effects?.().find(value => value.kind === "custom")?.definition;
+    return passShaders(layer.effects?.().find(value => value.kind === "custom")?.definition, layer.material?.()?.definition);
   }
   /**
    * Creates one layer's effect wrapper, bound to `layer.texture`, and a non-clearing renderer for it on the
    * engine's primary surface. The pass is not registered; `present` does that. If renderer creation throws,
    * the wrapper is disposed before rethrowing.
    */
-  function createPass(layer: Layer, custom: ApplicationEffect | undefined, name: string): Pass {
+  function createPass(layer: Layer, custom: PassShaders | undefined, name: string): Pass {
     const effect = createEffectWrapper(engine!, { name, ...shaderFor(custom), blend: layerBlend });
     resources.effects++;
     try {
@@ -253,7 +255,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     disposeEffectWrapper(pass.effect); resources.effects--;
   }
   /** Validates trusted custom/compiled WGSL once per distinct source before it is drawn. */
-  function compileShaders(customs: readonly (ApplicationEffect | undefined)[]): Promise<void> {
+  function compileShaders(customs: readonly (PassShaders | undefined)[]): Promise<void> {
     if (!options.compiled && !customs.some(Boolean)) return Promise.resolve();
     const device = configuredDevice(output);
     const sources = new Set(customs.filter(custom => custom || options.compiled).map(custom => {
@@ -312,13 +314,13 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   // what that texture currently holds (`coverage`, `contentExtent`) and the native capture grid last uploaded.
   type Layer = EnrolledLayer & { extent: { width: number; height: number }; texture: DynamicTexture2D;
     coverage: CaptureCoverage; contentExtent: { width: number; height: number; pixelWidth: number; pixelHeight: number } };
-  // One draw pass: the effect wrapper bound to a layer texture, its renderer, and the custom effect it was built for.
-  type Pass = { effect: EffectWrapper; renderer: ReturnType<typeof createEffectRenderer>; texture: DynamicTexture2D; custom: ApplicationEffect | undefined };
+  // One draw pass: the effect wrapper bound to a layer texture, its renderer, and the custom effect and material it was built for.
+  type Pass = { effect: EffectWrapper; renderer: ReturnType<typeof createEffectRenderer>; texture: DynamicTexture2D; custom: PassShaders | undefined };
   // `passes` align with `layers`; `owned` also keeps passes of removed layers alive until the composition retires.
   // A complete set of layers, passes and textures presented together. At most one is `active` (drawn now) and one
   // `pending` (prepared, waiting for fresh pixels); superseded ones sit in `retiring` until a queue fence.
   type Composition = { layers: Layer[]; passes: Pass[]; owned: Set<Pass>;
-    textures: DynamicTexture2D[]; custom: (ApplicationEffect | undefined)[];
+    textures: DynamicTexture2D[]; custom: (PassShaders | undefined)[];
     ready: boolean; size: ReturnType<SurfaceRendererOptions["size"]> };
   // `layers` is the presented composition; `current` is the runtime's latest enrollment, which may be ahead of it.
   let layers: Layer[] = [];
@@ -789,9 +791,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     });
     for (const spec of current) metrics.perLayer[spec.id] ??= { captures: 0, pixelCopies: 0, pixelReadbacks: 0, uploads: 0 };
     const custom = next.map(customOf);
-    // Each layer keeps its pass while its texture and custom effect are unchanged.
-    // Finds an existing pass bound to the same texture and custom effect, searching the given compositions.
-    const reuse = (layer: Layer, definition: ApplicationEffect | undefined, from: (Composition | undefined)[]) =>
+    // Each layer keeps its pass while its texture, custom effect and material are unchanged.
+    // Finds an existing pass bound to the same texture and custom definitions, searching the given compositions.
+    const reuse = (layer: Layer, definition: PassShaders | undefined, from: (Composition | undefined)[]) =>
       from.flatMap(composition => composition ? [...composition.owned] : [])
         .find(pass => pass.texture === layer.texture && pass.custom === definition);
     const retained = next.map((layer, index) => reuse(layer, custom[index], [active]));
@@ -1369,7 +1371,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (next.length !== current.length || next.some((layer, index) => layer.id !== current[index]!.id || layer.element !== current[index]!.element)) membershipPending = true;
       current = next; geometry();
     },
-    acceptsCustom: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)] === definition,
+    acceptsCustom: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)]?.effect === definition,
+    acceptsMaterial: (id: string, definition: ApplicationEffect) => admittedCustom[layers.findIndex(layer => layer.id === id)]?.material === definition,
     phase: () => mode, version: () => generation, resume: scheduleCapture,
     frameBounded: () => frameBounds === "bounded",
     pause: () => {
