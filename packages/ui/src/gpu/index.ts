@@ -7,6 +7,10 @@
  * presents, the panels switch to `data-strata-mode="face"`, so CSS paints flat faces and the GPU paints the relief;
  * whenever GPU is off, the CSS relief is back.
  *
+ * At the Scene level (`level: "scene"`, or `data-strata-level="scene"` on the root or a scope around it) the helper adds
+ * decorative layers of its own: a lit backdrop behind the panels and, while `burst()` runs, a particle layer in front;
+ * panels entering settle with a damped spring. An environment map (`environment: url`) lights every object.
+ *
  * The root becomes a stage (`data-strata-stage`): Dialog and Drawer panels rendered into it are presented as panels
  * of their own while they are open, over a scrim the GPU fades, and are let go before they hide.
  *
@@ -24,12 +28,17 @@ import { cssVariable, flatten, numeric, strataTokens } from "../tokens/index.ts"
 import { isSceneObject, type SceneEntry, type SceneFace, type SceneMaterial, type StrataScene } from "../tokens/scene.ts";
 import { panelMotion, type PanelMover } from "../dom/motion.ts";
 import { strataStage, type StagePresenter } from "../dom/stage.ts";
+import type { EnvironmentMap, StageScene } from "../tokens/stage.ts";
+import { advance, asParticle, decodeHdr, environmentFrom, launch, spring, type BurstOptions, type Confetto } from "./scene.ts";
+
+export { decodeHdr, environmentFrom, launch, advance, spring } from "./scene.ts";
+export type { BurstOptions, Confetto, HdrImage } from "./scene.ts";
 
 /** What the helper needs from an Underglass controller (`CanvasController` from `@underglass/core`). */
 export interface StrataGpuController {
   readonly container: HTMLElement;
-  enroll(element: HTMLElement, options: { id: string; origin?: "center" }): () => void;
-  setMaterial(id: string, descriptor: StrataSceneMaterial): { update(scene: StrataPanelScene): void; cancel(): void };
+  enroll(element: HTMLElement, options: { id: string; origin?: "center"; decorative?: boolean }): () => void;
+  setMaterial(id: string, descriptor: StrataSceneMaterial | StrataStageMaterial): { update(scene: StrataScene | StageScene): void; cancel(): void };
   transition(id: string, motion: StrataPanelMotion): { finished: Promise<{ status: string; reason: string }>; cancel(): void };
   state(): { mode: string };
 }
@@ -41,11 +50,16 @@ export interface StrataPanelMotion {
 /** The material descriptor the helper hands to `setMaterial`: `relief` for a version 1 scene, `objects` for version 2. */
 export interface StrataSceneMaterial {
   kind: "relief" | "objects";
-  scene: StrataPanelScene;
+  scene: StrataScene;
   bounds: "layer";
   interaction: "material";
   media: "identity";
   fallback: "static";
+}
+/** The material descriptor of the Scene level's decorative layers: a stage scene (rendering model 2C). */
+export interface StrataStageMaterial extends Omit<StrataSceneMaterial, "kind" | "scene"> {
+  kind: "stage";
+  scene: StageScene;
 }
 export interface StrataGpuOptions {
   /** Which direct root children are Strata panels (default `.ug-panel`). */
@@ -66,6 +80,13 @@ export interface StrataGpuOptions {
   adjust?: StrataAdjustPolicy;
   /** Called with every step of the adjust policy. */
   onAdjust?(event: StrataAdjustEvent): void;
+  /** The Scene level's backdrop: its light pool and vignette (0–1; 0.5 and 0.35 by default) and an optional tint. */
+  backdrop?: { pool?: number; vignette?: number; tint?: string; tintStrength?: number };
+  /**
+   * An equirectangular Radiance `.hdr` image for objects to reflect instead of the studio (rendering model 2C.4),
+   * loaded once. Until it has loaded (or if it fails), the studio lights them.
+   */
+  environment?: string;
 }
 /** The adjust policy's settings. The defaults are provisional, until measured on a low-end GPU. */
 export interface StrataAdjustPolicy {
@@ -91,11 +112,25 @@ export interface StrataGpu {
   /** Rebuilds every panel's scene now (for example from the runtime's `onStatusChange`). */
   refresh(): void;
   /** The scene last given to a panel, for inspection and tests. */
-  scene(panel: HTMLElement): StrataPanelScene | undefined;
+  scene(panel: HTMLElement): StrataScene | undefined;
   /** Releases every panel: cancels materials, leaves face mode and releases the enrollments. */
   detach(): void;
   /** The highest level the adjust policy currently allows (`scene` when it allows everything, or when it is off). */
   cap(): StrataLevel;
+  /**
+   * At the Scene level, bursts confetti from an element's centre (or a stage point) over the UI, and resolves when the
+   * last particle has gone. Under reduced motion, or below the Scene level, it resolves at once and draws nothing.
+   */
+  burst(origin: Element | [number, number], options?: BurstOptions): Promise<void>;
+}
+
+/** The helper attached to each stage root, for `strataBurst`. */
+const attachedTo = new WeakMap<Element, StrataGpu>();
+/** Bursts confetti from `element` on the Strata GPU stage it is presented on (see `StrataGpu.burst`). */
+export function strataBurst(element: Element, options?: BurstOptions): Promise<void> {
+  const stage = element.closest("[data-strata-stage]");
+  const strata = stage && attachedTo.get(stage);
+  return strata ? strata.burst(element, options) : Promise.resolve();
 }
 
 const faces: readonly SceneFace[] = ["raised", "well", "groove", "knob", "mark", "ring", "flat"];
@@ -159,9 +194,6 @@ function radiusOf(element: Element, width: number) {
   return value.endsWith("%") ? (amount / 100) * width : Number.isFinite(amount) ? amount : 0;
 }
 
-/** The scenes the helper builds for panels: version 1 (Relief) or 2 (Objects, lit by the studio). */
-export type StrataPanelScene = Omit<StrataScene, "version" | "environment"> & { version: 1 | 2; environment?: { source: "studio"; strength: number } };
-
 /** A presentation level (design language section 16). */
 export type StrataLevel = "relief" | "objects" | "scene";
 
@@ -177,6 +209,8 @@ export interface StrataSceneOptions {
   domes?: Set<Element>;
   /** The highest level to present at (the adjust policy's cap); `scene` by default. */
   cap?: StrataLevel;
+  /** An environment map for the objects to reflect: the scene becomes version 3. */
+  environment?: EnvironmentMap;
 }
 
 /** The levels from lowest to highest. */
@@ -195,7 +229,7 @@ export function strataLevel(element: Element, fallback: StrataLevel = "relief"):
  * which includes it), it is a version 2 scene: those components become objects (design language section 6), mixed
  * into the same back-to-front list, seen through the stage's camera.
  */
-export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}): StrataPanelScene {
+export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}): StrataScene {
   registerTokens();
   const tokens = reader(panel);
   const level = (element: Element, fallback: string) =>
@@ -363,7 +397,7 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
   const highest = Math.max(0, ...entries.map(top));
   const distance = Math.max(tokens.number("camera.distance", 1600), Math.ceil(Math.hypot(stage.width, stage.height) / 2 / scale * steepest + highest + 1));
   return {
-    format: "strata-scene", version: 2,
+    format: "strata-scene", version: options.environment ? 3 : 2, ...(options.environment ? { environment: options.environment } : {}),
     camera: { distance, vanish: [(stage.left + stage.width / 2 - outer.left) / scale, (stage.top + stage.height / 2 - outer.top) / scale] },
     ...settings, primitives: entries,
   };
@@ -557,10 +591,103 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
       }
       update(element, entry);
     }
+    // The Scene level: its backdrop while it applies (and its particles, which end with it).
+    if (sceneLevel()) presentBackdrop(); else { withdrawBackdrop(); endParticles(); }
     // A CSS transition (a knob sliding, a face settling) moves geometry with no event per frame: follow it until it
     // ends. Endless CSS animations (the spinner) stay in the captured content and need no new scene.
     if (gpu && (root.getAnimations({ subtree: true }).some(animation => animation instanceof CSSTransition && animation.playState === "running")
       || [...panels.values()].some(entry => entry.motion))) schedule();
+  }
+
+  // ---- The Scene level (Phase 5): decorative layers the helper owns, a backdrop first and particles last. ----
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+  /** The stage's box: the root's containing block (the canvas, or the ordinary host), which overlays fill. */
+  const stageBox = () => root.parentElement ?? root;
+  /** Whether the stage is at the Scene level now: presenting, and neither the page nor the adjust policy lowers it. */
+  const sceneLevel = () => presenting() && lower(strataLevel(root, options.level), cap) === "scene";
+  type StageLayer = { element: HTMLElement; release: () => void; handle?: ReturnType<StrataGpuController["setMaterial"]>; scene?: string };
+  let backdrop: StageLayer | undefined, particles: (StageLayer & { confetti: Confetto[]; done: (() => void)[]; last: number; frame: number }) | undefined;
+  /** A decorative, inert, hidden layer of the stage's size, added to the root and enrolled now. */
+  function stageLayer(id: string, first: boolean): StageLayer | undefined {
+    const element = document.createElement("div");
+    element.className = "ug-stage-layer";
+    element.id = id;
+    element.inert = true;
+    element.setAttribute("aria-hidden", "true");
+    if (first) root.prepend(element); else root.append(element);
+    try { return { element, release: controller.enroll(element, { id, decorative: true }) }; }
+    catch (error) { element.remove(); console.warn(`Strata GPU: the ${id} layer was not enrolled: ${String(error)}`); return undefined; }
+  }
+  /** Lets a stage layer go now, then removes it: a presented layer is never removed while enrolled. */
+  function dropLayer(layer: StageLayer) {
+    layer.handle?.cancel(); layer.release(); layer.element.remove();
+  }
+  /** The stage scene for a stage layer: the application's light and camera, centred on the stage. */
+  function stageScene(layer: HTMLElement, extra: Partial<StageScene>): StageScene {
+    const tokens = reader(root);
+    const width = layer.offsetWidth, height = layer.offsetHeight;
+    return { format: "strata-stage", version: 3, extent: { width, height },
+      light: { azimuth: tokens.number("light.azimuth", 323), elevation: tokens.number("light.elevation", 41) },
+      camera: { distance: tokens.number("camera.distance", 1600), vanish: [width / 2, height / 2] }, particles: [], ...extra };
+  }
+  function setStage(layer: StageLayer, scene: StageScene) {
+    const key = JSON.stringify(scene);
+    if (layer.scene === key) return;
+    try {
+      if (layer.handle) layer.handle.update(scene);
+      else layer.handle = controller.setMaterial(layer.element.id, { kind: "stage", scene, bounds: "layer", interaction: "material", media: "identity", fallback: "static" });
+      layer.scene = key;
+    } catch { layer.scene = undefined; }
+  }
+  function presentBackdrop() {
+    backdrop ??= stageLayer("strata-backdrop", true);
+    if (!backdrop) return;
+    const tokens = reader(root), settings = options.backdrop ?? {};
+    setStage(backdrop, stageScene(backdrop.element, { backdrop: { colour: tokens.colour("stage"), pool: settings.pool ?? 0.5, vignette: settings.vignette ?? 0.35,
+      ...(settings.tint ? { tint: settings.tint, tintStrength: settings.tintStrength ?? 0.1 } : {}) } }));
+  }
+  function withdrawBackdrop() {
+    if (!backdrop) return;
+    dropLayer(backdrop);
+    backdrop = undefined;
+  }
+  function endParticles() {
+    if (!particles) return;
+    cancelAnimationFrame(particles.frame);
+    dropLayer(particles);
+    for (const resolve of particles.done) resolve();
+    particles = undefined;
+  }
+  /** One physics step and one scene per frame, until the last particle has gone. */
+  function stepParticles(now: number) {
+    if (!particles) return;
+    particles.confetti = advance(particles.confetti, (now - particles.last) / 1000, particles.element.offsetHeight - 6);
+    particles.last = now;
+    if (!particles.confetti.length || !sceneLevel()) { endParticles(); return; }
+    setStage(particles, stageScene(particles.element, { particles: particles.confetti.slice(-256).map(asParticle) }));
+    particles.frame = requestAnimationFrame(stepParticles);
+  }
+  function burst(origin: Element | [number, number], burstOptions: BurstOptions = {}): Promise<void> {
+    if (detached || reduced.matches || !sceneLevel()) return Promise.resolve();
+    if (!particles) {
+      const layer = stageLayer("strata-particles", false);
+      if (!layer) return Promise.resolve();
+      particles = { ...layer, confetti: [], done: [], last: performance.now(), frame: 0 };
+      particles.frame = requestAnimationFrame(stepParticles);
+    }
+    const box = particles.element.getBoundingClientRect();
+    const [x, y] = Array.isArray(origin) ? origin : (() => { const rect = origin.getBoundingClientRect(); return [rect.left + rect.width / 2 - box.left, rect.top + rect.height / 2 - box.top]; })();
+    const tokens = reader(root);
+    const colours = burstOptions.colours ?? ["accent", "success", "warning", "danger", "info"].map(role => tokens.colour(role)).filter(colour => colour !== "#000000");
+    particles.confetti.push(...launch(x, y, colours, burstOptions));
+    return new Promise(resolve => particles!.done.push(resolve));
+  }
+  // Environment light: an `.hdr` loaded once and downsampled for every object scene.
+  let environment: EnvironmentMap | undefined;
+  if (options.environment) {
+    fetch(options.environment).then(response => (response.ok ? response.arrayBuffer() : Promise.reject(new Error(`HTTP ${response.status}`))))
+      .then(buffer => { environment = environmentFrom(decodeHdr(buffer)); schedule(); })
+      .catch(error => console.warn(`Strata GPU: the environment ${options.environment} did not load: ${String(error)}`));
   }
 
   /** Brings a presented panel's scene and material up to date. */
@@ -568,7 +695,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
     if (element.getAttribute("data-strata-mode") !== "face") element.setAttribute("data-strata-mode", "face");
     const motion = entry.motion;
     const domes = new Set<Element>();
-    const scene = strataScene(element, { level: options.level, cap, stage: root, domes,
+    const scene = strataScene(element, { level: options.level, cap, stage: stageBox(), domes, environment,
       ...(motion ? { height: motion.from + (motion.to - motion.from) * motion.ease(Math.min(1, (performance.now() - motion.start) / motion.duration)) } : {}) });
     markDomes(entry, domes);
     const key = JSON.stringify(scene);
@@ -603,11 +730,19 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
       const easing = tokens.raw("motion.easing.standard") || "cubic-bezier(0.2, 0, 0, 1)";
       const depth = distance / Math.max(distance - modal, 1);
       const far = { opacity: 0, scaleX: depth, scaleY: depth, ...(tilt ? { tiltX: tilt, perspective: distance } : {}) };
-      const keyframes = motion === "enter" ? [{ offset: 0, ...far }, { offset: 1 }] : [{ offset: 0 }, { offset: 1, ...far }];
+      // At the Scene level a panel entering settles: a damped spring through depth and tilt, sampled into keyframes.
+      const settles = motion === "enter" && sceneLevel() && lower(strataLevel(element, options.level), cap) === "scene";
+      const length = settles ? duration * 2 : duration;
+      const settle = (t: number) => spring((t * length) / 1000);
+      const keyframes = !settles ? (motion === "enter" ? [{ offset: 0, ...far }, { offset: 1 }] : [{ offset: 0 }, { offset: 1, ...far }])
+        : Array.from({ length: 24 }, (_, index) => {
+          const t = index / 23, x = index === 23 ? 1 : settle(t), scale = depth + (1 - depth) * x;
+          return { offset: t, opacity: Math.min(1, t / 0.3), scaleX: scale, scaleY: scale, ...(tilt ? { tiltX: Math.max(-60, Math.min(60, tilt * (1 - x))), perspective: distance } : {}) };
+        });
       let handle: ReturnType<StrataGpuController["transition"]>;
-      try { handle = controller.transition(entry.id, { keyframes, timing: { duration, easing } }); }
+      try { handle = controller.transition(entry.id, { keyframes, timing: { duration: length, easing: settles ? "linear" : easing } }); }
       catch (error) { console.warn(`Strata GPU: ${entry.id} did not move: ${String(error)}`); return; }
-      entry.motion = { start: performance.now(), duration, ease: bezier(easing), from: motion === "enter" ? modal : own, to: motion === "enter" ? own : modal };
+      entry.motion = { start: performance.now(), duration: length, ease: settles ? settle : bezier(easing), from: motion === "enter" ? modal : own, to: motion === "enter" ? own : modal };
       schedule();
       try { await handle.finished; } finally { entry.motion = undefined; schedule(); }
     };
@@ -621,9 +756,10 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   const poll = setInterval(schedule, options.poll ?? 500);
   forced.addEventListener("change", schedule);
   sync();
-  return {
+  const handle: StrataGpu = {
+    burst,
     refresh: () => { if (frame) cancelAnimationFrame(frame); sync(); },
-    scene: panel => { const key = panels.get(panel)?.scene; return key ? JSON.parse(key) as StrataPanelScene : undefined; },
+    scene: panel => { const key = panels.get(panel)?.scene; return key ? JSON.parse(key) as StrataScene : undefined; },
     cap: () => cap,
     detach: () => {
       if (detached) return;
@@ -634,8 +770,12 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
       mutation.disconnect(); resize.disconnect(); clearInterval(poll); forced.removeEventListener("change", schedule);
       for (const element of [...panels.keys()]) releasePanel(element);
       for (const element of [...scrims.keys()]) releaseScrim(element);
+      endParticles(); withdrawBackdrop();
       root.removeAttribute("data-strata-stage");
       delete (root as HTMLElement & { [strataStage]?: StagePresenter })[strataStage];
+      attachedTo.delete(root);
     },
   };
+  attachedTo.set(root, handle);
+  return handle;
 }

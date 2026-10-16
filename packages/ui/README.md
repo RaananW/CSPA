@@ -130,6 +130,23 @@ strata.detach();                               // back to the CSS presentation
   and dispatches `strata-adjust` on the root; `strata.cap()` reads the current cap. GPU stays on throughout. The
   defaults are provisional (open issue VAL-009).
 
+## The Scene level
+
+`attachStrataGpu(controller, { level: "scene" })` (or `data-strata-level="scene"` on the root or a scope around it) adds
+decorative 3D around the UI, on the GPU only:
+
+```ts
+const strata = attachStrataGpu(controller, { level: "scene", backdrop: { pool: 0.5, vignette: 0.35 }, environment: "/studio.hdr" });
+form.addEventListener("submit", () => strataBurst(submitButton));   // or strata.burst(element, { count: 80, seed })
+```
+
+- **Backdrop:** the stage is lit by the application's one light: a pool of light and a vignette.
+- **Confetti:** `strataBurst` bursts lit particles over the UI with simple physics. They take no input: a click goes
+  through to the controls. Nothing is drawn under `prefers-reduced-motion` or below the Scene level.
+- **Settling:** panels entering at the Scene level settle with a spring through depth and tilt.
+- **Environment light:** `environment` loads an `.hdr` image once; objects reflect it instead of the studio, at any level.
+- The Scene level includes the Objects level, and the adjust policy can step it down.
+
 ## Panel motion
 
 ```ts
