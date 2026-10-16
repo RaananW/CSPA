@@ -737,3 +737,19 @@ for (const level of ["relief", "objects"]) test(`a Tooltip for a GPU-presented c
   await expect(tip).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test("a toast over a GPU-presented panel leaves the panel on the GPU", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  await page.evaluate(() => window.strataGpuProbe.toast());
+  await expect(page.locator(".ug-toast")).toBeVisible();
+  expect(await page.evaluate(() => !window.strataGpuProbe.root().contains(document.querySelector(".ug-toast-region")))).toBe(true);
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  // The panel under it still takes real input.
+  const save = await page.locator("#gpu-save").boundingBox();
+  await page.mouse.click(save.x + save.width / 2, save.y + save.height / 2);
+  expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
+  expect(errors).toEqual([]);
+});

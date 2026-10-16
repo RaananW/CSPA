@@ -30,6 +30,9 @@ export { Pagination } from "./Pagination.tsx";
 export { Toolbar } from "./Toolbar.tsx";
 export { AppBar } from "./AppBar.tsx";
 export { Tooltip } from "./Tooltip.tsx";
+/** Shows a toast (anatomy page `toast.md`): `showStrataToast` from `@underglass/ui/dom`. */
+export { showStrataToast as toast } from "../dom/toast.ts";
+export type { ToastHandle, ToastOptions } from "../dom/toast.ts";
 export type { TooltipProps } from "./Tooltip.tsx";
 export type { AppBarProps } from "./AppBar.tsx";
 export type { ToolbarProps } from "./Toolbar.tsx";

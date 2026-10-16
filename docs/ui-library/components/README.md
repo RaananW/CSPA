@@ -104,6 +104,7 @@ light and depth, reduced motion, keyboard input and reflow.
 | [Pagination](pagination.md) | `<nav>` around page links or buttons | A row of small keys; the current page is held down |
 | [Skeleton](skeleton.md) | `<span aria-hidden>` placeholders | None (flat, shimmering) |
 | [Tooltip](tooltip.md) | `<div role="tooltip" popover>` | A small floating slab in the top layer |
+| [Toast](toast.md) | A `<section>` region with a `role="status"` list, from script | Floating MessageBars in the top layer |
 | [Toolbar](toolbar.md) | `<div role="toolbar">` | Keys on one plinth, one tab stop |
 | [Table](table.md) | `<table>` with `<caption>` and sortable headers | One raised slab; rows are flat |
 | [Tabs](tabs.md) | `<button role="tab">` in a `role="tablist"` | Flat tabs over a rail groove; the selected tab's indicator is a mark in it |

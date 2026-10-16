@@ -21,6 +21,9 @@ export { Pagination } from "./pagination.ts";
 export { Toolbar } from "./toolbar.ts";
 export { AppBar } from "./app-bar.ts";
 export { Tooltip } from "./tooltip.ts";
+/** Shows a toast (anatomy page `toast.md`): `showStrataToast` from `@underglass/ui/dom`. */
+export { showStrataToast as toast } from "../dom/toast.ts";
+export type { ToastHandle, ToastOptions } from "../dom/toast.ts";
 export type { MessageIntent } from "../shared/message.ts";
 export { Breadcrumb } from "./breadcrumb.ts";
 export type { BreadcrumbItem } from "./breadcrumb.ts";

@@ -16,7 +16,7 @@
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
 import { attachStrataGpu, type BurstOptions, type StrataAdjustEvent, type StrataGpu } from "@underglass/ui/gpu";
-import { attachStrata, showStrataDialog, strataEnter, strataLeave, type DialogHandle, type PanelMotionOptions } from "@underglass/ui/dom";
+import { attachStrata, showStrataDialog, showStrataToast, strataEnter, strataLeave, type DialogHandle, type PanelMotionOptions } from "@underglass/ui/dom";
 
 const markup = `
   <h2 id="gpu-title" style="margin:0 0 12px;font-size:18px">Account</h2>
@@ -180,6 +180,7 @@ window.strataGpuProbe = {
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
   addTooltip,
+  toast: () => { showStrataToast({ message: "Saved.", intent: "success", duration: Infinity }); },
   addAppBar: () => { panel.insertAdjacentHTML("beforeend", appBarMarkup); panel.querySelector("#gpu-sign-in")!.addEventListener("click", () => { signIns++; }); strata?.refresh(); },
   signIns: () => signIns,
   addToolbar: () => { panel.insertAdjacentHTML("beforeend", toolbarMarkup); attachStrata(panel); strata?.refresh(); },
@@ -209,6 +210,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; toast(): void;
   } }
 }

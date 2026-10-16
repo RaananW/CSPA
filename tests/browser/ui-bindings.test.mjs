@@ -12,6 +12,7 @@
  *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion; MessageBars announce by intent;
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
+ *   toasts appear in the status region and go after their time, which hovering stops;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -695,5 +696,41 @@ for (const binding of bindings) test(`Strata ${binding} Tooltip describes its tr
   await page.keyboard.press("Escape");
   await expect(tip).toBeHidden();
   await expect(share).toBeFocused();
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} toasts appear in the status region outside the app, go after their time unless hovered, and act and dismiss`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const region = page.getByRole("region", { name: "Notifications" });
+  const toasts = page.locator(".ug-toast");
+  await page.locator("#notify").click();
+  await expect(toasts).toHaveCount(1);
+  // In the top layer, at the end of the body outside the app, inside the persistent status list.
+  expect(await page.evaluate(() => { const section = document.querySelector(".ug-toast-region");
+    return { open: section.matches(":popover-open"), parent: section.parentElement === document.body, outside: !document.getElementById("root").contains(section),
+      status: section.querySelector("[role='status']").contains(document.querySelector(".ug-toast")) }; })).toEqual({ open: true, parent: true, outside: true, status: true });
+  await expect(region).toBeVisible();
+  // It goes by itself after its time (1.5 s), and the region is hidden when it is empty.
+  await expect(toasts).toHaveCount(0, { timeout: 4000 });
+  await expect(region).toBeHidden();
+  // Hovering stops the time.
+  await page.locator("#notify").click();
+  const box = await toasts.first().boundingBox();
+  await page.mouse.move(box.x + 10, box.y + box.height / 2);
+  await page.waitForTimeout(2500);
+  await expect(toasts).toHaveCount(1);
+  // The action runs and dismisses it.
+  await toasts.first().getByRole("button", { name: "Undo" }).click();
+  await expect(toasts).toHaveCount(0);
+  expect(await page.evaluate(() => window.strataBinding.toasts)).toBe(1);
+  // A fourth toast dismisses the oldest; the dismiss button dismisses one.
+  await page.mouse.move(5, 5);
+  for (let index = 0; index < 4; index++) await page.locator("#notify").click();
+  await expect(toasts).toHaveCount(3);
+  await toasts.first().getByRole("button", { name: "Dismiss" }).click();
+  await expect(toasts).toHaveCount(2);
   await context.close();
 });
