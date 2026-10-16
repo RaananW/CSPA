@@ -1,7 +1,7 @@
 /**
  * Packs layer state into uniform buffers and generates the WGSL that composites layers. Each layer
- * is described by a fixed block of 11 vec4s (see `BLOCK`): the inverse transform, extent, opacity,
- * ripple, up to three effects and the clip. The uploaded inverse layer matrix maps each output
+ * is described by a fixed block of 13 vec4s (see `BLOCK`): the inverse transform, extent, opacity,
+ * ripple, up to three effects, the clip and the material. The uploaded inverse layer matrix maps each output
  * pixel back into layer-local space, where the shader applies compiled motion and effects, then samples the
  * captured texture. `renderer.ts` draws one pass per layer (`layerShader`/`layerUniforms`);
  * `compositionShader`/`compositionUniforms` is the single-pass variant. Effect packing is in
@@ -10,8 +10,8 @@
 import type { EffectWrapperOptions } from "@babylonjs/lite";
 import { validateGeometry } from "./native.js";
 import type { Ripple } from "./ripple.js";
-import { effectUniforms, type EffectDescriptor, type ApplicationEffect } from "./effects.js";
-import { LAYER_PASS_FLOATS, type CompiledMotion } from "./compiled.js";
+import { effectUniforms, materialUniforms, MATERIAL_INTERIOR_CEILING, type EffectDescriptor, type ApplicationEffect, type MaterialDescriptor } from "./effects.js";
+import { LAYER_BLOCK_FLOATS, LAYER_PASS_FLOATS, type CompiledMotion } from "./compiled.js";
 
 /**
  * What the compositor reads from a layer. Optional members are absent for layers without that
@@ -28,15 +28,36 @@ interface CompositeLayer {
   ripple?(): Ripple | undefined;
   effects?(): readonly EffectDescriptor[];
   effectsEnabled?(): boolean;
+  /** The layer's persistent material, applied before its effect chain. */
+  material?(): MaterialDescriptor | undefined;
   /** Present while a compiled CSS animation drives the layer inside the shader. */
   compiledMotion?(): CompiledMotion | undefined;
 }
 
-/** Uniform floats per layer block (11 vec4s): inverse matrix + grid, extent/opacity, ripple, 3 effects, clip. */
-const BLOCK = 44;
+/** Uniform floats per layer block (13 vec4s): inverse matrix + grid, extent/opacity, ripple, 3 effects, clip, material. */
+const BLOCK = LAYER_BLOCK_FLOATS;
+/** vec4s per layer block. */
+const BLOCK_VEC4S = BLOCK / 4;
 
-/** Writes one layer's 11-vec4 uniform block at `offset` and returns its canvas-space matrix and clip. */
-function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeLayer, shift: number, customIndex: number, compiled: boolean) {
+/**
+ * The custom WGSL a layer pass is built with: its effect chain's definition and its material's. Interned by
+ * `passShaders`, so passes built for the same pair compare with `===`.
+ */
+export interface PassShaders { readonly effect?: ApplicationEffect; readonly material?: ApplicationEffect }
+const interned = new Map<ApplicationEffect | undefined, Map<ApplicationEffect | undefined, PassShaders>>();
+/** The interned pair for `effect` and `material`, or undefined when the pass needs neither. */
+export function passShaders(effect?: ApplicationEffect, material?: ApplicationEffect): PassShaders | undefined {
+  if (!effect && !material) return undefined;
+  let row = interned.get(effect);
+  if (!row) interned.set(effect, row = new Map());
+  let shaders = row.get(material);
+  if (!shaders) row.set(material, shaders = Object.freeze({ effect, material }));
+  return shaders;
+}
+
+/** Writes one layer's 13-vec4 uniform block at `offset` and returns its canvas-space matrix and clip. */
+function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeLayer, shift: number, customIndex: number, compiled: boolean,
+  materialIndex = -1) {
   // Compiled motion is evaluated in the shader, so the matrix only carries the motion's origin.
   const motion = compiled ? layer.compiledMotion?.() : undefined;
   const base = motion ? new DOMMatrix().translate(motion.origin.x, motion.origin.y) : layer.matrix();
@@ -62,6 +83,8 @@ function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeL
   // vec4 10: clip rectangle in layer-local pixels; defaults to the whole content.
   const clip = layer.clip?.(new DOMMatrix().translate(shift, 0).multiply(layer.matrix())) ?? { x: 0, y: 0, width: content.width, height: content.height };
   values.set([clip.x, clip.y, clip.width, clip.height], offset + 40);
+  // vec4 11-12: the material, applied before the effect chain.
+  values.set(materialUniforms(layer.material?.(), materialIndex), offset + 44);
   return { matrix, clip, motion };
 }
 
@@ -88,7 +111,7 @@ export function compositionUniforms(layers: CompositeLayer[], dpr: number, shift
  * to `emit`. Its uniforms start at `state[base]`; `playback` is the compiled slot.
  */
 function layerBody(index: number, base: number, playback: number | undefined, custom: readonly (ApplicationEffect | undefined)[],
-  decorativeAnimation: boolean, emit: (alpha: string) => string) {
+  decorativeAnimation: boolean, emit: (alpha: string) => string, materials: readonly (ApplicationEffect | undefined)[] = []) {
   return `{
       var local = vec2f(dot(state[${base}].xyz, vec3f(p, 1.0)),
         dot(state[${base + 1}].xyz, vec3f(p, 1.0)));
@@ -138,6 +161,18 @@ function layerBody(index: number, base: number, playback: number | undefined, cu
         let green = filtered(layer${index}, sampler${index}, greenAt * grid, captured);
         let blue = filtered(layer${index}, sampler${index}, blueAt * grid, captured);
         var sample = vec4f(red.r, green.g, blue.b, green.a);
+        ${materials.some(Boolean) ? `// The material: one brightness factor per point, from the material on a neutral input (never the
+        // captured colour), within interior.max, so text and its face change together (Strata Rendering Model 2.9).
+        let materialControl = state[${base + 11}];
+        if (materialControl.x == 1.0) {
+          var lit = vec4f(0.5, 0.5, 0.5, 1.0);
+          ${materials.map((definition, materialIndex) => definition
+            ? `if (materialControl.z == ${materialIndex}.0) { lit = material${materialIndex}(vec4f(0.5, 0.5, 0.5, 1.0), local, extent, 0.0, state[${base + 12}]); }`
+            : "").join("\n          ")}
+          let budget = min(materialControl.y, ${MATERIAL_INTERIOR_CEILING.toFixed(2)});
+          let factor = clamp(2.0 * dot(lit.rgb, vec3f(0.2126, 0.7152, 0.0722)), 1.0 - budget, 1.0 + budget);
+          sample = vec4f(min(sample.rgb * factor, vec3f(1.0)), sample.a);
+        }` : ""}
         for (var operation = 0u; operation < 3u; operation++) {
           let control = state[${base + 4}u + operation * 2u];
           let parameters = state[${base + 5}u + operation * 2u];
@@ -158,10 +193,10 @@ function layerBody(index: number, base: number, playback: number | undefined, cu
     }\n`;
 }
 
-/** WGSL functions for the application's custom effects, named `custom${index}` to match `layerBody`. */
-function customDeclarations(custom: readonly (ApplicationEffect | undefined)[]) {
+/** WGSL functions for the application's custom effects (or materials), named `${prefix}${index}` to match `layerBody`. */
+function customDeclarations(custom: readonly (ApplicationEffect | undefined)[], prefix = "custom") {
   return custom.map((definition, index) => definition
-    ? `fn custom${index}(color: vec4f, local: vec2f, extent: vec2f, seconds: f32, parameters: vec4f) -> vec4f { ${definition.wgsl} }\n` : "").join("");
+    ? `fn ${prefix}${index}(color: vec4f, local: vec2f, extent: vec2f, seconds: f32, parameters: vec4f) -> vec4f { ${definition.wgsl} }\n` : "").join("");
 }
 
 /** Shared WGSL helpers: edge falloff, the ripple `warp` and premultiplied bilinear `filtered` sampling. */
@@ -204,8 +239,8 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
       { binding: index * 2 + 1, kind: "sampler", textureBinding: `layer${index}` });
     declarations += `@group(0) @binding(${index * 2}) var layer${index}: texture_2d<f32>;
       @group(0) @binding(${index * 2 + 1}) var sampler${index}: sampler;\n`;
-    // State layout in vec4s: [0] header, then 11 per layer, then (compiled only) one motion slot per layer.
-    body += layerBody(index, 1 + index * 11, compiledWGSL ? 1 + count * 11 + index : undefined, custom, decorativeAnimation,
+    // State layout in vec4s: [0] header, then 13 per layer, then (compiled only) one motion slot per layer.
+    body += layerBody(index, 1 + index * BLOCK_VEC4S, compiledWGSL ? 1 + count * BLOCK_VEC4S + index : undefined, custom, decorativeAnimation,
       alpha => `color = mix(color, sample.rgb, ${alpha});`);
   }
   // Header floats (4) plus one block per layer, plus 4 floats per layer when compiled motion is present.
@@ -214,7 +249,7 @@ export function compositionShader(count: number, custom: readonly (ApplicationEf
     bindings,
     // `state` holds the header vec4 followed by the layer blocks (and compiled slots).
     fragmentWGSL: `${declarations}${helpers}
-      @group(0) @binding(${count * 2}) var<uniform> state: array<vec4f, ${1 + count * (compiledWGSL ? 12 : 11)}>;
+      @group(0) @binding(${count * 2}) var<uniform> state: array<vec4f, ${1 + count * (compiledWGSL ? BLOCK_VEC4S + 1 : BLOCK_VEC4S)}>;
       @fragment fn effectFragment(input: EffectVertexOutput) -> @location(0) vec4f {
         let p = input.position.xy / state[0].x;
         var color = vec3f(1.0);
@@ -241,8 +276,9 @@ export const layerBlend: GPUBlendState = {
  * single triangle covering the layer's canvas-space bounding box, so a layer only
  * shades the pixels it can touch; fragments outside the layer are discarded.
  */
-export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string): Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL" | "vertexWGSL"> {
+export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string, material?: ApplicationEffect): Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL" | "vertexWGSL"> {
   const definitions = custom ? [custom] : [];
+  const materials = material ? [material] : [];
   return {
     bindings: [
       { binding: 0, kind: "texture", name: "layer0" },
@@ -261,7 +297,7 @@ export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string): 
         output.uv = corner;
         return output;
       }`,
-    fragmentWGSL: `${compiledWGSL ?? ""}${customDeclarations(definitions)}
+    fragmentWGSL: `${compiledWGSL ?? ""}${customDeclarations(definitions)}${customDeclarations(materials, "material")}
       @group(0) @binding(0) var layer0: texture_2d<f32>;
       @group(0) @binding(1) var sampler0: sampler;${helpers}
       @group(0) @binding(2) var<uniform> state: array<vec4f, ${LAYER_PASS_FLOATS / 4}>;
@@ -269,7 +305,7 @@ export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string): 
         let p = input.position.xy / state[0].x;
         ${layerBody(0, LAYER_HEADER / 4, compiledWGSL ? (LAYER_HEADER + BLOCK) / 4 : undefined, definitions, false,
           alpha => `let rgb = mix(sample.rgb, sample.bgr, state[0].y);
-        return vec4f(rgb, ${alpha});`)}
+        return vec4f(rgb, ${alpha});`, materials)}
         discard;
         return vec4f(0.0);
       }`,
@@ -281,11 +317,13 @@ export function layerShader(custom?: ApplicationEffect, compiledWGSL?: string): 
  * (padded for antialiasing, clamped to the frame) used by its vertex stage.
  */
 export function layerUniforms(layer: CompositeLayer, dpr: number, frame: { width: number; height: number }, shift = 0, tint = 0,
-  custom?: ApplicationEffect, compiled = false) {
+  shaders?: PassShaders, compiled = false) {
   const values = new Float32Array(LAYER_PASS_FLOATS);
-  // The per-layer pass only binds its own custom effect, so its slot is 0 when it matches and -1 otherwise.
+  // The per-layer pass only binds its own custom effect and material, so each slot is 0 when it matches and -1 otherwise.
   const definition = layer.effects?.().find(value => value.kind === "custom")?.definition;
-  const { matrix, clip, motion } = writeLayerBlock(values, LAYER_HEADER, layer, shift, custom && definition === custom ? 0 : -1, compiled);
+  const material = layer.material?.()?.definition;
+  const { matrix, clip, motion } = writeLayerBlock(values, LAYER_HEADER, layer, shift, shaders?.effect && definition === shaders.effect ? 0 : -1, compiled,
+    shaders?.material && material === shaders.material ? 0 : -1);
   if (compiled) values.set([motion ? motion.index + 1 : 0, motion?.phase ?? 0, 0, 0], LAYER_HEADER + BLOCK);
   // Compiled motion moves the layer inside the shader, so it may cover the whole frame.
   const corners = motion ? [] : [[clip.x, clip.y], [clip.x + clip.width, clip.y], [clip.x, clip.y + clip.height], [clip.x + clip.width, clip.y + clip.height]]

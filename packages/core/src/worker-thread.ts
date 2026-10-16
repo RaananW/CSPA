@@ -11,7 +11,7 @@ import {
   setEffectTexture, setEffectUniforms, setEngineSize, renderFrame, waitForGpuIdle, captureScreenshot, decodeError, startEngine, stopEngine,
   type EngineContext, type DynamicTexture2D, type EffectWrapper,
 } from "@babylonjs/lite";
-import { validateWorkerProgram, validateWorkerFrame, type WorkerRequest, type WorkerResponse, type WorkerStats, type WorkerSnapshot } from "./worker-protocol.js";
+import { LAYER_BLOCK_FLOATS, validateWorkerProgram, validateWorkerFrame, type WorkerRequest, type WorkerResponse, type WorkerStats, type WorkerSnapshot } from "./worker-protocol.js";
 
 // The part of the worker global scope this module uses: the message handler and `postMessage`.
 interface WorkerScope {
@@ -66,11 +66,11 @@ export function startWorkerCompositor(scope: WorkerScope) {
     // Wrapped like the main renderer so f32 uniforms keep sub-frame resolution in long sessions.
     const seconds = ((time - origin) / 1000) % 1000;
     uniforms[2] = reduced ? 0 : seconds;
-    // Layer blocks start at float 4 and are 44 floats each; floats 12 and 13 of a block are the
+    // Layer blocks start at float 4 and are LAYER_BLOCK_FLOATS each; floats 12 and 13 of a block are the
     // ripple amplitude and ripple time.
     for (let slot = 0; slot < capacity; slot++) {
-      uniforms[17 + slot * 44] = reduced ? 0 : seconds;
-      uniforms[16 + slot * 44] = reduced ? 0 : baseUniforms![16 + slot * 44]!;
+      uniforms[17 + slot * LAYER_BLOCK_FLOATS] = reduced ? 0 : seconds;
+      uniforms[16 + slot * LAYER_BLOCK_FLOATS] = reduced ? 0 : baseUniforms![16 + slot * LAYER_BLOCK_FLOATS]!;
     }
     setEffectUniforms(effect, uniforms);
     renderFrame(engine, lastFrame === undefined ? 0 : Math.max(0, time - lastFrame) / 1000);

@@ -297,9 +297,12 @@ parameters, not engine/device objects. New definitions compile through public
 configured-device diagnostics during prepared admission/successor creation; the actual application
 draw also checks a public validation error scope. Compilation
 failure recovers to original DOM using the same healthy-fence rules. Parameter
-or admitted-chain replacement does not recompile or recapture. Only authored
-inert, aria-hidden noninteractive decoration may disappear or distort;
-essential native geometry stays affine and unchanged by effects.
+or admitted-chain replacement does not recompile or recapture. Effects that move
+pixels never touch live controls: only authored inert, aria-hidden noninteractive
+decoration, or content held inert for a transition, may disappear or distort.
+Materials (`interaction: "material"`) may sit on live controls because they only
+relight pixels in place. Essential native geometry stays affine and unchanged by
+effects and materials.
 
 ## Explicit mount boundary
 
@@ -536,6 +539,17 @@ exactly those flags when the handle ends, by any route. The boundary must not be
 interactive itself and stays hit-testable, so input over displaced pixels lands on
 it rather than falling through to a covered control. Application code that makes
 locked content interactive ends the handle; it does not revoke GPU.
+
+Materials (`setMaterial`, `interaction: "material"`) are a second, persistent slot per
+layer, applied before the effect chain in the same pass. They never move pixels, so
+any enrolled layer may carry one with its content fully interactive. The shader
+reduces a material to one brightness factor per point: the material's luma ratio on
+a neutral mid-grey input, clamped to `interior.max` (at most 0.1). The captured
+colour never reaches the factor, so text and the face around it change together and
+contrast holds whatever the material code does (Strata Rendering Model, section
+2.9). The slot grows the per-layer uniform block from 44 to 52 floats; compiled
+program sets carry version 3 so a set built before the slot fails with a rebuild
+message. A material persists across DOM and GPU presentation and never revokes GPU.
 
 The module adapter accepts only already-imported trusted local code with a
 mount/enroll/unmount contract. The adapter still owns only the stable external

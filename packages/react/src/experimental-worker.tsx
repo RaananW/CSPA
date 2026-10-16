@@ -11,7 +11,7 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { compileStyle, type Appearance, type Layout } from "@underglass/core";
 import {
-  decorative as isDecorative, capabilities, enableDrawable, validateAppliedGeometry, waitForPaint, type DrawableCanvas,
+  LAYER_BLOCK_FLOATS, decorative as isDecorative, capabilities, enableDrawable, validateAppliedGeometry, waitForPaint, type DrawableCanvas,
   validateWorkerProgram, type WorkerProgram, type WorkerAnimation, type WorkerSnapshot,
   type WorkerFrame, type WorkerRequest, type WorkerResponse, type WorkerStats,
 } from "@underglass/core/experimental-worker";
@@ -301,8 +301,8 @@ export class WorkerCanvasController {
     if (!canvas || this.mode !== "gpu" && this.mode !== "admitting") return;
     const actualDPR = devicePixelRatio;
     const { dpr, width, height } = this.backing();
-    // Uniform block: 4 header floats (the first is the pixel ratio), then 44 floats per layer slot.
-    const uniforms = new Float32Array(4 + this.options.program.capacity * 44);
+    // Uniform block: 4 header floats (the first is the pixel ratio), then LAYER_BLOCK_FLOATS per layer slot.
+    const uniforms = new Float32Array(4 + this.options.program.capacity * LAYER_BLOCK_FLOATS);
     uniforms[0] = dpr;
     const images: WorkerFrame["images"] = [];
     try {
@@ -347,7 +347,7 @@ export class WorkerCanvasController {
         // Fill this layer's block: inverse transform of the translation to (x, y) plus texels per CSS
         // pixel, extent, opacity 1, the opacity-preset selector (1, or -1 for none), ripple amplitude
         // (off under reduced motion or forced colors), then the captured pixel size and the clip.
-        const w = Math.ceil(extent.width), h = Math.ceil(extent.height), at = 4 + layer.slot * 44;
+        const w = Math.ceil(extent.width), h = Math.ceil(extent.height), at = 4 + layer.slot * LAYER_BLOCK_FLOATS;
         uniforms.set([1, 0, -layer.layout.x, w / layer.layout.width, 0, 1, -layer.layout.y, h / layer.layout.height,
           layer.layout.width, layer.layout.height, 1, layer.animation === "opacity" ? 1 : -1,
           layer.animation === "ripple" && !this.reduced.matches && !this.forced.matches ? 6 : 0, 0, w, h], at);
@@ -517,10 +517,11 @@ export class WorkerCanvasController {
           await waitForPaint(canvas);
           const image = canvas.captureElementImage(probe) as WorkerSnapshot;
           const extent = canvas.getElementImageDefaultSize(probe);
-          const uniforms = new Float32Array(4 + this.options.program.capacity * 44);
+          const uniforms = new Float32Array(4 + this.options.program.capacity * LAYER_BLOCK_FLOATS);
           uniforms[0] = backing.dpr;
           uniforms.set([1, 0, 0, extent.width / 8, 0, 1, 0, extent.height / 8, 8, 8, 1, -1, 0, 0, extent.width, extent.height], 4);
-          uniforms.set([0, 0, 8, 8], 44);
+          // The clip of slot 0: header 4 plus block offset 40.
+          uniforms.set([0, 0, 8, 8], 4 + 40);
           let transferred = false;
           try {
             const response = await this.request({ type: "frame", id: ++this.nextID, probe: true, width: canvas.width, height: canvas.height,

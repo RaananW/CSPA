@@ -78,6 +78,38 @@ Anything that paints inside the decorative layer is captured, including CSS
 animations and `<video>` (a camera stream works too). The showcase's webcam pond
 refracts a camera image together with HTML text and CSS-animated fish.
 
+## Materials on interactive layers
+
+A **material** relights a layer without moving any pixel, so it can sit on a layer
+with real controls, permanently. It is a second slot next to the effect chain,
+applied first:
+
+```tsx
+const sheen = defineEffect({
+  name: "sheen", geometry: "color", bounds: "layer", capabilities: ["webgpu"],
+  parameters: { strength: { min: 0, max: 1 } },
+  wgsl: "return vec4f(color.rgb * (1.0 + parameters.x * (1.0 - local.y / extent.y)), color.a);",
+});
+const material = gpu.setMaterial("card-7", {
+  kind: "custom", definition: sheen, parameters: { strength: 0.5 },
+  interior: { max: 0.04 },
+  bounds: "layer", interaction: "material", media: "identity", fallback: "static",
+});
+material.update({ strength: 0.2 }); // no recompile
+material.cancel();
+```
+
+- The layer's controls keep taking clicks, focus and typing. Nothing is made inert.
+- **Contrast is protected.** The runtime calls your WGSL with a neutral grey, not
+  the layer's pixels, and turns the result into one brightness factor per point,
+  limited to `interior.max` (0 to 0.1). Text and the background behind it change
+  by the same factor, so a material can shade a card but cannot wash out its text.
+- A material stays on the layer when the page returns to ordinary DOM (which shows
+  the original) and applies again when GPU comes back. It ends when you cancel or
+  dispose it, set another material on the layer, or remove the layer.
+- Custom materials need WebGPU and cannot be combined with build-time compiled
+  programs, like custom effects.
+
 ## Transition effects on interactive layers
 
 A layer with real controls can carry an effect **while it is in a transition**:

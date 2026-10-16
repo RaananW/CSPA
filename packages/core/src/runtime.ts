@@ -13,7 +13,7 @@ import type { MountBoundaryOptions } from "./mount-boundary.js";
 import { DeclarationOwnership, prepareAnimation, rejectImportantPresentation, type AnimationPlayback } from "./animation.js";
 import { validateCSSSource, type CSSAnimationSource } from "./css-animation.js";
 import { decorative, interactive, validateRipple, type Ripple } from "./ripple.js";
-import { effectNumber, validateEffects, type EffectDescriptor, type EffectHandle, type EffectResult } from "./effects.js";
+import { effectNumber, validateEffects, validateMaterial, type EffectDescriptor, type EffectHandle, type EffectResult, type MaterialDescriptor, type MaterialHandle } from "./effects.js";
 import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion.js";
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
 import { nativeEditingControl, nativeScrollKind } from "./native.js";
@@ -91,7 +91,7 @@ export interface RuntimeOptions extends Omit<MountBoundaryOptions, "mount"> {
  * `@underglass/react`): enrollment, transforms, motion, effects and the `enable`/`disable`/`dispose`
  * lifecycle. See `docs/api.md`.
  */
-export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "setOrigin" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "ownCompiledAnimation" | "createMotion" | "advance" | "setRipple" | "setEffects">;
+export type CanvasController = Pick<CanvasRuntime, "container" | "enroll" | "transition" | "transitionGroup" | "setTransform" | "setOrigin" | "animate" | "enable" | "disable" | "dispose" | "invalidate" | "settle" | "state" | "ownAnimation" | "ownCSSAnimation" | "ownCompiledAnimation" | "createMotion" | "advance" | "setRipple" | "setEffects" | "setMaterial">;
 
 /**
  * Runtime controller for one mounted application. Its public methods form the `CanvasController`, plus
@@ -166,6 +166,8 @@ export class CanvasRuntime {
   private clockTime: number | undefined;
   /** Active effect chain per layer: decorative (`setEffects`/`setRipple`) or a transition effect on an interactive layer. */
   private readonly effects = new Map<string, { values: EffectDescriptor[]; transition: boolean; finish(result: EffectResult): void }>();
+  /** Persistent material per layer (`setMaterial`), kept across DOM and GPU presentation. */
+  private readonly materials = new Map<string, { value: MaterialDescriptor; finish(result: EffectResult): void }>();
   /** Last React-supplied transform per Surface, and one supplied while motion owned the layer. */
   private readonly reactTransforms = new Map<string, Transform>();
   private readonly deferredTransforms = new Map<string, Transform>();
@@ -174,7 +176,7 @@ export class CanvasRuntime {
   /** Environment inputs mirrored from listeners; reported as `state().environment`. */
   private readonly environment = { visible: !document.hidden, reducedMotion: this.reduced.matches, forcedColors: this.forced.matches };
   /** Ledger of runtime-owned observers, listeners, frames and owners; reported as `state().runtimeResources`. */
-  private readonly resources = { mutationObservers: 1, resizeObservers: 1, environmentListeners: 0, controllerFrames: 0, visibilityWaiters: 0, enrolledLayers: 0, animationOwners: 0, decorativeEffects: 0, transitionEffects: 0, nativeMotions: 0, declarativeMotions: 0, readmissionFrames: 0 };
+  private readonly resources = { mutationObservers: 1, resizeObservers: 1, environmentListeners: 0, controllerFrames: 0, visibilityWaiters: 0, enrolledLayers: 0, animationOwners: 0, decorativeEffects: 0, transitionEffects: 0, materials: 0, nativeMotions: 0, declarativeMotions: 0, readmissionFrames: 0 };
 
   /**
    * Validates options, creates the renderer (which validates the hosts and calls `options.mount`
@@ -235,6 +237,7 @@ export class CanvasRuntime {
           opacity: () => layer.transform.opacity ?? 1,
           effects: () => this.effects.get(layer.id)?.values ?? [],
           effectsEnabled: () => !this.reduced.matches,
+          material: () => this.materials.get(layer.id)?.value,
           // Selects the build-generated program and its phase when a compiled CSS animation owns the layer.
           compiledMotion: () => {
             const owner = this.ownership.get(layer.id);
@@ -789,6 +792,7 @@ export class CanvasRuntime {
       this.gpuDeclarations.get(definition.id)?.restore();
       this.gpuDeclarations.delete(definition.id);
       this.effects.get(definition.id)?.finish({ status: "disposed", reason: "Enrollment released" });
+      this.materials.get(definition.id)?.finish({ status: "disposed", reason: "Enrollment released" });
       const owned = this.ownership.get(definition.id);
       if (owned) {
         owned.restore?.();
@@ -1610,6 +1614,53 @@ export class CanvasRuntime {
       dispose: () => entry.finish({ status: "disposed", reason: "Effect disposed" }),
     };
   }
+  /**
+   * Validates and installs a persistent material on any enrolled layer, interactive or decorative, replacing the
+   * layer's previous material, and returns its handle. A material only changes how the layer's pixels are lit,
+   * never where they are, so the layer keeps its native controls and input. Inside the layer the change is one
+   * brightness factor per point within `interior.max`, the same for text and its face. The material persists
+   * across DOM and GPU presentation (ordinary DOM shows the original). Custom materials need WebGPU, are refused
+   * with compiled programs, and may rebuild the layer's pass.
+   */
+  setMaterial(id: string, descriptor: MaterialDescriptor): MaterialHandle {
+    this.assertLive();
+    const layer = this.registry.get(id);
+    if (!layer) throw new Error(`Unknown Surface: ${id}`);
+    const value = validateMaterial(descriptor);
+    if (!navigator.gpu) throw new Error("Application material requires WebGPU; original DOM remains usable");
+    if (this.options.compiled) throw new Error("Compiled programs do not include runtime custom material definitions");
+    const state = this.renderer().state();
+    if (state.initializing || state.transitioning || state.resources.pendingEngines || (state.resources.pendingCleanups && state.mode !== "gpu") || state.resources.probeReadbacks) throw new Error("Materials require idle DOM or admitted GPU without pending lifecycle work");
+    // A definition the layer's current pass was not built with gets a new pass, compiled as a successor while
+    // the previous frame keeps presenting.
+    const rebuild = state.mode === "gpu" && !this.renderer().acceptsMaterial(id, value.definition);
+    let active = true;
+    let resolve!: (result: EffectResult) => void;
+    const finished = new Promise<EffectResult>(done => { resolve = done; });
+    const entry = { value, finish: (result: EffectResult) => {
+      if (!active) return;
+      active = false;
+      if (this.materials.get(id) === entry) { this.materials.delete(id); this.resources.materials--; }
+      resolve(result);
+      this.requestDraw();
+    } };
+    this.materials.get(id)?.finish({ status: "replaced", reason: "Validated successor acquired ownership" });
+    this.materials.set(id, entry);
+    this.resources.materials++;
+    if (rebuild) { this.revision++; this.reconcile(); }
+    this.requestDraw();
+    return {
+      finished, state: () => ({ active, material: validateMaterial(entry.value) }),
+      update: parameters => {
+        this.assertLive();
+        if (!active || this.materials.get(id) !== entry) throw new Error("Material handle is no longer active");
+        entry.value = validateMaterial({ ...entry.value, parameters });
+        this.requestDraw();
+      },
+      cancel: () => entry.finish({ status: "cancelled", reason: "Material cancelled" }),
+      dispose: () => entry.finish({ status: "disposed", reason: "Material disposed" }),
+    };
+  }
   /** Advances playing effect time (or all when `force`), wrapping at 1000 seconds. */
   private tickRipples(milliseconds: number, force = false) {
     for (const effect of this.effects.values()) for (const value of effect.values) if (value.time.playing || force) value.time.seconds = (value.time.seconds + milliseconds / 1000) % 1000;
@@ -1664,6 +1715,8 @@ export class CanvasRuntime {
         return { id, interaction: effect.values[0]!.interaction, amplitude: ripple?.parameters.amplitude ?? 0, seconds: ripple?.time.seconds ?? effect.values[0]!.time.seconds, playing: ripple?.time.playing ?? false,
           effects: effect.values.map(value => ({ kind: value.kind, parameters: { ...value.parameters }, time: { ...value.time } })) };
       }),
+      materials: [...this.materials].map(([id, material]) => ({ id, kind: material.value.kind, name: material.value.definition.name,
+        parameters: { ...material.value.parameters }, interior: { ...material.value.interior } })),
       // Fixed values, not measured from live state.
       effectBudget: { passes: 1, operationsPerLayer: 3, extraTextures: 0, uniformBytesPerLayer: 160, gpuTimestampMs: null },
     };
@@ -1683,6 +1736,7 @@ export class CanvasRuntime {
     this.disposalRequested = true;
     try { await this.renderer().dispose(); }
     finally { this.disposalRequested = false; }
+    for (const material of [...this.materials.values()]) material.finish({ status: "disposed", reason: "Runtime disposed" });
     for (const id of this.motions.keys()) this.cancelNativeMotion(id);
     this.relinquishedDeclarations.clear();
     this.stopped = true;

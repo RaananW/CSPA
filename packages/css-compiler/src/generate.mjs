@@ -106,7 +106,7 @@ export function samplerCode(animation, gpu) {
 }
 /**
  * Builds the source of the `virtual:underglass/compiled` ES module from parsed animations, in the order
- * they will be indexed. The default export is a version 2 `CompiledProgramSet`: one descriptor per
+ * they will be indexed. The default export is a version 3 `CompiledProgramSet`: one descriptor per
  * animation (public fields, `normalizeTime` and `sample`) and a single per-layer program from the
  * runtime's `layerShader`, whose fragment WGSL is prefixed with the generated samplers. The runtime
  * selects animation `i` with index `i + 1` in `compiled_sample`; index 0 means no compiled motion.
@@ -140,5 +140,5 @@ export function generateModule(animations) {
     // `timing` is undefined here so JSON drops it; it is re-added below with the Infinity fix.
     return `{...${JSON.stringify({ ...publicAnimation, timing: undefined })},timing:${timing},normalizeTime(ms){${normalize}},sample(ms){${samplerCode(animation, false)}}}`;
   });
-  return `${jsEase}\nconst compiled={version:2,animations:[${entries.join(",")}],programs:${JSON.stringify(programs)}};\nexport default compiled;\n`;
+  return `${jsEase}\nconst compiled={version:3,animations:[${entries.join(",")}],programs:${JSON.stringify(programs)}};\nexport default compiled;\n`;
 }
