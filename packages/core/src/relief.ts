@@ -237,16 +237,20 @@ function validateObject(value: Record<string, unknown>, at: string, names: strin
 }
 
 /** An object's heights (2B.2): the base, and the cap (a well's floor, a pressed key's sunk cap) or a dome's apex. */
-function heights(entry: ReliefObject, rest = false): [number, number] {
+/** 2B.2: an object's base and cap heights in its state, or at the highest it reaches (hovered, not pressed). */
+function heights(entry: ReliefObject, highest = false): [number, number] {
   const z0 = entry.base ?? 0;
   if (entry.object === "well") return [z0, z0 - entry.height];
-  const travel = (entry.object === "key" || entry.object === "mark") && entry.state?.pressed && !rest ? Math.min(entry.travel ?? 0, entry.height) : 0;
-  return [z0, z0 + entry.height - travel];
+  const state = highest ? { hover: true } : entry.state ?? {};
+  const travel = (entry.object === "key" || entry.object === "mark") && state.pressed ? Math.min(entry.travel ?? 0, entry.height) : 0;
+  // Hover raises the cap by a quarter of the object's height.
+  const rise = state.hover && !state.disabled ? entry.height / 4 : 0;
+  return [z0, z0 + entry.height + rise - travel];
 }
 /**
  * Hit safety (2B.6): why an object cannot be drawn as an object, or undefined when it can. A solid's taper must cover
  * the drift at its base corner farthest from the vanishing point; a dome's projected bounding box must stay inside its
- * bounds. The resting geometry is checked.
+ * bounds. The highest geometry (hovered) is checked, so hover never changes how an object is drawn.
  */
 function unsafe(scene: ReliefScene, entry: ReliefObject): string | undefined {
   const { distance, vanish: [vx, vy] } = scene.camera!;
@@ -371,9 +375,8 @@ function packObject(scene: ReliefScene, entry: ReliefObject, names: string[]): n
   const lit = !state.disabled && (material.emissive?.strength ?? 0) <= 0;
   const [z0, z1] = heights(entry);
   const travels = entry.object === "key" || entry.object === "mark";
-  // 2B.2: cast height after the state multipliers; a key's travel already lowers its cap.
-  const cast = z1 > z0 && !state.disabled ? (z1 - z0) * (1 + (scene.state.hoverHeight - 1) * (state.hover ? 1 : 0))
-    * (travels ? 1 : 1 - (1 - scene.state.pressHeight) * (state.pressed ? 1 : 0)) : 0;
+  // 2B.2: the cast height is the cap's height, which hover already raises and a key's travel already lowers.
+  const cast = z1 > z0 && !state.disabled ? (z1 - z0) * (travels ? 1 : 1 - (1 - scene.state.pressHeight) * (state.pressed ? 1 : 0)) : 0;
   let drift = 0;
   if (dome && scene.camera) {
     const { distance, vanish: [vx, vy] } = scene.camera, scale = distance / (distance - z1);
@@ -636,7 +639,9 @@ fn reliefShade(p: vec2f, captured: vec4f) -> vec4f {
   // 2.9 Guard and 2.11 compositing.
   let interior = 1.0 + clamp(offsets, -m, m);
   let guard = select(0.0, smoothstep(0.0, 2.0, clearance), inside);
-  let k = clamp(interior * (1.0 - shadow), 1.0 - m, 1.0 + m);
+  // On a guarded face a cast shadow is scaled to darken by at most m, so it keeps its soft profile.
+  let scaled = shadow * select(1.0, m / relief[1].z, relief[1].z > m);
+  let k = clamp(interior * (1.0 - scaled), 1.0 - m, 1.0 + m);
   var content = mix((colourIn * interior + vec3f(shade)) * (1.0 - shadow), colourIn * k, guard);
   content = content * (1.0 - arcAlpha) + arcColour;
   content = clamp(mix(mix(content, vec3f(1.0), band), vec3f(0.0), dark), vec3f(0.0), vec3f(1.0));

@@ -48,7 +48,7 @@ export function cameraOf(scene: StrataScene): { distance: number; vanish: [numbe
   return { distance: scene.camera?.distance ?? 1600, vanish: scene.camera?.vanish ?? [scene.extent.width / 2, scene.extent.height / 2] };
 }
 
-/** 2B.2: an object's derived geometry. A pressed key or mark sinks its cap by `travel`. */
+/** 2B.2: an object's derived geometry. Hover raises the cap by a quarter of the height; a pressed key or mark sinks it by `travel`. */
 export function resolveObject(object: SceneObject): ResolvedObject {
   const [x, y, width, height] = object.rect;
   const halfWidth = width / 2, halfHeight = height / 2, inradius = Math.min(halfWidth, halfHeight);
@@ -56,7 +56,8 @@ export function resolveObject(object: SceneObject): ResolvedObject {
   const pressed = object.state?.pressed ? 1 : 0;
   const travel = object.object === "key" || object.object === "mark" ? Math.min(object.travel ?? 0, object.height) * pressed : 0;
   const z0 = object.base ?? 0;
-  const z1 = object.object === "well" ? z0 - object.height : z0 + object.height - travel;
+  const rise = object.state?.hover && !object.state.disabled ? object.height / 4 : 0;
+  const z1 = object.object === "well" ? z0 - object.height : z0 + object.height + rise - travel;
   return { object, dome, cx: x + halfWidth, cy: y + halfHeight, halfWidth, halfHeight,
     radius: dome ? inradius : clamp(object.radius ?? 0, 0, inradius), taper: dome ? 0 : Math.max(object.taper ?? 0, 0), z0, z1 };
 }
@@ -141,7 +142,8 @@ function reach(scene: StrataScene, [x, y, width, height]: readonly [number, numb
  */
 export function objectDrawable(scene: StrataScene, object: SceneObject): boolean {
   const { distance: D, vanish: [vx, vy] } = cameraOf(scene);
-  const shape = resolveObject({ ...object, state: undefined });
+  // The highest geometry (hovered) is checked, so hover never changes how an object is drawn.
+  const shape = resolveObject({ ...object, state: { hover: true } });
   if (!shape.dome) {
     const rise = Math.abs(shape.z1 - shape.z0);
     return rise === 0 || shape.taper * (D - Math.max(shape.z0, shape.z1)) >= rise * reach(scene, object.rect);

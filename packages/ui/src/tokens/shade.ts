@@ -78,8 +78,8 @@ interface Resolved extends MaterialValues {
 }
 
 /** The state multiplier on a caster's height (section 2.3). */
-function stateHeight(scene: StrataScene, state: ScenePrimitive["state"] = {}, press = true): number {
-  return (1 + (scene.state.hoverHeight - 1) * (state.hover ? 1 : 0)) * (press ? 1 - (1 - scene.state.pressHeight) * (state.pressed ? 1 : 0) : 1);
+function stateHeight(scene: StrataScene, state: ScenePrimitive["state"] = {}): number {
+  return (1 + (scene.state.hoverHeight - 1) * (state.hover ? 1 : 0)) * (1 - (1 - scene.state.pressHeight) * (state.pressed ? 1 : 0));
 }
 
 function resolvePrimitive(scene: StrataScene, primitive: ScenePrimitive): Resolved {
@@ -133,7 +133,8 @@ function resolveEntry(scene: StrataScene, entry: SceneEntry): ResolvedEntry | un
   return { type: "object", resolved: {
     shape, lit, ...material,
     band: !lit ? 0 : shape.dome ? Math.min(shape.halfWidth, shape.halfHeight) : shape.taper,
-    height: rise > 0 && !state.disabled ? rise * stateHeight(scene, state, !travels) : 0,
+    // 2B.2: hover has already raised the cap, and a key's travel lowered it; other objects still shrink when pressed.
+    height: rise > 0 && !state.disabled ? rise * (travels ? 1 : 1 - (1 - scene.state.pressHeight) * (state.pressed ? 1 : 0)) : 0,
     ...(shape.dome ? { colour: rgb(entry.colour ?? "#808080") } : {}),
   } };
 }
@@ -326,7 +327,9 @@ export function shadePoint(scene: StrataScene, captured: CapturedColour, x: numb
   const s = terms.surface.alpha, a = ca * (1 - s) + s;
   const surface = [cr, cg, cb].map((c, channel) => (a > 1e-9 ? (c * ca * (1 - s) + terms.surface.colour[channel]!) / a : 0));
   const backdrop = rgb(scene.backdrop), focus = rgb(scene.focus.colour);
-  const m = scene.interior.max, k = clamp(terms.interior * (1 - terms.shadow), 1 - m, 1 + m);
+  // 2.9: on a guarded face a cast shadow is scaled to darken by at most m, so it keeps its soft profile.
+  const m = scene.interior.max, scaled = terms.shadow * (scene.shadow.strength > m ? m / scene.shadow.strength : 1);
+  const k = clamp(terms.interior * (1 - scaled), 1 - m, 1 + m);
   return surface.map((c, channel) => {
     let content = mix((c * terms.interior + terms.shade) * (1 - terms.shadow), c * k, terms.guard);
     content = content * (1 - terms.arc.alpha) + terms.arc.colour[channel]!;

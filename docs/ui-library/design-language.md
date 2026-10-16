@@ -282,8 +282,9 @@ A surface's shadow follows from the light and its height. No component chooses i
 - **Softness:** the shadow grows over `2 · h + 1` px (GPU), and the CSS blur is `1.9 · h + 1`.
 - **Strength:** `shadow.strength` is 0.24 at 50%, and runs 0.14 → 0.24 → 0.32 across depth. Range
   0–0.8.
-- **Hover and press:** hover multiplies a raised part's height by `state.hoverHeight` (1.6). Press
-  multiplies it by `state.pressHeight` (0.25).
+- **Hover and press:** at the Relief level, hover multiplies a raised part's height by `state.hoverHeight` (1.6).
+  At the Objects level, hover raises an object by a quarter of its height (a key by `keyHeight / 4`), so its shadow
+  moves about as far as a Relief control's. Press multiplies the height by `state.pressHeight` (0.25); a key travels.
 - **Outside the box:** shadows may fall outside a panel's box (the GPU outset, P0.5). They never
   receive hits.
 - **Analytic, everywhere.** Every caster in the language is a rounded footprint or a circle, so every

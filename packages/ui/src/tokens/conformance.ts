@@ -188,7 +188,7 @@ export function conformanceCases(source: TokenGroup = strataSource): Conformance
     },
     {
       name: "contrast-guard",
-      description: "A hovered button's shadow over a label on the panel: beyond the bevel band plus the ramp, darkening stops at interior.max, uniformly for text and face.",
+      description: "A hovered button's shadow over a label on the panel: beyond the bevel band plus the ramp, the shadow is scaled to darken by at most interior.max, uniformly for text and face.",
       scene: scene(112, 80, [panel(112, 80), button(24, 8, { state: { hover: true } })]),
       capture: [panelPaint(112, 80), buttonPaint(24, 8), { rect: [40, 46, 32, 8], colour: colour("text") }],
       samples: [

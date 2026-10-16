@@ -284,8 +284,11 @@ change there within `m`, and keeps it the same for text and face.
 3. **Guarded factor:**
 
    ```text
-   k = clamp(K · (1 − S), 1 − m, 1 + m)
+   k = clamp(K · (1 − S · g), 1 − m, 1 + m)      g = m / shadow.strength if shadow.strength > m, else 1
    ```
+
+   `g` scales a cast shadow so that it darkens a guarded face by at most `m`. Clamping it instead would cut every
+   shadow above `m` off flat, and a tall caster's soft shadow would read as a grey plateau with an edge.
 
    `k` depends only on geometry and state, never on the captured colour. So a glyph and the face around it are
    scaled by the same `k`.
@@ -372,17 +375,20 @@ default 0.6.
 ### 2B.2 Derived values per object
 
 - **Heights.** `z0 = base`. A well's cap (its floor) is at `z1 = z0 − height`; every other solid's cap is at
-  `z1 = z0 + height − travel · pressed` (travel only for keys and marks, at most `height`). A dome's apex is at
-  `z1 = z0 + height`.
+  `z1 = z0 + height · (1 + hover / 4) − travel · pressed` (travel only for keys and marks, at most `height`). A dome's
+  apex is at `z1 = z0 + height · (1 + hover / 4)`. Hover (not while disabled) raises the cap by a quarter of the height;
+  it does not multiply it, so a tall object's shadow moves as little as a primitive's does. Hit safety (2B.6) checks the
+  hovered geometry, the highest an object reaches, so hover never changes how an object is drawn.
 - **Lit:** an object is lit unless it is disabled or its material is emissive.
 - **Band** `b`, for the guard (2.9): the taper for a lit solid, `min(hw, hh)` for a lit dome, and 0 otherwise.
 - **Cast height** `h`, for objects with `z1 > z0` that are not disabled:
 
   ```text
-  h = (z1 − z0) · (1 + (hoverHeight − 1)·hover) · (1 − (1 − pressHeight)·pressed)
+  h = (z1 − z0) · (1 − (1 − pressHeight)·pressed)
   ```
 
-  For keys and marks the last factor is 1: their travel already lowers `z1`. A well casts nothing.
+  Hover is already in `z1`, so `hoverHeight` applies to primitives only. For keys and marks the last factor is 1:
+  their travel already lowers `z1`. A well casts nothing.
 
 ### 2B.3 Footprints
 
@@ -454,7 +460,8 @@ Objects never take hits, so the native control's box must contain every pixel an
 
 - **Domes** must project inside `bounds`: the eight corners of the dome's bounding box (its rect at `z0` and at
   `z1`), projected, lie within it.
-- **The resting geometry is checked** (no state), so a state change never moves an object across the rule.
+- **The hovered geometry is checked** (the highest an object reaches, never pressed), so a state change never moves an
+  object across the rule.
 
 An object that breaks its rule is drawn at the **Relief level**: a key, slab, rail or mark as a `raised` primitive (a
 mark as a `mark`), a well as a `well`, a dome as a `knob` that keeps its colour on its footprint, and a bezel not at

@@ -1759,13 +1759,13 @@
             34.5
           ],
           "note": "its shadow below",
-          "expect": "#e0e2e5"
+          "expect": "#e3e5e9"
         }
       ]
     },
     {
       "name": "contrast-guard",
-      "description": "A hovered button's shadow over a label on the panel: beyond the bevel band plus the ramp, darkening stops at interior.max, uniformly for text and face.",
+      "description": "A hovered button's shadow over a label on the panel: beyond the bevel band plus the ramp, the shadow is scaled to darken by at most interior.max, uniformly for text and face.",
       "scene": {
         "format": "strata-scene",
         "version": 1,
@@ -1938,7 +1938,7 @@
             49.5
           ],
           "note": "label 9 px below the button, past the bevel band and the ramp: text × (1 − interior.max)",
-          "expect": "#1b1d23"
+          "expect": "#1c1e24"
         },
         {
           "at": [
@@ -1946,7 +1946,7 @@
             49.5
           ],
           "note": "panel beside the label: panel × (1 − interior.max)",
-          "expect": "#e0e2e5"
+          "expect": "#e8eaee"
         },
         {
           "at": [
