@@ -297,6 +297,8 @@ Underglass, its WAI-ARIA Authoring Practices pattern, and the automated
 
 ## Phase 4: GPU presentation (T4)
 
+The [Phase 4 design](phase4.md) turns these steps into concrete core changes, with the decisions for review.
+
 1. The core features from [Contract changes](#contract-changes), each its own PR with
    GPU tests, in order: material class and two chains, relief primitives, shadow
    outset, object pass, projective transforms (only if P0.1 passed).
