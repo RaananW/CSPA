@@ -76,7 +76,8 @@ which are for state changes.
 ```
 
 - The outer `<span>` is the boundary element. React and Vue refs, `class` and `style` reach it.
-- The label is required and is the accessible name and the announcement. It is visually hidden while the
+- The label is required: it is the live region's content, which screen readers announce (a `status` takes no
+  name from its content). It is visually hidden while the
   Spinner animates and visible under reduced motion. `aria-label` is not used, because a live region
   announces its content, not its label.
 - Inside a [Button](button.md) with `aria-busy="true"` the Spinner renders without `role` and with

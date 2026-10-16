@@ -519,6 +519,8 @@
   :where(.ug-badge--warning) { --_role: var(--strata-colour-warning); --_on: var(--strata-colour-on-warning); border-color: transparent; }
   :where(.ug-badge--danger) { --_role: var(--strata-colour-danger); --_on: var(--strata-colour-on-danger); border-color: transparent; }
   :where(.ug-badge--info) { --_role: var(--strata-colour-info); --_on: var(--strata-colour-on-info); border-color: transparent; }
+  /* The full count above the limit ("99+"), for assistive technology only. */
+  :where(.ug-badge__full) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
   /* ---- Progress bar ---- */
 
