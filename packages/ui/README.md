@@ -401,3 +401,15 @@ current page and `siblings` (1) either side, with ellipses for the gaps; the cur
 ```
 
 [Anatomy](../../docs/ui-library/components/pagination.md).
+
+## Toolbar
+
+`Toolbar` puts controls on one plinth as one tab stop (APG Toolbar): Tab enters and leaves it, and the arrow keys,
+Home and End move between its controls. The roving tabindex is applied when focus first enters, so the markup is the
+same with and without script; `attachStrata` does it for plain HTML and Astro.
+
+```tsx
+<Toolbar label="Formatting"><ToggleButton>Bold</ToggleButton><ToggleButton>Italic</ToggleButton><Divider orientation="vertical" /><Button>Undo</Button></Toolbar>
+```
+
+[Anatomy](../../docs/ui-library/components/toolbar.md).

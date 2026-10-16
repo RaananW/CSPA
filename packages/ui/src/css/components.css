@@ -237,8 +237,8 @@
     border-bottom: 3px solid var(--strata-colour-accent);
     background-color: color-mix(in srgb, var(--strata-colour-accent) 16%, var(--strata-colour-secondary));
   }
-  /* Keys on one plinth. */
-  :where(.ug-button-group) {
+  /* Keys on one plinth: a ButtonGroup, or a Toolbar (one tab stop). */
+  :where(.ug-button-group, .ug-toolbar) {
     --_finish: var(--strata-finish-role-panel);
     display: inline-flex;
     flex-wrap: wrap;
@@ -247,7 +247,11 @@
     border-radius: calc(var(--strata-radius-control) + var(--strata-space-2));
     background-color: var(--strata-colour-panel);
   }
-  :where(.ug-button-group--vertical) { flex-direction: column; }
+  :where(.ug-button-group--vertical, .ug-toolbar--vertical) { flex-direction: column; }
+  :where(.ug-toolbar) { align-items: center; }
+  :where(.ug-toolbar) > :where(.ug-divider--vertical) { margin: 0 var(--strata-space-1); }
+  :where(.ug-toolbar--vertical) > :where(.ug-divider--vertical) { width: auto; height: 2px; min-height: 0; margin: var(--strata-space-1) 0; border-left: 0; border-right: 0;
+    border-top: 1px solid rgb(0 0 0 / calc(0.1 + 0.12 * var(--_gain))); border-bottom: 1px solid rgb(255 255 255 / calc(0.25 + 0.4 * var(--_gain))); }
 
   /* ---- Link ---- */
 
@@ -1245,7 +1249,7 @@
     :where([data-strata-face]) { box-shadow: none; background-image: none; filter: none; }
     :where(.ug-panel, .ug-card) { border: 1px solid CanvasText; }
     :where(.ug-scrim) { forced-color-adjust: none; }
-    :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group) { border: 1px solid ButtonBorder; }
+    :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group, .ug-toolbar) { border: 1px solid ButtonBorder; }
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }

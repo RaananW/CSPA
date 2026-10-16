@@ -683,3 +683,23 @@ test("a raised link is a key at the Objects level", async ({ page }) => {
   });
   expect((await primitiveOf(page, "#gpu-raised-link")).object).toBe("key");
 });
+
+for (const level of ["relief", "objects"]) test(`a Toolbar on the GPU at the ${level} level: keys on a plinth, the arrow keys and a real click work, GPU on`, async ({ page }) => {
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addToolbar(); await window.strataGpuProbe.controller.settle(); });
+  const plinth = await primitiveOf(page, "#gpu-toolbar"), bold = await primitiveOf(page, "#gpu-tool-bold");
+  expect(plinth.object ?? plinth.face).toBe(level === "objects" ? "slab" : "raised");
+  expect(bold.object ?? bold.face).toBe(level === "objects" ? "key" : "raised");
+  if (level === "objects") expect(bold.base).toBeGreaterThan(plinth.base ?? 0);
+  // A real click on Bold, then the arrows move along the toolbar and Space toggles Italic.
+  const box = await page.locator("#gpu-tool-bold").boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.locator("#gpu-tool-bold")).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#gpu-tool-italic")).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(page.locator("#gpu-tool-italic")).toHaveAttribute("aria-pressed", "true");
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect((await primitiveOf(page, "#gpu-tool-italic")).state.pressed).toBe(true);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+});

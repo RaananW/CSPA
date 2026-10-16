@@ -10,12 +10,15 @@
  *   `[data-strata-close]` inside an open one closes it;
  * - a click on a chip's remove button dispatches a bubbling `strata-remove` event from the chip, and one on a
  *   MessageBar's dismiss button a bubbling `strata-dismiss` event from the bar;
+ * - Toolbars: the first time focus enters one, its controls get a roving tabindex (one tab stop), and the arrow keys,
+ *   Home and End move between them;
  * - Tabs: a click on a tab selects it, and the arrow keys, Home and End move between tabs and select them (only move,
  *   with `data-strata-activation="manual"` on the tablist, until Enter or Space clicks the tab).
  * The React and Vue bindings do the same themselves, so they need none of this.
  */
 import { showStrataDialog, type DialogHandle } from "./dialog.ts";
 import { selectStrataTab, strataTabsActivation, strataTabTarget } from "./tabs.ts";
+import { rovingStrataToolbar, strataToolbarTarget } from "./toolbar.ts";
 
 const attached = new WeakMap<Document | HTMLElement, () => void>();
 
@@ -90,7 +93,20 @@ export function attachStrata(root: Document | HTMLElement = document): () => voi
     target.focus();
     if (strataTabsActivation(target.closest("[role='tablist']")!) === "automatic") selectStrataTab(target);
   };
+  const toolbarFocus = (event: Event) => {
+    const target = event.target as Element | null, toolbar = target?.closest?.(".ug-toolbar");
+    if (toolbar && target !== toolbar) rovingStrataToolbar(toolbar, target!);
+  };
+  const toolbarKey = (event: KeyboardEvent) => {
+    const from = event.target as Element | null;
+    const target = from?.closest?.(".ug-toolbar") && !event.defaultPrevented && !event.altKey && !event.ctrlKey && !event.metaKey ? strataToolbarTarget(from!, event.key) : undefined;
+    if (!target) return;
+    event.preventDefault();
+    target.focus();
+  };
   root.addEventListener("click", block, true);
+  root.addEventListener("focusin", toolbarFocus);
+  root.addEventListener("keydown", toolbarKey as EventListener);
   root.addEventListener("click", tab);
   root.addEventListener("click", remove);
   root.addEventListener("click", dismiss);
@@ -100,6 +116,8 @@ export function attachStrata(root: Document | HTMLElement = document): () => voi
   root.addEventListener("click", toggle);
   const detach = () => {
     root.removeEventListener("click", block, true);
+    root.removeEventListener("focusin", toolbarFocus);
+    root.removeEventListener("keydown", toolbarKey as EventListener);
     root.removeEventListener("click", toggle);
     root.removeEventListener("click", open);
     root.removeEventListener("click", close);

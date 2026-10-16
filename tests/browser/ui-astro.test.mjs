@@ -137,6 +137,12 @@ test("Strata Astro components get their browser behaviour from attachStrata and 
   const dismissed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-dismiss", event => list.push(event.target.id)); return list; });
   await page.locator("#astro-message").getByRole("button", { name: "Dismiss" }).click();
   expect(await dismissed.jsonValue()).toEqual(["astro-message"]);
+  // Toolbar (attachStrata): one tab stop once focus enters; the arrows move, skipping the disabled control.
+  await page.locator("#astro-cut").focus();
+  expect(await page.locator("#astro-toolbar button").evaluateAll(buttons => buttons.map(button => button.getAttribute("tabindex")))).toEqual(["0", null, "-1"]);
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#astro-paste")).toBeFocused();
+  expect(await page.locator("#astro-toolbar button").evaluateAll(buttons => buttons.map(button => button.getAttribute("tabindex")))).toEqual(["-1", null, "0"]);
   // aria-disabled: focusable, and no click reaches the page's listeners or submits the form.
   const blocked = page.locator("#blocked");
   await page.evaluate(() => {

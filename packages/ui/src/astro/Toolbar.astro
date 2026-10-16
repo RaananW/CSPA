@@ -1,0 +1,22 @@
+---
+/**
+ * Toolbar (anatomy page `toolbar.md`): controls on one plinth that are one tab stop, with the arrow keys, Home and End
+ * between them, from `attachStrata`, which the component loads. The controls go in the slot.
+ */
+import Behaviour from "./Behaviour.astro";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  label: string;
+  orientation?: "horizontal" | "vertical";
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, orientation = "horizontal", size, material, level, class: className, ...rest } = Astro.props;
+---
+<div class={classes("ug-toolbar", orientation === "vertical" && "ug-toolbar--vertical", className)} role="toolbar" aria-label={label} aria-orientation={orientation === "vertical" ? "vertical" : undefined} data-strata-face="raised" {...strataAttributes({ size, material, level })} {...rest}><slot /></div>
+<Behaviour />

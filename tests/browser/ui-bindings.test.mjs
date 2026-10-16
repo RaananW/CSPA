@@ -10,7 +10,7 @@
  *   Table headers sort the rows; a Breadcrumb is a named landmark of links;
  *   Avatars show initials or a picture, named by the name; chips filter, and remove on request;
  *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion; MessageBars announce by intent;
- *   Pagination moves between pages;
+ *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -596,5 +596,43 @@ for (const binding of bindings) test(`Strata ${binding} Pagination moves between
   // The skipped runs are hidden; the keys are at least the target size.
   expect(await nav.locator("[aria-hidden='true']").count()).toBe(1);
   expect((await nav.getByRole("button", { name: "Page 1", exact: true }).boundingBox()).height).toBeGreaterThanOrEqual(24);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Toolbar is one tab stop, with the arrows, Home and End between its controls`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const toolbar = page.getByRole("toolbar", { name: "Editing" });
+  const focused = () => page.evaluate(() => document.activeElement?.id);
+  // Tab enters on the first control; once inside, the toolbar is one stop: Tab leaves it.
+  await page.locator("#live-toolbar").evaluate(element => element.previousElementSibling?.focus?.());
+  await page.locator("#tool-cut").focus();
+  expect(await focused()).toBe("tool-cut");
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => !document.activeElement?.closest("#live-toolbar"))).toBe(true);
+  await page.keyboard.press("Shift+Tab");
+  expect(await focused()).toBe("tool-cut");
+  // Right skips the disabled Copy but not the aria-disabled Paste, and wraps; Left, Home and End.
+  await page.keyboard.press("ArrowRight");
+  expect(await focused()).toBe("tool-paste");
+  await page.keyboard.press("ArrowRight");
+  expect(await focused()).toBe("tool-wrap");
+  await page.keyboard.press("ArrowRight");
+  expect(await focused()).toBe("tool-cut");
+  await page.keyboard.press("ArrowLeft");
+  expect(await focused()).toBe("tool-wrap");
+  await page.keyboard.press("Home");
+  expect(await focused()).toBe("tool-cut");
+  await page.keyboard.press("End");
+  expect(await focused()).toBe("tool-wrap");
+  // The control last focused is the tab stop: leave and come back.
+  await page.keyboard.press("Space");
+  await expect(page.locator("#tool-wrap")).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Shift+Tab");
+  expect(await focused()).toBe("tool-wrap");
+  await expect(toolbar).toHaveAttribute("aria-label", "Editing");
   await context.close();
 });
