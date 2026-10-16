@@ -21,7 +21,7 @@ A **raised slab**: a thin plate whose base is the panel's border box.
 
 | Part | Shape | Height at 50% | Moves |
 | --- | --- | --- | --- |
-| Slab | Rounded plate with a bevel band of `bevel.width` | `elevation.floating` (10) | No; the whole panel may travel and tilt through depth |
+| Slab | Rounded plate with a bevel band of `bevel.width` | `elevation.floating` (8) | No; the whole panel may travel and tilt through depth |
 | Shadow | Analytic cast shadow from the light (section 7) | — | With the slab |
 
 The shadow falls outside the panel's box (the shadow outset). It is decoration and never receives hits. The
@@ -42,7 +42,7 @@ panel's hit geometry stays its box. Controls inside do not move with the panel's
 
 | State | Relief | Objects | CSS |
 | --- | --- | --- | --- |
-| Rest | `elevation.floating` (10) | Slab at floating height | Relief recipe at `floating` |
+| Rest | `elevation.floating` (8) | Slab at floating height | Relief recipe at `floating` |
 | Hover, pressed | Do not apply: the panel is not a control | — | — |
 | Focus-visible | Applies only if the panel has `tabindex="-1"` and is focused by script; accent edge, `focus.width` | Emissive glow on the slab edge | `outline: focus.width solid accent` |
 | Busy (`aria-busy="true"`) | Rest; a child [Spinner](spinner.md) or [ProgressBar](progress-bar.md) shows the busy state | Same | Same |

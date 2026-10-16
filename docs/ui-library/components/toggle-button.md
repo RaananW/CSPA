@@ -29,11 +29,12 @@ Pressing an off key travels down and stays. Pressing an on key travels down and 
 | Face | Colour role | Text role | Material role |
 | --- | --- | --- | --- |
 | Key top, off | `secondary` | `text` | `control` |
-| Key top, on, `secondary` | `secondary`, with an indicator strip | `text` | `control`; strip `indicator` (`emissive`) |
+| Key top, on, `secondary` | `secondary` tinted 16% towards `accent`, with a 3 px `accent` strip along the bottom | `text` | `control`; strip `indicator` (`emissive`) |
 | Key top, on, `accent` | `accent` | `on-accent` | `buttonPrimary` |
 
-The on state is never shown by colour alone: the key is also held down, and the strip is a shape (the lower
-edge of the top, inside the box).
+The on state has three cues, none of them colour alone: the key is held down, its face is tinted, and the strip
+is a shape (the lower edge of the top, inside the box) at 3:1 against the face. Screen readers get
+`aria-pressed`.
 
 ## 4. Elevation per state
 

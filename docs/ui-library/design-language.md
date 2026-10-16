@@ -74,7 +74,7 @@ the panel plane, and with a vertical field of view that maps z = 0 one-to-one on
 | --- | --- | --- | --- |
 | Ground | `elevation.ground` | 0 | Page background, wells |
 | Raised | `elevation.raised` | 3 | Controls and cards on a panel |
-| Floating | `elevation.floating` | 10 | Panels, toolbars |
+| Floating | `elevation.floating` | 8 | Panels, toolbars |
 | Overlay | `elevation.overlay` | 16 | Menus, popovers, tooltips |
 | Modal | `elevation.modal` | 24 | Dialogs, drawers |
 
@@ -279,7 +279,7 @@ A surface's shadow follows from the light and its height. No component chooses i
 
 - **Offset:** `−light.xy / light.z · h`.
 - **Softness:** the shadow grows over `2 · h + 1` px (GPU), and the CSS blur is `1.9 · h + 1`.
-- **Strength:** `shadow.strength` is 0.32 at 50%, and runs 0.18 → 0.32 → 0.42 across depth. Range
+- **Strength:** `shadow.strength` is 0.24 at 50%, and runs 0.14 → 0.24 → 0.32 across depth. Range
   0–0.8.
 - **Hover and press:** hover multiplies a raised part's height by `state.hoverHeight` (1.6). Press
   multiplies it by `state.pressHeight` (0.25).
@@ -314,7 +314,9 @@ themes beyond light and dark.
 
 - **High-contrast themes:** `contrast` and `contrast-dark` take over from light and dark under
   `prefers-contrast: more`, or when set explicitly. Surfaces (`stage`, `panel`, `field`, `secondary`,
-  `track`, `knob`) are white or black, text and `edge` are the opposite, and the bevel gain is 0.
+  `track`, `knob`) are white or black, text and `edge` are the opposite, and the bevel gain is 0. With the relief
+  off, every raised face (controls, cards, panels) carries a 2 px `edge` outline (`outline.width`), so no control
+  turns into bare text.
 
   | Role | `contrast` | `contrast-dark` |
   | --- | --- | --- |
@@ -336,8 +338,8 @@ themes beyond light and dark.
   - **Boundaries:** wells, tracks and unchecked marks carry a 1 px `edge` outline, at least 3:1 against the
     lit panel and against fields.
   - **Fills:** an `accent` fill (progress, slider, switch on) is at least 3:1 against the unfilled `track`.
-  - **Knobs:** a knob is at least 3:1 against the track under it, or carries an `edge` ring. A knob on an
-    `accent` fill takes the `on-accent` colour.
+  - **Knobs:** a knob is at least 3:1 against the track under it, or carries an `edge` ring. A knob keeps its
+    colour in every state; on an `accent` fill it carries an `on-accent` ring instead.
   - **Not by colour alone:** state is also shown by position or shape (knob position, check mark).
 - **Invariant, contrast on lit faces:** text against its face is at least 4.5:1, and large text and
   non-text indicators at least 3:1. This is measured on the **lit** face at the largest interior
@@ -619,3 +621,6 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-16: the high-contrast themes `contrast` and `contrast-dark` (section 8). The token source moved to the
   `@underglass/ui` package, which validates it and generates the token stylesheet.
 - 2026-10-16: derived role colours as text (`accent-text` and so on, section 8), from the specimen's contrast checks.
+- 2026-10-16: review of the specimen: lower relief (`shadow.strength` 0.24 at 50%, panels at 8), a switch knob
+  that keeps its colour (ringed in `on-accent` when on), a tinted face for toggle buttons that are on, and a 2 px
+  `edge` outline on raised faces in the high-contrast themes (`outline.width`).

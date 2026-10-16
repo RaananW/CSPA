@@ -57,6 +57,16 @@ test("the Strata specimen passes axe in every theme and under forced colours", a
     expect(summary(undecided), `undecided contrast in the ${theme} theme`).toEqual([]);
     await page.evaluate(() => { delete document.documentElement.dataset.strataMode; });
   }
+  // High contrast turns the relief off, so raised faces carry a 2 px outline instead (no control becomes bare text).
+  for (const theme of ["contrast", "contrast-dark"]) {
+    await page.evaluate(value => { document.documentElement.dataset.strataTheme = value; }, theme);
+    for (const selector of ["#components .ug-button >> nth=0", "#components .ug-panel >> nth=0", "#spec-size"]) {
+      expect(await page.locator(selector).evaluate(element => getComputedStyle(element).borderTopWidth), `${theme}: ${selector} outline`).toBe("2px");
+    }
+  }
+  // The switch knob keeps its colour in both states.
+  const knobs = await page.locator(".ug-switch__knob").evaluateAll(elements => elements.slice(0, 2).map(element => getComputedStyle(element).backgroundImage));
+  expect(knobs[0]).toBe(knobs[1]);
   await page.evaluate(() => { delete document.documentElement.dataset.strataTheme; });
   await page.emulateMedia({ forcedColors: "active" });
   const { violations } = await new AxeBuilder({ page }).withTags(tags).analyze();
