@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
+  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/vue";
 
@@ -39,6 +39,7 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("table.md#2", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }], sort: { key: "number", direction: "ascending" } })),
   contract("avatar.md", [h(Avatar, { name: "Ada Lovelace" }), h(Avatar, { name: "Grace Hopper", src: "/people/grace.jpg" }), h(Avatar, { name: "Alan Turing", decorative: true })]),
   contract("chip.md", [h(Chip, null, { default: text("Design") }), h(Chip, { defaultPressed: true }, { default: text("Remote") }), h(Chip, { onRemove: () => {} }, { default: text("ada@example.com") })]),
+  contract("skeleton.md", [h(Skeleton, { shape: "circle" }), h(Skeleton, { lines: 3 }), h(Skeleton, { shape: "rect", width: "100%", height: 120 })]),
   contract("breadcrumb.md", h(Breadcrumb, { items: [{ label: "Home", href: "/" }, { label: "Settings", href: "/settings" }, { label: "Profile", href: "/settings/profile" }] })),
   contract("list.md", h(List, { label: "Mailboxes" }, {
     default: () => [
@@ -229,6 +230,9 @@ const App = defineComponent({
                 h(Chip, { id: "remote-chip", pressed: chips.remote, "onUpdate:pressed": (value: boolean) => { chips.remote = value; } }, { default: text("Remote") }),
                 h(Chip, { id: "locked-chip", defaultPressed: false, disabled: true }, { default: text("Locked") }),
                 !chips.removed.includes("ada") && h(Chip, { id: "ada-chip", onRemove: () => { chips.removed.push("ada"); } }, { default: text("ada@example.com") }),
+              ]),
+              h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
+                h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
               h(Breadcrumb, { id: "live-breadcrumb", items: [{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }] }),
             ]),

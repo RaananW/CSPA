@@ -27,6 +27,7 @@ export { default as Panel } from "./Panel.astro";
 export { default as ProgressBar } from "./ProgressBar.astro";
 export { default as RadioGroup } from "./RadioGroup.astro";
 export { default as Select } from "./Select.astro";
+export { default as Skeleton } from "./Skeleton.astro";
 export { default as Slider } from "./Slider.astro";
 export { default as Spinner } from "./Spinner.astro";
 export { default as StrataProvider } from "./StrataProvider.astro";

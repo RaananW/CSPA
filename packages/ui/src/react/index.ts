@@ -24,6 +24,8 @@ export { TextArea } from "./TextArea.tsx";
 export type { TextAreaProps } from "./TextArea.tsx";
 export { Avatar } from "./Avatar.tsx";
 export { Chip } from "./Chip.tsx";
+export { Skeleton } from "./Skeleton.tsx";
+export type { SkeletonProps } from "./Skeleton.tsx";
 export type { ChipProps } from "./Chip.tsx";
 export type { AvatarProps } from "./Avatar.tsx";
 export { Breadcrumb } from "./Breadcrumb.tsx";

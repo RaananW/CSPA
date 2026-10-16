@@ -910,6 +910,30 @@
   :where(.ug-chip__remove):is(:hover, [data-strata-preview~="hover"]) { background-color: color-mix(in srgb, var(--strata-colour-text) 10%, transparent); }
   :where(.ug-chip__remove):is(:focus-visible, [data-strata-preview~="focus"]) { outline: var(--strata-focus-width) solid var(--strata-colour-accent); outline-offset: 0; }
 
+  /* ---- Skeleton ---- */
+
+  /* Flat placeholders with a shimmer sweeping across; still under reduced motion. */
+  :where(.ug-skeleton) {
+    display: inline-block;
+    box-sizing: border-box;
+    vertical-align: middle;
+    background-color: var(--strata-colour-track);
+    background-image: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--strata-colour-panel) 60%, transparent) 50%, transparent 100%);
+    background-repeat: no-repeat;
+    background-size: 40% 100%;
+    animation: ug-skeleton-shimmer 1400ms linear infinite;
+  }
+  :where(.ug-skeleton--text) { display: block; width: 100%; height: 0.8em; margin: 0.35em 0; border-radius: var(--strata-radius-pill); }
+  :where(.ug-skeleton-text) { display: block; }
+  :where(.ug-skeleton-text) > :where(.ug-skeleton--text:last-child:not(:first-child)) { width: 60%; }
+  :where(.ug-skeleton--circle) {
+    width: calc(var(--strata-indicator) * 1.6);
+    height: calc(var(--strata-indicator) * 1.6);
+    border-radius: 50%;
+  }
+  :where(.ug-skeleton--rect) { display: block; width: 100%; height: 4em; border-radius: var(--strata-radius-control); }
+  @keyframes ug-skeleton-shimmer { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1088,6 +1112,7 @@
     :where(.ug-scrim) { transition: none; }
     :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+    :where(.ug-skeleton) { animation: none; background-image: none; }
     :where(.ug-progress:indeterminate) {
       animation: none;
       background-image: repeating-linear-gradient(45deg, var(--strata-colour-accent) 0 6px, transparent 6px 12px);
@@ -1125,6 +1150,7 @@
     :where(.ug-accordion__item) { border: 1px solid CanvasText; }
     :where(.ug-list) { border: 1px solid CanvasText; }
     :where(.ug-avatar) { border: 1px solid CanvasText; }
+    :where(.ug-skeleton) { forced-color-adjust: none; background: GrayText; }
     :where(.ug-chip) { border: 1px solid ButtonBorder; }
     :where(.ug-chip[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-breadcrumb__item + .ug-breadcrumb__item)::before { border-color: CanvasText; }

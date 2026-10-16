@@ -99,5 +99,6 @@ light and depth, reduced motion, keyboard input and reflow.
 | [Chip and Tag](chip.md) | `<span>`, or `<button aria-pressed>` | A small raised pill; a filter chip latches |
 | [Breadcrumb](breadcrumb.md) | `<nav>` around an `<ol>` of links | None (flat links) |
 | [List](list.md) | `<ul role="list">` of `<li>` rows | One raised slab; actionable rows are flat links or buttons |
+| [Skeleton](skeleton.md) | `<span aria-hidden>` placeholders | None (flat, shimmering) |
 | [Table](table.md) | `<table>` with `<caption>` and sortable headers | One raised slab; rows are flat |
 | [Tabs](tabs.md) | `<button role="tab">` in a `role="tablist"` | Flat tabs over a rail groove; the selected tab's indicator is a mark in it |
