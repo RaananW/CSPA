@@ -30,8 +30,8 @@ track.
 | --- | --- | --- | --- |
 | Track, off | `track` | — | `field` (`matte`) |
 | Track, on | `accent` | — | `trackOn` (`emissive`) |
-| Knob, off | `knob`, with an `edge` ring where it is under 3:1 against `track` | — | `knob` (`satin`) |
-| Knob, on | `on-accent` | — | `knob` (`satin`) |
+| Knob, off | `knob`, with a 1.5 px `edge` ring | — | `knob` (`satin`) |
+| Knob, on | `knob` (the same colour), with a 1.5 px `on-accent` ring | — | `knob` (`satin`) |
 | Track outline | `edge`, 1 px | — | None |
 | Label | None (sits on the panel) | `text` | None |
 

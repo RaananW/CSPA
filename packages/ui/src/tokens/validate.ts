@@ -74,7 +74,11 @@ export function validateTokens(source: TokenGroup): Issue[] {
     check("the edge on a field", contrast(edge, colour("field")), nonText);
     check("a knob on the track (or its edge ring)", Math.max(contrast(knob, track), contrast(edge, knob)), nonText);
     check("the accent fill on the track", contrast(accent, track), nonText);
-    check("a knob on the accent fill", contrast(onColour(accent), accent), nonText);
+    // A knob keeps its colour on the accent fill, ringed in on-accent where the knob itself is under 3:1.
+    check("a knob on the accent fill (or its on-accent ring)", Math.max(contrast(knob, accent), contrast(onColour(accent), accent)), nonText);
+    // Without relief (bevel gain 0), raised faces need an outline to keep their shape.
+    const gain = get("bevel.gain")?.meta.themes?.[theme], outline = get("outline.width")?.meta.themes?.[theme];
+    if (gain !== undefined && numeric(gain) === 0 && !(outline !== undefined && numeric(outline) >= 1)) report(`outline.width (${theme})`, "must be at least 1 px where the bevel gain is 0");
   }
 
   // The taper rule (section 6): the camera distance is derived so that drift never exceeds the taper (section 2),

@@ -130,14 +130,14 @@
     },
     "floating": {
       "$type": "dimension",
-      "$value": "10px",
+      "$value": "8px",
       "$description": "Panels, cards, toolbars.",
       "$extensions": {
         "dev.underglass.strata": {
           "anchors": [
-            6,
-            10,
-            16
+            5,
+            8,
+            12
           ],
           "scope": true
         }
@@ -247,14 +247,14 @@
   "shadow": {
     "strength": {
       "$type": "number",
-      "$value": 0.32,
+      "$value": 0.24,
       "$description": "Darkness of cast shadows.",
       "$extensions": {
         "dev.underglass.strata": {
           "anchors": [
-            0.18,
-            0.32,
-            0.42
+            0.14,
+            0.24,
+            0.32
           ],
           "scope": true,
           "min": 0,
@@ -1471,6 +1471,26 @@
           "min": 0,
           "max": 4,
           "scope": true
+        }
+      }
+    }
+  },
+  "outline": {
+    "width": {
+      "$type": "dimension",
+      "$value": "0px",
+      "$description": "Outline on raised faces (controls, cards, panels). 0 except in the high-contrast themes, where relief is off and the outline carries every shape.",
+      "$extensions": {
+        "dev.underglass.strata": {
+          "min": 0,
+          "max": 4,
+          "scope": true,
+          "themes": {
+            "light": "0px",
+            "dark": "0px",
+            "contrast": "2px",
+            "contrast-dark": "2px"
+          }
         }
       }
     }

@@ -103,3 +103,9 @@ test("derived role text colours reach 4.5:1 on every lit surface in every theme"
     }
   }
 });
+
+test("validation requires an outline wherever a theme turns the bevel off", () => {
+  const source = copy();
+  source.outline.width.$extensions[NS].themes["contrast-dark"] = "0px";
+  assert.ok(messages(source).includes("outline.width (contrast-dark): must be at least 1 px where the bevel gain is 0"), messages(source).join("; "));
+});

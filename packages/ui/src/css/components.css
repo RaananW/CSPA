@@ -26,8 +26,10 @@
     --_press-tone: calc(1 - min(var(--strata-state-press-sink), var(--strata-interior-max)));
   }
 
-  /* Raised: bevel lit from the light, a cast shadow from the height, and the material's finish. */
+  /* Raised: bevel lit from the light, a cast shadow from the height, and the material's finish. The outline is 0
+     except in the high-contrast themes, where it carries the shape. */
   :where([data-strata-face="raised"]) {
+    border: var(--strata-outline-width) solid var(--strata-colour-edge);
     box-shadow:
       inset calc(var(--_lx) * var(--_bevel) * 0.56) calc(var(--_ly) * var(--_bevel) * 0.56) calc(var(--_bevel) * 0.6) rgb(0 0 0 / calc(0.62 * var(--_gain))),
       inset calc(var(--_lx) * var(--_bevel) * -0.6) calc(var(--_ly) * var(--_bevel) * -0.6) calc(var(--_bevel) * 0.6) rgb(255 255 255 / min(1, var(--_gain))),
@@ -135,7 +137,7 @@
     min-height: max(var(--strata-control-height), var(--strata-target-min));
     margin: 0;
     padding: 0 var(--strata-space-5);
-    border: 0;
+    border: var(--strata-outline-width) solid var(--strata-colour-edge);
     border-radius: var(--strata-radius-control);
     background-color: var(--strata-colour-secondary);
     color: var(--_text);
@@ -169,9 +171,11 @@
   :where(.ug-toggle-button[aria-pressed="true"]) {
     --_lift: var(--strata-state-press-height);
     --_tone: var(--_press-tone);
-    /* The strip is a border, so it stays in face mode and contrast tools can read the face behind the label. */
+    /* Three cues, none of them colour alone: the key is held down, its face is tinted, and a strip runs along the
+       bottom. The strip is a border, so it stays in face mode and contrast tools can read the face. */
     padding-top: 3px;
     border-bottom: 3px solid var(--strata-colour-accent);
+    background-color: color-mix(in srgb, var(--strata-colour-accent) 16%, var(--strata-colour-secondary));
   }
   /* Keys on one plinth. */
   :where(.ug-button-group) {
@@ -268,7 +272,7 @@
     min-height: max(var(--strata-control-height), var(--strata-target-min));
     margin: 0;
     padding: 0 calc(var(--strata-space-5) + 12px) 0 var(--strata-space-4);
-    border: 0;
+    border: var(--strata-outline-width) solid var(--strata-colour-edge);
     border-radius: var(--strata-radius-control);
     appearance: none;
     background-color: var(--strata-colour-field);
@@ -401,18 +405,17 @@
     width: var(--_size);
     height: var(--_size);
     translate: 0 -50%;
-    border: 1px solid var(--strata-colour-edge);
+    /* The knob keeps its colour in both states; its ring (edge off, on-accent on) keeps it at 3:1 on the track. */
+    border: 1.5px solid var(--strata-colour-edge);
     border-radius: 50%;
     background: radial-gradient(circle at calc(50% + var(--strata-light-x) * 30%) calc(50% + var(--strata-light-y) * 30%),
       color-mix(in srgb, var(--strata-colour-knob), white 40%), var(--strata-colour-knob) 72%);
     box-shadow: calc(var(--strata-shadow-dx) * 3px) calc(var(--strata-shadow-dy) * 3px) 6.7px rgb(0 0 0 / var(--strata-shadow-strength));
-    transition: translate var(--strata-motion-normal) var(--strata-motion-easing-standard), background-color var(--strata-motion-normal) var(--strata-motion-easing-standard);
+    transition: translate var(--strata-motion-normal) var(--strata-motion-easing-standard), border-color var(--strata-motion-normal) var(--strata-motion-easing-standard);
   }
   :where(.ug-switch__input:checked + .ug-switch__knob) {
     translate: calc(44px - var(--strata-target-min)) -50%;
-    border-color: transparent;
-    background: radial-gradient(circle at calc(50% + var(--strata-light-x) * 30%) calc(50% + var(--strata-light-y) * 30%),
-      color-mix(in srgb, var(--strata-colour-on-accent), white 30%), var(--strata-colour-on-accent) 72%);
+    border-color: var(--strata-colour-on-accent);
   }
   :where(.ug-switch__input:disabled + .ug-switch__knob) { box-shadow: none; opacity: 0.38; }
   :where(.ug-switch--reverse) { flex-direction: row-reverse; justify-content: flex-end; }
