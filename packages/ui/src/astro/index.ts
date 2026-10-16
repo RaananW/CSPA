@@ -5,6 +5,8 @@
  * elements need (ToggleButton state, aria-disabled, checkbox indeterminate) come from `attachStrata`, which the
  * components load.
  */
+export { default as Accordion } from "./Accordion.astro";
+export { default as AccordionItem } from "./AccordionItem.astro";
 export { default as Badge } from "./Badge.astro";
 export { default as Button } from "./Button.astro";
 export { default as ButtonGroup } from "./ButtonGroup.astro";

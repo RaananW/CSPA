@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata accordion check</title>
+</head>
+<body>
+  <main id="page" class="ug-panel" data-strata-face="raised" style="margin: 24px; display: grid; gap: 24px; max-width: 640px">
+    <h1 style="margin: 0">Strata accordion check</h1>
+    <!-- The anatomy page markup (accordion.md): exclusive, through the shared name. No script. -->
+    <section aria-label="Exclusive">
+      <div class="ug-accordion">
+        <details class="ug-accordion__item" data-strata-face="raised" name="faq" open>
+          <summary class="ug-accordion__header">
+            <span class="ug-accordion__title">Shipping</span>
+            <span class="ug-accordion__chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="ug-accordion__body">
+            <p>Orders ship within two days.</p>
+          </div>
+        </details>
+        <details class="ug-accordion__item" data-strata-face="raised" name="faq">
+          <summary class="ug-accordion__header">
+            <span class="ug-accordion__title">Returns</span>
+            <span class="ug-accordion__chevron" aria-hidden="true"></span>
+          </summary>
+          <div class="ug-accordion__body">
+            <p>Return any item within 30 days.</p>
+          </div>
+        </details>
+      </div>
+    </section>
+    <!-- Without a name: sections open independently. -->
+    <section aria-label="Independent">
+      <div class="ug-accordion">
+        <details class="ug-accordion__item" data-strata-face="raised" id="first" open>
+          <summary class="ug-accordion__header"><span class="ug-accordion__title">First</span><span class="ug-accordion__chevron" aria-hidden="true"></span></summary>
+          <div class="ug-accordion__body"><p>One.</p></div>
+        </details>
+        <details class="ug-accordion__item" data-strata-face="raised" id="second">
+          <summary class="ug-accordion__header"><span class="ug-accordion__title">Second</span><span class="ug-accordion__chevron" aria-hidden="true"></span></summary>
+          <div class="ug-accordion__body"><p>Two.</p></div>
+        </details>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/src/ui-accordion/main.ts"></script>
+</body>
+</html>

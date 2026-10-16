@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
+import { Accordion, AccordionItem, Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -77,6 +77,12 @@ function Contracts() {
           <TabPanel value="billing"><p>Your plan and invoices.</p></TabPanel>
         </Tabs>
       </div>
+      <div data-contract="accordion.md">
+        <Accordion name="faq">
+          <AccordionItem title="Shipping" defaultOpen><p>Orders ship within two days.</p></AccordionItem>
+          <AccordionItem title="Returns"><p>Return any item within 30 days.</p></AccordionItem>
+        </Accordion>
+      </div>
       <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
   );
@@ -93,12 +99,13 @@ function App() {
   const [email, setEmail] = useState("");
   const [accent, setAccent] = useState<string | undefined>(undefined);
   const [tab, setTab] = useState("general");
+  const [faq, setFaq] = useState({ delivery: false, warranty: true });
   const [choices, setChoices] = useState({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
   const choose = <K extends keyof typeof choices>(key: K, value: (typeof choices)[K]) => setChoices(current => ({ ...current, [key]: value }));
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -195,6 +202,16 @@ function App() {
             <TabPanel value="one">First.</TabPanel>
             <TabPanel value="two">Second.</TabPanel>
           </Tabs>
+        </section>
+        <section className="ug-panel" data-strata-face="raised" aria-label="Accordions">
+          <Accordion exclusive id="live-accordion">
+            <AccordionItem id="delivery" title="Delivery" open={faq.delivery} onOpenChange={open => setFaq(current => ({ ...current, delivery: open }))}>Two days.</AccordionItem>
+            <AccordionItem id="warranty" title="Warranty" open={faq.warranty} onOpenChange={open => setFaq(current => ({ ...current, warranty: open }))}>Two years.</AccordionItem>
+          </Accordion>
+          <Accordion id="free-accordion">
+            <AccordionItem id="first" title="First" defaultOpen>One.</AccordionItem>
+            <AccordionItem id="second" title="Second">Two.</AccordionItem>
+          </Accordion>
         </section>
         <section className="ug-panel" data-strata-face="raised" aria-label="Overlays">
           <Button id="open-live" onClick={() => setLiveOpen(true)}>Open live dialog</Button>

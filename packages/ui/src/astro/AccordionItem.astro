@@ -1,0 +1,24 @@
+---
+/**
+ * AccordionItem (anatomy page `accordion.md`): a native `<details>` section, a raised slab with a `<summary>` header.
+ * The same `name` on several items makes them exclusive; `open` opens it.
+ */
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  title: string;
+  name?: string;
+  open?: boolean;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { title, name, open, size, material, level, class: className, ...rest } = Astro.props;
+---
+<details class={classes("ug-accordion__item", className)} data-strata-face="raised" name={name} open={open} {...strataAttributes({ size, material, level })} {...rest}>
+  <summary class="ug-accordion__header"><span class="ug-accordion__title">{title}</span><span class="ug-accordion__chevron" aria-hidden="true"></span></summary>
+  <div class="ug-accordion__body"><slot /></div>
+</details>

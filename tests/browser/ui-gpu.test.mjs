@@ -506,3 +506,39 @@ for (const level of ["relief", "objects"]) test(`Tabs on the GPU at the ${level}
   expect(await entryOf(indicator("settings"))).toBe("mark");
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`an Accordion on the GPU at the ${level} level: its sections are raised slabs that open with real clicks, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addAccordion(); await window.strataGpuProbe.controller.settle(); });
+  const kind = entry => entry && (entry.object ?? entry.face);
+  const slab = level === "objects" ? "slab" : "raised";
+  // Each section is a raised slab: a raised primitive at Relief, an object slab at Objects.
+  const closed = await primitiveOf(page, "#gpu-shipping");
+  expect(kind(closed)).toBe(slab);
+  expect(kind(await primitiveOf(page, "#gpu-returns"))).toBe(slab);
+  // A real click on the header, through the GPU-presented panel, opens it; the slab grows to hold the content.
+  const header = await page.locator("#gpu-shipping summary").boundingBox();
+  await page.mouse.click(header.x + header.width / 3, header.y + header.height / 2);
+  await expect(page.locator("#gpu-shipping")).toHaveAttribute("open", "");
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  const opened = await primitiveOf(page, "#gpu-shipping");
+  expect(kind(opened)).toBe(slab);
+  expect(opened.rect[3]).toBeGreaterThan(closed.rect[3] + 10);
+  // Exclusive: opening Returns closes Shipping, natively.
+  const returns = await page.locator("#gpu-returns summary").boundingBox();
+  await page.mouse.click(returns.x + returns.width / 3, returns.y + returns.height / 2);
+  await expect(page.locator("#gpu-returns")).toHaveAttribute("open", "");
+  await expect(page.locator("#gpu-shipping")).not.toHaveAttribute("open", "");
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  // Pixels are fresh: the open section's text is drawn where its body is.
+  const body = await page.evaluate(() => { const frame = document.getElementById("frame").getBoundingClientRect(), text = document.querySelector("#gpu-returns .ug-accordion__body p").getBoundingClientRect();
+    return [text.left - frame.left, text.top - frame.top, text.width, text.height]; });
+  const shot = await snap(page, `accordion-${level}`);
+  let darkest = 255;
+  for (let x = body[0]; x < body[0] + body[2]; x += 2) for (let y = body[1]; y < body[1] + body[3]; y += 2) darkest = Math.min(darkest, luma(shot(x, y)));
+  expect(darkest).toBeLessThan(120);
+  expect(errors).toEqual([]);
+});

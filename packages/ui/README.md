@@ -287,3 +287,23 @@ import { Tab, TabList, TabPanel, Tabs } from "@underglass/ui/react";
   panel, named by its value; it selects the first enabled tab by default.
 - **Plain HTML:** the markup on the [anatomy page](../../docs/ui-library/components/tabs.md), wired by `attachStrata`,
   which dispatches `strata-tab-change` with `{ tab, panel }`.
+
+## Accordion
+
+`Accordion` is a stack of native `<details>` sections, each a raised slab with a `<summary>` header and a chevron
+that turns. The browser gives the keyboard (Enter and Space), the expanded state and find-in-page, so plain HTML and
+Astro need no script. Sections that share a `name` are exclusive: opening one closes the others.
+
+```tsx
+import { Accordion, AccordionItem } from "@underglass/ui/react";
+
+<Accordion exclusive>
+  <AccordionItem title="Shipping" defaultOpen>Orders ship within two days.</AccordionItem>
+  <AccordionItem title="Returns" open={returns} onOpenChange={setReturns}>Return any item within 30 days.</AccordionItem>
+</Accordion>
+```
+
+- **Open state:** `defaultOpen`, or `open` with `onOpenChange` (`v-model:open` in Vue), from the native `toggle` event.
+- **Exclusive:** `exclusive` generates a shared `name`; or give your own `name`. In Astro, put the same `name` on each
+  `AccordionItem`.
+- [Anatomy](../../docs/ui-library/components/accordion.md).

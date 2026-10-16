@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
+  Accordion, AccordionItem, Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
   Spinner, StrataProvider, StrataScope, Switch, Tab, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/vue";
 
@@ -35,6 +35,12 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
     default: () => [h(Radio, { value: "free" }, { default: text("Free") }), h(Radio, { value: "pro" }, { default: text("Pro") })],
   })),
   contract("switch.md", h(Switch, { name: "wifi" }, { default: text("Wi-Fi") })),
+  contract("accordion.md", h(Accordion, { name: "faq" }, {
+    default: () => [
+      h(AccordionItem, { title: "Shipping", defaultOpen: true }, { default: () => h("p", null, "Orders ship within two days.") }),
+      h(AccordionItem, { title: "Returns" }, { default: () => h("p", null, "Return any item within 30 days.") }),
+    ],
+  })),
   contract("tabs.md", h(Tabs, { id: "account", defaultValue: "profile" }, {
     default: () => [
       h(TabList, { label: "Account" }, { default: () => [
@@ -76,6 +82,7 @@ const App = defineComponent({
     const liveRef = ref<{ panel: HTMLElement | null } | null>(null);
     const clicks = reactive({ save: 0, blocked: 0, disabled: 0, close: 0, submit: 0 });
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
+    const faq = reactive({ delivery: false, warranty: true });
     const choices = reactive({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
     const buttonRef = ref<{ $el: HTMLElement } | null>(null), inputRef = ref<{ input: HTMLInputElement } | null>(null), wrappedRef = ref<{ input: HTMLInputElement } | null>(null);
     const count = (key: keyof typeof clicks) => () => { clicks[key]++; };
@@ -90,6 +97,8 @@ const App = defineComponent({
         setAccent: (value: string | undefined) => { accent.value = value; },
         get tab() { return tab.value; },
         setTab: (value: string) => { tab.value = value; },
+        get faq() { return { ...toRaw(faq) }; },
+        setFaq: (value: { delivery: boolean; warranty: boolean }) => { Object.assign(faq, value); },
       },
     });
     return () => {
@@ -183,6 +192,20 @@ const App = defineComponent({
                   h(TabList, { label: "Manual" }, { default: () => [h(Tab, { value: "one" }, { default: text("One") }), h(Tab, { value: "two" }, { default: text("Two") })] }),
                   h(TabPanel, { value: "one" }, { default: text("First.") }),
                   h(TabPanel, { value: "two" }, { default: text("Second.") }),
+                ],
+              }),
+            ]),
+            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Accordions" }, [
+              h(Accordion, { exclusive: true, id: "live-accordion" }, {
+                default: () => [
+                  h(AccordionItem, { id: "delivery", title: "Delivery", open: faq.delivery, "onUpdate:open": (open: boolean) => { faq.delivery = open; } }, { default: text("Two days.") }),
+                  h(AccordionItem, { id: "warranty", title: "Warranty", open: faq.warranty, "onUpdate:open": (open: boolean) => { faq.warranty = open; } }, { default: text("Two years.") }),
+                ],
+              }),
+              h(Accordion, { id: "free-accordion" }, {
+                default: () => [
+                  h(AccordionItem, { id: "first", title: "First", defaultOpen: true }, { default: text("One.") }),
+                  h(AccordionItem, { id: "second", title: "Second" }, { default: text("Two.") }),
                 ],
               }),
             ]),
