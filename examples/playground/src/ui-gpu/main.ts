@@ -7,7 +7,7 @@
  * `?level=scene` adds the Scene level (`strataGpuProbe.burst()` bursts confetti from Save), and `?environment=url` lights
  * objects with an `.hdr` environment. `strataGpuProbe.openDrawer()` opens a Drawer on the end edge that closes on a click
  * outside it (`closeOnScrim`); the Dialog does not. `strataGpuProbe.addTabs()` adds plain-markup Tabs to the panel, wired by
- * `attachStrata`.
+ * `attachStrata`, and `strataGpuProbe.addAccordion()` a native `<details>` Accordion.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -85,6 +85,11 @@ const tabsMarkup = `<div class="ug-tabs" id="gpu-tabs" style="margin-top:12px">
   </div>
   ${["overview", "activity", "settings"].map((value, index) => `<div class="ug-tabs__panel" role="tabpanel" id="gpu-tabs-panel-${value}" aria-labelledby="gpu-tabs-tab-${value}" tabindex="0"${index ? " hidden" : ""}>The ${value} view.</div>`).join("")}
 </div>`;
+/** An exclusive Accordion in plain markup (`accordion.md`), added to the panel by `strataGpuProbe.addAccordion()`. */
+const accordionMarkup = `<div class="ug-accordion" id="gpu-accordion" style="margin-top:12px">
+  <details class="ug-accordion__item" data-strata-face="raised" name="gpu-faq" id="gpu-shipping"><summary class="ug-accordion__header"><span class="ug-accordion__title">Shipping</span><span class="ug-accordion__chevron" aria-hidden="true"></span></summary><div class="ug-accordion__body"><p>Orders ship within two days.</p></div></details>
+  <details class="ug-accordion__item" data-strata-face="raised" name="gpu-faq" id="gpu-returns"><summary class="ug-accordion__header"><span class="ug-accordion__title">Returns</span><span class="ug-accordion__chevron" aria-hidden="true"></span></summary><div class="ug-accordion__body"><p>Return any item within 30 days.</p></div></details>
+</div>`;
 let saves = 0;
 // Declared before mounting: the runtime may report status while it mounts.
 let strata: StrataGpu | undefined;
@@ -133,6 +138,7 @@ window.strataGpuProbe = {
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
+  addAccordion: () => { panel.insertAdjacentHTML("beforeend", accordionMarkup); strata?.refresh(); },
   addTabs: () => { panel.insertAdjacentHTML("beforeend", tabsMarkup); attachStrata(panel); strata?.refresh(); },
   leave: options => strataLeave(panel, options),
 };
@@ -143,6 +149,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void;
   } }
 }

@@ -6,7 +6,7 @@
  */
 import "@underglass/ui/css";
 import {
-  Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, IconButton, Link, Panel, ProgressBar, RadioGroup, Select, Slider, Spinner, Tabs,
+  Accordion, AccordionItem, Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, IconButton, Link, Panel, ProgressBar, RadioGroup, Select, Slider, Spinner, Tabs,
   StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/astro";
 
@@ -31,6 +31,7 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     <div data-contract="text-area.md"><TextArea id="notes" name="notes" rows={3} /></div>
     <div data-contract="checkbox.md"><Checkbox name="news">Send me the newsletter</Checkbox></div>
     <div data-contract="radio.md"><RadioGroup legend="Plan" name="plan" value="free" help="You can change it later." error="choose a plan." options={[{ value: "free", label: "Free" }, { value: "pro", label: "Pro" }]} /></div>
+    <div data-contract="accordion.md"><Accordion><AccordionItem title="Shipping" name="faq" open><p>Orders ship within two days.</p></AccordionItem><AccordionItem title="Returns" name="faq"><p>Return any item within 30 days.</p></AccordionItem></Accordion></div>
     <div data-contract="tabs.md"><Tabs id="account" label="Account" value="profile" tabs={[{ value: "profile", label: "Profile" }, { value: "security", label: "Security" }, { value: "billing", label: "Billing", disabled: true }]}><Fragment slot="profile"><p>Your name and photo.</p></Fragment><Fragment slot="security"><p>Your password and two-step sign-in.</p></Fragment><Fragment slot="billing"><p>Your plan and invoices.</p></Fragment></Tabs></div>
     <div data-contract="switch.md"><Switch name="wifi">Wi-Fi</Switch></div>
     <div data-contract="select.md"><Select id="size" name="size" value="" options={[{ value: "", label: "Choose a size", disabled: true }, { value: "s", label: "Small" }, { value: "m", label: "Medium" }]} /></div>

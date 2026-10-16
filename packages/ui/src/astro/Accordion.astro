@@ -1,0 +1,18 @@
+---
+/**
+ * Accordion (anatomy page `accordion.md`): a stack of AccordionItem sections. Astro has no component context, so an
+ * exclusive accordion gives the same `name` to each AccordionItem. Native `<details>`: no script.
+ */
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { size, material, level, class: className, ...rest } = Astro.props;
+---
+<div class={classes("ug-accordion", className)} {...strataAttributes({ size, material, level })} {...rest}><slot /></div>

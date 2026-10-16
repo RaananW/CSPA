@@ -94,4 +94,5 @@ light and depth, reduced motion, keyboard input and reflow.
 | --- | --- | --- |
 | [Dialog](dialog.md) | `<section role="dialog" aria-modal>` | Raised slab at `elevation.modal`, over a scrim |
 | [Drawer](drawer.md) | `<section role="dialog" aria-modal>` | Raised slab on a viewport edge |
+| [Accordion](accordion.md) | `<details>` with `<summary>` | A stack of raised slabs; the header's chevron turns |
 | [Tabs](tabs.md) | `<button role="tab">` in a `role="tablist"` | Flat tabs over a rail groove; the selected tab's indicator is a mark in it |

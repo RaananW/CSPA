@@ -6,6 +6,7 @@
  *   as canonical DOM (tags, attributes, class sets and text);
  * - real pointer and keyboard input on every control, with Field state, refs and attribute passthrough;
  * - roles, names and values of the surfaces and status components; Tabs follow their value and take the arrow keys;
+ *   Accordion sections report and follow their open state;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -344,5 +345,30 @@ for (const binding of bindings) test(`Strata ${binding} Tabs follow their value,
   await page.keyboard.press("Enter");
   await expect(manual.getByRole("tab", { name: "Two" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("tabpanel", { name: "Two" })).toHaveText("Second.");
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Accordion reports and follows its sections' open state`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const state = () => page.evaluate(() => ({ faq: window.strataBinding.faq, open: ["delivery", "warranty", "first", "second"].map(id => document.getElementById(id).open) }));
+  expect(await state()).toEqual({ faq: { delivery: false, warranty: true }, open: [false, true, true, false] });
+  // Exclusive: opening Delivery closes Warranty natively, and both changes are reported (v-model:open).
+  await page.locator("#delivery summary").click();
+  await expect.poll(state).toEqual({ faq: { delivery: true, warranty: false }, open: [true, false, true, false] });
+  // Controlled: setting the state from outside opens a section.
+  await page.evaluate(() => window.strataBinding.setFaq({ delivery: false, warranty: true }));
+  await expect.poll(state).toEqual({ faq: { delivery: false, warranty: true }, open: [false, true, true, false] });
+  // Uncontrolled, without a name: sections open independently, and stay as the user left them.
+  await page.locator("#second summary").click();
+  await page.locator("#first summary").click();
+  await expect.poll(state).toEqual({ faq: { delivery: false, warranty: true }, open: [false, true, false, true] });
+  // The exclusive accordion's sections share one generated name; the other has none.
+  const names = await page.evaluate(() => ["delivery", "warranty", "first"].map(id => document.getElementById(id).getAttribute("name")));
+  expect(names[0]).toMatch(/^accordion-/);
+  expect(names[1]).toBe(names[0]);
+  expect(names[2]).toBeNull();
   await context.close();
 });

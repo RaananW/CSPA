@@ -11,7 +11,7 @@ const examples = name => [...readFileSync(new URL(`../../docs/ui-library/compone
 /** Every markup example by contract name (`text-field.md#2` is a page's second example). */
 export function contracts() {
   const names = ["button.md", "icon-button.md", "toggle-button.md", "link.md", "field.md", "text-field.md", "text-area.md", "checkbox.md", "radio.md", "switch.md",
-    "select.md", "slider.md", "button-group.md", "divider.md", "badge.md", "spinner.md", "progress-bar.md", "card.md", "panel.md", "dialog.md", "drawer.md", "tabs.md"];
+    "select.md", "slider.md", "button-group.md", "divider.md", "badge.md", "spinner.md", "progress-bar.md", "card.md", "panel.md", "dialog.md", "drawer.md", "tabs.md", "accordion.md"];
   const map = Object.fromEntries(names.map(name => [name, examples(name)[0]]));
   map["text-field.md#2"] = examples("text-field.md")[1];
   // A Dialog and a Drawer are shown open (React, Vue) and closed with `hidden` (plain HTML, Astro): the second example.
@@ -59,14 +59,11 @@ export async function expectContracts(page, expect, { only, skip = [...open, ...
   for (const [name, html] of Object.entries(contracts())) {
     if (only ? !only.includes(name) : skip.includes(name)) continue;
     const [rendered, expected] = await page.evaluate(([n, h]) => {
-      // Parsed into a live container, so a select's value reflects its markup as it would on a page.
-      const host = document.createElement("div");
-      host.hidden = true;
+      // Parsed into a document of its own, where a select's value reflects its markup as it would on a page, and the
+      // example's `<details name>` group does not meet the page's (which would close its open section natively).
+      const host = document.implementation.createHTMLDocument("").body;
       host.innerHTML = h;
-      document.body.append(host);
-      const expected = window.canonical(host);
-      host.remove();
-      return [window.canonical(document.querySelector(`[data-contract="${n}"]`)), expected];
+      return [window.canonical(document.querySelector(`[data-contract="${n}"]`)), window.canonical(host)];
     }, [name, html]);
     expect(rendered, `${name} matches its markup contract`).toEqual(expected);
   }
