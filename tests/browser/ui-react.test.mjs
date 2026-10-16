@@ -23,7 +23,8 @@ const canonical = () => {
     const walk = node => {
       if (node.nodeType === Node.TEXT_NODE) { const text = node.textContent.replace(/\s+/g, " ").trim(); return text || null; }
       if (node.nodeType !== Node.ELEMENT_NODE) return null;
-      const attrs = [...node.attributes].map(({ name, value }) => `${name}=${name === "class" ? value.split(/\s+/).filter(Boolean).sort().join(" ") : value}`).sort();
+      // React sets an option's selection as a property, not the `selected` attribute; selects compare their value.
+      const attrs = [...node.attributes].filter(({ name }) => name !== "selected").map(({ name, value }) => `${name}=${name === "class" ? value.split(/\s+/).filter(Boolean).sort().join(" ") : value}`).sort();
       const children = [];
       let text = "";
       for (const child of node.childNodes) {
@@ -34,7 +35,7 @@ const canonical = () => {
         children.push(value);
       }
       if (text) children.push(text);
-      return { tag: node.localName, attrs, children };
+      return { tag: node.localName, attrs, children, ...(node.localName === "select" ? { value: node.value } : {}) };
     };
     return [...root.childNodes].map(walk).filter(Boolean);
   };
@@ -49,12 +50,19 @@ test("Strata React components render their anatomy markup and behave natively", 
   const state = () => page.evaluate(() => ({ clicks: window.strataReact.clicks, italic: window.strataReact.italic, email: window.strataReact.email }));
 
   // Markup contracts.
-  const contracts = { "button.md": snippets("button.md")[0], "icon-button.md": snippets("icon-button.md")[0], "toggle-button.md": snippets("toggle-button.md")[0], "link.md": snippets("link.md")[0], "field.md": snippets("field.md")[0], "text-field.md": snippets("text-field.md")[0], "text-field.md#2": snippets("text-field.md")[1] };
+  const contracts = { "button.md": snippets("button.md")[0], "icon-button.md": snippets("icon-button.md")[0], "toggle-button.md": snippets("toggle-button.md")[0], "link.md": snippets("link.md")[0], "field.md": snippets("field.md")[0], "text-field.md": snippets("text-field.md")[0], "text-field.md#2": snippets("text-field.md")[1],
+    "text-area.md": snippets("text-area.md")[0], "checkbox.md": snippets("checkbox.md")[0], "radio.md": snippets("radio.md")[0], "switch.md": snippets("switch.md")[0], "select.md": snippets("select.md")[0], "slider.md": snippets("slider.md")[0] };
   for (const [name, html] of Object.entries(contracts)) {
     const [rendered, expected] = await page.evaluate(([n, h]) => {
       const template = document.createElement("template");
-      template.innerHTML = h;
-      return [window.canonical(document.querySelector(`[data-contract="${n}"]`)), window.canonical(template.content)];
+      // Parsed into a live container, so a select's value reflects its markup as it would on a page.
+      const host = document.createElement("div");
+      host.hidden = true;
+      host.innerHTML = h;
+      document.body.append(host);
+      const expected = window.canonical(host);
+      host.remove();
+      return [window.canonical(document.querySelector(`[data-contract="${n}"]`)), expected];
     }, [name, html]);
     expect(rendered, `${name} matches its markup contract`).toEqual(expected);
   }
@@ -117,12 +125,12 @@ test("Strata React components render their anatomy markup and behave natively", 
   await expect(email).toHaveAccessibleDescription("We only use it for receipts. Error: enter an address like name@example.com.");
   await page.keyboard.type("@example.com");
   await expect(email).not.toHaveAttribute("aria-invalid");
-  await expect(page.locator("main .ug-field__error")).toHaveCount(0);
+  await expect(page.locator("#email-field .ug-field__error")).toHaveCount(0);
   expect((await state()).email).toBe("ada@example.com");
   expect(await page.evaluate(() => window.strataReact.refs.input === document.activeElement)).toBe(true);
   // A Field with no help has no description; ids are unique across Fields.
   await expect(page.getByRole("textbox", { name: "Name" })).not.toHaveAttribute("aria-describedby");
-  const ids = await page.locator("main input").evaluateAll(inputs => inputs.map(input => input.id));
+  const ids = await page.locator("main input").evaluateAll(inputs => inputs.map(input => input.id).filter(Boolean));
   expect(new Set(ids).size).toBe(ids.length);
   // The wrapped TextField: the wrapper is the well, the ref is the input, and typing works.
   const search = page.getByRole("searchbox", { name: "Search" });
@@ -151,8 +159,101 @@ test("Strata React components render their anatomy markup and behave natively", 
     await page.evaluate(() => { document.documentElement.dataset.strataMode = "face"; });
     const face = await new AxeBuilder({ page }).include("main").withTags(tags).analyze();
     expect(face.violations.map(v => v.id), `axe, ${theme}, face mode`).toEqual([]);
-    expect(face.incomplete.filter(result => result.id === "color-contrast").flatMap(result => result.nodes.map(node => node.target.join(" "))), `undecided contrast, ${theme}`).toEqual([]);
+    // Selects draw their chevron with background gradients; their label contrast is checked on pixels in ui-specimen.
+    const undecided = face.incomplete.filter(result => result.id === "color-contrast").flatMap(result => result.nodes.filter(node => !node.html.includes("ug-select")).map(node => node.target.join(" ")));
+    expect(undecided, `undecided contrast, ${theme}`).toEqual([]);
     await page.evaluate(() => { delete document.documentElement.dataset.strataMode; });
   }
+  await context.close();
+});
+
+test("Strata React choice controls keep native keyboard and form behaviour", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto("/ui-react.html");
+  await page.waitForFunction(() => window.strataReact);
+  const choices = () => page.evaluate(() => window.strataReact.choices);
+  const main = page.locator("main");
+
+  // Checkbox inside a Field with no label: help and error describe it; the row and Space toggle it.
+  const terms = main.getByRole("checkbox", { name: "I accept the terms" });
+  await expect(terms).toHaveAttribute("aria-invalid", "true");
+  await expect(terms).toHaveAccessibleDescription("Required to continue. Error: accept the terms.");
+  await main.getByText("I accept the terms").click();
+  await expect(terms).toBeChecked();
+  await expect(terms).not.toHaveAttribute("aria-invalid");
+  await expect(terms).toHaveAccessibleDescription("Required to continue.");
+  await terms.focus();
+  await page.keyboard.press("Space");
+  await expect(terms).not.toBeChecked();
+  // Indeterminate is a property; a click clears it and checks the box, as native.
+  const mixed = page.locator("#mixed");
+  expect(await mixed.evaluate(input => input.indeterminate)).toBe(true);
+  await mixed.click();
+  expect(await mixed.evaluate(input => [input.indeterminate, input.checked])).toEqual([false, true]);
+  expect((await choices()).mixed).toBe(false);
+
+  // Switch: role switch, Space toggles, Enter does not; disabled is native; reverse keeps the DOM order.
+  const wifi = main.getByRole("switch", { name: "Wi-Fi" });
+  await wifi.focus();
+  await page.keyboard.press("Space");
+  await expect(wifi).not.toBeChecked();
+  await page.keyboard.press("Enter");
+  await expect(wifi).not.toBeChecked();
+  expect((await choices()).wifi).toBe(false);
+  await expect(main.getByRole("switch", { name: "Airplane mode" })).toBeDisabled();
+  expect(await page.locator("#airplane").evaluate(input => [input.parentElement.className, input.parentElement.firstElementChild === input])).toEqual(["ug-switch ug-switch--reverse", true]);
+
+  // RadioGroup: named by its legend, described by help and error, every radio invalid and required until a choice.
+  const group = main.getByRole("group", { name: "Plan" });
+  await expect(group).toHaveAccessibleDescription("You can change it later. Error: choose a plan.");
+  const free = group.getByRole("radio", { name: "Free" }), pro = group.getByRole("radio", { name: "Pro" }), enterprise = group.getByRole("radio", { name: "Enterprise" });
+  await expect(free).toHaveAttribute("aria-invalid", "true");
+  await expect(free).toHaveAttribute("required", "");
+  // Tab lands on the first radio when none is selected; arrows select, skip the disabled one and wrap.
+  await page.locator("#airplane").evaluate(() => document.querySelector("#mixed").focus());
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Tab");
+  await expect(free).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(free).toBeChecked();
+  await page.keyboard.press("ArrowDown");
+  await expect(pro).toBeChecked();
+  await page.keyboard.press("ArrowDown");
+  await expect(enterprise).toBeChecked();
+  await page.keyboard.press("ArrowDown");
+  await expect(free).toBeChecked();
+  expect((await choices()).plan).toBe("free");
+  await expect(free).not.toHaveAttribute("aria-invalid");
+  await expect(group).toHaveAccessibleDescription("You can change it later.");
+
+  // Select: the keyboard changes the value natively.
+  const size = main.getByRole("combobox", { name: "Size" });
+  await size.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(size).toHaveValue("l");
+  expect((await choices()).size).toBe("l");
+
+  // Slider: arrows step by 5, Home and End go to the ends; named and described by its Field.
+  const volume = main.getByRole("slider", { name: "Volume" });
+  await expect(volume).toHaveAccessibleDescription("0 to 100.");
+  await volume.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(volume).toHaveValue("45");
+  await page.keyboard.press("End");
+  await expect(volume).toHaveValue("100");
+  await page.keyboard.press("Home");
+  expect((await choices()).volume).toBe(0);
+
+  // TextArea: Enter is a new line, Tab leaves the field.
+  const notes = main.getByRole("textbox", { name: "Notes" });
+  await notes.click();
+  await page.keyboard.type("one");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("two");
+  expect((await choices()).notes).toBe("one\ntwo");
+  await expect(notes).toHaveCSS("resize", "none");
+  await page.keyboard.press("Tab");
+  await expect(notes).not.toBeFocused();
   await context.close();
 });

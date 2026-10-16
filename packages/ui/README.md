@@ -98,7 +98,8 @@ import { Button, Field, StrataProvider, StrataScope, TextField } from "@undergla
 </StrataProvider>
 ```
 
-The first Tier A batch: `Button`, `IconButton`, `ToggleButton`, `Link`, `Field` and `TextField`. Each renders exactly
+Components so far: `Button`, `IconButton`, `ToggleButton`, `Link`, `Field`, `TextField`, `TextArea`, `Checkbox`,
+`Switch`, `RadioGroup` with `Radio`, `Select` and `Slider`. Each renders exactly
 the markup on its [anatomy page](../../docs/ui-library/components/README.md), forwards a ref to its native element,
 and passes `className`, `style` and native attributes through. `size`, `material` and `level` become the Strata
 attributes. React 18.3 and 19 are optional peers.

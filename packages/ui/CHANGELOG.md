@@ -17,5 +17,5 @@ starting point.
 - The theme runtime: `createStrataTheme`, `loadStrataTheme` and `StrataThemeError` in `/tokens`;
   `applyStrataTheme` (runtime updates) and `strataScope` (subtree overrides, validated) in `@underglass/ui/dom`.
 - React bindings (`@underglass/ui/react`): `Button`, `IconButton`, `ToggleButton`, `Link`, `Field`, `TextField`,
-  `StrataProvider` and `StrataScope`.
+  `StrataProvider` and `StrataScope`; then `TextArea`, `Checkbox`, `Switch`, `RadioGroup`, `Radio`, `Select` and `Slider`.
 - Panel motion through depth: `strataEnter` and `strataLeave` (inert while moving, instant under reduced motion).

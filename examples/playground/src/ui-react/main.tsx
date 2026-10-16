@@ -1,5 +1,5 @@
 /**
- * Strata React check page (`ui-react.html`): the first Tier A batch from `@underglass/ui/react`, in plain React
+ * Strata React check page (`ui-react.html`): the Tier A components from `@underglass/ui/react`, in plain React
  * with no Underglass. `#contracts` renders each component exactly as its anatomy page's markup example, so the browser
  * test can compare them; the panels below are live controls the test drives with real input through
  * `window.strataReact`.
@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Button, Field, IconButton, Link, StrataProvider, StrataScope, TextField, ToggleButton } from "@underglass/ui/react";
+import { Button, Checkbox, Field, IconButton, Link, Radio, RadioGroup, Select, Slider, StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -26,6 +26,23 @@ function Contracts() {
       </div>
       <div data-contract="text-field.md"><TextField type="email" id="email" name="email" autoComplete="email" /></div>
       <div data-contract="text-field.md#2"><TextField icon={null} type="search" id="q" /></div>
+      <div data-contract="text-area.md"><TextArea id="notes" name="notes" rows={3} /></div>
+      <div data-contract="checkbox.md"><Checkbox name="news">Send me the newsletter</Checkbox></div>
+      <div data-contract="radio.md">
+        <RadioGroup legend="Plan" name="plan" defaultValue="free" help="You can change it later." error="choose a plan.">
+          <Radio value="free">Free</Radio>
+          <Radio value="pro">Pro</Radio>
+        </RadioGroup>
+      </div>
+      <div data-contract="switch.md"><Switch name="wifi">Wi-Fi</Switch></div>
+      <div data-contract="select.md">
+        <Select id="size" name="size" defaultValue="">
+          <option value="" disabled>Choose a size</option>
+          <option value="s">Small</option>
+          <option value="m">Medium</option>
+        </Select>
+      </div>
+      <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
   );
 }
@@ -35,10 +52,12 @@ function App() {
   const [italic, setItalic] = useState(true);
   const [email, setEmail] = useState("");
   const [accent, setAccent] = useState<string | undefined>(undefined);
+  const [choices, setChoices] = useState({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
+  const choose = <K extends keyof typeof choices>(key: K, value: (typeof choices)[K]) => setChoices(current => ({ ...current, [key]: value }));
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataReact: { clicks, italic, email, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent } });
+  Object.assign(window, { strataReact: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -68,6 +87,31 @@ function App() {
           </Field>
           <Field label="Locked" disabled>
             <TextField defaultValue="Read only" />
+          </Field>
+        </section>
+        <section className="ug-panel" data-strata-face="raised" aria-label="Choices">
+          <Field help="Required to continue." error={choices.terms ? undefined : "accept the terms."}>
+            <Checkbox id="terms" checked={choices.terms} onChange={event => choose("terms", event.target.checked)}>I accept the terms</Checkbox>
+          </Field>
+          <Checkbox id="mixed" indeterminate={choices.mixed} onChange={() => choose("mixed", false)}>Select all</Checkbox>
+          <Switch id="wifi" checked={choices.wifi} onChange={event => choose("wifi", event.target.checked)}>Wi-Fi</Switch>
+          <Switch id="airplane" disabled reverse>Airplane mode</Switch>
+          <RadioGroup legend="Plan" value={choices.plan} onChange={value => choose("plan", value)} help="You can change it later." error={choices.plan ? undefined : "choose a plan."} required>
+            <Radio value="free">Free</Radio>
+            <Radio value="pro">Pro</Radio>
+            <Radio value="team" disabled>Team</Radio>
+            <Radio value="enterprise">Enterprise</Radio>
+          </RadioGroup>
+          <Field label="Size">
+            <Select value={choices.size} onChange={event => choose("size", event.target.value)}>
+              <option value="s">Small</option><option value="m">Medium</option><option value="l">Large</option>
+            </Select>
+          </Field>
+          <Field label="Volume" help="0 to 100.">
+            <Slider min={0} max={100} step={5} value={choices.volume} onChange={event => choose("volume", Number(event.target.value))} />
+          </Field>
+          <Field label="Notes">
+            <TextArea value={choices.notes} onChange={event => choose("notes", event.target.value)} resize="none" />
           </Field>
         </section>
         <StrataScope depth={0.1} density="compact" size="small" id="scope" aria-label="Compact scope" role="region">
