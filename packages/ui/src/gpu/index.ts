@@ -257,8 +257,9 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
     const isControl = control.matches(interactive);
     return {
       hover: (isControl && target.matches(":hover")) || preview.includes("hover"),
-      // A toggle that is on holds its key down (design language section 6: it latches at its travel).
-      pressed: (isControl && control.matches(":active, [aria-pressed='true']")) || preview.includes("active"),
+      // A toggle that is on, or the current page of a Pagination, holds its key down (design language section 6: it
+      // latches at its travel).
+      pressed: (isControl && control.matches(":active, [aria-pressed='true'], [aria-current]:not([aria-current='false'])")) || preview.includes("active"),
       focus: control.matches(":focus-visible") || preview.includes("focus"),
       disabled: control.matches(":disabled, [aria-disabled='true']"),
     };
@@ -306,8 +307,9 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
         continue;
       }
       if (face === "raised") {
-        // Controls are keys that travel on press; cards, plinths and other raised faces are slabs others stand on.
-        if (element.matches("button, select, [role='button']")) {
+        // Controls (raised links included) are keys that travel on press; cards, plinths and other raised faces are
+        // slabs others stand on.
+        if (element.matches("button, select, [role='button'], a")) {
           entries.push({ object: "key", rect, radius, height: keyHeight, base, taper, travel: keyTravel, material: materialFor(element, face),
             finish: element.matches("button, [role='button'], .ug-button") && element.getAttribute("data-strata-finish") !== "off", state });
         } else {
@@ -754,7 +756,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   for (const type of events) root.addEventListener(type, schedule, true);
   const mutation = new MutationObserver(schedule);
   mutation.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "disabled", "checked", "aria-checked",
-    "aria-disabled", "aria-pressed", "aria-selected", "data-strata-closing", "data-strata-face", "data-strata-material", "data-strata-elevation", "data-strata-level", "data-strata-depth", "data-strata-theme", "data-strata-scope", "data-strata-preview", "hidden", "open"] });
+    "aria-current", "aria-disabled", "aria-pressed", "aria-selected", "data-strata-closing", "data-strata-face", "data-strata-material", "data-strata-elevation", "data-strata-level", "data-strata-depth", "data-strata-theme", "data-strata-scope", "data-strata-preview", "hidden", "open"] });
   resize.observe(root);
   const poll = setInterval(schedule, options.poll ?? 500);
   forced.addEventListener("change", schedule);

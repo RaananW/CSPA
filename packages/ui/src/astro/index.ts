@@ -24,6 +24,7 @@ export { default as Link } from "./Link.astro";
 export { default as List } from "./List.astro";
 export { default as ListItem } from "./ListItem.astro";
 export { default as MessageBar } from "./MessageBar.astro";
+export { default as Pagination } from "./Pagination.astro";
 export { default as Panel } from "./Panel.astro";
 export { default as ProgressBar } from "./ProgressBar.astro";
 export { default as RadioGroup } from "./RadioGroup.astro";

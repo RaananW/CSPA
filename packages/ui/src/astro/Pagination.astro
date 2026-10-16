@@ -1,0 +1,34 @@
+---
+/**
+ * Pagination (anatomy page `pagination.md`): a `<nav>` landmark around a row of page links. `href` is a template with
+ * `{page}`; the current page is `aria-current="page"` and its key is held down.
+ */
+import { pageItems } from "../shared/pagination.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  page: number;
+  count: number;
+  /** The address of a page, with `{page}` for its number: "/items?page={page}". */
+  href: string;
+  siblings?: number;
+  label?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { page, count, href, siblings = 1, label = "Pagination", size, material, level, class: className, ...rest } = Astro.props;
+const address = (target: number) => href.replaceAll("{page}", String(target));
+---
+<nav class={classes("ug-pagination", className)} aria-label={label} {...strataAttributes({ size, material, level })} {...rest}>
+  <ul class="ug-pagination__list">
+    <li class="ug-pagination__item"><a class="ug-pagination__link ug-pagination__link--previous" data-strata-face="raised" href={page > 1 ? address(page - 1) : undefined} aria-label="Previous page" aria-disabled={page > 1 ? undefined : "true"}></a></li>
+    {pageItems(page, count, siblings).map(item => item === "ellipsis"
+      ? <li class="ug-pagination__item" aria-hidden="true"><span class="ug-pagination__ellipsis">…</span></li>
+      : <li class="ug-pagination__item"><a class="ug-pagination__link" data-strata-face="raised" href={address(item)} aria-label={`Page ${item}`} aria-current={item === page ? "page" : undefined}>{item}</a></li>)}
+    <li class="ug-pagination__item"><a class="ug-pagination__link ug-pagination__link--next" data-strata-face="raised" href={page < count ? address(page + 1) : undefined} aria-label="Next page" aria-disabled={page < count ? undefined : "true"}></a></li>
+  </ul>
+</nav>

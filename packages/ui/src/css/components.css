@@ -997,6 +997,56 @@
   :where(.ug-message-bar__dismiss):is(:hover, [data-strata-preview~="hover"]) { background-color: color-mix(in srgb, var(--strata-colour-text) 10%, transparent); }
   :where(.ug-message-bar__dismiss):is(:focus-visible, [data-strata-preview~="focus"]) { outline: var(--strata-focus-width) solid var(--strata-colour-accent); outline-offset: 0; }
 
+  /* ---- Pagination ---- */
+
+  /* A row of small keys; the current page is held down and filled. */
+  :where(.ug-pagination__list) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--strata-space-1); margin: 0; padding: 0; list-style: none; }
+  :where(.ug-pagination__item) { display: inline-flex; }
+  :where(.ug-pagination__link) {
+    --_finish: var(--strata-finish-role-control);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
+    min-height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
+    margin: 0;
+    padding: 0 var(--strata-space-2);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-control-font);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :where(.ug-pagination__link):is(:hover, [data-strata-preview~="hover"]):not(:disabled, [aria-disabled="true"], [aria-current="page"]) { --_lift: var(--strata-state-hover-height); --_tone: var(--_hover-tone); }
+  :where(.ug-pagination__link):is(:active, [data-strata-preview~="active"]):not(:disabled, [aria-disabled="true"]) { --_lift: var(--strata-state-press-height); --_tone: var(--_press-tone); }
+  :where(.ug-pagination__link):is(:focus-visible, [data-strata-preview~="focus"]) { outline: var(--strata-focus-width) solid var(--strata-colour-accent); outline-offset: var(--strata-focus-offset); }
+  :where(.ug-pagination__link[aria-current="page"]) {
+    --_finish: var(--strata-finish-role-button-primary);
+    --_lift: var(--strata-state-press-height);
+    --_tone: var(--_press-tone);
+    background-color: var(--strata-colour-accent);
+    color: var(--strata-colour-on-accent);
+    font-weight: var(--strata-font-weight-strong);
+  }
+  :where(.ug-pagination__link):is(:disabled, [aria-disabled="true"]) { color: color-mix(in srgb, var(--strata-colour-text) 38%, transparent); cursor: not-allowed; }
+  :where(.ug-pagination__link--previous, .ug-pagination__link--next)::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+  }
+  :where(.ug-pagination__link--previous)::before { rotate: -135deg; translate: 1px 0; }
+  :where(.ug-pagination__link--next)::before { rotate: 45deg; translate: -1px 0; }
+  :where(.ug-pagination__link--previous, .ug-pagination__link--next):dir(rtl)::before { scale: -1 1; }
+  :where(.ug-pagination__ellipsis) { display: inline-flex; align-items: center; min-width: var(--strata-target-min); justify-content: center; color: var(--strata-colour-muted); }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1213,6 +1263,8 @@
     :where(.ug-accordion__item) { border: 1px solid CanvasText; }
     :where(.ug-list) { border: 1px solid CanvasText; }
     :where(.ug-avatar) { border: 1px solid CanvasText; }
+    :where(.ug-pagination__link) { border: 1px solid ButtonBorder; }
+    :where(.ug-pagination__link[aria-current="page"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-message-bar) { border: 1px solid CanvasText; border-inline-start: 4px solid CanvasText; }
     :where(.ug-message-bar__icon) { forced-color-adjust: none; background-color: CanvasText; }
     :where(.ug-skeleton) { forced-color-adjust: none; background: GrayText; }

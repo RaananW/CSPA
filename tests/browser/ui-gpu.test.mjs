@@ -658,3 +658,28 @@ for (const level of ["relief", "objects"]) test(`a MessageBar on the GPU at the 
   expect(await page.evaluate(() => window.strataGpuProbe.upgrades())).toBe(1);
   expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
 });
+
+for (const level of ["relief", "objects"]) test(`Pagination on the GPU at the ${level} level: page keys, the current one held down, moved by a real click, GPU on`, async ({ page }) => {
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addPagination(); await window.strataGpuProbe.controller.settle(); });
+  const keys = () => Promise.all([1, 2, 3].map(async number => { const entry = await primitiveOf(page, `#gpu-page-${number}`); return `${entry.object ?? entry.face}:${entry.state.pressed}`; }));
+  const key = level === "objects" ? "key" : "raised";
+  expect(await keys()).toEqual([`${key}:false`, `${key}:true`, `${key}:false`]);
+  const third = await page.locator("#gpu-page-3").boundingBox();
+  await page.mouse.click(third.x + third.width / 2, third.y + third.height / 2);
+  await page.mouse.move(5, 5);
+  await expect(page.locator("#gpu-page-3")).toHaveAttribute("aria-current", "page");
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await keys()).toEqual([`${key}:false`, `${key}:false`, `${key}:true`]);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+});
+
+test("a raised link is a key at the Objects level", async ({ page }) => {
+  await ready(page, "?level=objects");
+  await page.evaluate(async () => {
+    window.strataGpuProbe.panel().insertAdjacentHTML("beforeend", '<p><a class="ug-pagination__link" data-strata-face="raised" href="#next" id="gpu-raised-link" aria-label="Page 2">2</a></p>');
+    window.strataGpuProbe.refresh();
+    await window.strataGpuProbe.controller.settle();
+  });
+  expect((await primitiveOf(page, "#gpu-raised-link")).object).toBe("key");
+});

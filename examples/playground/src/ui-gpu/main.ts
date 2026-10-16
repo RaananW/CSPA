@@ -9,7 +9,8 @@
  * outside it (`closeOnScrim`); the Dialog does not. `strataGpuProbe.addTabs()` adds plain-markup Tabs to the panel, wired by
  * `attachStrata`, `strataGpuProbe.addAccordion()` a native `<details>` Accordion, `strataGpuProbe.addList()` a List, and
  * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts, `strataGpuProbe.addAvatar()` an Avatar, and
- * `strataGpuProbe.addChips()` a tag and a filter chip, and `strataGpuProbe.addMessage()` a MessageBar with an action.
+ * `strataGpuProbe.addChips()` a tag and a filter chip, `strataGpuProbe.addMessage()` a MessageBar with an action, and
+ * `strataGpuProbe.addPagination()` three page keys.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -109,6 +110,8 @@ function sortTable() {
   body.append(...rows);
 }
 let archived = 0;
+/** Pagination in plain markup (`pagination.md`), page 2 of 3, added by `strataGpuProbe.addPagination()`; its buttons move the page. */
+const paginationMarkup = `<nav class="ug-pagination" aria-label="Pagination" id="gpu-pagination" style="margin-top:12px"><ul class="ug-pagination__list">${[1, 2, 3].map(page => `<li class="ug-pagination__item"><button class="ug-pagination__link" data-strata-face="raised" type="button" aria-label="Page ${page}" id="gpu-page-${page}"${page === 2 ? ' aria-current="page"' : ""}>${page}</button></li>`).join("")}</ul></nav>`;
 /** A MessageBar in plain markup (`message-bar.md`), added by `strataGpuProbe.addMessage()`; its action counts presses. */
 const messageMarkup = `<div class="ug-message-bar ug-message-bar--warning" data-strata-face="raised" role="alert" id="gpu-message" style="margin-top:12px"><span class="ug-message-bar__icon" aria-hidden="true"></span><div class="ug-message-bar__content"><p class="ug-message-bar__body">Storage almost full.</p></div><div class="ug-message-bar__actions"><button class="ug-button" data-strata-face="raised" type="button" id="gpu-message-action"><span class="ug-button__label">Upgrade</span></button></div></div>`;
 let upgrades = 0;
@@ -164,6 +167,14 @@ window.strataGpuProbe = {
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
+  addPagination: () => {
+    panel.insertAdjacentHTML("beforeend", paginationMarkup);
+    for (const key of panel.querySelectorAll<HTMLElement>("#gpu-pagination button")) key.addEventListener("click", () => {
+      for (const other of panel.querySelectorAll("#gpu-pagination button")) other.removeAttribute("aria-current");
+      key.setAttribute("aria-current", "page");
+    });
+    strata?.refresh();
+  },
   addMessage: () => { panel.insertAdjacentHTML("beforeend", messageMarkup); panel.querySelector("#gpu-message-action")!.addEventListener("click", () => { upgrades++; }); strata?.refresh(); },
   upgrades: () => upgrades,
   addChips: () => { panel.insertAdjacentHTML("beforeend", chipsMarkup); attachStrata(panel); strata?.refresh(); },
@@ -182,6 +193,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void;
   } }
 }
