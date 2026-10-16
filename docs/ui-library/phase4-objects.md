@@ -15,6 +15,18 @@ alternative.
   - **Solids are screen-space exact.** With screen-locked base outlines and caps, a solid's sides always project into
     the band between its cap and its base, so solids never draw outside their control. The taper rule then keeps
     their sides facing the viewer; only domes need the bounds check.
+- **4b and 4c, done together:** core's `objects` material (`setMaterial(id, { kind: "objects", scene })`) with every
+  kind. Its decoded GPU pixels pass `objects-2.json` (52 of 53 samples exact, 1 within 1/255; headful too). Two
+  implementation choices differ from the design text above:
+  - **Decision 2, evaluated in the layer's pass.** The model defines objects analytically, so core evaluates them in
+    the relief pass of their own layer, after the layer's face, instead of in a separate Lite scene pass with a depth
+    buffer. The result is what decision 2 asks for (objects stay with their layer in the painter's order, and objects
+    of one layer occlude each other by the back-to-front list), with no extra pass, texture or depth buffer, and it
+    matches the reference exactly. Solids needed no meshes at all once they were defined in screen space; domes are
+    ray-cast. Lite meshes stay available for the Scene level.
+  - **Decision 4, studio only for now.** The environment is the studio, defined in code. Environment maps (`.hdr`)
+    are reserved in version 2 of the format and move to the Scene level (Phase 5), with environment light.
+  - **Budget:** objects share the 256-entry list and the relief binding (about 25 KB).
 
 **Upstream check:**
 

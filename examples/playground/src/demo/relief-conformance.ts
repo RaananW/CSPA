@@ -1,7 +1,7 @@
 /**
  * Entry for `relief-conformance.html`: renders one case of the Strata Rendering Model's conformance suite with core's
- * built-in `relief` material, so `tests/browser/relief.test.mjs` can compare decoded GPU pixels with the suite's
- * expectations. The case's capture (rounded rectangles in order) is painted as plain DOM in a layer at `ORIGIN`;
+ * built-in `relief` material (or, for version 2 cases, its `objects` material), so `tests/browser/relief.test.mjs`
+ * and `tests/browser/objects.test.mjs` can compare decoded GPU pixels with the suites' expectations. The case's capture (rounded rectangles in order) is painted as plain DOM in a layer at `ORIGIN`;
  * the case's scene becomes the layer's material. Only `@underglass/core` is used: the scene format is the contract.
  * `window.conformanceProbe` is the test hook.
  */
@@ -27,6 +27,7 @@ const controller: CanvasController = mountApplicationModule({
 
 /** Replaces the shown case: paints its capture as a new layer, enrolls it and gives it the case's scene. */
 async function show(entry: ConformanceCase) {
+  const kind = entry.scene.version === 2 ? "objects" : "relief";
   material?.cancel();
   release?.();
   section?.remove();
@@ -45,7 +46,7 @@ async function show(entry: ConformanceCase) {
   release = controller.enroll(section, { id: "case" });
   await controller.settle();
   if (controller.state().mode !== "gpu") await controller.enable();
-  material = controller.setMaterial("case", { kind: "relief", scene: entry.scene, bounds: "layer", interaction: "material", media: "identity", fallback: "static" });
+  material = controller.setMaterial("case", { kind, scene: entry.scene, bounds: "layer", interaction: "material", media: "identity", fallback: "static" });
   await controller.settle();
   const state = controller.state();
   return { mode: state.mode, reason: state.reason, revision: state.registryRevision };
