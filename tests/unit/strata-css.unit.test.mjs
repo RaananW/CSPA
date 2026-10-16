@@ -61,3 +61,18 @@ test("face mode applies to the scope element itself, so an enrolled panel drops 
   assert.ok(css.includes(`:where([data-strata-mode="face"])[data-strata-face], :where([data-strata-mode="face"]) [data-strata-face]`));
   assert.ok(css.includes(`:where([data-strata-mode="face"]) .ug-slider::-webkit-slider-thumb { box-shadow: none;`));
 });
+
+// Dialog and Drawer (dialog.md, drawer.md) are top-level panels at the modal level: fixed to the viewport, positioned
+// without a transform (an enrolled panel's boundary never carries one), hidden by the attribute, over a scrim.
+test("Dialog and Drawer are fixed panels at the modal level over a scrim, with no transform on their boundary", () => {
+  const rulesFor = pattern => [...css.matchAll(/:where\(([^)]*)\)(\[[^\]]+\])?\s*\{([^}]*)\}/g)].filter(match => pattern.test(match[1])).map(match => match[3]);
+  const overlay = rulesFor(/\.ug-(dialog|drawer|scrim)\b/).join("\n");
+  assert.match(css, /:where\(\.ug-scrim\) \{[^}]*position: fixed;[^}]*inset: 0;/);
+  assert.match(css, /:where\(\.ug-dialog, \.ug-drawer\) \{[^}]*--_h: var\(--strata-elevation-modal\);[^}]*position: fixed;/);
+  assert.doesNotMatch(overlay, /transform:/, "the boundary is positioned with insets, not a transform");
+  for (const side of ["start", "end", "top", "bottom"]) assert.ok(css.includes(`.ug-drawer--${side}`), `drawer side ${side}`);
+  assert.ok(css.includes(":where(.ug-scrim, .ug-dialog, .ug-drawer)[hidden] { display: none; }"), "hidden hides them despite display: flex");
+  // The scrim fades with a transition that reduced motion removes, and keeps its tint under forced colours.
+  assert.match(css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)")), /:where\(\.ug-scrim\) \{ transition: none; \}/);
+  assert.match(css.slice(css.indexOf("@media (forced-colors: active)")), /:where\(\.ug-scrim\) \{ forced-color-adjust: none; \}/);
+});

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata dialog check</title>
+</head>
+<body>
+  <!-- The page behind the dialogs: tabbable controls, a link, and an element that is inert on its own. -->
+  <main id="page">
+    <h1>Strata dialog check</h1>
+    <p><a id="bg-link" href="#bg">A link behind the dialogs</a></p>
+    <p style="display: flex; flex-wrap: wrap; gap: 12px">
+      <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" id="open-dialog" data-strata-open="dialog"><span class="ug-button__label">Open dialog</span></button>
+      <button type="button" class="ug-button" data-strata-face="raised" id="open-scrim" data-strata-open="scrim-dialog"><span class="ug-button__label">Open scrim dialog</span></button>
+      <button type="button" class="ug-button" data-strata-face="raised" id="open-api"><span class="ug-button__label">Open from script</span></button>
+      <button type="button" class="ug-button" data-strata-face="raised" id="open-native"><span class="ug-button__label">Open native dialog</span></button>
+      <button type="button" class="ug-button" data-strata-face="raised" id="open-start" data-strata-open="drawer-start"><span class="ug-button__label">Open start drawer</span></button>
+      <button type="button" class="ug-button" data-strata-face="raised" id="open-end" data-strata-open="drawer-end"><span class="ug-button__label">Open end drawer</span></button>
+      <button type="button" class="ug-button" data-strata-face="raised" id="open-top" data-strata-open="drawer-top"><span class="ug-button__label">Open top drawer</span></button>
+      <button type="button" class="ug-button" data-strata-face="raised" id="open-bottom" data-strata-open="drawer-bottom"><span class="ug-button__label">Open bottom drawer</span></button>
+    </p>
+    <p><input id="bg-input" type="text" aria-label="A field behind the dialogs"></p>
+    <p><button type="button" class="ug-button" data-strata-face="raised" id="bg-button"><span class="ug-button__label">Behind the scrim</span></button></p>
+  </main>
+  <aside id="pre-inert" inert><button type="button" id="pre-inert-button">Inert before any dialog</button></aside>
+  <footer id="footer"><button type="button" class="ug-button" data-strata-face="raised" id="footer-button"><span class="ug-button__label">Footer</span></button></footer>
+
+  <!-- Dialogs and drawers: each a scrim then a panel, direct children of the body, closed with `hidden`. -->
+  <div class="ug-scrim" aria-hidden="true" hidden></div>
+  <section class="ug-panel ug-dialog" id="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-describedby="dialog-description" data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden>
+    <h2 class="ug-dialog__title" id="dialog-title">Discard changes?</h2>
+    <div class="ug-dialog__body">
+      <p class="ug-dialog__description" id="dialog-description">Your edits will be lost.</p>
+      <label>Name <input type="text" id="dialog-input"></label>
+      <p><button type="button" class="ug-button" data-strata-face="raised" id="open-nested" data-strata-open="nested"><span class="ug-button__label">More options</span></button></p>
+    </div>
+    <div class="ug-dialog__actions">
+      <button type="button" class="ug-button" data-strata-face="raised" id="dialog-cancel" data-strata-close><span class="ug-button__label">Cancel</span></button>
+      <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" id="dialog-confirm" data-strata-close><span class="ug-button__label">Discard</span></button>
+    </div>
+  </section>
+
+  <div class="ug-scrim" aria-hidden="true" hidden></div>
+  <section class="ug-panel ug-dialog" id="nested" role="dialog" aria-modal="true" aria-labelledby="nested-title" data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden>
+    <h2 class="ug-dialog__title" id="nested-title">More options</h2>
+    <div class="ug-dialog__body"><p>A dialog opened from a dialog.</p></div>
+    <div class="ug-dialog__actions">
+      <button type="button" class="ug-button" data-strata-face="raised" id="nested-close" data-strata-close><span class="ug-button__label">Close</span></button>
+    </div>
+  </section>
+
+  <div class="ug-scrim" aria-hidden="true" hidden></div>
+  <section class="ug-panel ug-dialog" id="scrim-dialog" data-strata-close-on-scrim role="dialog" aria-modal="true" aria-labelledby="scrim-title" data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden>
+    <h2 class="ug-dialog__title" id="scrim-title">Click outside to close</h2>
+    <div class="ug-dialog__body"><p>This dialog closes on a click on the scrim.</p></div>
+  </section>
+
+  <div class="ug-scrim" aria-hidden="true" hidden></div>
+  <section class="ug-panel ug-dialog" id="api-dialog" role="dialog" aria-modal="true" aria-labelledby="api-title" data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden>
+    <h2 class="ug-dialog__title" id="api-title">Opened from script</h2>
+    <div class="ug-dialog__body"><p>No tabbable content: the panel itself takes focus.</p></div>
+  </section>
+
+  <div class="ug-scrim" aria-hidden="true" hidden></div>
+  <section class="ug-panel ug-drawer ug-drawer--start" id="drawer-start" role="dialog" aria-modal="true" aria-labelledby="drawer-start-title" data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden>
+    <h2 class="ug-drawer__title" id="drawer-start-title">Start drawer</h2>
+    <div class="ug-drawer__body"><p>On the start edge.</p></div>
+    <div class="ug-drawer__actions"><button type="button" class="ug-button" data-strata-face="raised" data-strata-close><span class="ug-button__label">Done</span></button></div>
+  </section>
+  <div class="ug-scrim" aria-hidden="true" hidden></div>
+  <section class="ug-panel ug-drawer ug-drawer--end" id="drawer-end" role="dialog" aria-modal="true" aria-labelledby="drawer-end-title" data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden>
+    <h2 class="ug-drawer__title" id="drawer-end-title">End drawer</h2>
+    <div class="ug-drawer__body"><p>On the end edge.</p></div>
+    <div class="ug-drawer__actions"><button type="button" class="ug-button" data-strata-face="raised" data-strata-close><span class="ug-button__label">Done</span></button></div>
+  </section>
+  <div class="ug-scrim" aria-hidden="true" hidden></div>
+  <section class="ug-panel ug-drawer ug-drawer--top" id="drawer-top" role="dialog" aria-modal="true" aria-labelledby="drawer-top-title" data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden>
+    <h2 class="ug-drawer__title" id="drawer-top-title">Top drawer</h2>
+    <div class="ug-drawer__body"><p>On the top edge.</p></div>
+    <div class="ug-drawer__actions"><button type="button" class="ug-button" data-strata-face="raised" data-strata-close><span class="ug-button__label">Done</span></button></div>
+  </section>
+  <div class="ug-scrim" aria-hidden="true" hidden></div>
+  <section class="ug-panel ug-drawer ug-drawer--bottom" id="drawer-bottom" role="dialog" aria-modal="true" aria-labelledby="drawer-bottom-title" data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden>
+    <h2 class="ug-drawer__title" id="drawer-bottom-title">Bottom drawer</h2>
+    <div class="ug-drawer__body"><p>On the bottom edge.</p></div>
+    <div class="ug-drawer__actions"><button type="button" class="ug-button" data-strata-face="raised" data-strata-close><span class="ug-button__label">Done</span></button></div>
+  </section>
+
+  <!-- The native modal dialog with the same content, for the accessibility snapshot comparison. -->
+  <dialog id="native" aria-labelledby="native-title" aria-describedby="native-description">
+    <h2 id="native-title">Discard changes?</h2>
+    <div>
+      <p id="native-description">Your edits will be lost.</p>
+      <label>Name <input type="text"></label>
+      <p><button type="button">More options</button></p>
+    </div>
+    <div>
+      <form method="dialog"><button value="cancel">Cancel</button> <button value="discard">Discard</button></form>
+    </div>
+  </dialog>
+  <script type="module" src="/src/ui-dialog/main.ts"></script>
+</body>
+</html>

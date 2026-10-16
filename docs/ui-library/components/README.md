@@ -51,9 +51,11 @@ from the native value.
 Moving parts (`knob`, `mark`, a pressed key) never change the native element's box. Their travel lives in
 the GPU pose and in CSS `transform`, inside the box (the [footprint rule](../design-language.md#6-objects)).
 
-**Overlays.** Anything that floats above the page (dialogs, menus, popovers, tooltips, select popups)
-portals to the Underglass overlay host and is CSS-presented there. Tier A has no overlays: the native
-`<select>` opens the browser's own list.
+**Overlays.** Dialog and Drawer are top-level panels rendered into a container: the page body, or the Underglass
+root where `@underglass/ui/gpu` presents them (that GPU part lands in a later change). They are never inside a layer
+and are made modal by `showStrataDialog` (inert background, focus, Escape). Other floating parts (menus, popovers,
+tooltips, select popups) still portal to the Underglass overlay host and are CSS-presented there. Tier A has no
+overlays: the native `<select>` opens the browser's own list.
 
 ## Specimen
 
@@ -85,3 +87,10 @@ light and depth, reduced motion, keyboard input and reflow.
 | [Badge](badge.md) | `<span>` | Flat pill |
 | [Spinner](spinner.md) | `<span role="status">` | Ring groove with an emissive arc |
 | [ProgressBar](progress-bar.md) | `<progress>` | Groove with an emissive fill |
+
+## Tier B
+
+| Component | Native element | Object |
+| --- | --- | --- |
+| [Dialog](dialog.md) | `<section role="dialog" aria-modal>` | Raised slab at `elevation.modal`, over a scrim |
+| [Drawer](drawer.md) | `<section role="dialog" aria-modal>` | Raised slab on a viewport edge |
