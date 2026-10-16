@@ -192,6 +192,10 @@ Implemented: `attachStrataGpu(controller)`, and `useStrataGpu` for React and Vue
 - **A core bug, fixed separately:** building the helper showed that layers laid out at fractional sizes never
   admitted (#78).
 
+- **Depth transitions:** `strataEnter` and `strataLeave` move a presented panel with core's `transition` (scale for
+  depth, tilt and opacity, about the panel's centre) while its scene height travels from `elevation.modal`. The panel
+  is inert while it moves, and reduced motion makes the change instant.
+
 - **Panel helper:** enrolls each `.ug-panel` as a layer, collects its `data-strata-face` primitives, syncs state
   from pointer, focus and ARIA, and switches the subtree to `data-strata-mode="face"`.
 - **Tokens:** applies the resolved tokens as material parameters, with uniform updates for depth and light.

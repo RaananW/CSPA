@@ -408,8 +408,9 @@ and `state.pressSink`.
   - **CSS presentation:** `strataEnter(panel, { tilt })` and `strataLeave(panel)` from `@underglass/ui/dom` set
     `data-strata-motion` and `inert` and resolve when the motion ends, over `motion.slow`, with the tilt clamped to
     `camera.tiltMax`. A panel that has left stays invisible and inert until it enters again.
-  - **Face mode (GPU on):** the CSS motion is off, because an enrolled panel's boundary never carries a CSS transform;
-    the GPU presentation moves the panel (Phase 4).
+  - **Face mode (GPU on):** the CSS motion is off, because an enrolled panel's boundary never carries a CSS transform.
+    The same calls move the panel on the GPU: core's `transition` scales it by `D / (D − elevation.modal)` about its
+    centre, with the same tilt and fade, and its relief height travels between `elevation.modal` and its own level.
 - **Invariant, reduced motion:** under `prefers-reduced-motion: reduce`, states change instantly,
   with no travel, tilt, parallax or particles. A theme cannot turn this off.
 

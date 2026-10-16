@@ -124,8 +124,10 @@ await strataLeave(panel);           // out through depth; inert meanwhile, invis
 await strataEnter(panel, { tilt: 8 }); // back in, tilted 8° while moving
 ```
 
-Instant under `prefers-reduced-motion`. In face mode (GPU on) the CSS motion is off; the GPU presentation moves the
-panel.
+Instant under `prefers-reduced-motion`. In face mode (GPU on) the same calls move the panel on the GPU:
+`attachStrataGpu` hands it to core's `transition`, which scales, tilts and fades the layer about its centre as the CSS
+motion does, while the panel's relief height travels from the modal level so its shadow follows. Native hits follow
+the moving panel, and it stays inert until it has entered.
 
 ## React
 
