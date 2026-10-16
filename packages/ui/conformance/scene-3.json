@@ -1,0 +1,1087 @@
+{
+  "format": "strata-conformance",
+  "model": "strata-scene/3",
+  "tolerance": 3,
+  "description": "Strata rendering model, version 3: Scene. Stage scenes (format strata-stage) have no capture: render each over white at a device scale of 1. Object scenes render as in version 2. Compare the decoded pixel whose centre is each sample's `at` with `expect`, every channel within `tolerance` (0–255). A renderer conforms to version 3 when it passes this suite, objects-2.json and relief-1.json.",
+  "cases": [
+    {
+      "name": "backdrop",
+      "description": "The lit stage: a pool of the light towards the top left, falling off into a vignette at the edges.",
+      "scene": {
+        "format": "strata-stage",
+        "version": 3,
+        "extent": {
+          "width": 320,
+          "height": 200
+        },
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "camera": {
+          "distance": 1600,
+          "vanish": [
+            160,
+            100
+          ]
+        },
+        "particles": [],
+        "backdrop": {
+          "colour": "#8c95a3",
+          "pool": 0.6,
+          "vignette": 0.5
+        }
+      },
+      "capture": [],
+      "samples": [
+        {
+          "at": [
+            160.5,
+            100.5
+          ],
+          "note": "the stage's centre",
+          "expect": "#98a2b1"
+        },
+        {
+          "at": [
+            100.5,
+            30.5
+          ],
+          "note": "in the pool, towards the light",
+          "expect": "#a0aaba"
+        },
+        {
+          "at": [
+            316.5,
+            196.5
+          ],
+          "note": "the far corner: the vignette",
+          "expect": "#767d89"
+        },
+        {
+          "at": [
+            4.5,
+            196.5
+          ],
+          "note": "the near corner",
+          "expect": "#767e89"
+        }
+      ]
+    },
+    {
+      "name": "backdrop-tint",
+      "description": "A tinted stage: the backdrop colour mixed towards the tint.",
+      "scene": {
+        "format": "strata-stage",
+        "version": 3,
+        "extent": {
+          "width": 320,
+          "height": 200
+        },
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "camera": {
+          "distance": 1600,
+          "vanish": [
+            160,
+            100
+          ]
+        },
+        "particles": [],
+        "backdrop": {
+          "colour": "#8c95a3",
+          "pool": 0.6,
+          "vignette": 0.5,
+          "tint": "#2563eb",
+          "tintStrength": 0.15
+        }
+      },
+      "capture": [],
+      "samples": [
+        {
+          "at": [
+            160.5,
+            100.5
+          ],
+          "note": "centre, tinted",
+          "expect": "#889abd"
+        },
+        {
+          "at": [
+            316.5,
+            4.5
+          ],
+          "note": "a corner, tinted and vignetted",
+          "expect": "#697792"
+        }
+      ]
+    },
+    {
+      "name": "particles",
+      "description": "Particles with no backdrop, over white: a flat card, a card tilted towards the light, a disc, two overlapping cards (the higher one in front) and a half-transparent card.",
+      "scene": {
+        "format": "strata-stage",
+        "version": 3,
+        "extent": {
+          "width": 320,
+          "height": 200
+        },
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "camera": {
+          "distance": 1600,
+          "vanish": [
+            160,
+            100
+          ]
+        },
+        "particles": [
+          {
+            "shape": "card",
+            "position": [
+              60,
+              60,
+              20
+            ],
+            "size": [
+              24,
+              16
+            ],
+            "colour": "#2563eb"
+          },
+          {
+            "shape": "card",
+            "position": [
+              120,
+              60,
+              20
+            ],
+            "size": [
+              24,
+              16
+            ],
+            "tilt": [
+              40,
+              -20
+            ],
+            "colour": "#2563eb"
+          },
+          {
+            "shape": "disc",
+            "position": [
+              180,
+              60,
+              20
+            ],
+            "size": [
+              20,
+              20
+            ],
+            "colour": "#c42b2b"
+          },
+          {
+            "shape": "card",
+            "position": [
+              250,
+              64,
+              40
+            ],
+            "size": [
+              24,
+              16
+            ],
+            "rotation": 30,
+            "colour": "#15803d"
+          },
+          {
+            "shape": "card",
+            "position": [
+              246,
+              60,
+              10
+            ],
+            "size": [
+              24,
+              16
+            ],
+            "colour": "#b45309"
+          },
+          {
+            "shape": "card",
+            "position": [
+              160,
+              150,
+              20
+            ],
+            "size": [
+              30,
+              20
+            ],
+            "opacity": 0.5,
+            "colour": "#2563eb"
+          }
+        ]
+      },
+      "capture": [],
+      "samples": [
+        {
+          "at": [
+            58.5,
+            59.5
+          ],
+          "note": "flat card: its colour",
+          "expect": "#2563eb"
+        },
+        {
+          "at": [
+            119.5,
+            59.5
+          ],
+          "note": "a card tilted towards the light: brighter",
+          "expect": "#2e79ff"
+        },
+        {
+          "at": [
+            180.5,
+            59.5
+          ],
+          "note": "a disc",
+          "expect": "#c42b2b"
+        },
+        {
+          "at": [
+            252.5,
+            63.5
+          ],
+          "note": "where two cards overlap, the higher one is in front",
+          "expect": "#15803d"
+        },
+        {
+          "at": [
+            160.5,
+            150.5
+          ],
+          "note": "a half-transparent card over white",
+          "expect": "#92b1f5"
+        },
+        {
+          "at": [
+            20.5,
+            180.5
+          ],
+          "note": "no particle: white",
+          "expect": "#ffffff"
+        }
+      ]
+    },
+    {
+      "name": "particles-over-backdrop",
+      "description": "A particle over the lit backdrop.",
+      "scene": {
+        "format": "strata-stage",
+        "version": 3,
+        "extent": {
+          "width": 320,
+          "height": 200
+        },
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "camera": {
+          "distance": 1600,
+          "vanish": [
+            160,
+            100
+          ]
+        },
+        "particles": [
+          {
+            "shape": "disc",
+            "position": [
+              160,
+              100,
+              30
+            ],
+            "size": [
+              24,
+              24
+            ],
+            "colour": "#2563eb",
+            "roughness": 0.2
+          }
+        ],
+        "backdrop": {
+          "colour": "#8c95a3",
+          "pool": 0.6,
+          "vignette": 0.5
+        }
+      },
+      "capture": [],
+      "samples": [
+        {
+          "at": [
+            160.5,
+            100.5
+          ],
+          "note": "the disc, with its specular",
+          "expect": "#2563eb"
+        },
+        {
+          "at": [
+            160.5,
+            140.5
+          ],
+          "note": "the backdrop around it",
+          "expect": "#929baa"
+        }
+      ]
+    },
+    {
+      "name": "environment-map",
+      "description": "Metal and lacquer keys reflecting an environment map with a bright horizon instead of the studio.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 3,
+        "camera": {
+          "distance": 1600,
+          "vanish": [
+            -100,
+            32
+          ]
+        },
+        "environment": {
+          "source": "map",
+          "strength": 0.6,
+          "grid": [
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            1.2,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3,
+            0.3
+          ]
+        },
+        "extent": {
+          "width": 176,
+          "height": 64
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "object": "slab",
+            "rect": [
+              0,
+              0,
+              176,
+              64
+            ],
+            "radius": 14,
+            "height": 8,
+            "taper": 3,
+            "material": "matte"
+          },
+          {
+            "object": "key",
+            "rect": [
+              16,
+              16,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 8,
+            "base": 8,
+            "taper": 3,
+            "material": "metal"
+          },
+          {
+            "object": "key",
+            "rect": [
+              96,
+              16,
+              64,
+              32
+            ],
+            "radius": 8,
+            "height": 8,
+            "base": 8,
+            "taper": 3,
+            "material": "lacquer"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            176,
+            64
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        },
+        {
+          "rect": [
+            16,
+            16,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#f7f8fa"
+        },
+        {
+          "rect": [
+            96,
+            16,
+            64,
+            32
+          ],
+          "radius": 8,
+          "colour": "#2563eb"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            48.5,
+            46.5
+          ],
+          "note": "metal, bottom side: reflects the bright horizon",
+          "expect": "#000000"
+        },
+        {
+          "at": [
+            48.5,
+            17.5
+          ],
+          "note": "metal, top side",
+          "expect": "#ffffff"
+        },
+        {
+          "at": [
+            48.5,
+            32.5
+          ],
+          "note": "metal cap: no environment term",
+          "expect": "#f9fafc"
+        },
+        {
+          "at": [
+            128.5,
+            46.5
+          ],
+          "note": "lacquer, bottom side",
+          "expect": "#000077"
+        }
+      ]
+    }
+  ]
+}
