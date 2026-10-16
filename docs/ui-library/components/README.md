@@ -52,7 +52,7 @@ Moving parts (`knob`, `mark`, a pressed key) never change the native element's b
 the GPU pose and in CSS `transform`, inside the box (the [footprint rule](../design-language.md#6-objects)).
 
 **Overlays.** Dialog and Drawer are top-level panels rendered into a container: the page body, or the Underglass
-root where `@underglass/ui/gpu` presents them (that GPU part lands in a later change). They are never inside a layer
+root, where `@underglass/ui/gpu` presents each as its own GPU panel over a GPU-faded scrim. They are never inside a layer
 and are made modal by `showStrataDialog` (inert background, focus, Escape). Other floating parts (menus, popovers,
 tooltips, select popups) still portal to the Underglass overlay host and are CSS-presented there. Tier A has no
 overlays: the native `<select>` opens the browser's own list.

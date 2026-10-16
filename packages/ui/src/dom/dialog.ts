@@ -4,8 +4,12 @@
  * of the page is inert, so Tab stays inside and the background takes no pointer or assistive-technology input; focus
  * moves in and returns to the opener; Escape asks to close. Nested dialogs form a stack, and only the top one answers.
  * The React, Vue and Astro layers call this, so the behaviour is one implementation.
+ *
+ * Inside a root that presents Strata on the GPU (`@underglass/ui/gpu`), the panel and its scrim are handed to the
+ * root's presenter as they show and taken back before they hide, so they are GPU layers while they are open.
  */
 import { strataEnter, strataLeave } from "./motion.ts";
+import { stageOf } from "./stage.ts";
 
 /** Why a dialog asked to close. */
 export type DialogCloseReason = "escape" | "scrim" | "close";
@@ -109,6 +113,9 @@ async function finish(layer: Layer) {
   await layer.entered;
   layer.scrim?.setAttribute("data-strata-closing", "");
   await strataLeave(layer.panel);
+  // A presented panel and scrim leave the GPU before they hide.
+  stageOf(layer.panel)?.withdraw(layer.panel);
+  if (layer.scrim) stageOf(layer.scrim)?.withdraw(layer.scrim);
   layer.panel.hidden = true;
   // The leave motion keeps its final state until the panel is hidden; a hidden panel carries none.
   delete layer.panel.dataset.strataMotion;
@@ -182,6 +189,9 @@ export function showStrataDialog(panel: HTMLElement, options: DialogOptions = {}
       scrim.addEventListener("click", layer.onScrim);
     }
     inertBackground(layer);
+    // On a GPU stage, the scrim and the panel become layers now, so the panel enters on the GPU.
+    if (scrim) stageOf(scrim)?.present(scrim);
+    stageOf(panel)?.present(panel);
     // The panel is inert while it enters, so focus moves in afterwards.
     await strataEnter(panel);
     if (layer.closing) return;

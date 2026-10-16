@@ -6,6 +6,8 @@
 export { applyStrataTheme, resolveStrataScope, strataScope } from "./theme.ts";
 export type { AppliedTheme, ApplyThemeOptions, ReportMode, ScopeOptions, ScopeOverrides, StrataScope } from "./theme.ts";
 export { strataEnter, strataLeave } from "./motion.ts";
+export { stageOf, strataStage } from "./stage.ts";
+export type { StagePresenter } from "./stage.ts";
 export type { PanelMotionOptions } from "./motion.ts";
 export { showStrataDialog } from "./dialog.ts";
 export type { DialogCloseReason, DialogHandle, DialogOptions } from "./dialog.ts";

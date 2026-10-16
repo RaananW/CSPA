@@ -7,6 +7,9 @@
  * presents, the panels switch to `data-strata-mode="face"`, so CSS paints flat faces and the GPU paints the relief;
  * whenever GPU is off, the CSS relief is back.
  *
+ * The root becomes a stage (`data-strata-stage`): Dialog and Drawer panels rendered into it are presented as panels
+ * of their own while they are open, over a scrim the GPU fades, and are let go before they hide.
+ *
  * Panel motion (`strataEnter`, `strataLeave` from `@underglass/ui/dom`) moves a presented panel on the GPU: core's
  * `transition` carries it through depth (scale, tilt and opacity, as the CSS motion does) while its scene height
  * travels from the modal level, so its shadow grows and settles with it.
@@ -20,6 +23,7 @@
 import { cssVariable, flatten, numeric, strataTokens } from "../tokens/index.ts";
 import { isSceneObject, type SceneEntry, type SceneFace, type SceneMaterial, type StrataScene } from "../tokens/scene.ts";
 import { panelMotion, type PanelMover } from "../dom/motion.ts";
+import { strataStage, type StagePresenter } from "../dom/stage.ts";
 
 /** What the helper needs from an Underglass controller (`CanvasController` from `@underglass/core`). */
 export interface StrataGpuController {
@@ -342,6 +346,9 @@ function bezier(value: string): (t: number) => number {
   const [x1, y1, x2, y2] = match ? match[1]!.split(",").map(Number) as [number, number, number, number] : [0, 0, 1, 1];
   const at = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
   return x => {
+    // The ends are exact, so a motion that has finished leaves its panel exactly at its own height.
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
     // x(t) is monotonic for x1, x2 in [0, 1]: bisect for t, then read y.
     let low = 0, high = 1;
     for (let step = 0; step < 24; step++) { const mid = (low + high) / 2; if (at(mid, x1, x2) < x) low = mid; else high = mid; }
@@ -368,32 +375,101 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
     for (const element of domes) if (!element.hasAttribute("data-strata-dome")) element.setAttribute("data-strata-dome", "");
     entry.domes = domes;
   };
+  // Scrims under open dialogs: plain layers (no material) that the GPU fades in and out.
+  const scrims = new Map<HTMLElement, { id: string; release: () => void; fade?: ReturnType<StrataGpuController["transition"]>; closing?: boolean }>();
   let serial = 0, frame = 0, detached = false;
   const schedule = () => { if (!frame && !detached) frame = requestAnimationFrame(sync); };
   const resize = new ResizeObserver(schedule);
+  const presenting = () => controller.state().mode === "gpu" && !forced.matches;
+  // A layer must never be hidden while presented (it would have no size), so only shown children are taken on.
+  const shown = (element: Element): element is HTMLElement => element instanceof HTMLElement && !element.hidden && element.checkVisibility();
+
+  /** Enrolls a shown panel now. Face mode comes first, so the panel never carries its CSS relief as a GPU layer. */
+  function enrollPanel(element: HTMLElement, gpu: boolean) {
+    const id = element.id || `strata-panel-${++serial}`;
+    try {
+      if (gpu) element.setAttribute("data-strata-mode", "face");
+      // Centred, so depth and tilt move the panel about its middle as the CSS motion does.
+      const release = controller.enroll(element, { id, origin: "center" });
+      panels.set(element, { id, release, domes: new Set() });
+      (element as Movable)[panelMotion] = mover(element);
+      resize.observe(element);
+    } catch (error) {
+      element.removeAttribute("data-strata-mode");
+      console.warn(`Strata GPU: ${id} was not enrolled: ${String(error)}`);
+    }
+  }
+  /** Lets a panel go now: its material, its enrollment, face mode and its mover. */
+  function releasePanel(element: HTMLElement) {
+    const entry = panels.get(element);
+    if (!entry) return;
+    entry.handle?.cancel(); entry.release(); resize.unobserve(element); element.removeAttribute("data-strata-mode"); panels.delete(element);
+    delete (element as Movable)[panelMotion];
+    markDomes(entry, new Set());
+  }
+  /** Enrolls a shown scrim now, on the GPU only, and fades it in. */
+  function enrollScrim(element: HTMLElement) {
+    const id = `strata-scrim-${++serial}`;
+    try {
+      element.setAttribute("data-strata-mode", "face");
+      scrims.set(element, { id, release: controller.enroll(element, { id }) });
+      fadeScrim(element, false);
+    } catch (error) {
+      element.removeAttribute("data-strata-mode");
+      console.warn(`Strata GPU: a scrim was not enrolled: ${String(error)}`);
+    }
+  }
+  function releaseScrim(element: HTMLElement) {
+    const entry = scrims.get(element);
+    if (!entry) return;
+    entry.fade?.cancel(); entry.release(); element.removeAttribute("data-strata-mode"); scrims.delete(element);
+  }
+  /** Fades a scrim's layer in, or out once its dialog closes, over `motion.slow` (instant under reduced motion). */
+  function fadeScrim(element: HTMLElement, out: boolean) {
+    const entry = scrims.get(element);
+    if (!entry) return;
+    entry.closing = out;
+    const tokens = reader(element);
+    const duration = Math.max(1, milliseconds(tokens.raw("motion.slow")) || 320);
+    const keyframes = out ? [{ offset: 0 }, { offset: 1, opacity: 0 }] : [{ offset: 0, opacity: 0 }, { offset: 1 }];
+    try { entry.fade = controller.transition(entry.id, { keyframes, timing: { duration, easing: tokens.raw("motion.easing.standard") || "ease-out" } }); }
+    catch { entry.fade = undefined; }
+  }
+  // The stage hook (`@underglass/ui/dom`'s `stageOf`): dialogs hand their panel and scrim over as they show, and take
+  // them back before they hide, in the same task.
+  const presenter: StagePresenter = {
+    present: element => {
+      if (detached || element.parentElement !== root || !shown(element)) return;
+      const gpu = presenting();
+      if (element.matches(".ug-scrim")) { if (gpu && !scrims.has(element)) enrollScrim(element); return; }
+      if (!element.matches(selector) || panels.has(element)) return;
+      enrollPanel(element, gpu);
+      const entry = panels.get(element);
+      if (entry && gpu) update(element, entry);
+    },
+    withdraw: element => { releasePanel(element); releaseScrim(element); },
+  };
+  root.setAttribute("data-strata-stage", "");
+  (root as HTMLElement & { [strataStage]?: StagePresenter })[strataStage] = presenter;
 
   function sync() {
     frame = 0;
     if (detached) return;
-    const gpu = controller.state().mode === "gpu" && !forced.matches;
+    const gpu = presenting();
     for (const element of root.children) {
-      if (!(element instanceof HTMLElement) || !element.matches(selector) || panels.has(element)) continue;
-      const id = element.id || `strata-panel-${++serial}`;
-      try {
-        // Centred, so depth and tilt move the panel about its middle as the CSS motion does.
-        const release = controller.enroll(element, { id, origin: "center" });
-        panels.set(element, { id, release, domes: new Set() });
-        (element as Movable)[panelMotion] = mover(element);
-        resize.observe(element);
-      } catch (error) { console.warn(`Strata GPU: ${id} was not enrolled: ${String(error)}`); }
+      if (!shown(element)) continue;
+      if (gpu && element.matches(".ug-scrim") && !scrims.has(element)) enrollScrim(element);
+      if (!element.matches(selector) || panels.has(element)) continue;
+      enrollPanel(element, gpu);
+    }
+    for (const [element, entry] of scrims) {
+      if (element.parentElement !== root || !shown(element)) { releaseScrim(element); continue; }
+      if (!gpu) { element.removeAttribute("data-strata-mode"); continue; }
+      element.setAttribute("data-strata-mode", "face");
+      if (element.hasAttribute("data-strata-closing") && !entry.closing) fadeScrim(element, true);
     }
     for (const [element, entry] of panels) {
-      if (element.parentElement !== root) {
-        entry.handle?.cancel(); entry.release(); resize.unobserve(element); element.removeAttribute("data-strata-mode"); panels.delete(element);
-        delete (element as Movable)[panelMotion];
-        markDomes(entry, new Set());
-        continue;
-      }
+      if (element.parentElement !== root) { releasePanel(element); continue; }
       if (!gpu) {
         // GPU is off: the CSS relief presents, and no material is kept.
         if (element.getAttribute("data-strata-mode") === "face") element.removeAttribute("data-strata-mode");
@@ -401,30 +477,35 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
         markDomes(entry, new Set());
         continue;
       }
-      if (element.getAttribute("data-strata-mode") !== "face") element.setAttribute("data-strata-mode", "face");
-      const motion = entry.motion;
-      const domes = new Set<Element>();
-      const scene = strataScene(element, { level: options.level, stage: root, domes,
-        ...(motion ? { height: motion.from + (motion.to - motion.from) * motion.ease(Math.min(1, (performance.now() - motion.start) / motion.duration)) } : {}) });
-      markDomes(entry, domes);
-      const key = JSON.stringify(scene);
-      if (entry.scene === key) continue;
-      const kind = scene.version === 2 ? "objects" : "relief";
-      try {
-        // A change of level changes the material's kind: the new material replaces the old one in one step.
-        if (entry.handle && entry.kind === kind) entry.handle.update(scene);
-        else entry.handle = controller.setMaterial(entry.id, { kind, scene, bounds: "layer", interaction: "material", media: "identity", fallback: "static" });
-        entry.kind = kind;
-        entry.scene = key;
-      } catch {
-        // The runtime is between states (admitting or transitioning): try again on the next change or poll.
-        entry.scene = undefined;
-      }
+      update(element, entry);
     }
     // A CSS transition (a knob sliding, a face settling) moves geometry with no event per frame: follow it until it
     // ends. Endless CSS animations (the spinner) stay in the captured content and need no new scene.
     if (gpu && (root.getAnimations({ subtree: true }).some(animation => animation instanceof CSSTransition && animation.playState === "running")
       || [...panels.values()].some(entry => entry.motion))) schedule();
+  }
+
+  /** Brings a presented panel's scene and material up to date. */
+  function update(element: HTMLElement, entry: NonNullable<ReturnType<typeof panels.get>>) {
+    if (element.getAttribute("data-strata-mode") !== "face") element.setAttribute("data-strata-mode", "face");
+    const motion = entry.motion;
+    const domes = new Set<Element>();
+    const scene = strataScene(element, { level: options.level, stage: root, domes,
+      ...(motion ? { height: motion.from + (motion.to - motion.from) * motion.ease(Math.min(1, (performance.now() - motion.start) / motion.duration)) } : {}) });
+    markDomes(entry, domes);
+    const key = JSON.stringify(scene);
+    if (entry.scene === key) return;
+    const kind = scene.version === 1 ? "relief" : "objects";
+    try {
+      // A change of level changes the material's kind: the new material replaces the old one in one step.
+      if (entry.handle && entry.kind === kind) entry.handle.update(scene);
+      else entry.handle = controller.setMaterial(entry.id, { kind, scene, bounds: "layer", interaction: "material", media: "identity", fallback: "static" });
+      entry.kind = kind;
+      entry.scene = key;
+    } catch {
+      // The runtime is between states (admitting or transitioning): try again on the next change or poll.
+      entry.scene = undefined;
+    }
   }
 
   /**
@@ -457,7 +538,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   for (const type of events) root.addEventListener(type, schedule, true);
   const mutation = new MutationObserver(schedule);
   mutation.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "disabled", "checked", "aria-checked",
-    "aria-disabled", "aria-pressed", "data-strata-face", "data-strata-material", "data-strata-elevation", "data-strata-level", "data-strata-depth", "data-strata-theme", "data-strata-scope", "data-strata-preview", "hidden"] });
+    "aria-disabled", "aria-pressed", "data-strata-closing", "data-strata-face", "data-strata-material", "data-strata-elevation", "data-strata-level", "data-strata-depth", "data-strata-theme", "data-strata-scope", "data-strata-preview", "hidden"] });
   resize.observe(root);
   const poll = setInterval(schedule, options.poll ?? 500);
   forced.addEventListener("change", schedule);
@@ -471,11 +552,10 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
       if (frame) cancelAnimationFrame(frame);
       for (const type of events) root.removeEventListener(type, schedule, true);
       mutation.disconnect(); resize.disconnect(); clearInterval(poll); forced.removeEventListener("change", schedule);
-      for (const [element, entry] of panels) {
-        entry.handle?.cancel(); entry.release(); element.removeAttribute("data-strata-mode"); delete (element as Movable)[panelMotion];
-        markDomes(entry, new Set());
-      }
-      panels.clear();
+      for (const element of [...panels.keys()]) releasePanel(element);
+      for (const element of [...scrims.keys()]) releaseScrim(element);
+      root.removeAttribute("data-strata-stage");
+      delete (root as HTMLElement & { [strataStage]?: StagePresenter })[strataStage];
     },
   };
 }
