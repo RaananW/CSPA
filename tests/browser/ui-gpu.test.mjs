@@ -186,3 +186,53 @@ test("under reduced motion, panel motion on the GPU is instant", async ({ page }
   expect(result).toMatchObject({ mode: "gpu", opacity: 1, inert: false });
   expect(result.ms).toBeLessThan(250);
 });
+
+test("at the Objects level, the panel's components are objects on core's objects material, and native input still reaches them", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, "?level=objects");
+  const initial = await page.evaluate(() => {
+    const probe = window.strataGpuProbe, state = probe.controller.state(), scene = probe.scene();
+    return { mode: state.mode, materials: state.materials, version: scene.version, camera: scene.camera,
+      entries: scene.primitives.map(entry => entry.object ?? entry.face),
+      domes: [...probe.panel().querySelectorAll("[data-strata-dome]")].map(element => element.className),
+      knobPaint: getComputedStyle(probe.panel().querySelector(".ug-switch__knob")).backgroundImage };
+  });
+  expect(initial.mode).toBe("gpu");
+  expect(initial.version).toBe(2);
+  expect(initial.materials).toEqual([expect.objectContaining({ id: "gpu-panel", kind: "objects", degraded: [] })]);
+  // The panel is a slab; the field a relief well with a bezel; the checkbox and switch wells with their mark and knob;
+  // the slider a rail and a puck; the buttons keys; the spinner stays a relief ring.
+  expect(initial.entries).toEqual(["slab", "well", "bezel", "well", "mark", "well", "knob", "rail", "puck", "key", "key", "key", "ring"]);
+  // The camera is centred on the stage, far enough for every solid's taper rule.
+  expect(initial.camera.distance).toBeGreaterThanOrEqual(1600);
+  // The GPU draws the knob and the slider's puck as domes, so their own CSS paint is hidden.
+  expect(initial.domes).toEqual(["ug-switch__knob", "ug-slider"]);
+  expect(initial.knobPaint).toBe("none");
+
+  // Keys travel: pressing Save holds its key down in the scene, and the click reaches the button.
+  const save = await page.locator("#gpu-save").boundingBox();
+  await page.mouse.move(save.x + save.width / 2, save.y + save.height / 2);
+  await page.mouse.down();
+  const pressed = await page.evaluate(() => { const probe = window.strataGpuProbe; probe.refresh();
+    return probe.scene().primitives.find(entry => entry.object === "key" && entry.state.pressed) ?? null; });
+  await page.mouse.up();
+  expect(pressed).toMatchObject({ object: "key", height: 8, travel: 6, base: 8 });
+  expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
+  // The switch toggles from a click on its drawn knob, and the knob dome follows the native state.
+  const knob = await page.locator(".ug-switch__knob").boundingBox();
+  await page.mouse.click(knob.x + knob.width / 2, knob.y + knob.height / 2);
+  await expect(page.locator("#gpu-wifi")).toBeChecked();
+  // Pixels are fresh: the key above the switch looks different pressed and at rest.
+  const panelBox = await page.evaluate(() => { const panel = window.strataGpuProbe.panel(); return { x: panel.offsetLeft, y: panel.offsetTop, w: panel.offsetWidth, h: panel.offsetHeight }; });
+  const pixel = await snap(page, "objects");
+  expect(luma(pixel(panelBox.x + panelBox.w / 2, panelBox.y + panelBox.h + 3))).toBeLessThan(240);
+
+  // A component can opt out: back at the Relief level, the scene is version 1 again on the relief material.
+  await page.evaluate(() => window.strataGpuProbe.panel().setAttribute("data-strata-level", "relief"));
+  const relief = await page.evaluate(async () => { const probe = window.strataGpuProbe; probe.refresh(); await probe.controller.settle();
+    return { version: probe.scene().version, kind: probe.controller.state().materials[0].kind, mode: probe.controller.state().mode,
+      domes: probe.panel().querySelectorAll("[data-strata-dome]").length }; });
+  expect(relief).toEqual({ version: 1, kind: "relief", mode: "gpu", domes: 0 });
+  expect(errors).toEqual([]);
+});

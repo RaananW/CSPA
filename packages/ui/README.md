@@ -114,6 +114,13 @@ strata.detach();                               // back to the CSS presentation
   - states from `:hover`, `:active`, `:focus-visible` and `:disabled`;
   - geometry from layout, followed through CSS transitions.
 - **When GPU is off** (fallback, forced colours or disabled): panels leave face mode, and the CSS relief is back.
+- **The Objects level:** `attachStrataGpu(controller, { level: "objects" })`, or `data-strata-level="objects"` on a
+  component, a panel or a scope (`level` on the bindings), presents components as objects (design language section
+  6): buttons and selects become keys that travel when pressed, panels and cards slabs, fields gain a bezel,
+  checkboxes, radios and switches become wells with their mark, dot or knob standing in them, and sliders a metal
+  rail with a puck. The panel then takes core's `objects` material, seen through a camera centred on the stage. Knobs
+  and pucks are drawn as domes in their own colour, so their CSS paint is hidden while the GPU draws them. Any
+  component can set `data-strata-level="relief"` to stay at the Relief level inside an Objects panel.
 
 ## Panel motion
 
