@@ -8,11 +8,11 @@ import { attachStrataGpu, type StrataGpu, type StrataGpuController, type StrataG
 
 export function useStrataGpu(controller: StrataGpuController | null | undefined, options?: StrataGpuOptions): { current: StrataGpu | undefined } {
   const handle = useRef<StrataGpu | undefined>(undefined);
-  const panels = options?.panels, poll = options?.poll;
+  const panels = options?.panels, poll = options?.poll, level = options?.level;
   useEffect(() => {
     if (!controller) return;
-    handle.current = attachStrataGpu(controller, { panels, poll });
+    handle.current = attachStrataGpu(controller, { panels, poll, level });
     return () => { handle.current?.detach(); handle.current = undefined; };
-  }, [controller, panels, poll]);
+  }, [controller, panels, poll, level]);
   return handle;
 }

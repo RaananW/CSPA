@@ -30,6 +30,7 @@
     "./tokens.json": "./dist/tokens.json",
     "./scene.schema.json": "./src/tokens/strata-scene.schema.json",
     "./conformance/relief-1.json": "./conformance/relief-1.json",
+    "./conformance/objects-2.json": "./conformance/objects-2.json",
     "./dom": {
       "types": "./dist/dom/index.d.ts",
       "import": "./dist/dom/index.js"

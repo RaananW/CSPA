@@ -166,6 +166,7 @@ compare on GPU pixels, outset included.
   1:1.
 - **Shadows:** analytic shadows are reused from step 3.
 - This step is the largest. Its design note is [phase4-objects.md](phase4-objects.md).
+- Implemented in core as the `objects` material (steps 4a to 4c); `@underglass/ui/gpu` builds its scenes in 4d.
 
 ### 5. Projective transforms
 
@@ -206,6 +207,8 @@ Implemented: `attachStrataGpu(controller)`, and `useStrataGpu` for React and Vue
   same task, because a presented layer must never be hidden. Their accessibility snapshot matches a native
   `<dialog>` (#86) and is the same on the GPU, so the plan's fallback to `<dialog>` is not needed. Tooltip, Menu,
   Popover and Select popups stay in the overlay host.
+- **Presentation levels and the adjust policy:** `level` (application), `data-strata-level` (scope or component),
+  and an opt-in adjust policy that caps levels by measured frame intervals and reports every step; GPU stays on.
 
 ## Decisions (accepted 2026-10-16)
 

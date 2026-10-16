@@ -71,7 +71,7 @@ const json = theme.toJSON();
 
 ## Rendering model
 
-The Relief look is specified independently of any engine in the
+The Relief and Objects looks are specified independently of any engine in the
 [Strata Rendering Model](../../docs/ui-library/rendering-model.md). This package ships its scene format, a reference
 implementation and its conformance suite:
 
@@ -88,6 +88,9 @@ const colour = shadePoint(scene, () => [0.91, 0.92, 0.94, 1], 100, 60);    // sR
 - **`@underglass/ui/scene.schema.json`:** the scene format as a JSON Schema.
 - **`@underglass/ui/conformance/relief-1.json`:** scenes, sample points and expected colours. A renderer conforms
   when its decoded pixels are within 3 (of 255) on every channel.
+- **`@underglass/ui/conformance/objects-2.json`:** the same for version 2, the Objects level. Version 2 scenes add a
+  `camera` and may mix objects (`{ object: "key", rect, height, base, taper, travel, material }`, or a dome such as
+  `{ object: "knob", rect, height, base, material, colour, bounds }`) into the back-to-front list.
 
 ## GPU presentation
 
@@ -111,6 +114,19 @@ strata.detach();                               // back to the CSS presentation
   - states from `:hover`, `:active`, `:focus-visible` and `:disabled`;
   - geometry from layout, followed through CSS transitions.
 - **When GPU is off** (fallback, forced colours or disabled): panels leave face mode, and the CSS relief is back.
+- **The Objects level:** `attachStrataGpu(controller, { level: "objects" })`, or `data-strata-level="objects"` on a
+  component, a panel or a scope (`level` on the bindings), presents components as objects (design language section
+  6): buttons and selects become keys that travel when pressed, panels and cards slabs, fields gain a bezel,
+  checkboxes, radios and switches become wells with their mark, dot or knob standing in them, and sliders a metal
+  rail with a puck. The panel then takes core's `objects` material, seen through a camera centred on the stage. Knobs
+  and pucks are drawn as domes in their own colour, so their CSS paint is hidden while the GPU draws them. Any
+  component can set `data-strata-level="relief"` to stay at the Relief level inside an Objects panel.
+- **The adjust policy** (off by default): `attachStrataGpu(controller, { level, adjust: { enabled: true },
+  onAdjust })`. While the 95th percentile of frame intervals stays over `frameBudgetMs` (25) for
+  `stepDownAfterFrames` (120) frames, levels step down, Scene to Objects to Relief. After `stepUpAfterFrames` (600)
+  frames under 80% of the budget they step back up, never above what the page asks for. Every step calls `onAdjust`
+  and dispatches `strata-adjust` on the root; `strata.cap()` reads the current cap. GPU stays on throughout. The
+  defaults are provisional (open issue VAL-009).
 
 ## Panel motion
 

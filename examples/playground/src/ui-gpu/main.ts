@@ -1,12 +1,13 @@
 /**
  * Entry for `ui-gpu.html`: a Strata panel of Tier A controls (plain contract markup and the Strata stylesheet) as a
  * direct child of an Underglass root, presented on the GPU by `attachStrataGpu`. `window.strataGpuProbe` is the hook
- * for `tests/browser/ui-gpu.test.mjs`; `?dom` starts in the CSS presentation, and `?plain` leaves the panel to the page
- * (no `attachStrataGpu`).
+ * for `tests/browser/ui-gpu.test.mjs`; `?dom` starts in the CSS presentation, `?plain` leaves the panel to the page
+ * (no `attachStrataGpu`), `?level=objects` presents the components as objects, and `?adjust=budget,down,up,window` turns
+ * the adjust policy on (frame budget in ms, then frame counts); `strataGpuProbe.load(ms)` makes each frame that slow.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
-import { attachStrataGpu, type StrataGpu } from "@underglass/ui/gpu";
+import { attachStrataGpu, type StrataAdjustEvent, type StrataGpu } from "@underglass/ui/gpu";
 import { showStrataDialog, strataEnter, strataLeave, type DialogHandle, type PanelMotionOptions } from "@underglass/ui/dom";
 
 const markup = `
@@ -90,7 +91,14 @@ const controller: CanvasController = mountApplicationModule({
   panel.querySelector("#gpu-save")!.addEventListener("click", () => { saves++; panel.querySelector("#gpu-count")!.textContent = `Saved ${saves} times`; });
   return () => container.replaceChildren();
 } });
-strata = params.has("plain") ? undefined : attachStrataGpu(controller);
+const level = params.get("level") === "objects" ? "objects" : undefined;
+const adjusting = params.get("adjust")?.split(",").map(Number);
+const adjustments: StrataAdjustEvent[] = [];
+const adjust = adjusting ? { enabled: true, frameBudgetMs: adjusting[0], stepDownAfterFrames: adjusting[1], stepUpAfterFrames: adjusting[2], window: adjusting[3] } : undefined;
+strata = params.has("plain") ? undefined : attachStrataGpu(controller, { level, adjust, onAdjust: event => adjustments.push(event) });
+// An artificial cost per frame, so tests can drive the adjust policy.
+let load = 0;
+const busy = () => { const until = performance.now() + load; while (performance.now() < until) { /* spin */ } if (load) requestAnimationFrame(busy); };
 host("enable").addEventListener("click", () => void controller.enable());
 host("disable").addEventListener("click", () => void controller.disable());
 host("theme").addEventListener("change", event => {
@@ -103,6 +111,8 @@ window.strataGpuProbe = {
   scene: () => strata?.scene(panel),
   refresh: () => strata?.refresh(),
   detach: () => { strata?.detach(); strata = undefined; },
+  cap: () => strata?.cap(), adjustments: () => [...adjustments],
+  load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes],
   leave: options => strataLeave(panel, options),
@@ -111,6 +121,7 @@ declare global {
   interface Window { strataGpuProbe: {
     controller: CanvasController; panel(): HTMLElement; saves(): number;
     scene(): ReturnType<StrataGpu["scene"]>; refresh(): void; detach(): void;
+    cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
     dialog(): HTMLElement | undefined; closes(): string[];
   } }

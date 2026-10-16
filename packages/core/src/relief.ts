@@ -1,9 +1,14 @@
 /**
- * The built-in `relief` material: core's implementation of the Strata Rendering Model, version 1
- * (`docs/ui-library/rendering-model.md`). It takes the model's scene format as data, packs it into a second uniform
- * binding of the layer pass (`reliefUniforms`) and shades it in WGSL (`reliefWGSL`), mirroring the reference
- * implementation in `@underglass/ui/tokens` section by section. Core never depends on Strata: the scene format is
- * the contract, and the conformance suite judges this file.
+ * The built-in `relief` and `objects` materials: core's implementation of the Strata Rendering Model, versions 1
+ * (Relief) and 2 (Objects) (`docs/ui-library/rendering-model.md`). It takes the model's scene format as data, packs it
+ * into a second uniform binding of the layer pass (`reliefUniforms`) and shades it in WGSL (`reliefWGSL`), mirroring
+ * the reference implementation in `@underglass/ui/tokens` section by section. Core never depends on Strata: the scene
+ * format is the contract, and the conformance suites judge this file.
+ *
+ * Objects (part 2B) are entries of the same back-to-front list as relief primitives, in the same binding: solids are
+ * shaded in screen space (their caps and sides are screen-locked), domes are ray-cast analytically. Objects never take
+ * hits; one that would draw outside its control (2B.6) is packed as its Relief equivalent and reported by
+ * `reliefDegraded`.
  *
  * Per-primitive values that do not depend on the pixel (section 2.3: band width, cast height, slope, profile) are
  * derived here on the CPU, so the shader only evaluates what changes per point.
@@ -18,13 +23,15 @@ export const RELIEF_PRIMITIVES = 256;
 export const RELIEF_OUTSET = 128;
 /** Distinct materials one relief scene may name. */
 export const RELIEF_MATERIALS = 16;
-const HEADER_VEC4S = 5;
+const HEADER_VEC4S = 6;
 const MATERIAL_VEC4S = 2;
 const PRIMITIVE_VEC4S = 6;
 /** vec4s in the relief uniform binding: header, material table, primitives. */
 export const RELIEF_VEC4S = HEADER_VEC4S + RELIEF_MATERIALS * MATERIAL_VEC4S + RELIEF_PRIMITIVES * PRIMITIVE_VEC4S;
 
 const faces = ["raised", "well", "groove", "knob", "mark", "ring", "flat"] as const;
+const objects = ["key", "slab", "bezel", "well", "rail", "mark", "knob", "puck"] as const;
+const domes: readonly string[] = ["knob", "puck"];
 const profiles = ["quarter-round", "chamfer", "cove"] as const;
 
 /** A material as numeric layers (rendering model, part 1). Colours come from the captured content. */
@@ -48,13 +55,34 @@ export interface ReliefPrimitive {
   ring?: { thickness: number; start: number; sweep: number; colour: string };
 }
 /**
- * A Strata scene, version 1: the input of the `relief` material. Core draws it over the layer's own box grown by
- * `outset` (shadows only; hits stay on the box); `extent` and `backdrop` are informational here (the layer pass
- * composites over what is beneath it).
+ * One object (rendering model 2B, version 2) in layer-local CSS px: a solid (`key`, `slab`, `bezel`, `well`, `rail`,
+ * `mark`) or a dome (`knob`, `puck`) standing on its base, the native control's border box.
+ */
+export interface ReliefObject {
+  object: (typeof objects)[number];
+  rect: [number, number, number, number];
+  radius?: number;
+  height: number;
+  base?: number;
+  taper?: number;
+  width?: number;
+  travel?: number;
+  material: string;
+  colour?: string;
+  finish?: boolean;
+  bounds?: [number, number, number, number];
+  state?: { hover?: boolean; pressed?: boolean; focus?: boolean; disabled?: boolean };
+}
+/**
+ * A Strata scene: the input of the `relief` material (version 1) and the `objects` material (version 2, which adds the
+ * camera, the environment and objects). Core draws it over the layer's own box grown by `outset` (shadows only; hits
+ * stay on the box); `extent` and `backdrop` are informational here (the layer pass composites over what is beneath it).
  */
 export interface ReliefScene {
   format: "strata-scene";
-  version: 1;
+  version: 1 | 2;
+  camera?: { distance: number; vanish: [number, number] };
+  environment?: { source: "studio"; strength: number };
   extent: { width: number; height: number };
   outset?: { top: number; right: number; bottom: number; left: number };
   backdrop: string;
@@ -65,8 +93,9 @@ export interface ReliefScene {
   state: { hoverHeight: number; pressHeight: number; hoverLift: number; pressSink: number };
   focus: { colour: string; width: number; offset: number };
   materials: Record<string, ReliefMaterial>;
-  primitives: ReliefPrimitive[];
+  primitives: (ReliefPrimitive | ReliefObject)[];
 }
+const isObject = (entry: ReliefPrimitive | ReliefObject): entry is ReliefObject => "object" in entry;
 
 const finite = (value: unknown, path: string, min = -Infinity, max = Infinity): number => {
   if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new Error(`Relief scene ${path} requires a number in ${min}..${max}`);
@@ -83,13 +112,20 @@ const object = (value: unknown, path: string): Record<string, unknown> => {
 const optional = (value: unknown, path: string, min: number, max: number, fallback: number) => (value === undefined ? fallback : finite(value, path, min, max));
 
 /**
- * Validates a scene for the `relief` material and returns a deep, normalized copy (defaults filled in). Throws on
- * the first problem, naming its path, so an invalid scene changes nothing. Checks what core relies on; the full
- * format is `@underglass/ui/scene.schema.json`.
+ * Validates a scene for the `relief` material (`version` 1) or the `objects` material (`version` 2) and returns a
+ * deep, normalized copy (defaults filled in). Throws on the first problem, naming its path, so an invalid scene changes
+ * nothing. Checks what core relies on; the full format is `@underglass/ui/scene.schema.json`.
  */
-export function validateReliefScene(input: ReliefScene): ReliefScene {
+export function validateReliefScene(input: ReliefScene, version: 1 | 2 = 1): ReliefScene {
   const scene = object(input, "");
-  if (scene.format !== "strata-scene" || scene.version !== 1) throw new Error("Relief material requires a version 1 strata-scene");
+  if (scene.format !== "strata-scene" || scene.version !== version) {
+    throw new Error(version === 1 ? "Relief material requires a version 1 strata-scene" : "Objects material requires a version 2 strata-scene");
+  }
+  const camera = version === 2 ? object(scene.camera, "camera") : undefined;
+  if (version === 1 && (scene.camera !== undefined || scene.environment !== undefined)) throw new Error("Relief scene camera and environment are only in version 2");
+  if (camera && (!Array.isArray(camera.vanish) || camera.vanish.length !== 2)) throw new Error("Relief scene camera.vanish requires [x, y]");
+  const environment = version === 2 && scene.environment !== undefined ? object(scene.environment, "environment") : undefined;
+  if (environment && environment.source !== "studio") throw new Error('Relief scene environment.source requires "studio"');
   const extent = object(scene.extent, "extent"), light = object(scene.light, "light"), bevel = object(scene.bevel, "bevel");
   const state = object(scene.state, "state"), focus = object(scene.focus, "focus");
   if (!profiles.includes(bevel.profile as (typeof profiles)[number])) throw new Error(`Relief scene bevel.profile requires one of ${profiles.join(", ")}`);
@@ -99,7 +135,10 @@ export function validateReliefScene(input: ReliefScene): ReliefScene {
   if (!Array.isArray(scene.primitives) || scene.primitives.length > RELIEF_PRIMITIVES) throw new Error(`Relief scene primitives requires an array of at most ${RELIEF_PRIMITIVES}`);
   const outset = scene.outset === undefined ? undefined : object(scene.outset, "outset");
   return {
-    format: "strata-scene", version: 1,
+    format: "strata-scene", version,
+    ...(camera ? { camera: { distance: finite(camera.distance, "camera.distance", 100, 1e6),
+      vanish: (camera.vanish as unknown[]).map((part, index) => finite(part, `camera.vanish[${index}]`, -1e6, 1e6)) as [number, number] },
+      environment: { source: "studio" as const, strength: environment ? finite(environment.strength, "environment.strength", 0, 1) : 0.6 } } : {}),
     extent: { width: finite(extent.width, "extent.width", 0), height: finite(extent.height, "extent.height", 0) },
     ...(outset ? { outset: { top: finite(outset.top, "outset.top", 0, RELIEF_OUTSET), right: finite(outset.right, "outset.right", 0, RELIEF_OUTSET),
       bottom: finite(outset.bottom, "outset.bottom", 0, RELIEF_OUTSET), left: finite(outset.left, "outset.left", 0, RELIEF_OUTSET) } } : {}),
@@ -121,8 +160,12 @@ export function validateReliefScene(input: ReliefScene): ReliefScene {
         emissive: { strength: optional(emissive?.strength, `materials.${name}.emissive.strength`, 0, 4, 0) },
       } satisfies ReliefMaterial];
     })),
-    primitives: (scene.primitives as unknown[]).map((value, index) => {
+    primitives: (scene.primitives as unknown[]).map((value, index): ReliefPrimitive | ReliefObject => {
       const at = `primitives[${index}]`, primitive = object(value, at);
+      if ("object" in primitive) {
+        if (version !== 2) throw new Error(`Relief scene ${at}.object requires a version 2 scene (the objects material)`);
+        return validateObject(primitive, at, names);
+      }
       if (!faces.includes(primitive.face as (typeof faces)[number])) throw new Error(`Relief scene ${at}.face requires one of ${faces.join(", ")}`);
       if (!Array.isArray(primitive.rect) || primitive.rect.length !== 4) throw new Error(`Relief scene ${at}.rect requires [x, y, width, height]`);
       if (typeof primitive.material !== "string" || !names.includes(primitive.material)) throw new Error(`Relief scene ${at}.material requires one of the scene's materials`);
@@ -145,12 +188,99 @@ export function validateReliefScene(input: ReliefScene): ReliefScene {
   };
 }
 
+/** Validates one object (rendering model 2B.1) and returns it with its defaults. */
+function validateObject(value: Record<string, unknown>, at: string, names: string[]): ReliefObject {
+  const kind = value.object as ReliefObject["object"];
+  if (!objects.includes(kind)) throw new Error(`Relief scene ${at}.object requires one of ${objects.join(", ")}`);
+  const dome = domes.includes(kind);
+  const box = (part: unknown, path: string) => {
+    if (!Array.isArray(part) || part.length !== 4) throw new Error(`Relief scene ${path} requires [x, y, width, height]`);
+    return part.map((n, i) => finite(n, `${path}[${i}]`, i < 2 ? -1e6 : 0, 1e6)) as [number, number, number, number];
+  };
+  if (typeof value.material !== "string" || !names.includes(value.material)) throw new Error(`Relief scene ${at}.material requires one of the scene's materials`);
+  if (dome && (value.taper !== undefined || value.width !== undefined || value.travel !== undefined)) throw new Error(`Relief scene ${at} taper, width and travel are only for solids`);
+  if (kind === "bezel" && value.width === undefined) throw new Error(`Relief scene ${at}.width is required for a bezel`);
+  if (kind !== "bezel" && value.width !== undefined) throw new Error(`Relief scene ${at}.width is only for a bezel`);
+  if (value.travel !== undefined && kind !== "key" && kind !== "mark") throw new Error(`Relief scene ${at}.travel is only for keys and marks`);
+  if (!dome && value.colour !== undefined) throw new Error(`Relief scene ${at}.colour is only for domes`);
+  const flags = value.state === undefined ? {} : object(value.state, `${at}.state`);
+  const flag = (key: string) => { const v = flags[key]; if (v !== undefined && typeof v !== "boolean") throw new Error(`Relief scene ${at}.state.${key} requires a boolean`); return v === true; };
+  const rect = box(value.rect, `${at}.rect`);
+  return {
+    object: kind, rect,
+    radius: optional(value.radius, `${at}.radius`, 0, 1e6, 0),
+    height: finite(value.height, `${at}.height`, 0, 1e6),
+    base: optional(value.base, `${at}.base`, -1e6, 1e6, 0),
+    ...(dome ? { colour: colour(value.colour, `${at}.colour`) } : { taper: optional(value.taper, `${at}.taper`, 0, 1e6, 0) }),
+    ...(kind === "bezel" ? { width: finite(value.width, `${at}.width`, 0, 1e6) } : {}),
+    ...(kind === "key" || kind === "mark" ? { travel: optional(value.travel, `${at}.travel`, 0, 1e6, 0) } : {}),
+    material: value.material,
+    finish: value.finish === true,
+    bounds: value.bounds === undefined ? rect : box(value.bounds, `${at}.bounds`),
+    state: { hover: flag("hover"), pressed: flag("pressed"), focus: flag("focus"), disabled: flag("disabled") },
+  };
+}
+
+/** An object's heights (2B.2): the base, and the cap (a well's floor, a pressed key's sunk cap) or a dome's apex. */
+function heights(entry: ReliefObject, rest = false): [number, number] {
+  const z0 = entry.base ?? 0;
+  if (entry.object === "well") return [z0, z0 - entry.height];
+  const travel = (entry.object === "key" || entry.object === "mark") && entry.state?.pressed && !rest ? Math.min(entry.travel ?? 0, entry.height) : 0;
+  return [z0, z0 + entry.height - travel];
+}
+/**
+ * Hit safety (2B.6): why an object cannot be drawn as an object, or undefined when it can. A solid's taper must cover
+ * the drift at its base corner farthest from the vanishing point; a dome's projected bounding box must stay inside its
+ * bounds. The resting geometry is checked.
+ */
+function unsafe(scene: ReliefScene, entry: ReliefObject): string | undefined {
+  const { distance, vanish: [vx, vy] } = scene.camera!;
+  const [z0, z1] = heights(entry, true);
+  const [x, y, width, height] = entry.rect;
+  if (!domes.includes(entry.object)) {
+    const reach = Math.max(...[[x, y], [x + width, y], [x, y + height], [x + width, y + height]].map(([px, py]) => Math.hypot(px! - vx, py! - vy)));
+    return Math.abs(z1 - z0) === 0 || (entry.taper ?? 0) * (distance - Math.max(z0, z1)) >= Math.abs(z1 - z0) * reach ? undefined
+      : "its taper is less than its perspective drift";
+  }
+  if (distance - z1 <= 0) return "its apex is behind the camera";
+  const [bx, by, bw, bh] = entry.bounds ?? entry.rect;
+  for (const z of [z0, z1]) for (const px of [x, x + width]) for (const py of [y, y + height]) {
+    const scale = distance / (distance - z), sx = vx + (px - vx) * scale, sy = vy + (py - vy) * scale;
+    if (sx < bx - 1e-6 || sy < by - 1e-6 || sx > bx + bw + 1e-6 || sy > by + bh + 1e-6) return "its projection leaves its bounds";
+  }
+  return undefined;
+}
+/** 2B.6: the Relief equivalent of an object that cannot be drawn as one (a bezel has none). */
+function equivalent(entry: ReliefObject): ReliefPrimitive | undefined {
+  const common = { rect: entry.rect, radius: entry.radius ?? 0, height: entry.height, material: entry.material, finish: false, state: entry.state ?? {} };
+  switch (entry.object) {
+    case "bezel": return undefined;
+    case "well": return { ...common, face: "well" };
+    case "knob": case "puck": return { ...common, face: "knob" };
+    case "mark": return { ...common, face: "mark" };
+    default: return { ...common, face: "raised", finish: entry.finish === true };
+  }
+}
+/**
+ * The objects of a validated version 2 scene that are drawn at the Relief level instead (rendering model 2B.6), with
+ * why. Empty for version 1 scenes and for scenes whose objects are all safe.
+ */
+export function reliefDegraded(scene: ReliefScene): { index: number; object: string; reason: string }[] {
+  if (scene.version !== 2) return [];
+  return scene.primitives.flatMap((entry, index) => {
+    if (!isObject(entry)) return [];
+    const reason = unsafe(scene, entry);
+    return reason ? [{ index, object: entry.object, reason }] : [];
+  });
+}
+
 const rgb = (hex: string) => [1, 3, 5].map(index => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
 const packed = new WeakMap<ReliefScene, Float32Array>();
 /**
  * Packs a validated scene into the relief binding: a header (light vector, bevel, shadow, interior budget, state
- * multipliers, focus edge, counts), the material table, and each primitive with its derived values. Cached per
- * scene object, so an unchanged scene is packed once.
+ * multipliers, focus edge, counts, camera and environment), the material table, and each entry with its derived
+ * values: a relief primitive, an object, or an object's Relief equivalent. Cached per scene object, so an unchanged
+ * scene is packed once.
  */
 export function reliefUniforms(scene: ReliefScene): Float32Array {
   const cached = packed.get(scene);
@@ -162,13 +292,25 @@ export function reliefUniforms(scene: ReliefScene): Float32Array {
     scene.bevel.gain, profiles.indexOf(scene.bevel.profile), scene.shadow.strength, scene.interior.max,
     scene.state.hoverHeight, scene.state.pressHeight, scene.state.hoverLift, scene.state.pressSink,
     ...rgb(scene.focus.colour), scene.focus.width,
-    scene.focus.offset, scene.primitives.length, names.length, 0], 0);
+    scene.focus.offset, scene.primitives.length, names.length, 0,
+    scene.camera?.distance ?? 1600, ...(scene.camera?.vanish ?? [0, 0]), scene.environment?.strength ?? 0], 0);
   names.forEach((name, index) => {
     const material = scene.materials[name]!;
     values.set([material.base?.roughness ?? 1, material.base?.metallic ?? 0, material.coat?.strength ?? 0, material.coat?.roughness ?? 0,
       (material.emissive?.strength ?? 0) > 0 ? 1 : 0, 0, 0, 0], (HEADER_VEC4S + index * MATERIAL_VEC4S) * 4);
   });
-  scene.primitives.forEach((primitive, index) => {
+  scene.primitives.forEach((entry, index) => {
+    const at = (HEADER_VEC4S + RELIEF_MATERIALS * MATERIAL_VEC4S + index * PRIMITIVE_VEC4S) * 4;
+    let primitive: ReliefPrimitive;
+    let surface: string | undefined;
+    if (isObject(entry)) {
+      if (!unsafe(scene, entry)) { values.set(packObject(scene, entry, names), at); return; }
+      // 2B.6: drawn at the Relief level; a dome keeps its colour on its footprint, and a bezel is not drawn.
+      const fallback = equivalent(entry);
+      if (!fallback) { values.set([0, 0, 0, 0, 0, 0, 0, 6], at); return; }
+      primitive = fallback;
+      surface = entry.colour;
+    } else primitive = entry;
     const [x, y, width, height] = primitive.rect;
     const state = primitive.state ?? {};
     const material = scene.materials[primitive.material] ?? {};
@@ -185,19 +327,51 @@ export function reliefUniforms(scene: ReliefScene): Float32Array {
       knob ? inradius : Math.min(Math.max(primitive.radius ?? 0, 0), inradius), band, cast, faces.indexOf(primitive.face),
       state.hover ? 1 : 0, state.pressed ? 1 : 0, state.focus && !state.disabled ? 1 : 0, state.disabled ? 1 : 0,
       primitive.finish && lit ? 1 : 0, primitive.ring?.thickness ?? 0, primitive.ring?.start ?? 0, primitive.ring?.sweep ?? 0,
-      ...(primitive.ring ? rgb(primitive.ring.colour) : [0, 0, 0]), names.indexOf(primitive.material),
-      knob ? 0 : profiles.indexOf(scene.bevel.profile), sunk ? -1 : 1, knob ? 1 : 0, ring && primitive.ring && !state.disabled ? 1 : 0,
-    ], (HEADER_VEC4S + RELIEF_MATERIALS * MATERIAL_VEC4S + index * PRIMITIVE_VEC4S) * 4);
+      ...(primitive.ring ? rgb(primitive.ring.colour) : surface ? rgb(surface) : [0, 0, 0]), names.indexOf(primitive.material),
+      knob ? 0 : profiles.indexOf(scene.bevel.profile), sunk ? -1 : 1, knob ? 1 : 0, ring && primitive.ring && !state.disabled ? 1 : surface ? 2 : 0,
+    ], at);
   });
   packed.set(scene, values);
   return values;
+}
+
+/**
+ * An object's six vec4s (2B.2): rect; radius, guard band, cast height and its code (7 solid, 8 bezel, 9 dome);
+ * states; finish, bezel width, base and cap heights; a dome's colour and the material; lit, taper, and how far a
+ * dome's drawing may reach past its footprint.
+ */
+function packObject(scene: ReliefScene, entry: ReliefObject, names: string[]): number[] {
+  const [x, y, width, height] = entry.rect;
+  const state = entry.state ?? {};
+  const material = scene.materials[entry.material] ?? {};
+  const inradius = Math.min(width, height) / 2;
+  const dome = domes.includes(entry.object);
+  const lit = !state.disabled && (material.emissive?.strength ?? 0) <= 0;
+  const [z0, z1] = heights(entry);
+  const travels = entry.object === "key" || entry.object === "mark";
+  // 2B.2: cast height after the state multipliers; a key's travel already lowers its cap.
+  const cast = z1 > z0 && !state.disabled ? (z1 - z0) * (1 + (scene.state.hoverHeight - 1) * (state.hover ? 1 : 0))
+    * (travels ? 1 : 1 - (1 - scene.state.pressHeight) * (state.pressed ? 1 : 0)) : 0;
+  let drift = 0;
+  if (dome && scene.camera) {
+    const { distance, vanish: [vx, vy] } = scene.camera, scale = distance / (distance - z1);
+    for (const [px, py] of [[x, y], [x + width, y], [x, y + height], [x + width, y + height]]) drift = Math.max(drift, Math.hypot((px! - vx) * (scale - 1), (py! - vy) * (scale - 1)));
+  }
+  return [
+    x, y, width, height,
+    dome ? inradius : Math.min(Math.max(entry.radius ?? 0, 0), inradius), !lit ? 0 : dome ? inradius : entry.taper ?? 0, cast, dome ? 9 : entry.object === "bezel" ? 8 : 7,
+    state.hover ? 1 : 0, state.pressed ? 1 : 0, state.focus && !state.disabled ? 1 : 0, state.disabled ? 1 : 0,
+    entry.finish && lit ? 1 : 0, entry.width ?? 0, z0, z1,
+    ...(entry.colour ? rgb(entry.colour) : [0, 0, 0]), names.indexOf(entry.material),
+    lit ? 1 : 0, entry.taper ?? 0, drift + 1, 0,
+  ];
 }
 
 const primitiveBase = HEADER_VEC4S + RELIEF_MATERIALS * MATERIAL_VEC4S;
 /**
  * WGSL for the relief binding (`@binding(3)`) and `reliefShade(p, captured)`, which returns the shaded colour as
  * straight RGB with alpha, ready for the layer pass to blend over what is beneath (rendering model 2.11). Section
- * numbers refer to the rendering model.
+ * numbers refer to the rendering model. Entries with code 7 and above are objects (part 2B).
  */
 export const reliefWGSL = /* wgsl */ `
 @group(0) @binding(3) var<uniform> relief: array<vec4f, ${RELIEF_VEC4S}>;
@@ -205,7 +379,7 @@ fn reliefBox(p: vec2f, centre: vec2f, half: vec2f, radius: f32) -> f32 {
   let q = abs(p - centre) - half + vec2f(radius);
   return length(max(q, vec2f(0.0))) + min(max(q.x, q.y), 0.0) - radius;
 }
-// 2.2: signed distance to primitive i.
+// 2.2 and 2B.3: signed distance to entry i (a relief primitive's shape, or an object's footprint).
 fn reliefDistance(p: vec2f, i: u32) -> f32 {
   let base = ${primitiveBase}u + i * ${PRIMITIVE_VEC4S}u;
   let rect = relief[base];
@@ -216,7 +390,12 @@ fn reliefDistance(p: vec2f, i: u32) -> f32 {
     let thickness = relief[base + 3u].y;
     return abs(length(p - centre) - (min(half.x, half.y) - thickness * 0.5)) - thickness * 0.5;
   }
-  return reliefBox(p, centre, half, shape.x);
+  let d = reliefBox(p, centre, half, shape.x);
+  if (shape.w == 8.0) {
+    let width = relief[base + 3u].y;
+    return abs(d + width * 0.5) - width * 0.5;
+  }
+  return d;
 }
 // The finish-zone profile (design language section 4): (brighten, darken) at \`along\`.
 fn reliefFinish(along: f32, material: vec4f) -> vec2f {
@@ -228,16 +407,70 @@ fn reliefFinish(along: f32, material: vec4f) -> vec2f {
   let metalBottom = material.y * 0.36 * smoothstep(0.72, 0.97, along);
   return vec2f(max(band, max(sheen, metalTop)), max(metalBottom, horizon));
 }
+// 2.5: the bevel light of a normal, shared by relief bevels and object sides and domes.
+fn reliefLight(n: vec3f, material: vec4f) -> f32 {
+  let light = relief[0].xyz;
+  let halfway = normalize(light + vec3f(0.0, 0.0, 1.0));
+  let facing = max(dot(n, halfway), 0.0);
+  let lambert = dot(n, light) - light.z;
+  let specular = pow(facing, mix(160.0, 6.0, material.x)) * (1.0 - material.x) * mix(0.35, 1.0, material.y);
+  let rim = 1.0 - clamp(n.z, 0.0, 1.0);
+  let fresnel = 0.04 + 0.96 * rim * rim * rim * rim * rim;
+  let coat = material.z * (pow(facing, mix(90.0, 10.0, material.w)) * 0.9 + fresnel * 0.6);
+  return lambert * relief[1].x * (1.0 + material.y) + specular * 1.2 + coat;
+}
+// 2B.7: the studio environment, relative to a flat face.
+fn reliefStudio(z: f32) -> f32 { return mix(0.18, 0.92, smoothstep(-0.35, 0.65, z)); }
+fn reliefEnvironment(n: vec3f, material: vec4f) -> f32 {
+  return relief[5].w * (reliefStudio(2.0 * n.z * n.z - 1.0) - reliefStudio(1.0)) * mix(0.04, 1.0, material.y) * (1.0 - material.x);
+}
+// 2B.4: a solid's side normal at p, from the screen-locked base and cap points across the band.
+fn reliefSide(p: vec2f, i: u32, d: f32) -> vec3f {
+  let base = ${primitiveBase}u + i * ${PRIMITIVE_VEC4S}u;
+  let heights = relief[base + 3u];
+  let taper = relief[base + 5u].y;
+  let camera = relief[5];
+  let e = 0.5;
+  var g = vec2f(reliefDistance(p + vec2f(e, 0.0), i) - reliefDistance(p - vec2f(e, 0.0), i),
+    reliefDistance(p + vec2f(0.0, e), i) - reliefDistance(p - vec2f(0.0, e), i));
+  g = select(vec2f(0.0), g / length(g), length(g) > 1e-9);
+  let b = p - d * g;
+  let t = b - taper * g;
+  let vanish = camera.yz;
+  let delta = (vanish + (t - vanish) * ((camera.x - heights.w) / camera.x)) - (vanish + (b - vanish) * ((camera.x - heights.z) / camera.x));
+  return normalize(vec3f((heights.w - heights.z) * g, -dot(g, delta)));
+}
+// 2B.5: a dome ray-cast at p, as (coverage, normal).
+fn reliefDome(p: vec2f, i: u32) -> vec4f {
+  let base = ${primitiveBase}u + i * ${PRIMITIVE_VEC4S}u;
+  let rect = relief[base];
+  let heights = relief[base + 3u];
+  let camera = relief[5];
+  let half = rect.zw * 0.5;
+  let u = (p - camera.yz) / camera.x;
+  let e = p - (rect.xy + half);
+  let rise = max(heights.w - heights.z, 1e-3);
+  let s = vec3f(1.0 / (half * half), 1.0 / (rise * rise));
+  let z0 = heights.z;
+  let a = u.x * u.x * s.x + u.y * u.y * s.y + s.z;
+  let b = -2.0 * (e.x * u.x * s.x + e.y * u.y * s.y) - 2.0 * z0 * s.z;
+  let c = e.x * e.x * s.x + e.y * e.y * s.y + z0 * z0 * s.z - 1.0;
+  let least = c - b * b / (4.0 * a);
+  let silhouette = (sqrt(max(least + 1.0, 0.0)) - 1.0) * min(half.x, half.y);
+  let discriminant = b * b - 4.0 * a * c;
+  let z = select(z0 - 1.0, (-b + sqrt(max(discriminant, 0.0))) / (2.0 * a), discriminant >= 0.0);
+  if (z < z0) { return vec4f(0.0, 0.0, 0.0, 1.0); }
+  let hit = e - u * z;
+  return vec4f(1.0 - smoothstep(-0.5, 0.5, silhouette), normalize(vec3f(hit * s.xy, (z - z0) * s.z)));
+}
 fn reliefShade(p: vec2f, captured: vec4f) -> vec4f {
   let light = relief[0].xyz;
-  let bevelGain = relief[1].x;
   let m = relief[1].w;
   let states = relief[2];
   let focusColour = relief[3].xyz;
   let focusWidth = relief[3].w;
   let focusOffset = relief[4].x;
   let count = u32(relief[4].y);
-  let halfway = normalize(light + vec3f(0.0, 0.0, 1.0));
   var shade = 0.0;
   var offsets = 0.0;
   var shadow = 0.0;
@@ -246,6 +479,8 @@ fn reliefShade(p: vec2f, captured: vec4f) -> vec4f {
   var edge = 0.0;
   var arcColour = vec3f(0.0);
   var arcAlpha = 0.0;
+  var surfaceColour = vec3f(0.0);
+  var surfaceAlpha = 0.0;
   var inside = false;
   var clearance = 1e9;
   for (var i = 0u; i < count; i++) {
@@ -258,65 +493,91 @@ fn reliefShade(p: vec2f, captured: vec4f) -> vec4f {
     let kind = relief[base + 5u];
     let bandWidth = shape.y;
     let lift = shape.z;
-    // A primitive farther than every term's reach contributes nothing, so it is skipped. The box distance is a
-    // lower bound of the shape's distance, so the skip is exact: no coverage (0.5 px), no effect on the guard's
-    // clearance beyond its 2 px ramp, no shadow (offset plus softness) and no focus edge.
+    let object = shape.w >= 7.0;
+    let dome = shape.w == 9.0;
+    // An entry farther than every term's reach contributes nothing, so it is skipped. The box distance is a lower
+    // bound of the shape's distance, so the skip is exact: no coverage (0.5 px), no effect on the guard's clearance
+    // beyond its 2 px ramp, no shadow (offset plus softness), no focus edge, and no dome drawn past its footprint.
     var reach = bandWidth + 2.0;
     if (lift > 0.0) { reach = max(reach, length(light.xy) / light.z * lift + 1.5 * lift + 1.0); }
     if (flags.z > 0.5) { reach = max(reach, focusOffset + focusWidth + 0.5); }
+    if (dome) { reach = max(reach, kind.z); }
     if (length(max(abs(p - rect.xy - rect.zw * 0.5) - rect.zw * 0.5, vec2f(0.0))) > reach) { continue; }
     let d = reliefDistance(p, i);
-    if (d < 0.0) { inside = true; }
-    clearance = min(clearance, abs(d) - bandWidth);
-    // 2.4 Occlusion: this primitive hides the relief of those beneath it.
-    let cover = 1.0 - smoothstep(-0.5, 0.5, d);
-    shade *= 1.0 - cover; offsets *= 1.0 - cover; band *= 1.0 - cover; dark *= 1.0 - cover;
-    arcColour *= 1.0 - cover; arcAlpha *= 1.0 - cover;
     let material = relief[${HEADER_VEC4S}u + u32(extra.w) * ${MATERIAL_VEC4S}u];
-    if (bandWidth > 0.0) {
-      let s = clamp(-d / bandWidth, 0.0, 1.0);
-      if (s < 1.0 || kind.z > 0.5) {
-        // 2.4 Normal from the profile; 2.5 bevel light.
-        let e = 0.5;
-        var g = vec2f(reliefDistance(p + vec2f(e, 0.0), i) - reliefDistance(p - vec2f(e, 0.0), i),
-          reliefDistance(p + vec2f(0.0, e), i) - reliefDistance(p - vec2f(0.0, e), i));
-        g = select(vec2f(0.0), g / length(g), length(g) > 1e-9);
-        var theta = 1.2 * (1.0 - s);
-        if (kind.x == 1.0) { theta = 0.6; }
-        if (kind.x == 2.0) { theta = 1.2 * s; }
-        let n = vec3f(g * kind.y * sin(theta), cos(theta));
-        let facing = max(dot(n, halfway), 0.0);
-        let lambert = dot(n, light) - light.z;
-        let specular = pow(facing, mix(160.0, 6.0, material.x)) * (1.0 - material.x) * mix(0.35, 1.0, material.y);
-        let rim = 1.0 - clamp(n.z, 0.0, 1.0);
-        let fresnel = 0.04 + 0.96 * rim * rim * rim * rim * rim;
-        let coat = material.z * (pow(facing, mix(90.0, 10.0, material.w)) * 0.9 + fresnel * 0.6);
-        shade += (lambert * bevelGain * (1.0 + material.y) + specular * 1.2 + coat) * cover;
-      } else {
-        // 2.6 Interior offset and finish zones.
-        offsets += states.z * flags.x - states.w * flags.y + material.z * 0.02 + (1.0 - material.x) * 0.01;
-        if (ring.x > 0.5) {
-          let zones = reliefFinish(clamp((p.y - rect.y) / max(rect.w, 1.0), 0.0, 1.0), material);
-          band = max(band, zones.x);
-          dark = max(dark, zones.y);
+    var cover = 1.0 - smoothstep(-0.5, 0.5, d);
+    var hit = vec4f(0.0);
+    if (dome) { hit = reliefDome(p, i); cover = hit.x; }
+    if (d < 0.0 || (dome && cover > 0.5)) { inside = true; }
+    clearance = min(clearance, abs(d) - bandWidth);
+    // 2.4 Occlusion: this entry hides the relief, interior offset, finish, arcs, dome colour and shadows beneath it.
+    shade *= 1.0 - cover; offsets *= 1.0 - cover; band *= 1.0 - cover; dark *= 1.0 - cover; shadow *= 1.0 - cover;
+    arcColour *= 1.0 - cover; arcAlpha *= 1.0 - cover;
+    surfaceColour *= 1.0 - cover; surfaceAlpha *= 1.0 - cover;
+    if (dome) {
+      // 2B.5 A dome: its colour over what is beneath, lit by its own normal.
+      surfaceColour += extra.xyz * cover;
+      surfaceAlpha += cover * (1.0 - surfaceAlpha);
+      if (kind.x > 0.5 && cover > 0.0) { shade += (reliefLight(hit.yzw, material) + reliefEnvironment(hit.yzw, material)) * cover; }
+    } else if (object) {
+      // 2B.4 A solid: a side within its taper of the footprint's edge, its cap beyond.
+      if (kind.x > 0.5) {
+        if (bandWidth > 0.0 && d > -bandWidth) {
+          let n = reliefSide(p, i, d);
+          shade += (reliefLight(n, material) + reliefEnvironment(n, material)) * cover;
+        } else if (d <= -bandWidth) {
+          offsets += states.z * flags.x - states.w * flags.y + material.z * 0.02 + (1.0 - material.x) * 0.01;
+          if (ring.x > 0.5) {
+            let zones = reliefFinish(clamp((p.y - rect.y) / max(rect.w, 1.0), 0.0, 1.0), material);
+            band = max(band, zones.x);
+            dark = max(dark, zones.y);
+          }
         }
       }
-    }
-    // 2.7 Ring arc, accumulated as an overlay.
-    if (kind.w > 0.5) {
-      var arc = 1.0;
-      if (ring.w < 360.0) {
-        let centre = rect.xy + rect.zw * 0.5;
-        let radius = min(rect.z, rect.w) * 0.5 - ring.y * 0.5;
-        let angle = (degrees(atan2(p.x - centre.x, -(p.y - centre.y))) + 360.0) % 360.0;
-        let along = ((angle - ring.z) % 360.0 + 360.0) % 360.0;
-        let inArc = along <= ring.w;
-        let distance = select(min(along - ring.w, 360.0 - along), -min(along, ring.w - along), inArc);
-        arc = 1.0 - smoothstep(-0.5, 0.5, radians(distance) * radius);
+    } else {
+      if (kind.w == 2.0) {
+        // 2B.6 A dome drawn at the Relief level keeps its colour on its footprint.
+        surfaceColour += extra.xyz * cover;
+        surfaceAlpha += cover * (1.0 - surfaceAlpha);
       }
-      let c = cover * arc;
-      arcColour = arcColour * (1.0 - c) + extra.xyz * c;
-      arcAlpha = arcAlpha + c * (1.0 - arcAlpha);
+      if (bandWidth > 0.0) {
+        let s = clamp(-d / bandWidth, 0.0, 1.0);
+        if (s < 1.0 || kind.z > 0.5) {
+          // 2.4 Normal from the profile; 2.5 bevel light.
+          let e = 0.5;
+          var g = vec2f(reliefDistance(p + vec2f(e, 0.0), i) - reliefDistance(p - vec2f(e, 0.0), i),
+            reliefDistance(p + vec2f(0.0, e), i) - reliefDistance(p - vec2f(0.0, e), i));
+          g = select(vec2f(0.0), g / length(g), length(g) > 1e-9);
+          var theta = 1.2 * (1.0 - s);
+          if (kind.x == 1.0) { theta = 0.6; }
+          if (kind.x == 2.0) { theta = 1.2 * s; }
+          shade += reliefLight(vec3f(g * kind.y * sin(theta), cos(theta)), material) * cover;
+        } else {
+          // 2.6 Interior offset and finish zones.
+          offsets += states.z * flags.x - states.w * flags.y + material.z * 0.02 + (1.0 - material.x) * 0.01;
+          if (ring.x > 0.5) {
+            let zones = reliefFinish(clamp((p.y - rect.y) / max(rect.w, 1.0), 0.0, 1.0), material);
+            band = max(band, zones.x);
+            dark = max(dark, zones.y);
+          }
+        }
+      }
+      // 2.7 Ring arc, accumulated as an overlay.
+      if (kind.w == 1.0) {
+        var arc = 1.0;
+        if (ring.w < 360.0) {
+          let centre = rect.xy + rect.zw * 0.5;
+          let radius = min(rect.z, rect.w) * 0.5 - ring.y * 0.5;
+          let angle = (degrees(atan2(p.x - centre.x, -(p.y - centre.y))) + 360.0) % 360.0;
+          let along = ((angle - ring.z) % 360.0 + 360.0) % 360.0;
+          let inArc = along <= ring.w;
+          let distance = select(min(along - ring.w, 360.0 - along), -min(along, ring.w - along), inArc);
+          arc = 1.0 - smoothstep(-0.5, 0.5, radians(distance) * radius);
+        }
+        let c = cover * arc;
+        arcColour = arcColour * (1.0 - c) + extra.xyz * c;
+        arcAlpha = arcAlpha + c * (1.0 - arcAlpha);
+      }
     }
     // 2.8 Cast shadow, outside the caster only.
     if (lift > 0.0) {
@@ -328,15 +589,18 @@ fn reliefShade(p: vec2f, captured: vec4f) -> vec4f {
       edge = max(edge, smoothstep(focusOffset - 0.5, focusOffset + 0.5, d) * (1.0 - smoothstep(focusOffset + focusWidth - 0.5, focusOffset + focusWidth + 0.5, d)));
     }
   }
+  // 2B.8 Domes' colour goes over the captured content before light.
+  let alphaIn = captured.a * (1.0 - surfaceAlpha) + surfaceAlpha;
+  let colourIn = select(vec3f(0.0), (captured.rgb * captured.a * (1.0 - surfaceAlpha) + surfaceColour) / alphaIn, alphaIn > 1e-5);
   // 2.9 Guard and 2.11 compositing.
   let interior = 1.0 + clamp(offsets, -m, m);
   let guard = select(0.0, smoothstep(0.0, 2.0, clearance), inside);
   let k = clamp(interior * (1.0 - shadow), 1.0 - m, 1.0 + m);
-  var content = mix((captured.rgb * interior + vec3f(shade)) * (1.0 - shadow), captured.rgb * k, guard);
+  var content = mix((colourIn * interior + vec3f(shade)) * (1.0 - shadow), colourIn * k, guard);
   content = content * (1.0 - arcAlpha) + arcColour;
   content = clamp(mix(mix(content, vec3f(1.0), band), vec3f(0.0), dark), vec3f(0.0), vec3f(1.0));
-  var premultiplied = content * captured.a;
-  var alpha = captured.a + shadow * (1.0 - captured.a);
+  var premultiplied = content * alphaIn;
+  var alpha = alphaIn + shadow * (1.0 - alphaIn);
   premultiplied = premultiplied * (1.0 - edge) + focusColour * edge;
   alpha = alpha * (1.0 - edge) + edge;
   return vec4f(select(vec3f(0.0), premultiplied / alpha, alpha > 1e-5), alpha);

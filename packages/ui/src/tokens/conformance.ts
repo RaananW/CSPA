@@ -5,11 +5,13 @@
  * the key points by hand. A backend conforms when, rendering at a device scale of 1 over the scene's backdrop, its
  * decoded pixel at every sample (a pixel centre) is within the tolerance of the expected colour on every channel.
  *
- * `buildConformance()` writes the suite that ships as `@underglass/ui/conformance/relief-1.json`.
+ * `buildConformance()` writes the suite that ships as `@underglass/ui/conformance/relief-1.json` (version 1, Relief), and
+ * `buildObjectsConformance()` the one that ships as `@underglass/ui/conformance/objects-2.json` (version 2, Objects). A
+ * renderer conforms to version 2 when it passes both.
  */
 import { parseHex, toHex } from "./contrast.ts";
 import { strataSource } from "./source.ts";
-import { sceneSettings, type ScenePrimitive, type StrataScene } from "./scene.ts";
+import { sceneSettings, type SceneEntry, type SceneObject, type ScenePrimitive, type StrataScene } from "./scene.ts";
 import { roundedBoxDistance, shadePoint, type CapturedColour } from "./shade.ts";
 import type { TokenGroup } from "./model.ts";
 
@@ -38,7 +40,7 @@ export interface ConformanceCase {
 
 export interface ConformanceSuite {
   format: "strata-conformance";
-  model: "strata-scene/1";
+  model: "strata-scene/1" | "strata-scene/2";
   /** The largest difference allowed on any channel, in 0–255 units. */
   tolerance: number;
   description: string;
@@ -231,9 +233,135 @@ export function conformanceCases(source: TokenGroup = strataSource): Conformance
   return cases;
 }
 
-/** The suite with every expected colour computed by the reference implementation. */
-export function buildConformance(source: TokenGroup = strataSource): ConformanceSuite {
-  const cases = conformanceCases(source).map(entry => {
+/** The Objects conformance cases (version 2), without expectations. */
+export function objectsCases(source: TokenGroup = strataSource): ConformanceCase[] {
+  const settings = (theme = "light") => sceneSettings(source, { theme, depth: 0.5 });
+  const colour = (role: string, theme = "light") => {
+    const node = (source.colour as Record<string, { $extensions?: Record<string, { themes?: Record<string, string> }> }>)[role];
+    return node!.$extensions!["dev.underglass.strata"]!.themes![theme]!;
+  };
+  // The vanishing point sits left of every case, so sides facing it and facing away differ visibly.
+  const scene = (width: number, height: number, primitives: SceneEntry[], overrides: Partial<StrataScene> = {}): StrataScene =>
+    ({ format: "strata-scene", version: 2, camera: { distance: 1600, vanish: [-100, height / 2] }, environment: { source: "studio", strength: 0.6 },
+      extent: { width, height }, outset: { top: 24, right: 24, bottom: 24, left: 24 }, ...settings(), ...overrides, primitives });
+  const slab = (width: number, height: number): SceneObject => ({ object: "slab", rect: [0, 0, width, height], radius: 14, height: 8, taper: 3, material: "matte" });
+  const slabPaint = (width: number, height: number): CapturePaint => ({ rect: [0, 0, width, height], radius: 14, colour: colour("panel") });
+  const key = (x: number, y: number, extra: Partial<SceneObject> = {}): SceneObject =>
+    ({ object: "key", rect: [x, y, 64, 32], radius: 8, height: 8, base: 8, taper: 3, travel: 6, material: "matte", finish: true, ...extra });
+  const keyPaint = (x: number, y: number, role = "secondary"): CapturePaint => ({ rect: [x, y, 64, 32], radius: 8, colour: colour(role) });
+
+  return [
+    {
+      name: "key-states",
+      description: "Four keys on a slab at rest, hovered, pressed (its cap sunk by its travel) and disabled, seen from the left: the side facing the vanishing point is steeper than the side away from it.",
+      scene: scene(320, 80, [slab(320, 80), key(16, 24), key(92, 24, { state: { hover: true } }), key(168, 24, { state: { pressed: true } }), key(244, 24, { state: { disabled: true } })]),
+      capture: [slabPaint(320, 80), keyPaint(16, 24), keyPaint(92, 24), keyPaint(168, 24), keyPaint(244, 24)],
+      samples: [16, 92, 168, 244].flatMap((x, index) => {
+        const state = ["rest", "hover", "pressed", "disabled"][index];
+        return [
+          { at: [x + 32, 40] as [number, number], note: `${state}: cap, the captured label's place: captured × K` },
+          { at: [x + 1.5, 40] as [number, number], note: `${state}: left side, facing the vanishing point` },
+          { at: [x + 62.5, 40] as [number, number], note: `${state}: right side, facing away` },
+          { at: [x + 32, 25.5] as [number, number], note: `${state}: top side, towards the light` },
+          { at: [x + 32, 62] as [number, number], note: `${state}: shadow on the slab below` },
+        ];
+      }),
+    },
+    {
+      name: "slab",
+      description: "A slab (a panel at the Objects level): its cap, its four sides and its shadow in the outset.",
+      scene: scene(200, 120, [slab(200, 120)]),
+      capture: [slabPaint(200, 120)],
+      samples: [
+        { at: [100, 60], note: "cap: captured × (1 + gloss)" },
+        { at: [100, 1.5], note: "top side" },
+        { at: [100, 118.5], note: "bottom side" },
+        { at: [1.5, 60], note: "left side, facing the vanishing point" },
+        { at: [198.5, 60], note: "right side" },
+        { at: [100, 121], note: "shadow just below" },
+        { at: [-20, -20], note: "outset corner: backdrop" },
+      ],
+    },
+    {
+      name: "switch",
+      description: "A switch: a well sunk into the slab, with a dome knob standing on its floor in the knob's own colour.",
+      scene: scene(160, 64, [slab(160, 64),
+        { object: "well", rect: [40, 20, 64, 28], radius: 14, height: 3, base: 8, taper: 2, material: "matte" },
+        { object: "knob", rect: [74, 22, 24, 24], height: 10, base: 5, material: "satin", colour: colour("knob"), bounds: [40, 20, 64, 28] }]),
+      capture: [slabPaint(160, 64), { rect: [40, 20, 64, 28], radius: 14, colour: colour("accent") }],
+      samples: [
+        { at: [56, 34], note: "well floor: captured × K" },
+        { at: [56, 21], note: "well wall nearest the light: dark" },
+        { at: [56, 46.5], note: "well wall away from the light: brighter" },
+        { at: [41.5, 34], note: "well wall facing away from the vanishing point" },
+        { at: [86, 34], note: "knob near its apex: its colour, lit" },
+        { at: [81, 28], note: "knob towards the light" },
+        { at: [92, 41], note: "knob away from the light" },
+      ],
+    },
+    {
+      name: "bezel",
+      description: "A text field at the Objects level: a bezel ring standing just inside its well, with the text on the face.",
+      scene: scene(200, 64, [slab(200, 64),
+        { face: "well", rect: [20, 16, 160, 32], radius: 8, height: 2, material: "matte" },
+        { object: "bezel", rect: [20, 16, 160, 32], radius: 8, height: 2, base: 8, taper: 1, width: 4, material: "satin" }]),
+      capture: [slabPaint(200, 64), { rect: [20, 16, 160, 32], radius: 8, colour: colour("field") }, { rect: [40, 28, 40, 8], colour: colour("text") }],
+      samples: [
+        { at: [100, 16.5], note: "bezel, outer side towards the light" },
+        { at: [100, 18], note: "bezel cap" },
+        { at: [100, 19.5], note: "bezel, inner side" },
+        { at: [44, 31], note: "text on the face: guarded" },
+        { at: [140, 32], note: "field face" },
+      ],
+    },
+    {
+      name: "rail-and-puck",
+      description: "A slider at the Objects level: a metal rail and a puck, a flattened dome in its own colour.",
+      scene: scene(200, 56, [slab(200, 56),
+        { object: "rail", rect: [16, 24, 168, 8], radius: 4, height: 2, base: 8, taper: 1, material: "metal" },
+        { object: "puck", rect: [90, 14, 28, 28], height: 6, base: 10, material: "satin", colour: colour("knob"), bounds: [16, 12, 168, 32] }]),
+      capture: [slabPaint(200, 56), { rect: [16, 24, 168, 8], radius: 4, colour: colour("track") }],
+      samples: [
+        { at: [50, 28], note: "rail cap" },
+        { at: [50, 24.5], note: "rail, top side: metal reflects the studio" },
+        { at: [50, 31.5], note: "rail, bottom side" },
+        { at: [105, 28], note: "puck near its top" },
+        { at: [97, 20], note: "puck towards the light" },
+        { at: [112, 36], note: "puck away from the light" },
+      ],
+    },
+    {
+      name: "relief-equivalents",
+      description: "Objects that would break hit safety are drawn at the Relief level: a knob whose projection leaves its bounds becomes a relief knob in its colour, and a key whose taper is under its drift becomes a raised face.",
+      scene: scene(240, 64, [slab(240, 64),
+        { object: "knob", rect: [24, 20, 24, 24], height: 12, base: 8, material: "satin", colour: colour("knob"), bounds: [24, 20, 24, 24] },
+        key(120, 16, { taper: 0.5 })]),
+      capture: [slabPaint(240, 64), keyPaint(120, 16)],
+      samples: [
+        { at: [36, 32], note: "the knob as a relief knob: flat top of the dome, in its colour" },
+        { at: [29, 25], note: "relief knob towards the light" },
+        { at: [152, 32], note: "the key as a raised face: interior" },
+        { at: [152, 18], note: "raised face, top bevel" },
+      ],
+    },
+    {
+      name: "environment",
+      description: "Metal and matte keys side by side: metal's steep sides reflect the studio's dark horizon.",
+      scene: scene(176, 64, [slab(176, 64), key(16, 16, { material: "metal", finish: false }), key(96, 16, { finish: false })]),
+      capture: [slabPaint(176, 64), keyPaint(16, 16), keyPaint(96, 16)],
+      samples: [
+        { at: [48, 46.5], note: "metal, bottom side" },
+        { at: [48, 17.5], note: "metal, top side" },
+        { at: [128, 46.5], note: "matte, bottom side" },
+        { at: [128, 17.5], note: "matte, top side" },
+      ],
+    },
+  ];
+}
+
+/** Fills in every sample's expected colour with the reference implementation. */
+function expectations(cases: ConformanceCase[]): ConformanceCase[] {
+  return cases.map(entry => {
     const captured = capturedFrom(entry.capture);
     const samples = entry.samples.map(sample => {
       // The centre of the device pixel containing the point, at a device scale of 1: what a renderer evaluates.
@@ -243,11 +371,27 @@ export function buildConformance(source: TokenGroup = strataSource): Conformance
     });
     return { ...entry, samples };
   });
+}
+
+/** The version 1 suite with every expected colour computed by the reference implementation. */
+export function buildConformance(source: TokenGroup = strataSource): ConformanceSuite {
+  const cases = expectations(conformanceCases(source));
   return {
     format: "strata-conformance",
     model: "strata-scene/1",
     tolerance: conformanceTolerance,
     description: "Strata rendering model, version 1: Relief. Paint each case's capture (rounded rectangles in order, over transparent) as the layer's content, render the scene over its backdrop at a device scale of 1 (one device pixel per CSS px), and compare the decoded pixel whose centre is each sample's `at` with `expect`: every channel within `tolerance` (0–255).",
     cases,
+  };
+}
+
+/** The version 2 (Objects) suite with every expected colour computed by the reference implementation. */
+export function buildObjectsConformance(source: TokenGroup = strataSource): ConformanceSuite {
+  return {
+    format: "strata-conformance",
+    model: "strata-scene/2",
+    tolerance: conformanceTolerance,
+    description: "Strata rendering model, version 2: Objects. As version 1: paint each case's capture as the layer's content, render the scene over its backdrop at a device scale of 1, and compare the decoded pixel whose centre is each sample's `at` with `expect`, every channel within `tolerance` (0–255). A renderer conforms to version 2 when it passes this suite and relief-1.json.",
+    cases: expectations(objectsCases(source)),
   };
 }

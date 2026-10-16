@@ -690,6 +690,13 @@
   }
   :where([data-strata-mode="face"]) .ug-slider::-webkit-slider-runnable-track { box-shadow: none; background: var(--strata-colour-track); }
   :where([data-strata-mode="face"]) .ug-slider::-webkit-slider-thumb { box-shadow: none; background: var(--strata-colour-knob); }
+  /*
+   * At the Objects level the GPU draws knobs, dots and slider pucks as domes in their own colour: their CSS paint is
+   * hidden while it does (`data-strata-dome`, set by the GPU helper). A knob keeps its edge ring, for 3:1 on its track.
+   */
+  :where([data-strata-mode="face"]) [data-strata-dome] { background: transparent; box-shadow: none; }
+  :where([data-strata-mode="face"]) .ug-slider[data-strata-dome]::-webkit-slider-thumb { background: transparent; box-shadow: none; }
+  :where([data-strata-mode="face"]) .ug-slider[data-strata-dome]::-moz-range-thumb { background: transparent; box-shadow: none; }
   /* Under the GPU, an enrolled panel's boundary never carries a CSS transform: the GPU presentation moves it. */
   :where([data-strata-mode="face"]):is(.ug-panel, .ug-card)[data-strata-motion], :where([data-strata-mode="face"]) :is(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
 

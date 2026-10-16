@@ -240,3 +240,88 @@ test("a Dialog rendered into the root is its own GPU panel over a faded scrim, m
   expect(await page.locator("#gpu-dialog").ariaSnapshot()).toBe(gpuTree);
   expect(errors).toEqual([]);
 });
+
+test("at the Objects level, the panel's components are objects on core's objects material, and native input still reaches them", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, "?level=objects");
+  const initial = await page.evaluate(() => {
+    const probe = window.strataGpuProbe, state = probe.controller.state(), scene = probe.scene();
+    return { mode: state.mode, materials: state.materials, version: scene.version, camera: scene.camera,
+      entries: scene.primitives.map(entry => entry.object ?? entry.face),
+      domes: [...probe.panel().querySelectorAll("[data-strata-dome]")].map(element => element.className),
+      knobPaint: getComputedStyle(probe.panel().querySelector(".ug-switch__knob")).backgroundImage };
+  });
+  expect(initial.mode).toBe("gpu");
+  expect(initial.version).toBe(2);
+  expect(initial.materials).toEqual([expect.objectContaining({ id: "gpu-panel", kind: "objects", degraded: [] })]);
+  // The panel is a slab; the field a relief well with a bezel; the checkbox and switch wells with their mark and knob;
+  // the slider a rail and a puck; the buttons keys; the spinner stays a relief ring.
+  expect(initial.entries).toEqual(["slab", "well", "bezel", "well", "mark", "well", "knob", "rail", "puck", "key", "key", "key", "key", "ring"]);
+  // The camera is centred on the stage, far enough for every solid's taper rule.
+  expect(initial.camera.distance).toBeGreaterThanOrEqual(1600);
+  // The GPU draws the knob and the slider's puck as domes, so their own CSS paint is hidden.
+  expect(initial.domes).toEqual(["ug-switch__knob", "ug-slider"]);
+  expect(initial.knobPaint).toBe("none");
+
+  // Keys travel: pressing Save holds its key down in the scene, and the click reaches the button.
+  const save = await page.locator("#gpu-save").boundingBox();
+  await page.mouse.move(save.x + save.width / 2, save.y + save.height / 2);
+  await page.mouse.down();
+  const pressed = await page.evaluate(() => { const probe = window.strataGpuProbe; probe.refresh();
+    return probe.scene().primitives.find(entry => entry.object === "key" && entry.state.pressed) ?? null; });
+  await page.mouse.up();
+  expect(pressed).toMatchObject({ object: "key", height: 8, travel: 6, base: 8 });
+  expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
+  // The switch toggles from a click on its drawn knob, and the knob dome follows the native state.
+  const knob = await page.locator(".ug-switch__knob").boundingBox();
+  await page.mouse.click(knob.x + knob.width / 2, knob.y + knob.height / 2);
+  await expect(page.locator("#gpu-wifi")).toBeChecked();
+  // Pixels are fresh: the key above the switch looks different pressed and at rest.
+  const panelBox = await page.evaluate(() => { const panel = window.strataGpuProbe.panel(); return { x: panel.offsetLeft, y: panel.offsetTop, w: panel.offsetWidth, h: panel.offsetHeight }; });
+  const pixel = await snap(page, "objects");
+  expect(luma(pixel(panelBox.x + panelBox.w / 2, panelBox.y + panelBox.h + 3))).toBeLessThan(240);
+
+  // A component can opt out: back at the Relief level, the scene is version 1 again on the relief material.
+  await page.evaluate(() => window.strataGpuProbe.panel().setAttribute("data-strata-level", "relief"));
+  const relief = await page.evaluate(async () => { const probe = window.strataGpuProbe; probe.refresh(); await probe.controller.settle();
+    return { version: probe.scene().version, kind: probe.controller.state().materials[0].kind, mode: probe.controller.state().mode,
+      domes: probe.panel().querySelectorAll("[data-strata-dome]").length }; });
+  expect(relief).toEqual({ version: 1, kind: "relief", mode: "gpu", domes: 0 });
+  expect(errors).toEqual([]);
+});
+
+test("the adjust policy steps the level down while frames run over budget and back up after, with GPU on", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  // Budget 25 ms, 20 frames over budget to step down, 30 frames under 20 ms to step up, over a 20-frame window.
+  await ready(page, "?level=objects&adjust=25,20,30,20");
+  expect(await page.evaluate(() => ({ cap: window.strataGpuProbe.cap(), kind: window.strataGpuProbe.controller.state().materials[0].kind })))
+    .toEqual({ cap: "scene", kind: "objects" });
+  // Each frame now costs 45 ms: the policy steps from Objects to Relief and reports it.
+  await page.evaluate(() => window.strataGpuProbe.load(45));
+  await page.waitForFunction(() => window.strataGpuProbe.adjustments().length >= 1, null, { timeout: 20000 });
+  const down = await page.evaluate(async () => { const probe = window.strataGpuProbe; probe.refresh(); await probe.controller.settle();
+    return { events: probe.adjustments(), cap: probe.cap(), mode: probe.controller.state().mode, kind: probe.controller.state().materials[0].kind, version: probe.scene().version }; });
+  expect(down.events[0]).toMatchObject({ from: "objects", to: "relief", frameBudgetMs: 25 });
+  expect(down.events[0].p95).toBeGreaterThan(25);
+  expect(down).toMatchObject({ cap: "relief", mode: "gpu", kind: "relief", version: 1 });
+  // Back to normal frames: the policy steps up to the level the page asks for, and no higher.
+  await page.evaluate(() => window.strataGpuProbe.load(0));
+  await page.waitForFunction(() => window.strataGpuProbe.adjustments().length >= 2, null, { timeout: 20000 });
+  const up = await page.evaluate(async () => { const probe = window.strataGpuProbe; probe.refresh(); await probe.controller.settle();
+    return { event: probe.adjustments()[1], cap: probe.cap(), mode: probe.controller.state().mode, kind: probe.controller.state().materials[0].kind }; });
+  expect(up.event).toMatchObject({ from: "relief", to: "objects" });
+  expect(up).toMatchObject({ cap: "objects", mode: "gpu", kind: "objects" });
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(() => window.strataGpuProbe.adjustments().length)).toBe(2);
+  expect(errors).toEqual([]);
+});
+
+test("without the adjust policy, slow frames change nothing", async ({ page }) => {
+  await ready(page, "?level=objects");
+  await page.evaluate(() => window.strataGpuProbe.load(45));
+  await page.waitForTimeout(2000);
+  const state = await page.evaluate(() => { window.strataGpuProbe.load(0); return { events: window.strataGpuProbe.adjustments(), cap: window.strataGpuProbe.cap(), kind: window.strataGpuProbe.controller.state().materials[0].kind }; });
+  expect(state).toEqual({ events: [], cap: "scene", kind: "objects" });
+});

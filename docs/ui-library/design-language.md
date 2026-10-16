@@ -557,13 +557,17 @@ Each depth token has three anchors, at 0%, 50% and 100% (the A, B and C prototyp
 | `objects` | Opt-in | PBR meshes per section 6, with travel and pose | CSS relief |
 | `scene` | Opt-in | Decorative 3D around the UI: particles, physics, environment light | Nothing (decorative) |
 
-- **Setting the level:** per application, per scope or per component.
+- **Setting the level:** per application, per scope or per component. On the GPU (`@underglass/ui/gpu`) each
+  element takes its own `data-strata-level`, else its nearest scope's, else the application's; a panel with any
+  component at the Objects level is drawn with core's `objects` material.
 - **Adjust policy (opt-in):** `adjust: { enabled, frameBudgetMs, stepDownAfterFrames,
   stepUpAfterFrames }`. When the 95th-percentile frame time stays over budget, components step
   down from `scene` to `objects` to `relief`, and they step back up after a recovery window.
   - **Reporting:** every step fires a diagnostic event.
   - **GPU stays on:** the policy never switches GPU off. Defaults are set from measurements on a
-    low-end GPU (open).
+    low-end GPU (open: until then, 25 ms over a 60-frame window, 120 frames down and 600 up; open issue VAL-009).
+  - **Where it runs:** `@underglass/ui/gpu` measures frame intervals itself and caps every element's level; the
+    95th percentile ignores intervals over 250 ms (hidden tabs, stalls).
 
 ## 17. Component anatomy template
 

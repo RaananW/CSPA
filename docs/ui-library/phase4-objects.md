@@ -1,8 +1,44 @@
 # Strata Phase 4, step 4: the Objects level
 
-**Status:** proposed (2026-10-16), for review. This is the design note that the [Phase 4 design](phase4.md#4-object-pass)
-promised for step 4 once steps 1 to 3 had landed. Steps 0 to 3 and 6 are done, so the Relief level runs end to end on
-the GPU (#74 to #79). Each decision below has a recommendation and an alternative.
+**Status:** accepted (2026-10-16, #80): all five recommendations. This is the design note that the
+[Phase 4 design](phase4.md#4-object-pass) promised for step 4 once steps 1 to 3 had landed. Steps 0 to 3 and 6 are
+done, so the Relief level runs end to end on the GPU (#74 to #79). Each decision below has a recommendation and an
+alternative.
+
+**Progress:**
+
+- **4a, done:** version 2 of the [Rendering Model](rendering-model.md) (part 2B), the reference implementation
+  (`objects.ts` in `@underglass/ui/tokens`) and `objects-2.json`. Writing it refined two points:
+  - **One back-to-front list.** Objects are entries of the scene's `primitives` list, not a separate list, so they
+    occlude in document order with the relief primitives around them (a field's bezel over its well, a knob in a
+    well).
+  - **Solids are screen-space exact.** With screen-locked base outlines and caps, a solid's sides always project into
+    the band between its cap and its base, so solids never draw outside their control. The taper rule then keeps
+    their sides facing the viewer; only domes need the bounds check.
+- **4b and 4c, done together:** core's `objects` material (`setMaterial(id, { kind: "objects", scene })`) with every
+  kind. Its decoded GPU pixels pass `objects-2.json` (52 of 53 samples exact, 1 within 1/255; headful too). Two
+  implementation choices differ from the design text above:
+  - **Decision 2, evaluated in the layer's pass.** The model defines objects analytically, so core evaluates them in
+    the relief pass of their own layer, after the layer's face, instead of in a separate Lite scene pass with a depth
+    buffer. The result is what decision 2 asks for (objects stay with their layer in the painter's order, and objects
+    of one layer occlude each other by the back-to-front list), with no extra pass, texture or depth buffer, and it
+    matches the reference exactly. Solids needed no meshes at all once they were defined in screen space; domes are
+    ray-cast. Lite meshes stay available for the Scene level.
+  - **Decision 4, studio only for now.** The environment is the studio, defined in code. Environment maps (`.hdr`)
+    are reserved in version 2 of the format and move to the Scene level (Phase 5), with environment light.
+  - **Budget:** objects share the 256-entry list and the relief binding (about 25 KB).
+- **4d, done:** `@underglass/ui/gpu` builds the Objects scene from the same markup. The level is resolved per
+  element (its own `data-strata-level`, then the nearest scope's, then the `level` option), so a panel at the Objects
+  level may keep single components at the Relief level in the same list: decision 5 holds per layer for the
+  material's kind, and finer within it.
+  - **Mapping:** buttons and selects are keys (`object.keyHeight`, `object.keyTravel`, a toggle that is on stays
+    down); panels, cards and other raised faces are slabs others stand on; text fields keep their well and gain a
+    bezel; checkbox, radio and switch inputs are wells, and their mark, dot or knob stands on the well's floor;
+    sliders are a rail with a puck; spinners, badges, dividers and progress bars stay relief.
+  - **Hit safety:** a knob's bounds are its label (a click anywhere on it toggles the control), and a puck is inset
+    inside its slider by the taper, so domes stay inside their controls at the derived camera distance.
+  - **Camera:** centred on the stage (the Underglass root), at `max(camera.distance, r · max(h / taper) + h)` with
+    `r` the stage's half-diagonal.
 
 **Upstream check:**
 

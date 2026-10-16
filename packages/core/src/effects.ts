@@ -180,8 +180,14 @@ export function effectUniforms(values: readonly EffectDescriptor[] = []) {
  * - `relief` is core's built-in implementation of the Strata Rendering Model: it shades the scene's relief
  *   primitives (bevels, wells, finishes, shadows, focus edges, ring arcs), guarding face interiors as section 2.9
  *   of the model defines. Its look is data; it needs no WGSL from the application.
+ * - `objects` is the same material at the Objects level (the model's version 2): a scene whose back-to-front list also
+ *   holds objects (keys, slabs, wells, knobs...), seen through its camera. Objects never take hits: one that would
+ *   draw outside its control is drawn at the Relief level, and `state().materials` reports it.
  */
-export type MaterialDescriptor = CustomMaterial | ReliefMaterial;
+export type MaterialDescriptor = CustomMaterial | ReliefMaterial | ObjectsMaterial;
+/** A material whose look is a Strata scene: `relief` (version 1) or `objects` (version 2). */
+export type SceneMaterial = ReliefMaterial | ObjectsMaterial;
+export const isSceneMaterial = (value: MaterialDescriptor | undefined): value is SceneMaterial => value?.kind === "relief" || value?.kind === "objects";
 /** Fields every material declares: it stays in the layer, relights pixels in place, and DOM shows the original. */
 interface MaterialPolicy {
   bounds: "layer";
@@ -200,6 +206,11 @@ export interface CustomMaterial extends MaterialPolicy {
 /** The built-in relief material: a Strata scene, version 1 (`docs/ui-library/rendering-model.md`). */
 export interface ReliefMaterial extends MaterialPolicy {
   kind: "relief";
+  scene: ReliefScene;
+}
+/** The built-in objects material: a Strata scene, version 2, with objects (`docs/ui-library/rendering-model.md`, 2B). */
+export interface ObjectsMaterial extends MaterialPolicy {
+  kind: "objects";
   scene: ReliefScene;
 }
 /**
@@ -227,6 +238,7 @@ export function validateMaterial(value: MaterialDescriptor): MaterialDescriptor 
     throw new Error("Materials require layer bounds, material interaction, identity media and static DOM fallback");
   }
   if (value.kind === "relief") return { ...value, scene: validateReliefScene(value.scene) };
+  if (value.kind === "objects") return { ...value, scene: validateReliefScene(value.scene, 2) };
   if (value.kind !== "custom") throw new Error("Unsupported material kind");
   if (!value.parameters || !value.interior) throw new Error("Custom materials require parameters and an interior budget");
   if (!definitions.has(value.definition)) throw new Error("Custom materials must come from defineEffect");
@@ -238,14 +250,14 @@ export function validateMaterial(value: MaterialDescriptor): MaterialDescriptor 
 }
 /**
  * Packs a material into the 8 floats (two vec4s) of a layer's uniform block: control `(kind code, interior max,
- * definition slot, 0)` with codes custom 1 and relief 2 (0 is no material), then up to four parameters,
+ * definition slot, 0)` with codes custom 1 and relief or objects 2 (0 is no material), then up to four parameters,
  * zero-padded. `slot` is the index of the material's definition among those the pass was built with, or -1. A
  * relief material's scene goes in its own binding (`reliefUniforms`).
  */
 export function materialUniforms(value: MaterialDescriptor | undefined, slot: number) {
   const result = new Float32Array(8);
   if (!value) return result;
-  if (value.kind === "relief") { result.set([2, value.scene.interior.max, 0, 0]); return result; }
+  if (isSceneMaterial(value)) { result.set([2, value.scene.interior.max, 0, 0]); return result; }
   const parameters = Object.keys(value.definition.parameters).map(name => value.parameters[name]!);
   result.set([1, Math.min(value.interior.max, MATERIAL_INTERIOR_CEILING), slot, 0, ...parameters, ...Array(4 - parameters.length).fill(0)]);
   return result;
