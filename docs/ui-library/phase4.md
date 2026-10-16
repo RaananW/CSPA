@@ -1,6 +1,7 @@
 # Strata Phase 4: GPU presentation design
 
-**Status:** proposal for review (2026-10-16). It turns the [plan's contract changes](plan.md#contract-changes) into
+**Status:** accepted (2026-10-16): all five recommendations below, plus an engine-neutral standard for the look
+(the Strata Rendering Model). It turns the [plan's contract changes](plan.md#contract-changes) into
 concrete changes to `@underglass/core`, based on a read of the current effect pipeline, before any core code changes.
 Phases 1 to 3 are done: tokens, CSS, and the 19 Tier A components in React, Vue and Astro, all CSS-presented.
 
@@ -24,10 +25,65 @@ Phases 1 to 3 are done: tokens, CSS, and the 19 Tier A components in React, Vue 
 | Frame | One blended pass per layer, with no extra textures and no intermediate targets. Parameters change per frame with no recompile or recapture. | `renderer.ts:272-304`, `619-644` |
 | Bounds | No outset. The clip rectangle is both the shader's scissor and the native `canvasClip`. The vertex triangle covers the clip's bounds plus 2 px. Overflowing content falls back to DOM. | `composition.ts:107-115`, `283-301`; `renderer.ts:576-613`; `runtime.ts:681` |
 
+## The Strata Rendering Model: an engine-neutral standard
+
+Decision 3 makes Strata's look data, not shader code. That data, and what it means, is written as a standard that
+names no engine, shading language or graphics API. Underglass's WGSL is then one implementation of it, and a later
+engine (WebGL, a native renderer, a different WebGPU engine) can be another, judged by the same tests.
+
+The standard is a new normative document, `docs/ui-library/rendering-model.md`. It has four parts:
+
+1. **The scene format:** a versioned JSON description of one layer, validated by a JSON Schema. It holds:
+   - the layer extent;
+   - the one light (direction, intensity, ambient and colour);
+   - depth;
+   - the bevel (width, gain and profile);
+   - the shadow strength and the interior budget;
+   - the materials, as numeric layer parameters (base, coat, sheen, iridescence, transmission, emissive);
+   - the primitives: shape, rectangle in layer-local CSS px, radius, height, material and state.
+
+   The token source (W3C Design Tokens) already describes the theme. The scene format is what one layer needs at one
+   moment, resolved from the tokens and the DOM.
+2. **The shading model, as mathematics:**
+   - coordinate systems (CSS px, y down, z towards the viewer);
+   - each shape's signed distance;
+   - the three bevel profiles as height-over-distance functions, and the normals they give;
+   - the lighting equation;
+   - the finish zones;
+   - the analytic shadow;
+   - the effect of each state;
+   - the contrast clamp on face interiors.
+
+   It is written in formulas and pseudocode, never in WGSL or GLSL. Where Phase 1 already fixed a formula (the
+   shadow offset and softness, the finish profile, the taper and screen-locking rules), the standard cites it.
+3. **A reference implementation:** a pure function in plain TypeScript, with no GPU and no DOM, mapping a scene, a
+   captured colour and a pixel position to a colour. It is the oracle: clear, not fast. It ships in
+   `@underglass/ui/tokens`, so tools and tests can use it anywhere.
+4. **A conformance suite:** scenes with sample points and expected colours within a stated tolerance, generated from
+   the reference implementation and checked by hand at key points.
+   - A backend **conforms** when its decoded pixels match the suite.
+   - Underglass's GPU presentation must conform.
+   - The CSS presentation is a declared **approximation**, bound by the P0.6 parity budget instead.
+
+**Where the engine boundary sits.** Core's built-in `relief` material takes the scene format as its input, and its
+WGSL is core's implementation of the shading model. Strata produces scenes; it never sees a shader. Changing engines
+means implementing the standard and passing the suite. The tokens, the scene format, Strata's components and the
+tests stay as they are.
+
+**Scope.** The standard covers the Relief level: faces, bevels, wells, finishes, shadows and states. The Objects
+level (meshes) and the Scene level get their own sections when those steps arrive. Their data (object kinds,
+proportions, travel) is already engine-neutral in the design language.
+
 ## Proposed PR sequence
 
 Each step is its own PR with GPU browser tests, which show that GPU stays on, pixels are fresh and native hits are
 correct. Each also gets a headful Canary check, and a changeset for `@underglass/core`.
+
+### 0. The Strata Rendering Model
+
+Before any core change: `rendering-model.md`, the scene JSON Schema, the reference implementation and the
+conformance suite, with unit tests. Docs and `@underglass/ui/tokens` only, so core is untouched. Step 2 then
+implements it in WGSL and runs the suite against decoded GPU pixels.
 
 ### 1. Material interaction and a second chain
 
@@ -98,7 +154,7 @@ correct. Each also gets a headful Canary check, and a changeset for `@underglass
 - **Tokens:** applies the resolved tokens as material parameters, with uniform updates for depth and light.
 - **Bindings:** React and Vue get it as an opt-in prop or hook. Astro gets it through a client-side attachment.
 
-## Decisions for review
+## Decisions (accepted 2026-10-16)
 
 | # | Decision | Recommendation | Alternative |
 | --- | --- | --- | --- |
