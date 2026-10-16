@@ -361,3 +361,11 @@ page (`aria-current="page"`). The separators are drawn by CSS and are not read.
 `Avatar` is a raised coin with initials or a picture: `<Avatar name="Ada Lovelace" />` shows "AL" and is read as
 "Ada Lovelace"; `src` shows a picture whose `alt` is the name; `decorative` hides it, for an avatar beside the
 name in text. It is 1.6 × the indicator size across (`size`). [Anatomy](../../docs/ui-library/components/avatar.md).
+
+## Chip and Tag
+
+`Chip` is a small raised pill in three forms: a tag (`<Chip>Design</Chip>`), a filter chip that latches like a
+ToggleButton (`pressed` or `defaultPressed` with `onPressedChange`; `v-model:pressed` in Vue) and a removable chip
+(`onRemove`; a `remove` listener in Vue) whose remove button is named "Remove {label}". In plain HTML and Astro,
+`attachStrata` toggles filter chips and dispatches `strata-remove` from a chip whose remove button is pressed.
+[Anatomy](../../docs/ui-library/components/chip.md).

@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
+  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/vue";
 
@@ -38,6 +38,7 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("table.md", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }, { number: "1002", customer: "Grace Hopper", amount: "87.50" }], defaultSort: { key: "number", direction: "ascending" } })),
   contract("table.md#2", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }], sort: { key: "number", direction: "ascending" } })),
   contract("avatar.md", [h(Avatar, { name: "Ada Lovelace" }), h(Avatar, { name: "Grace Hopper", src: "/people/grace.jpg" }), h(Avatar, { name: "Alan Turing", decorative: true })]),
+  contract("chip.md", [h(Chip, null, { default: text("Design") }), h(Chip, { defaultPressed: true }, { default: text("Remote") }), h(Chip, { onRemove: () => {} }, { default: text("ada@example.com") })]),
   contract("breadcrumb.md", h(Breadcrumb, { items: [{ label: "Home", href: "/" }, { label: "Settings", href: "/settings" }, { label: "Profile", href: "/settings/profile" }] })),
   contract("list.md", h(List, { label: "Mailboxes" }, {
     default: () => [
@@ -95,6 +96,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
+    const chips = reactive({ remote: false, removed: [] as string[] });
     const sort = ref<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
     const choices = reactive({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
     const buttonRef = ref<{ $el: HTMLElement } | null>(null), inputRef = ref<{ input: HTMLInputElement } | null>(null), wrappedRef = ref<{ input: HTMLInputElement } | null>(null);
@@ -113,6 +115,7 @@ const App = defineComponent({
         get faq() { return { ...toRaw(faq) }; },
         get rows() { return { ...toRaw(rows) }; },
         get sort() { return sort.value; },
+        get chips() { return { remote: chips.remote, removed: [...chips.removed] }; },
         setSort: (value: { key: string; direction: "ascending" | "descending" } | undefined) => { sort.value = value; },
         setFaq: (value: { delivery: boolean; warranty: boolean }) => { Object.assign(faq, value); },
       },
@@ -220,6 +223,12 @@ const App = defineComponent({
                 h(Avatar, { id: "avatar-small", name: "Ada Lovelace", size: "small" }), h(Avatar, { id: "avatar-medium", name: "Plato" }),
                 h(Avatar, { id: "avatar-large", name: "  grace   brewster hopper ", size: "large" }),
                 h("span", null, [h(Avatar, { id: "avatar-decorative", name: "Alan Turing", decorative: true, size: "small" }), " Alan Turing"]),
+              ]),
+              h("p", { style: { display: "flex", gap: "8px", alignItems: "center", margin: "0" } }, [
+                h(Chip, { id: "tag-chip" }, { default: text("Design") }),
+                h(Chip, { id: "remote-chip", pressed: chips.remote, "onUpdate:pressed": (value: boolean) => { chips.remote = value; } }, { default: text("Remote") }),
+                h(Chip, { id: "locked-chip", defaultPressed: false, disabled: true }, { default: text("Locked") }),
+                !chips.removed.includes("ada") && h(Chip, { id: "ada-chip", onRemove: () => { chips.removed.push("ada"); } }, { default: text("ada@example.com") }),
               ]),
               h(Breadcrumb, { id: "live-breadcrumb", items: [{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }] }),
             ]),

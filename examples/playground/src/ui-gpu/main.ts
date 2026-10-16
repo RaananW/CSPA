@@ -8,7 +8,8 @@
  * objects with an `.hdr` environment. `strataGpuProbe.openDrawer()` opens a Drawer on the end edge that closes on a click
  * outside it (`closeOnScrim`); the Dialog does not. `strataGpuProbe.addTabs()` adds plain-markup Tabs to the panel, wired by
  * `attachStrata`, `strataGpuProbe.addAccordion()` a native `<details>` Accordion, `strataGpuProbe.addList()` a List, and
- * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts, and `strataGpuProbe.addAvatar()` an Avatar.
+ * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts, `strataGpuProbe.addAvatar()` an Avatar, and
+ * `strataGpuProbe.addChips()` a tag and a filter chip.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -108,6 +109,8 @@ function sortTable() {
   body.append(...rows);
 }
 let archived = 0;
+/** Chips in plain markup (`chip.md`), added by `strataGpuProbe.addChips()`: a tag and a filter chip. */
+const chipsMarkup = `<p style="margin:12px 0 0;display:flex;gap:8px"><span class="ug-chip" data-strata-face="raised" id="gpu-tag"><span class="ug-chip__label">Design</span></span><button class="ug-chip" data-strata-face="raised" type="button" aria-pressed="false" id="gpu-filter"><span class="ug-chip__label">Remote</span></button></p>`;
 /** An Avatar in plain markup (`avatar.md`), added to the panel by `strataGpuProbe.addAvatar()`. */
 const avatarMarkup = `<p style="margin:12px 0 0"><span class="ug-avatar" data-strata-face="raised" role="img" aria-label="Ada Lovelace" id="gpu-avatar"><span class="ug-avatar__initials" aria-hidden="true">AL</span></span></p>`;
 let saves = 0;
@@ -158,6 +161,7 @@ window.strataGpuProbe = {
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
+  addChips: () => { panel.insertAdjacentHTML("beforeend", chipsMarkup); attachStrata(panel); strata?.refresh(); },
   addAvatar: () => { panel.insertAdjacentHTML("beforeend", avatarMarkup); strata?.refresh(); },
   addTable: () => { panel.insertAdjacentHTML("beforeend", tableMarkup); panel.querySelector("#gpu-table-amount")!.addEventListener("click", sortTable); strata?.refresh(); },
   addList: () => { panel.insertAdjacentHTML("beforeend", listMarkup); panel.querySelector("#gpu-list-archive")!.addEventListener("click", () => { archived++; }); strata?.refresh(); },
@@ -173,6 +177,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void;
   } }
 }

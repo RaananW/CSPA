@@ -8,7 +8,7 @@
  * - roles, names and values of the surfaces and status components; Tabs follow their value and take the arrow keys;
  *   Accordion sections report and follow their open state; List rows are links, buttons or static;
  *   Table headers sort the rows; a Breadcrumb is a named landmark of links;
- *   Avatars show initials or a picture, named by the name;
+ *   Avatars show initials or a picture, named by the name; chips filter, and remove on request;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -488,5 +488,34 @@ for (const binding of bindings) test(`Strata ${binding} Avatar shows initials na
     return [Math.round(box.width * 10) / 10, Math.round(box.height * 10) / 10, getComputedStyle(element).borderRadius];
   }));
   expect(sizes).toEqual([[25.6, 25.6, "50%"], [32, 32, "50%"], [38.4, 38.4, "50%"]]);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Chip is a tag, a filter that follows its state, or removable through its named button`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  // A tag is its text, and not focusable.
+  await expect(page.locator("#tag-chip")).toHaveText("Design");
+  expect(await page.locator("#tag-chip").evaluate(chip => chip.localName)).toBe("span");
+  // A filter chip is a toggle button that reports its state, by click and by Space.
+  const remote = page.getByRole("button", { name: "Remote" });
+  await expect(remote).toHaveAttribute("aria-pressed", "false");
+  await remote.click();
+  await expect(remote).toHaveAttribute("aria-pressed", "true");
+  expect((await page.evaluate(() => window.strataBinding.chips)).remote).toBe(true);
+  await page.keyboard.press("Space");
+  await expect(remote).toHaveAttribute("aria-pressed", "false");
+  expect((await remote.boundingBox()).height).toBeGreaterThanOrEqual(24);
+  // A disabled filter chip does nothing.
+  await page.locator("#locked-chip").click({ force: true });
+  await expect(page.locator("#locked-chip")).toHaveAttribute("aria-pressed", "false");
+  // A removable chip: its remove button is named by the label, and Enter asks for removal.
+  const remove = page.getByRole("button", { name: "Remove ada@example.com" });
+  await remove.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#ada-chip")).toHaveCount(0);
+  expect((await page.evaluate(() => window.strataBinding.chips)).removed).toEqual(["ada"]);
   await context.close();
 });
