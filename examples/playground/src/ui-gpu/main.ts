@@ -1,8 +1,8 @@
 /**
  * Entry for `ui-gpu.html`: a Strata panel of Tier A controls (plain contract markup and the Strata stylesheet) as a
  * direct child of an Underglass root, presented on the GPU by `attachStrataGpu`. `window.strataGpuProbe` is the hook
- * for `tests/browser/ui-gpu.test.mjs`; `?dom` starts in the CSS presentation, and `?plain` leaves the panel to the page
- * (no `attachStrataGpu`).
+ * for `tests/browser/ui-gpu.test.mjs`; `?dom` starts in the CSS presentation, `?plain` leaves the panel to the page
+ * (no `attachStrataGpu`), and `?level=objects` presents the components as objects.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -90,7 +90,8 @@ const controller: CanvasController = mountApplicationModule({
   panel.querySelector("#gpu-save")!.addEventListener("click", () => { saves++; panel.querySelector("#gpu-count")!.textContent = `Saved ${saves} times`; });
   return () => container.replaceChildren();
 } });
-strata = params.has("plain") ? undefined : attachStrataGpu(controller);
+const level = params.get("level") === "objects" ? "objects" : undefined;
+strata = params.has("plain") ? undefined : attachStrataGpu(controller, { level });
 host("enable").addEventListener("click", () => void controller.enable());
 host("disable").addEventListener("click", () => void controller.disable());
 host("theme").addEventListener("change", event => {

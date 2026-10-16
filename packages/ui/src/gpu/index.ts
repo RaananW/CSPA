@@ -1,7 +1,9 @@
 /**
  * `@underglass/ui/gpu`: Strata over Underglass. `attachStrataGpu` enrolls each Strata panel that is a direct child of
  * the Underglass root as a GPU layer and gives it core's built-in `relief` material, with a scene in the Strata
- * Rendering Model's format built from the panel's `data-strata-face` markers and its resolved tokens. While GPU
+ * Rendering Model's format built from the panel's `data-strata-face` markers and its resolved tokens. At the Objects
+ * level (`data-strata-level="objects"` on a component, a panel or a scope, or the `level` option) the components
+ * become objects (keys, wells, bezels, knobs) and the panel takes core's `objects` material instead. While GPU
  * presents, the panels switch to `data-strata-mode="face"`, so CSS paints flat faces and the GPU paints the relief;
  * whenever GPU is off, the CSS relief is back.
  *
@@ -19,7 +21,7 @@
  * `@underglass/core`: it takes the controller as a value and speaks the scene format.
  */
 import { cssVariable, flatten, numeric, strataTokens } from "../tokens/index.ts";
-import type { ScenePrimitive, StrataReliefScene, SceneFace, SceneMaterial } from "../tokens/scene.ts";
+import { isSceneObject, type SceneEntry, type SceneFace, type SceneMaterial, type StrataScene } from "../tokens/scene.ts";
 import { panelMotion, type PanelMover } from "../dom/motion.ts";
 import { strataStage, type StagePresenter } from "../dom/stage.ts";
 
@@ -27,7 +29,7 @@ import { strataStage, type StagePresenter } from "../dom/stage.ts";
 export interface StrataGpuController {
   readonly container: HTMLElement;
   enroll(element: HTMLElement, options: { id: string; origin?: "center" }): () => void;
-  setMaterial(id: string, descriptor: StrataReliefMaterial): { update(scene: StrataReliefScene): void; cancel(): void };
+  setMaterial(id: string, descriptor: StrataSceneMaterial): { update(scene: StrataPanelScene): void; cancel(): void };
   transition(id: string, motion: StrataPanelMotion): { finished: Promise<{ status: string; reason: string }>; cancel(): void };
   state(): { mode: string };
 }
@@ -36,10 +38,10 @@ export interface StrataPanelMotion {
   keyframes: { offset: number; opacity?: number; scaleX?: number; scaleY?: number; tiltX?: number; perspective?: number }[];
   timing: { duration: number; easing: string };
 }
-/** The material descriptor the helper hands to `setMaterial`. */
-export interface StrataReliefMaterial {
-  kind: "relief";
-  scene: StrataReliefScene;
+/** The material descriptor the helper hands to `setMaterial`: `relief` for a version 1 scene, `objects` for version 2. */
+export interface StrataSceneMaterial {
+  kind: "relief" | "objects";
+  scene: StrataPanelScene;
   bounds: "layer";
   interaction: "material";
   media: "identity";
@@ -50,12 +52,17 @@ export interface StrataGpuOptions {
   panels?: string;
   /** How often to check whether GPU is presenting, in ms (default 500). Call `refresh()` from `onStatusChange` too. */
   poll?: number;
+  /**
+   * The application's presentation level (design language section 16), where no component, panel or scope sets
+   * `data-strata-level`: `relief` by default. `objects` presents components as objects.
+   */
+  level?: StrataLevel;
 }
 export interface StrataGpu {
   /** Rebuilds every panel's scene now (for example from the runtime's `onStatusChange`). */
   refresh(): void;
   /** The scene last given to a panel, for inspection and tests. */
-  scene(panel: HTMLElement): StrataReliefScene | undefined;
+  scene(panel: HTMLElement): StrataPanelScene | undefined;
   /** Releases every panel: cancels materials, leaves face mode and releases the enrollments. */
   detach(): void;
 }
@@ -71,7 +78,7 @@ function roleOf(face: SceneFace, element: Element, panel: Element): string {
 
 // The numeric tokens a scene reads. Registering them lets the browser resolve their depth-blended `calc()` values
 // per element, so `getComputedStyle` returns numbers; their meaning and values do not change.
-const sceneTokens = /^(light\.(azimuth|elevation)|bevel\.(width|gain)|shadow\.strength|interior\.max|state\.|focus\.(width|offset)|elevation\.|material\.presets\.[^.]+\.(base|coat|emissive)\.(roughness|metallic|strength))/;
+const sceneTokens = /^(light\.(azimuth|elevation)|bevel\.(width|gain)|shadow\.strength|interior\.max|state\.|focus\.(width|offset)|elevation\.|object\.|camera\.distance|material\.presets\.[^.]+\.(base|coat|emissive)\.(roughness|metallic|strength))/;
 const registered = new Set<string>();
 function register(name: string, syntax: "<number>" | "<length>", initialValue: string) {
   if (registered.has(name)) return;
@@ -121,14 +128,37 @@ function radiusOf(element: Element, width: number) {
   return value.endsWith("%") ? (amount / 100) * width : Number.isFinite(amount) ? amount : 0;
 }
 
+/** The scenes the helper builds for panels: version 1 (Relief) or 2 (Objects, lit by the studio). */
+export type StrataPanelScene = Omit<StrataScene, "version" | "environment"> & { version: 1 | 2; environment?: { source: "studio"; strength: number } };
+
+/** A presentation level (design language section 16). */
+export type StrataLevel = "relief" | "objects" | "scene";
+
 /** What a caller may override in a panel's scene. */
 export interface StrataSceneOptions {
   /** The panel's own height, in CSS px, instead of its elevation (panel motion carries it through depth). */
   height?: number;
+  /** The level where neither the panel, its components nor a scope around them set one; `relief` by default. */
+  level?: StrataLevel;
+  /** The stage the camera is centred on (the Underglass root); the panel's parent by default. */
+  stage?: Element;
+  /** Collects the elements drawn as domes, whose own CSS paint the helper hides while GPU presents them. */
+  domes?: Set<Element>;
 }
 
-/** Builds a panel's scene from its markup, layout, states and resolved tokens. */
-export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}): StrataReliefScene {
+/** The level an element is presented at: its own `data-strata-level`, or the nearest scope's, or the default. */
+export function strataLevel(element: Element, fallback: StrataLevel = "relief"): StrataLevel {
+  const level = element.closest("[data-strata-level]")?.getAttribute("data-strata-level");
+  return level === "relief" || level === "objects" || level === "scene" ? level : fallback;
+}
+
+/**
+ * Builds a panel's scene from its markup, layout, states and resolved tokens. At the Relief level it is a version 1
+ * scene of relief primitives. Where the panel or any of its components is at the Objects level (or the Scene level,
+ * which includes it), it is a version 2 scene: those components become objects (design language section 6), mixed
+ * into the same back-to-front list, seen through the stage's camera.
+ */
+export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}): StrataPanelScene {
   registerTokens();
   const tokens = reader(panel);
   const level = (element: Element, fallback: string) =>
@@ -154,30 +184,102 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
     const preview = `${element.getAttribute("data-strata-preview") ?? ""} ${control.getAttribute("data-strata-preview") ?? ""}`.split(/\s+/);
     return {
       hover: target.matches(":hover") || preview.includes("hover"),
-      pressed: control.matches(":active") || preview.includes("active"),
+      // A toggle that is on holds its key down (design language section 6: it latches at its travel).
+      pressed: control.matches(":active, [aria-pressed='true']") || preview.includes("active"),
       focus: control.matches(":focus-visible") || preview.includes("focus"),
       disabled: control.matches(":disabled, [aria-disabled='true']"),
     };
   };
+  const objects = (element: Element) => strataLevel(element, options.level) !== "relief";
+  // Objects (design language section 6): the tokens of their proportions, and the height each surface's top stands at.
+  const keyHeight = tokens.number("object.keyHeight", 8), keyTravel = tokens.number("object.keyTravel", 6), taper = tokens.number("object.taper", 3);
+  const tops = new Map<Element, number>(), floors = new Map<Element, number>();
+  const baseOf = (element: Element) => {
+    for (let node = element.parentElement; node && node !== panel.parentElement; node = node.parentElement) if (tops.has(node)) return tops.get(node)!;
+    return 0;
+  };
+  // A knob, dot or mark stands on the floor of its control's well; the control is the label around both.
+  const floorOf = (element: Element) => floors.get(element.closest("label") ?? element.parentElement!) ?? baseOf(element);
   const width = panel.offsetWidth, height = panel.offsetHeight;
-  const primitives: ScenePrimitive[] = [{ face: "raised", rect: [0, 0, width, height], radius: radiusOf(panel, width), height: options.height ?? level(panel, "floating"),
-    material: materialFor(panel, "raised") }];
+  const panelHeight = options.height ?? level(panel, "floating");
+  const entries: SceneEntry[] = [];
+  if (objects(panel)) {
+    entries.push({ object: "slab", rect: [0, 0, width, height], radius: radiusOf(panel, width), height: panelHeight, taper, material: materialFor(panel, "raised") });
+    tops.set(panel, panelHeight);
+  } else entries.push({ face: "raised", rect: [0, 0, width, height], radius: radiusOf(panel, width), height: panelHeight, material: materialFor(panel, "raised") });
   for (const element of panel.querySelectorAll<HTMLElement>("[data-strata-face]")) {
-    if (primitives.length >= 255) break;
+    if (entries.length >= 254) break;
     const face = element.getAttribute("data-strata-face") as SceneFace;
     if (!faces.includes(face) || !element.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
     let rect = rectWithin(element, panel);
     if (rect[2] <= 0 || rect[3] <= 0) continue;
     const state = states(element);
+    const radius = radiusOf(element, rect[2]);
+    if (objects(element) && face !== "ring" && face !== "flat") {
+      const base = baseOf(element);
+      if (element.matches("input[type='range']")) {
+        // A slider: a metal rail along the input, and a puck (a flattened dome) placed from the value, inside the input.
+        const input = element as HTMLInputElement;
+        const rail = Number.parseFloat(getComputedStyle(element).getPropertyValue("--_rail")) || 6;
+        const rise = Math.max(1, keyHeight / 4);
+        entries.push({ object: "rail", rect: [rect[0], rect[1] + (rect[3] - rail) / 2, rect[2], rail], radius: rail / 2, height: rise, base, taper: 1,
+          material: materialFor(element, "groove"), state: { disabled: state.disabled } });
+        const min = Number(input.min || 0), max = Number(input.max || 100), along = max > min ? (Number(input.value) - min) / (max - min) : 0;
+        const size = rect[3], inset = Math.min(taper, size / 4);
+        entries.push({ object: "puck", rect: [rect[0] + along * (rect[2] - size) + inset, rect[1] + inset, size - 2 * inset, size - 2 * inset],
+          height: Math.max(2, keyHeight / 2), base: base + rise, material: material(tokens.raw("material.roles.knob") || "satin"), colour: tokens.colour("knob"),
+          bounds: rect, state });
+        options.domes?.add(element);
+        continue;
+      }
+      if (face === "raised") {
+        // Controls are keys that travel on press; cards, plinths and other raised faces are slabs others stand on.
+        if (element.matches("button, select, [role='button']")) {
+          entries.push({ object: "key", rect, radius, height: keyHeight, base, taper, travel: keyTravel, material: materialFor(element, face),
+            finish: element.matches("button, [role='button'], .ug-button") && element.getAttribute("data-strata-finish") !== "off", state });
+        } else {
+          const rise = level(element, "raised");
+          entries.push({ object: "slab", rect, radius, height: rise, base, taper: Math.min(taper, rise), material: materialFor(element, face), state });
+          tops.set(element, base + rise);
+        }
+        continue;
+      }
+      if (face === "well" && element.matches("input[type='checkbox'], input[type='radio']")) {
+        // A checkbox, radio or switch: a well sunk into the surface; its mark, dot or knob stands on its floor.
+        const depth = Math.max(1, level(element, "well"));
+        entries.push({ object: "well", rect, radius, height: depth, base, taper: Math.min(taper, depth), material: materialFor(element, face), state });
+        floors.set(element.closest("label") ?? element.parentElement!, base - depth);
+        continue;
+      }
+      if (face === "well") {
+        // A text field: its well, and a bezel ring just inside it (the text sits on the face).
+        entries.push({ face, rect, radius, height: level(element, "well"), material: materialFor(element, face), state });
+        entries.push({ object: "bezel", rect, radius, height: Math.max(1, keyHeight / 4), base, taper: 1, width: Math.max(3, tokens.number("bevel.width", 6) / 2),
+          material: materialFor(element, face), state: { disabled: state.disabled } });
+        continue;
+      }
+      if (face === "mark") {
+        entries.push({ object: "mark", rect, radius, height: Math.max(1, keyHeight / 4), base: floorOf(element), taper: 1, material: materialFor(element, face), state });
+        continue;
+      }
+      if (face === "knob") {
+        // A switch knob or radio dot: a dome in the control's colour, kept inside the control (the label around it).
+        const control = element.closest("label") ?? element.parentElement!;
+        entries.push({ object: "knob", rect, height: Math.min(rect[2], rect[3]) / 2, base: floorOf(element), material: materialFor(element, face),
+          colour: tokens.colour(element.matches(".ug-radio__dot") ? "accent" : "knob"), bounds: rectWithin(control, panel), state });
+        options.domes?.add(element);
+        continue;
+      }
+    }
     if (element.matches("input[type='range']")) {
       // A slider: the face is the input's box; the groove is its rail, and the knob is placed from the value.
       const input = element as HTMLInputElement;
       const rail = Number.parseFloat(getComputedStyle(element).getPropertyValue("--_rail")) || 6;
-      primitives.push({ face: "groove", rect: [rect[0], rect[1] + (rect[3] - rail) / 2, rect[2], rail], radius: rail / 2, height: level(element, "well"),
+      entries.push({ face: "groove", rect: [rect[0], rect[1] + (rect[3] - rail) / 2, rect[2], rail], radius: rail / 2, height: level(element, "well"),
         material: materialFor(element, "groove"), state: { disabled: state.disabled } });
       const min = Number(input.min || 0), max = Number(input.max || 100), along = max > min ? (Number(input.value) - min) / (max - min) : 0;
       const size = rect[3];
-      primitives.push({ face: "knob", rect: [rect[0] + along * (rect[2] - size), rect[1], size, size], radius: size / 2, height: level(element, "raised"),
+      entries.push({ face: "knob", rect: [rect[0] + along * (rect[2] - size), rect[1], size, size], radius: size / 2, height: level(element, "raised"),
         material: material(tokens.raw("material.roles.knob") || "satin"), state });
       continue;
     }
@@ -185,12 +287,12 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
       // A spinner: the ring is its arc's box; the turning arc stays in the captured content.
       const arc = element.querySelector(".ug-spinner__arc");
       if (arc) rect = rectWithin(arc, panel);
-      primitives.push({ face, rect, height: level(element, "well"), material: materialFor(element, face), state,
+      entries.push({ face, rect, height: level(element, "well"), material: materialFor(element, face), state,
         ring: { thickness: Math.max(2, Math.min(rect[2], rect[3]) / 8), start: 0, sweep: 0, colour: tokens.colour("accent") } });
       continue;
     }
-    primitives.push({
-      face, rect, radius: radiusOf(element, rect[2]),
+    entries.push({
+      face, rect, radius,
       height: face === "flat" ? 0 : face === "raised" || face === "knob" ? level(element, "raised") : level(element, "well"),
       material: materialFor(element, face),
       finish: face === "raised" && element.matches("button, [role='button'], .ug-button") && element.getAttribute("data-strata-finish") !== "off",
@@ -199,22 +301,34 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
   }
   // The outset reaches the farthest shadow: the offset plus the softness of the tallest caster, hovered.
   const elevation = (tokens.number("light.elevation", 41) * Math.PI) / 180;
-  const tallest = Math.max(...primitives.map(primitive => primitive.height)) * tokens.number("state.hoverHeight", 1.6);
+  const top = (entry: SceneEntry) => (isSceneObject(entry) ? (entry.base ?? 0) + (entry.object === "well" ? 0 : entry.height) : entry.height);
+  const tallest = Math.max(...entries.map(top)) * tokens.number("state.hoverHeight", 1.6);
   const reach = Math.min(128, Math.ceil(tallest / Math.tan(elevation) + 1.5 * tallest + 1));
-  return {
-    format: "strata-scene", version: 1,
+  const settings = {
     extent: { width, height },
     outset: { top: reach, right: reach, bottom: reach, left: reach },
     backdrop: tokens.colour("stage"),
     light: { azimuth: tokens.number("light.azimuth", 323), elevation: tokens.number("light.elevation", 41) },
-    bevel: { width: tokens.number("bevel.width", 6), gain: tokens.number("bevel.gain", 0.55), profile: (tokens.raw("bevel.profile") || "quarter-round") as StrataReliefScene["bevel"]["profile"] },
+    bevel: { width: tokens.number("bevel.width", 6), gain: tokens.number("bevel.gain", 0.55), profile: (tokens.raw("bevel.profile") || "quarter-round") as StrataScene["bevel"]["profile"] },
     shadow: { strength: tokens.number("shadow.strength", 0.24) },
     interior: { max: Math.min(0.1, tokens.number("interior.max", 0.04)) },
     state: { hoverHeight: tokens.number("state.hoverHeight", 1.6), pressHeight: tokens.number("state.pressHeight", 0.25),
       hoverLift: tokens.number("state.hoverLift", 0.04), pressSink: tokens.number("state.pressSink", 0.06) },
     focus: { colour: tokens.colour("accent"), width: tokens.number("focus.width", 3), offset: tokens.number("focus.offset", 0.5) },
     materials,
-    primitives,
+  };
+  if (!entries.some(isSceneObject)) return { format: "strata-scene", version: 1, ...settings, primitives: entries };
+  // The camera (design language section 2): centred on the stage, at D = max(camera.distance, r · h / taper + h),
+  // with r the stage's half-diagonal, so every solid keeps the taper rule wherever its panel sits.
+  const outer = panel.getBoundingClientRect(), stage = (options.stage ?? panel.parentElement ?? panel).getBoundingClientRect();
+  const scale = outer.width / Math.max(panel.offsetWidth, 1) || 1;
+  const steepest = Math.max(0, ...entries.filter(isSceneObject).filter(entry => entry.taper).map(entry => entry.height / entry.taper!));
+  const highest = Math.max(0, ...entries.map(top));
+  const distance = Math.max(tokens.number("camera.distance", 1600), Math.ceil(Math.hypot(stage.width, stage.height) / 2 / scale * steepest + highest + 1));
+  return {
+    format: "strata-scene", version: 2,
+    camera: { distance, vanish: [(stage.left + stage.width / 2 - outer.left) / scale, (stage.top + stage.height / 2 - outer.top) / scale] },
+    ...settings, primitives: entries,
   };
 }
 
@@ -253,7 +367,14 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   // Under forced colours everything is flat (design language section 4): the CSS presentation stays.
   const forced = matchMedia("(forced-colors: active)");
   type Motion = { start: number; duration: number; ease: (t: number) => number; from: number; to: number };
-  const panels = new Map<HTMLElement, { id: string; release: () => void; handle?: ReturnType<StrataGpuController["setMaterial"]>; scene?: string; motion?: Motion }>();
+  const panels = new Map<HTMLElement, { id: string; release: () => void; handle?: ReturnType<StrataGpuController["setMaterial"]>; kind?: StrataSceneMaterial["kind"];
+    scene?: string; motion?: Motion; domes: Set<Element> }>();
+  /** Shows the CSS paint of the elements a panel no longer draws as domes, and hides it on those it now does. */
+  const markDomes = (entry: { domes: Set<Element> }, domes: Set<Element>) => {
+    for (const element of entry.domes) if (!domes.has(element)) element.removeAttribute("data-strata-dome");
+    for (const element of domes) if (!element.hasAttribute("data-strata-dome")) element.setAttribute("data-strata-dome", "");
+    entry.domes = domes;
+  };
   // Scrims under open dialogs: plain layers (no material) that the GPU fades in and out.
   const scrims = new Map<HTMLElement, { id: string; release: () => void; fade?: ReturnType<StrataGpuController["transition"]>; closing?: boolean }>();
   let serial = 0, frame = 0, detached = false;
@@ -270,7 +391,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
       if (gpu) element.setAttribute("data-strata-mode", "face");
       // Centred, so depth and tilt move the panel about its middle as the CSS motion does.
       const release = controller.enroll(element, { id, origin: "center" });
-      panels.set(element, { id, release });
+      panels.set(element, { id, release, domes: new Set() });
       (element as Movable)[panelMotion] = mover(element);
       resize.observe(element);
     } catch (error) {
@@ -284,6 +405,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
     if (!entry) return;
     entry.handle?.cancel(); entry.release(); resize.unobserve(element); element.removeAttribute("data-strata-mode"); panels.delete(element);
     delete (element as Movable)[panelMotion];
+    markDomes(entry, new Set());
   }
   /** Enrolls a shown scrim now, on the GPU only, and fades it in. */
   function enrollScrim(element: HTMLElement) {
@@ -352,6 +474,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
         // GPU is off: the CSS relief presents, and no material is kept.
         if (element.getAttribute("data-strata-mode") === "face") element.removeAttribute("data-strata-mode");
         entry.handle?.cancel(); entry.handle = undefined; entry.scene = undefined;
+        markDomes(entry, new Set());
         continue;
       }
       update(element, entry);
@@ -366,12 +489,18 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   function update(element: HTMLElement, entry: NonNullable<ReturnType<typeof panels.get>>) {
     if (element.getAttribute("data-strata-mode") !== "face") element.setAttribute("data-strata-mode", "face");
     const motion = entry.motion;
-    const scene = strataScene(element, motion ? { height: motion.from + (motion.to - motion.from) * motion.ease(Math.min(1, (performance.now() - motion.start) / motion.duration)) } : {});
+    const domes = new Set<Element>();
+    const scene = strataScene(element, { level: options.level, stage: root, domes,
+      ...(motion ? { height: motion.from + (motion.to - motion.from) * motion.ease(Math.min(1, (performance.now() - motion.start) / motion.duration)) } : {}) });
+    markDomes(entry, domes);
     const key = JSON.stringify(scene);
     if (entry.scene === key) return;
+    const kind = scene.version === 1 ? "relief" : "objects";
     try {
-      if (entry.handle) entry.handle.update(scene);
-      else entry.handle = controller.setMaterial(entry.id, { kind: "relief", scene, bounds: "layer", interaction: "material", media: "identity", fallback: "static" });
+      // A change of level changes the material's kind: the new material replaces the old one in one step.
+      if (entry.handle && entry.kind === kind) entry.handle.update(scene);
+      else entry.handle = controller.setMaterial(entry.id, { kind, scene, bounds: "layer", interaction: "material", media: "identity", fallback: "static" });
+      entry.kind = kind;
       entry.scene = key;
     } catch {
       // The runtime is between states (admitting or transitioning): try again on the next change or poll.
@@ -409,14 +538,14 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   for (const type of events) root.addEventListener(type, schedule, true);
   const mutation = new MutationObserver(schedule);
   mutation.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "disabled", "checked", "aria-checked",
-    "aria-disabled", "data-strata-closing", "data-strata-face", "data-strata-material", "data-strata-elevation", "data-strata-depth", "data-strata-theme", "data-strata-scope", "data-strata-preview", "hidden"] });
+    "aria-disabled", "aria-pressed", "data-strata-closing", "data-strata-face", "data-strata-material", "data-strata-elevation", "data-strata-level", "data-strata-depth", "data-strata-theme", "data-strata-scope", "data-strata-preview", "hidden"] });
   resize.observe(root);
   const poll = setInterval(schedule, options.poll ?? 500);
   forced.addEventListener("change", schedule);
   sync();
   return {
     refresh: () => { if (frame) cancelAnimationFrame(frame); sync(); },
-    scene: panel => { const key = panels.get(panel)?.scene; return key ? JSON.parse(key) as StrataReliefScene : undefined; },
+    scene: panel => { const key = panels.get(panel)?.scene; return key ? JSON.parse(key) as StrataPanelScene : undefined; },
     detach: () => {
       if (detached) return;
       detached = true;

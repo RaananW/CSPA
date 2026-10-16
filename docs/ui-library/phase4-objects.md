@@ -27,6 +27,18 @@ alternative.
   - **Decision 4, studio only for now.** The environment is the studio, defined in code. Environment maps (`.hdr`)
     are reserved in version 2 of the format and move to the Scene level (Phase 5), with environment light.
   - **Budget:** objects share the 256-entry list and the relief binding (about 25 KB).
+- **4d, done:** `@underglass/ui/gpu` builds the Objects scene from the same markup. The level is resolved per
+  element (its own `data-strata-level`, then the nearest scope's, then the `level` option), so a panel at the Objects
+  level may keep single components at the Relief level in the same list: decision 5 holds per layer for the
+  material's kind, and finer within it.
+  - **Mapping:** buttons and selects are keys (`object.keyHeight`, `object.keyTravel`, a toggle that is on stays
+    down); panels, cards and other raised faces are slabs others stand on; text fields keep their well and gain a
+    bezel; checkbox, radio and switch inputs are wells, and their mark, dot or knob stands on the well's floor;
+    sliders are a rail with a puck; spinners, badges, dividers and progress bars stay relief.
+  - **Hit safety:** a knob's bounds are its label (a click anywhere on it toggles the control), and a puck is inset
+    inside its slider by the taper, so domes stay inside their controls at the derived camera distance.
+  - **Camera:** centred on the stage (the Underglass root), at `max(camera.distance, r · max(h / taper) + h)` with
+    `r` the stage's half-diagonal.
 
 **Upstream check:**
 
