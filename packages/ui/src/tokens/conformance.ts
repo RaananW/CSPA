@@ -7,12 +7,14 @@
  *
  * `buildConformance()` writes the suite that ships as `@underglass/ui/conformance/relief-1.json` (version 1, Relief), and
  * `buildObjectsConformance()` the one that ships as `@underglass/ui/conformance/objects-2.json` (version 2, Objects). A
- * renderer conforms to version 2 when it passes both.
+ * renderer conforms to version 2 when it passes both. `buildSceneConformance()` writes `scene-3.json` (version 3, Scene):
+ * stage scenes, rendered over white, and object scenes that reflect an environment map.
  */
 import { parseHex, toHex } from "./contrast.ts";
 import { strataSource } from "./source.ts";
 import { sceneSettings, type SceneEntry, type SceneObject, type ScenePrimitive, type StrataScene } from "./scene.ts";
 import { roundedBoxDistance, shadePoint, type CapturedColour } from "./shade.ts";
+import { environmentColumns, environmentRows, shadeStage, type StageScene } from "./stage.ts";
 import type { TokenGroup } from "./model.ts";
 
 /** One painted region of the captured content. */
@@ -33,14 +35,15 @@ export interface ConformanceSample {
 export interface ConformanceCase {
   name: string;
   description: string;
-  scene: StrataScene;
+  /** A layer's scene, or (version 3) a stage scene, which renders over white and has no capture. */
+  scene: StrataScene | StageScene;
   capture: CapturePaint[];
   samples: ConformanceSample[];
 }
 
 export interface ConformanceSuite {
   format: "strata-conformance";
-  model: "strata-scene/1" | "strata-scene/2";
+  model: "strata-scene/1" | "strata-scene/2" | "strata-scene/3";
   /** The largest difference allowed on any channel, in 0–255 units. */
   tolerance: number;
   description: string;
@@ -366,7 +369,11 @@ function expectations(cases: ConformanceCase[]): ConformanceCase[] {
     const samples = entry.samples.map(sample => {
       // The centre of the device pixel containing the point, at a device scale of 1: what a renderer evaluates.
       const at = sample.at.map(value => Math.floor(value) + 0.5) as [number, number];
-      const colour = shadePoint(entry.scene, captured, ...at);
+      const scene = entry.scene;
+      // A stage scene renders over white (2C.5).
+      const colour = scene.format === "strata-stage"
+        ? (([r, g, b, a]) => [r * a + 1 - a, g * a + 1 - a, b * a + 1 - a])(shadeStage(scene, ...at))
+        : shadePoint(scene, captured, ...at);
       return { at, note: sample.note, expect: toHex(colour.map(channel => channel * 255) as unknown as [number, number, number]) };
     });
     return { ...entry, samples };
@@ -382,6 +389,95 @@ export function buildConformance(source: TokenGroup = strataSource): Conformance
     tolerance: conformanceTolerance,
     description: "Strata rendering model, version 1: Relief. Paint each case's capture (rounded rectangles in order, over transparent) as the layer's content, render the scene over its backdrop at a device scale of 1 (one device pixel per CSS px), and compare the decoded pixel whose centre is each sample's `at` with `expect`: every channel within `tolerance` (0–255).",
     cases,
+  };
+}
+
+/** The Scene conformance cases (version 3), without expectations. */
+export function sceneCases(source: TokenGroup = strataSource): ConformanceCase[] {
+  const settings = sceneSettings(source, { theme: "light", depth: 0.5 });
+  const colour = (role: string) => (source.colour as Record<string, { $extensions?: Record<string, { themes?: Record<string, string> }> }>)[role]!.$extensions!["dev.underglass.strata"]!.themes!.light!;
+  const camera = { distance: 1600, vanish: [160, 100] as [number, number] };
+  const stage = (overrides: Partial<StageScene>): StageScene =>
+    ({ format: "strata-stage", version: 3, extent: { width: 320, height: 200 }, light: settings.light, camera, particles: [], ...overrides });
+  // Where a point at height z over (x, y) appears on the screen.
+  const seen = (x: number, y: number, z: number): [number, number] => [camera.vanish[0] + (x - camera.vanish[0]) * 1600 / (1600 - z), camera.vanish[1] + (y - camera.vanish[1]) * 1600 / (1600 - z)];
+  // A mid-grey stage, so both the pool and the vignette show.
+  const backdrop = { colour: "#8c95a3", pool: 0.6, vignette: 0.5 };
+  // An environment map with a bright ring at the horizon and a dim sky and floor.
+  const grid = Array.from({ length: environmentColumns * environmentRows }, (_, index) => (Math.floor(index / environmentColumns) === 7 || Math.floor(index / environmentColumns) === 8 ? 1.2 : 0.3));
+  const keyScene = (environment: StrataScene["environment"]): StrataScene => ({ format: "strata-scene", version: 3, camera: { distance: 1600, vanish: [-100, 32] }, environment,
+    extent: { width: 176, height: 64 }, outset: { top: 24, right: 24, bottom: 24, left: 24 }, ...settings,
+    primitives: [{ object: "slab", rect: [0, 0, 176, 64], radius: 14, height: 8, taper: 3, material: "matte" },
+      { object: "key", rect: [16, 16, 64, 32], radius: 8, height: 8, base: 8, taper: 3, material: "metal" },
+      { object: "key", rect: [96, 16, 64, 32], radius: 8, height: 8, base: 8, taper: 3, material: "lacquer" }] });
+  const keyCapture: CapturePaint[] = [{ rect: [0, 0, 176, 64], radius: 14, colour: colour("panel") },
+    { rect: [16, 16, 64, 32], radius: 8, colour: colour("secondary") }, { rect: [96, 16, 64, 32], radius: 8, colour: colour("accent") }];
+  return [
+    {
+      name: "backdrop",
+      description: "The lit stage: a pool of the light towards the top left, falling off into a vignette at the edges.",
+      scene: stage({ backdrop }), capture: [],
+      samples: [
+        { at: [160, 100], note: "the stage's centre" },
+        { at: [100, 30], note: "in the pool, towards the light" },
+        { at: [316, 196], note: "the far corner: the vignette" },
+        { at: [4, 196], note: "the near corner" },
+      ],
+    },
+    {
+      name: "backdrop-tint",
+      description: "A tinted stage: the backdrop colour mixed towards the tint.",
+      scene: stage({ backdrop: { ...backdrop, tint: colour("accent"), tintStrength: 0.15 } }), capture: [],
+      samples: [{ at: [160, 100], note: "centre, tinted" }, { at: [316, 4], note: "a corner, tinted and vignetted" }],
+    },
+    {
+      name: "particles",
+      description: "Particles with no backdrop, over white: a flat card, a card tilted towards the light, a disc, two overlapping cards (the higher one in front) and a half-transparent card.",
+      scene: stage({ particles: [
+        { shape: "card", position: [60, 60, 20], size: [24, 16], colour: colour("accent") },
+        { shape: "card", position: [120, 60, 20], size: [24, 16], tilt: [40, -20], colour: colour("accent") },
+        { shape: "disc", position: [180, 60, 20], size: [20, 20], colour: colour("danger") },
+        { shape: "card", position: [250, 64, 40], size: [24, 16], rotation: 30, colour: colour("success") },
+        { shape: "card", position: [246, 60, 10], size: [24, 16], colour: colour("warning") },
+        { shape: "card", position: [160, 150, 20], size: [30, 20], opacity: 0.5, colour: colour("accent") },
+      ] }), capture: [],
+      samples: [
+        { at: seen(60, 60, 20), note: "flat card: its colour" },
+        { at: seen(120, 60, 20), note: "a card tilted towards the light: brighter" },
+        { at: seen(180, 60, 20), note: "a disc" },
+        { at: seen(250, 64, 40), note: "where two cards overlap, the higher one is in front" },
+        { at: seen(160, 150, 20), note: "a half-transparent card over white" },
+        { at: [20, 180], note: "no particle: white" },
+      ],
+    },
+    {
+      name: "particles-over-backdrop",
+      description: "A particle over the lit backdrop.",
+      scene: stage({ backdrop, particles: [{ shape: "disc", position: [160, 100, 30], size: [24, 24], colour: colour("accent"), roughness: 0.2 }] }), capture: [],
+      samples: [{ at: seen(160, 100, 30), note: "the disc, with its specular" }, { at: [160, 140], note: "the backdrop around it" }],
+    },
+    {
+      name: "environment-map",
+      description: "Metal and lacquer keys reflecting an environment map with a bright horizon instead of the studio.",
+      scene: keyScene({ source: "map", strength: 0.6, grid }), capture: keyCapture,
+      samples: [
+        { at: [48, 46.5], note: "metal, bottom side: reflects the bright horizon" },
+        { at: [48, 17.5], note: "metal, top side" },
+        { at: [48, 32], note: "metal cap: no environment term" },
+        { at: [128, 46.5], note: "lacquer, bottom side" },
+      ],
+    },
+  ];
+}
+
+/** The version 3 (Scene) suite with every expected colour computed by the reference implementation. */
+export function buildSceneConformance(source: TokenGroup = strataSource): ConformanceSuite {
+  return {
+    format: "strata-conformance",
+    model: "strata-scene/3",
+    tolerance: conformanceTolerance,
+    description: "Strata rendering model, version 3: Scene. Stage scenes (format strata-stage) have no capture: render each over white at a device scale of 1. Object scenes render as in version 2. Compare the decoded pixel whose centre is each sample's `at` with `expect`, every channel within `tolerance` (0–255). A renderer conforms to version 3 when it passes this suite, objects-2.json and relief-1.json.",
+    cases: expectations(sceneCases(source)),
   };
 }
 

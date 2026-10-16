@@ -34,7 +34,7 @@ test("the validator and the JSON Schema agree on objects", () => {
     assert.equal(validateScene(scene).length > 0, schema.$defs.object.required.includes(key), `removing primitives[1].${key}`);
   }
   assert.deepEqual(schema.$defs.object.properties.object.enum, ["key", "slab", "bezel", "well", "rail", "mark", "knob", "puck"]);
-  assert.deepEqual(schema.properties.version.enum, [1, 2]);
+  assert.deepEqual(schema.properties.version.enum, [1, 2, 3]);
 });
 
 test("the validator reports broken version 2 scenes at their paths", () => {
