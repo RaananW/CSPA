@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/RaananW/underglass/blob/main/packages/ui/src/tokens/strata-scene.schema.json",
-  "title": "Strata scene, version 1",
+  "title": "Strata scene, versions 1 and 2",
   "description": "One layer at one moment, for the Strata rendering model (docs/ui-library/rendering-model.md). Lengths are layer-local CSS px, x right and y down; angles are degrees; colours are sRGB #rrggbb. Every value is already resolved for a depth and theme.",
   "type": "object",
   "required": [
@@ -27,7 +27,58 @@
       "const": "strata-scene"
     },
     "version": {
-      "const": 1
+      "enum": [
+        1,
+        2
+      ],
+      "description": "1: Relief. 2: adds objects, the camera and the environment (the Objects level)."
+    },
+    "camera": {
+      "description": "Version 2: the camera objects are seen through (design language section 2).",
+      "type": "object",
+      "required": [
+        "distance",
+        "vanish"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "distance": {
+          "description": "Distance from the panel plane, in CSS px.",
+          "type": "number",
+          "minimum": 100
+        },
+        "vanish": {
+          "description": "The vanishing point (the stage's centre), in layer-local CSS px.",
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "environment": {
+      "description": "Version 2: the environment objects reflect. Default: studio at strength 0.6.",
+      "type": "object",
+      "required": [
+        "source",
+        "strength"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "const": "studio"
+        },
+        "strength": {
+          "$ref": "#/$defs/unit"
+        }
+      }
     },
     "extent": {
       "description": "The layer's size: its border box.",
@@ -208,11 +259,18 @@
       }
     },
     "primitives": {
-      "description": "Relief primitives, back to front: a later primitive sits on an earlier one.",
+      "description": "Relief primitives, back to front: a later primitive sits on an earlier one. Version 2 may mix objects in.",
       "type": "array",
       "maxItems": 256,
       "items": {
-        "$ref": "#/$defs/primitive"
+        "anyOf": [
+          {
+            "$ref": "#/$defs/primitive"
+          },
+          {
+            "$ref": "#/$defs/object"
+          }
+        ]
       }
     }
   },
@@ -448,6 +506,199 @@
           ]
         }
       }
+    },
+    "object": {
+      "description": "Version 2: an object standing on its base rectangle, the native control's border box (design language section 6).",
+      "type": "object",
+      "required": [
+        "object",
+        "rect",
+        "height",
+        "material"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "object": {
+          "enum": [
+            "key",
+            "slab",
+            "bezel",
+            "well",
+            "rail",
+            "mark",
+            "knob",
+            "puck"
+          ],
+          "description": "Solids (key, slab, bezel, well, rail, mark) taper; domes (knob, puck) are ray-cast."
+        },
+        "rect": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/length"
+            },
+            {
+              "$ref": "#/$defs/length"
+            }
+          ],
+          "minItems": 4,
+          "maxItems": 4,
+          "description": "[x, y, width, height] of the base."
+        },
+        "radius": {
+          "$ref": "#/$defs/length",
+          "description": "A solid's corner radius; clamped to half the shorter side."
+        },
+        "height": {
+          "$ref": "#/$defs/length",
+          "description": "Height above base; a well's depth below it."
+        },
+        "base": {
+          "type": "number",
+          "description": "Height of the surface it stands on. Default 0."
+        },
+        "taper": {
+          "$ref": "#/$defs/length",
+          "description": "A solid's inset of its cap from its base."
+        },
+        "width": {
+          "$ref": "#/$defs/length",
+          "description": "A bezel's ring width; required for a bezel."
+        },
+        "travel": {
+          "$ref": "#/$defs/length",
+          "description": "How far a key's or mark's cap sinks when pressed."
+        },
+        "material": {
+          "type": "string"
+        },
+        "colour": {
+          "$ref": "#/$defs/colour",
+          "description": "A dome's own colour; required for domes."
+        },
+        "finish": {
+          "type": "boolean"
+        },
+        "bounds": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/length"
+            },
+            {
+              "$ref": "#/$defs/length"
+            }
+          ],
+          "minItems": 4,
+          "maxItems": 4,
+          "description": "The native control's border box, which must contain every drawn pixel. Default rect."
+        },
+        "state": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "hover": {
+              "type": "boolean"
+            },
+            "pressed": {
+              "type": "boolean"
+            },
+            "focus": {
+              "type": "boolean"
+            },
+            "disabled": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "object": {
+                "enum": [
+                  "knob",
+                  "puck"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "colour"
+            ],
+            "properties": {
+              "taper": false,
+              "width": false,
+              "travel": false
+            }
+          },
+          "else": {
+            "properties": {
+              "colour": false
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "object": {
+                "const": "bezel"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "width"
+            ]
+          },
+          "else": {
+            "properties": {
+              "width": false
+            }
+          }
+        }
+      ]
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "version": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "camera"
+        ]
+      },
+      "else": {
+        "properties": {
+          "camera": false,
+          "environment": false,
+          "primitives": {
+            "items": {
+              "$ref": "#/$defs/primitive"
+            }
+          }
+        }
+      }
+    }
+  ]
 }

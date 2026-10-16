@@ -1,6 +1,7 @@
 /**
- * The Strata scene format, version 1 (`docs/ui-library/rendering-model.md`, part 1): the engine-neutral description of
- * one layer at one moment, resolved from the tokens and the DOM. A scene names no engine: any renderer that shades it
+ * The Strata scene format, versions 1 and 2 (`docs/ui-library/rendering-model.md`, part 1): the engine-neutral
+ * description of one layer at one moment, resolved from the tokens and the DOM. Version 2 adds objects (the Objects
+ * level), the camera they are seen through, and the environment that lights them. A scene names no engine: any renderer that shades it
  * as the rendering model says, and passes the conformance suite, presents Strata. `strata-scene.schema.json` is the
  * same format as a JSON Schema; `validateScene` checks it without a schema library.
  */
@@ -51,10 +52,52 @@ export interface ScenePrimitive {
   ring?: { thickness: number; start: number; sweep: number; colour: string };
 }
 
+/** The objects of version 2 (design language section 6): solids that taper, and domes. */
+export const sceneObjects = ["key", "slab", "bezel", "well", "rail", "mark", "knob", "puck"] as const;
+export type SceneObjectKind = (typeof sceneObjects)[number];
+
+/**
+ * One object (version 2), in layer-local CSS px: a solid (`key`, `slab`, `bezel`, `well`, `rail`, `mark`) or a
+ * dome (`knob`, `puck`) standing on its base rectangle, the native control's border box.
+ */
+export interface SceneObject {
+  object: SceneObjectKind;
+  /** `[x, y, width, height]` of the base. */
+  rect: [number, number, number, number];
+  /** Corner radius of a solid; clamped to half the shorter side. A dome's footprint is always fully round. */
+  radius?: number;
+  /** Height above `base` (for a well, its depth below it). */
+  height: number;
+  /** The height of the surface the object stands on; default 0. */
+  base?: number;
+  /** A solid's inset of its cap from its base, at least the perspective drift (design language section 6). */
+  taper?: number;
+  /** A bezel's ring width. */
+  width?: number;
+  /** How far a key's or mark's cap sinks when pressed; default 0. */
+  travel?: number;
+  /** A key of the scene's `materials`. */
+  material: string;
+  /** A dome's own colour (`#rrggbb`): domes carry no captured content. */
+  colour?: string;
+  /** Whether the material's finish zones apply on a solid's cap. */
+  finish?: boolean;
+  /** The native control's border box, which must contain every drawn pixel; default `rect`. */
+  bounds?: [number, number, number, number];
+  state?: SceneState;
+}
+/** One entry of a scene's back-to-front list: a relief primitive, or (version 2) an object. */
+export type SceneEntry = ScenePrimitive | SceneObject;
+export const isSceneObject = (entry: SceneEntry): entry is SceneObject => "object" in entry;
+
 /** One layer at one moment. Every value is already resolved for the depth and theme. */
 export interface StrataScene {
   format: "strata-scene";
-  version: 1;
+  version: 1 | 2;
+  /** Version 2: the camera objects are seen through, its distance and its vanishing point in layer-local px. */
+  camera?: { distance: number; vanish: [number, number] };
+  /** Version 2: the environment that objects reflect. `studio` is defined in code, with no asset. */
+  environment?: { source: "studio"; strength: number };
   extent: { width: number; height: number };
   /** Room drawn outside the extent, for shadows only. */
   outset?: { top: number; right: number; bottom: number; left: number };
@@ -67,9 +110,12 @@ export interface StrataScene {
   state: { hoverHeight: number; pressHeight: number; hoverLift: number; pressSink: number };
   focus: { colour: string; width: number; offset: number };
   materials: Record<string, SceneMaterial>;
-  /** Back to front: a later primitive sits on an earlier one. */
-  primitives: ScenePrimitive[];
+  /** Back to front: a later primitive sits on an earlier one. Version 2 may mix objects in. */
+  primitives: SceneEntry[];
 }
+
+/** A version 1 scene: relief primitives only, with no camera or environment. */
+export type StrataReliefScene = Omit<StrataScene, "version" | "camera" | "environment" | "primitives"> & { version: 1; primitives: ScenePrimitive[] };
 
 /** One problem with a scene, at a JSON path such as `primitives[2].rect`. */
 export interface SceneIssue {
@@ -82,7 +128,7 @@ export const scenePrimitiveBudget = 256;
 
 const hex = /^#[0-9a-f]{6}$/i;
 
-/** Checks a scene against version 1 of the format. Returns every problem found; an empty list means valid. */
+/** Checks a scene against versions 1 and 2 of the format. Returns every problem found; an empty list means valid. */
 export function validateScene(scene: unknown): SceneIssue[] {
   const issues: SceneIssue[] = [];
   const report = (path: string, message: string) => issues.push({ path, message });
@@ -107,9 +153,19 @@ export function validateScene(scene: unknown): SceneIssue[] {
   };
 
   if (!isObject(scene)) return [{ path: "", message: "must be an object" }];
-  known(scene, ["$schema", "format", "version", "extent", "outset", "backdrop", "light", "bevel", "shadow", "interior", "state", "focus", "materials", "primitives"], "");
+  const materials = scene.materials;
+  known(scene, ["$schema", "format", "version", "camera", "environment", "extent", "outset", "backdrop", "light", "bevel", "shadow", "interior", "state", "focus", "materials", "primitives"], "");
   if (scene.format !== "strata-scene") report("format", 'must be "strata-scene"');
-  if (scene.version !== 1) report("version", "must be 1");
+  if (scene.version !== 1 && scene.version !== 2) report("version", "must be 1 or 2");
+  const objects = scene.version === 2;
+  if (!objects) for (const key of ["camera", "environment"]) if (scene[key] !== undefined) report(key, "is only in version 2");
+  if (objects) {
+    group(scene.camera, "camera", { distance: range(100), vanish: (value, path) => {
+      if (!Array.isArray(value) || value.length !== 2) report(path, "must be [x, y]");
+      else value.forEach((part, index) => number(part, `${path}[${index}]`));
+    } });
+    if (scene.environment !== undefined) group(scene.environment, "environment", { source: (value, path) => { if (value !== "studio") report(path, 'must be "studio"'); }, strength: range(0, 1) });
+  }
   group(scene.extent, "extent", { width: range(0), height: range(0) });
   if (scene.outset !== undefined) group(scene.outset, "outset", { top: range(0), right: range(0), bottom: range(0), left: range(0) });
   colour(scene.backdrop, "backdrop");
@@ -137,12 +193,48 @@ export function validateScene(scene: unknown): SceneIssue[] {
       for (const [layer, fields] of Object.entries(layers)) if (material[layer] !== undefined) group(material[layer], `${at}.${layer}`, fields, Object.keys(fields));
     }
   }
+  function states(value: unknown, at: string) {
+    if (value === undefined) return;
+    if (!isObject(value)) return report(`${at}.state`, "must be an object");
+    for (const [key, flag] of Object.entries(value)) {
+      if (!["hover", "pressed", "focus", "disabled"].includes(key)) report(`${at}.state.${key}`, "is not a state");
+      else if (typeof flag !== "boolean") report(`${at}.state.${key}`, "must be a boolean");
+    }
+  }
+  const box = (value: unknown, path: string) => {
+    if (!Array.isArray(value) || value.length !== 4) report(path, "must be [x, y, width, height]");
+    else value.forEach((part, index) => number(part, `${path}[${index}]`, index < 2 ? -Infinity : 0));
+  };
+  function validateObject(object: Record<string, unknown>, at: string) {
+    known(object, ["object", "rect", "radius", "height", "base", "taper", "width", "travel", "material", "colour", "finish", "bounds", "state"], at);
+    const kind = object.object as SceneObjectKind;
+    if (!sceneObjects.includes(kind)) report(`${at}.object`, `must be one of ${sceneObjects.join(", ")}`);
+    const dome = kind === "knob" || kind === "puck";
+    box(object.rect, `${at}.rect`);
+    if (object.bounds !== undefined) box(object.bounds, `${at}.bounds`);
+    for (const key of ["radius", "taper", "width", "travel"]) if (object[key] !== undefined) number(object[key], `${at}.${key}`, 0);
+    number(object.height, `${at}.height`, 0);
+    if (object.base !== undefined) number(object.base, `${at}.base`);
+    if (typeof object.material !== "string" || !isObject(materials) || !(object.material in materials)) report(`${at}.material`, "must name one of the scene's materials");
+    if (dome) colour(object.colour, `${at}.colour`);
+    else if (object.colour !== undefined) report(`${at}.colour`, "is only for domes");
+    if (kind === "bezel" && object.width === undefined) report(`${at}.width`, "is required for a bezel");
+    if (kind !== "bezel" && object.width !== undefined) report(`${at}.width`, "is only for a bezel");
+    if (dome && object.taper !== undefined) report(`${at}.taper`, "is only for solids");
+    if (object.travel !== undefined && kind !== "key" && kind !== "mark") report(`${at}.travel`, "is only for keys and marks");
+    if (object.finish !== undefined && typeof object.finish !== "boolean") report(`${at}.finish`, "must be a boolean");
+    states(object.state, at);
+  }
   if (!Array.isArray(scene.primitives)) report("primitives", "must be an array");
   else {
     if (scene.primitives.length > scenePrimitiveBudget) report("primitives", `holds more than ${scenePrimitiveBudget} primitives`);
     scene.primitives.forEach((primitive: unknown, index) => {
       const at = `primitives[${index}]`;
       if (!isObject(primitive)) return report(at, "must be an object");
+      if ("object" in primitive) {
+        if (!objects) return report(`${at}.object`, "objects are only in version 2");
+        return validateObject(primitive, at);
+      }
       known(primitive, ["face", "rect", "radius", "height", "material", "finish", "state", "ring"], at);
       if (!sceneFaces.includes(primitive.face as SceneFace)) report(`${at}.face`, `must be one of ${sceneFaces.join(", ")}`);
       const rect = primitive.rect;
@@ -152,13 +244,7 @@ export function validateScene(scene: unknown): SceneIssue[] {
       number(primitive.height, `${at}.height`, 0);
       if (typeof primitive.material !== "string" || !isObject(scene.materials) || !(primitive.material in scene.materials)) report(`${at}.material`, "must name one of the scene's materials");
       if (primitive.finish !== undefined && typeof primitive.finish !== "boolean") report(`${at}.finish`, "must be a boolean");
-      if (primitive.state !== undefined) {
-        if (!isObject(primitive.state)) report(`${at}.state`, "must be an object");
-        else for (const [key, value] of Object.entries(primitive.state)) {
-          if (!["hover", "pressed", "focus", "disabled"].includes(key)) report(`${at}.state.${key}`, "is not a state");
-          else if (typeof value !== "boolean") report(`${at}.state.${key}`, "must be a boolean");
-        }
-      }
+      states(primitive.state, at);
       if (primitive.face === "ring") group(primitive.ring, `${at}.ring`, { thickness: range(0), start: range(-360, 360), sweep: range(0, 360), colour });
       else if (primitive.ring !== undefined) report(`${at}.ring`, "is only for the ring face");
     });

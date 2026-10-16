@@ -4,11 +4,13 @@
  * against, written to be read next to the standard, not to be fast. It uses no GPU and no DOM.
  *
  * All arithmetic is on sRGB-encoded channels in 0–1, as in CSS compositing, so the token validator's lit-contrast
- * checks hold exactly for what this function produces.
+ * checks hold exactly for what this function produces. Version 2 scenes may also carry objects (part 2B), whose
+ * geometry lives in `objects.ts`; a version 1 scene shades exactly as before.
  */
 import { parseHex } from "./contrast.ts";
 import { finish } from "./finish.ts";
-import type { BevelProfile, SceneFace, SceneMaterial, ScenePrimitive, StrataScene } from "./scene.ts";
+import { domeHit, environmentTerm, objectDistance, objectDrawable, reliefEquivalent, resolveObject, sideNormal, type ResolvedObject } from "./objects.ts";
+import { isSceneObject, type BevelProfile, type SceneEntry, type SceneFace, type SceneMaterial, type ScenePrimitive, type StrataScene } from "./scene.ts";
 
 /** A straight (not premultiplied) colour with alpha, channels 0–1. */
 export type Rgba = readonly [number, number, number, number];
@@ -42,8 +44,22 @@ export function roundedBoxDistance(x: number, y: number, halfWidth: number, half
   return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - radius;
 }
 
+/** Material values with their defaults (part 1). */
+interface MaterialValues {
+  roughness: number;
+  metallic: number;
+  coat: number;
+  coatRoughness: number;
+  emissive: boolean;
+}
+function materialValues(scene: StrataScene, name: string): MaterialValues {
+  const material: SceneMaterial = scene.materials[name] ?? {};
+  return { roughness: material.base?.roughness ?? 1, metallic: material.base?.metallic ?? 0, coat: material.coat?.strength ?? 0,
+    coatRoughness: material.coat?.roughness ?? 0, emissive: (material.emissive?.strength ?? 0) > 0 };
+}
+
 /** A primitive with its derived quantities (section 2.3 of the standard). */
-interface Resolved {
+interface Resolved extends MaterialValues {
   face: SceneFace;
   cx: number;
   cy: number;
@@ -58,37 +74,68 @@ interface Resolved {
   height: number;
   profile: BevelProfile;
   lit: boolean;
-  roughness: number;
-  metallic: number;
-  coat: number;
-  coatRoughness: number;
   primitive: ScenePrimitive;
+}
+
+/** The state multiplier on a caster's height (section 2.3). */
+function stateHeight(scene: StrataScene, state: ScenePrimitive["state"] = {}, press = true): number {
+  return (1 + (scene.state.hoverHeight - 1) * (state.hover ? 1 : 0)) * (press ? 1 - (1 - scene.state.pressHeight) * (state.pressed ? 1 : 0) : 1);
 }
 
 function resolvePrimitive(scene: StrataScene, primitive: ScenePrimitive): Resolved {
   const [x, y, width, height] = primitive.rect;
   const state = primitive.state ?? {};
-  const material: SceneMaterial = scene.materials[primitive.material] ?? {};
+  const material = materialValues(scene, primitive.material);
   const halfWidth = width / 2, halfHeight = height / 2, inradius = Math.min(halfWidth, halfHeight);
   const radius = primitive.face === "knob" ? inradius : clamp(primitive.radius ?? 0, 0, inradius);
-  const emissive = (material.emissive?.strength ?? 0) > 0;
-  const lit = !state.disabled && !emissive && primitive.face !== "flat";
+  const lit = !state.disabled && !material.emissive && primitive.face !== "flat";
   const ringHalf = primitive.face === "ring" ? (primitive.ring?.thickness ?? 0) / 2 : inradius;
   const band = !lit ? 0 : primitive.face === "knob" ? inradius : Math.min(scene.bevel.width, ringHalf);
   const caster = lifted(primitive.face) && !state.disabled;
-  const multiplier = (1 + (scene.state.hoverHeight - 1) * (state.hover ? 1 : 0)) * (1 - (1 - scene.state.pressHeight) * (state.pressed ? 1 : 0));
   return {
     face: primitive.face, cx: x + halfWidth, cy: y + halfHeight, halfWidth, halfHeight, radius, band,
     slope: sunk(primitive.face) ? -1 : 1,
-    height: caster ? primitive.height * multiplier : 0,
+    height: caster ? primitive.height * stateHeight(scene, state) : 0,
     profile: primitive.face === "knob" ? "quarter-round" : scene.bevel.profile,
-    lit,
-    roughness: material.base?.roughness ?? 1,
-    metallic: material.base?.metallic ?? 0,
-    coat: material.coat?.strength ?? 0,
-    coatRoughness: material.coat?.roughness ?? 0,
-    primitive,
+    lit, ...material, primitive,
   };
+}
+
+/** An object with its derived quantities (part 2B.2), drawn as an object. */
+interface ResolvedEntryObject extends MaterialValues {
+  shape: ResolvedObject;
+  lit: boolean;
+  /** The guard's band: the taper for a lit solid, the inradius for a dome, else 0. */
+  band: number;
+  /** Cast height after the state multipliers; 0 for a well or a disabled object. */
+  height: number;
+  /** A dome's own colour. */
+  colour?: Rgb01;
+}
+/** One entry of the back-to-front list, resolved: a relief primitive, an object, or an object drawn as its Relief equivalent. */
+type ResolvedEntry =
+  | { type: "primitive"; resolved: Resolved; colour?: Rgb01 }
+  | { type: "object"; resolved: ResolvedEntryObject };
+
+function resolveEntry(scene: StrataScene, entry: SceneEntry): ResolvedEntry | undefined {
+  if (!isSceneObject(entry)) return { type: "primitive", resolved: resolvePrimitive(scene, entry) };
+  if (!objectDrawable(scene, entry)) {
+    // 2B.6: drawn at the Relief level; a dome keeps its colour on its footprint.
+    const primitive = reliefEquivalent(entry);
+    return primitive && { type: "primitive", resolved: resolvePrimitive(scene, primitive), ...(entry.colour ? { colour: rgb(entry.colour) } : {}) };
+  }
+  const shape = resolveObject(entry);
+  const state = entry.state ?? {};
+  const material = materialValues(scene, entry.material);
+  const lit = !state.disabled && !material.emissive;
+  const rise = shape.z1 - shape.z0;
+  const travels = entry.object === "key" || entry.object === "mark";
+  return { type: "object", resolved: {
+    shape, lit, ...material,
+    band: !lit ? 0 : shape.dome ? Math.min(shape.halfWidth, shape.halfHeight) : shape.taper,
+    height: rise > 0 && !state.disabled ? rise * stateHeight(scene, state, !travels) : 0,
+    ...(shape.dome ? { colour: rgb(entry.colour ?? "#808080") } : {}),
+  } };
 }
 
 /** Signed distance from a point to a primitive's shape (section 2.2). */
@@ -129,7 +176,7 @@ function arcCoverage(shape: Resolved, x: number, y: number): number {
 
 /** What the model computes at one point, before compositing; exposed for tests and tools. */
 export interface ShadingTerms {
-  /** Sum of the bevel light (section 2.5). */
+  /** Sum of the bevel light (section 2.5) and, for objects, their side and dome light and environment (2B.7). */
   shade: number;
   /** Interior factor K (section 2.6). */
   interior: number;
@@ -144,49 +191,108 @@ export interface ShadingTerms {
   edge: number;
   /** Ring arcs as one overlay over the content (section 2.7): premultiplied colour and its alpha. */
   arc: { colour: Rgb01; alpha: number };
+  /** Domes' own colour, over the captured content before light (2B.5): premultiplied colour and its alpha. */
+  surface: { colour: Rgb01; alpha: number };
+}
+
+/** The bevel light of a normal (section 2.5), shared by relief bevels and object sides and domes. */
+function bevelLight(scene: StrataScene, n: readonly [number, number, number], material: MaterialValues): number {
+  const light = lightVector(scene.light.azimuth, scene.light.elevation);
+  const halfway = (() => { const h = [light[0], light[1], light[2] + 1]; const length = Math.hypot(...h); return h.map(c => c / length) as [number, number, number]; })();
+  const facing = Math.max(n[0] * halfway[0] + n[1] * halfway[1] + n[2] * halfway[2], 0);
+  const lambert = n[0] * light[0] + n[1] * light[1] + n[2] * light[2] - light[2];
+  const specular = facing ** mix(160, 6, material.roughness) * (1 - material.roughness) * mix(0.35, 1, material.metallic);
+  const fresnel = 0.04 + 0.96 * (1 - clamp(n[2], 0, 1)) ** 5;
+  const coat = material.coat * (facing ** mix(90, 10, material.coatRoughness) * 0.9 + fresnel * 0.6);
+  return lambert * scene.bevel.gain * (1 + material.metallic) + specular * 1.2 + coat;
 }
 
 /** The model's terms at a layer-local point. */
 export function shadingTerms(scene: StrataScene, x: number, y: number): ShadingTerms {
-  const shapes = scene.primitives.map(primitive => resolvePrimitive(scene, primitive));
+  const entries = scene.primitives.map(entry => resolveEntry(scene, entry)).filter(entry => entry !== undefined);
   const light = lightVector(scene.light.azimuth, scene.light.elevation);
-  const halfway = (() => { const h = [light[0], light[1], light[2] + 1]; const n = Math.hypot(...h); return h.map(c => c / n) as [number, number, number]; })();
   const m = scene.interior.max;
   const { offset, width } = scene.focus;
   let shade = 0, offsets = 0, shadow = 0, band = 0, dark = 0, edge = 0, inside = false, clearance = Infinity;
-  let arcColour = [0, 0, 0], arcAlpha = 0;
-  for (const shape of shapes) {
+  let arcColour = [0, 0, 0], arcAlpha = 0, surfaceColour = [0, 0, 0], surfaceAlpha = 0;
+  // 2.4 Occlusion: an entry hides the relief, interior offset, finish, arcs, dome colour and cast shadows of those
+  // beneath it.
+  const occlude = (cover: number) => {
+    shade *= 1 - cover; shadow *= 1 - cover; offsets *= 1 - cover; band *= 1 - cover; dark *= 1 - cover;
+    arcColour = arcColour.map(channel => channel * (1 - cover)); arcAlpha *= 1 - cover;
+    surfaceColour = surfaceColour.map(channel => channel * (1 - cover)); surfaceAlpha *= 1 - cover;
+  };
+  // 2.6 Interior: a uniform brightness offset for state and gloss, and the finish zones on a face's top.
+  const interior = (material: MaterialValues, state: ScenePrimitive["state"] = {}, finishes: boolean, top: number, height: number) => {
+    offsets += scene.state.hoverLift * (state.hover ? 1 : 0) - scene.state.pressSink * (state.pressed ? 1 : 0) + material.coat * 0.02 + (1 - material.roughness) * 0.01;
+    if (finishes) {
+      const along = clamp((y - top) / Math.max(height, 1), 0, 1);
+      const [bright, darken] = finish(along, { roughness: material.roughness, metallic: material.metallic, coat: material.coat, coatRoughness: material.coatRoughness });
+      band = Math.max(band, bright);
+      dark = Math.max(dark, darken);
+    }
+  };
+  // 2.8 Cast shadow: the footprint moved away from the light by its height, softened over 2h + 1 px, outside it only.
+  const cast = (height: number, d: number, shifted: number) => {
+    shadow = Math.max(shadow, scene.shadow.strength * (1 - smoothstep(-0.5 * height, 1.5 * height + 1, shifted)) * smoothstep(-1, 0.5, d));
+  };
+  const focusEdge = (d: number) => { edge = Math.max(edge, smoothstep(offset - 0.5, offset + 0.5, d) * (1 - smoothstep(offset + width - 0.5, offset + width + 0.5, d))); };
+  const ox = -light[0] / light[2], oy = -light[1] / light[2];
+
+  for (const entry of entries) {
+    if (entry.type === "object") {
+      const object = entry.resolved, shape = object.shape, state = shape.object.state ?? {};
+      const d = objectDistance(shape, x, y);
+      if (shape.dome) {
+        // 2B.5 A dome, ray-cast: its colour goes over what is beneath, lit by its own normal.
+        const hit = domeHit(scene, shape, x, y);
+        if (d < 0 || hit.coverage > 0.5) inside = true;
+        clearance = Math.min(clearance, Math.abs(d) - object.band);
+        occlude(hit.coverage);
+        surfaceColour = surfaceColour.map((channel, index) => channel * (1 - hit.coverage) + object.colour![index]! * hit.coverage);
+        surfaceAlpha += hit.coverage * (1 - surfaceAlpha);
+        if (object.lit && hit.coverage > 0) shade += (bevelLight(scene, hit.normal, object) + environmentTerm(scene, hit.normal, object.roughness, object.metallic)) * hit.coverage;
+      } else {
+        // 2B.4 A solid: a side within `taper` of its footprint's edge, its cap beyond.
+        if (d < 0) inside = true;
+        clearance = Math.min(clearance, Math.abs(d) - object.band);
+        const cover = 1 - smoothstep(-0.5, 0.5, d);
+        occlude(cover);
+        if (object.lit) {
+          if (object.band > 0 && d > -object.band) {
+            const n = sideNormal(scene, shape, x, y);
+            shade += (bevelLight(scene, n, object) + environmentTerm(scene, n, object.roughness, object.metallic)) * cover;
+          } else if (d <= -object.band) {
+            interior(object, state, shape.object.finish === true, shape.cy - shape.halfHeight, shape.halfHeight * 2);
+          }
+        }
+      }
+      if (object.height > 0) cast(object.height, d, objectDistance(shape, x - ox * object.height, y - oy * object.height));
+      if (state.focus && !state.disabled) focusEdge(d);
+      continue;
+    }
+    const shape = entry.resolved;
     const d = distance(shape, x, y);
     const state = shape.primitive.state ?? {};
     if (d < 0) inside = true;
     clearance = Math.min(clearance, Math.abs(d) - shape.band);
-    // 2.4 Occlusion: a primitive hides the bevel light, interior offset, finish and arcs of those beneath it.
     const cover = 1 - smoothstep(-0.5, 0.5, d);
-    shade *= 1 - cover; offsets *= 1 - cover; band *= 1 - cover; dark *= 1 - cover;
-    arcColour = arcColour.map(channel => channel * (1 - cover)); arcAlpha *= 1 - cover;
+    occlude(cover);
+    if (entry.colour) {
+      // 2B.6 A dome drawn at the Relief level keeps its own colour on its footprint.
+      surfaceColour = surfaceColour.map((channel, index) => channel + entry.colour![index]! * cover);
+      surfaceAlpha += cover * (1 - surfaceAlpha);
+    }
     if (shape.lit && shape.band > 0) {
       const s = clamp(-d / shape.band, 0, 1);
       // A knob is all bevel (a dome); it has no interior.
       if (s < 1 || shape.face === "knob") {
         // 2.5 Bevel light: a normal from the profile, Lambert relative to a flat face, a specular lobe and a coat.
         const [gx, gy] = outward(shape, x, y), theta = profileAngle(shape.profile, s);
-        const n = [gx * shape.slope * Math.sin(theta), gy * shape.slope * Math.sin(theta), Math.cos(theta)];
-        const facing = Math.max(n[0]! * halfway[0] + n[1]! * halfway[1] + n[2]! * halfway[2], 0);
-        const lambert = n[0]! * light[0] + n[1]! * light[1] + n[2]! * light[2] - light[2];
-        const specular = facing ** mix(160, 6, shape.roughness) * (1 - shape.roughness) * mix(0.35, 1, shape.metallic);
-        const fresnel = 0.04 + 0.96 * (1 - clamp(n[2]!, 0, 1)) ** 5;
-        const coat = shape.coat * (facing ** mix(90, 10, shape.coatRoughness) * 0.9 + fresnel * 0.6);
-        const coverage = 1 - smoothstep(-0.5, 0.5, d);
-        shade += (lambert * scene.bevel.gain * (1 + shape.metallic) + specular * 1.2 + coat) * coverage;
+        const n = [gx * shape.slope * Math.sin(theta), gy * shape.slope * Math.sin(theta), Math.cos(theta)] as const;
+        shade += bevelLight(scene, n, shape) * cover;
       } else {
-        // 2.6 Interior: a uniform brightness offset for state and gloss, and the finish zones.
-        offsets += scene.state.hoverLift * (state.hover ? 1 : 0) - scene.state.pressSink * (state.pressed ? 1 : 0) + shape.coat * 0.02 + (1 - shape.roughness) * 0.01;
-        if (shape.primitive.finish) {
-          const along = clamp((y - (shape.cy - shape.halfHeight)) / Math.max(shape.halfHeight * 2, 1), 0, 1);
-          const [bright, darken] = finish(along, { roughness: shape.roughness, metallic: shape.metallic, coat: shape.coat, coatRoughness: shape.coatRoughness });
-          band = Math.max(band, bright);
-          dark = Math.max(dark, darken);
-        }
+        interior(shape, state, shape.primitive.finish === true, shape.cy - shape.halfHeight, shape.halfHeight * 2);
       }
     }
     if (shape.face === "ring" && shape.primitive.ring && !state.disabled) {
@@ -195,13 +301,8 @@ export function shadingTerms(scene: StrataScene, x: number, y: number): ShadingT
       arcColour = arcColour.map((channel, index) => channel * (1 - coverage) + colour[index]! * coverage);
       arcAlpha += coverage * (1 - arcAlpha);
     }
-    if (shape.height > 0) {
-      // 2.8 Cast shadow: the shape moved away from the light by its height, softened over 2h + 1 px, outside the shape only.
-      const ox = (-light[0] / light[2]) * shape.height, oy = (-light[1] / light[2]) * shape.height;
-      const shifted = distance(shape, x - ox, y - oy);
-      shadow = Math.max(shadow, scene.shadow.strength * (1 - smoothstep(-0.5 * shape.height, 1.5 * shape.height + 1, shifted)) * smoothstep(-1, 0.5, d));
-    }
-    if (state.focus && !state.disabled) edge = Math.max(edge, smoothstep(offset - 0.5, offset + 0.5, d) * (1 - smoothstep(offset + width - 0.5, offset + width + 0.5, d)));
+    if (shape.height > 0) cast(shape.height, d, distance(shape, x - ox * shape.height, y - oy * shape.height));
+    if (state.focus && !state.disabled) focusEdge(d);
   }
   return {
     shade,
@@ -209,6 +310,7 @@ export function shadingTerms(scene: StrataScene, x: number, y: number): ShadingT
     shadow,
     guard: inside ? smoothstep(0, guardRamp, clearance) : 0,
     band, dark, edge, arc: { colour: arcColour as unknown as Rgb01, alpha: arcAlpha },
+    surface: { colour: surfaceColour as unknown as Rgb01, alpha: surfaceAlpha },
   };
 }
 
@@ -219,10 +321,13 @@ export function shadingTerms(scene: StrataScene, x: number, y: number): ShadingT
 export function shadePoint(scene: StrataScene, captured: CapturedColour, x: number, y: number): Rgb01 {
   const terms = shadingTerms(scene, x, y);
   const within = x >= 0 && y >= 0 && x <= scene.extent.width && y <= scene.extent.height;
-  const [r, g, b, a] = within ? captured(x, y) : [0, 0, 0, 0];
+  const [cr, cg, cb, ca] = within ? captured(x, y) : [0, 0, 0, 0];
+  // 2B.5 Domes' colour goes over the captured content, as the surface the light then falls on.
+  const s = terms.surface.alpha, a = ca * (1 - s) + s;
+  const surface = [cr, cg, cb].map((c, channel) => (a > 1e-9 ? (c * ca * (1 - s) + terms.surface.colour[channel]!) / a : 0));
   const backdrop = rgb(scene.backdrop), focus = rgb(scene.focus.colour);
   const m = scene.interior.max, k = clamp(terms.interior * (1 - terms.shadow), 1 - m, 1 + m);
-  return [r, g, b].map((c, channel) => {
+  return surface.map((c, channel) => {
     let content = mix((c * terms.interior + terms.shade) * (1 - terms.shadow), c * k, terms.guard);
     content = content * (1 - terms.arc.alpha) + terms.arc.colour[channel]!;
     content = clamp(mix(mix(content, 1, terms.band), 0, terms.dark), 0, 1);
