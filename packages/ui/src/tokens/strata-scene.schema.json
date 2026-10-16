@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/RaananW/underglass/blob/main/packages/ui/src/tokens/strata-scene.schema.json",
-  "title": "Strata scene, versions 1 and 2",
+  "title": "Strata scene, versions 1 to 3",
   "description": "One layer at one moment, for the Strata rendering model (docs/ui-library/rendering-model.md). Lengths are layer-local CSS px, x right and y down; angles are degrees; colours are sRGB #rrggbb. Every value is already resolved for a depth and theme.",
   "type": "object",
   "required": [
@@ -29,9 +29,10 @@
     "version": {
       "enum": [
         1,
-        2
+        2,
+        3
       ],
-      "description": "1: Relief. 2: adds objects, the camera and the environment (the Objects level)."
+      "description": "1: Relief. 2: adds objects, the camera and the environment (the Objects level). 3: adds environment maps (the Scene level)."
     },
     "camera": {
       "description": "Version 2: the camera objects are seen through (design language section 2).",
@@ -64,21 +65,53 @@
       }
     },
     "environment": {
-      "description": "Version 2: the environment objects reflect. Default: studio at strength 0.6.",
-      "type": "object",
-      "required": [
-        "source",
-        "strength"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "source": {
-          "const": "studio"
+      "description": "Versions 2 and 3: the environment objects reflect. Default: studio at strength 0.6. Version 3 may name a map.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "source",
+            "strength"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "const": "studio"
+            },
+            "strength": {
+              "$ref": "#/$defs/unit"
+            }
+          }
         },
-        "strength": {
-          "$ref": "#/$defs/unit"
+        {
+          "type": "object",
+          "required": [
+            "source",
+            "strength",
+            "grid"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "source": {
+              "const": "map"
+            },
+            "strength": {
+              "$ref": "#/$defs/unit"
+            },
+            "grid": {
+              "description": "32 × 16 brightness values, row by row from the zenith.",
+              "type": "array",
+              "minItems": 512,
+              "maxItems": 512,
+              "items": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 4
+              }
+            }
+          }
         }
-      }
+      ]
     },
     "extent": {
       "description": "The layer's size: its border box.",
@@ -679,7 +712,10 @@
       "if": {
         "properties": {
           "version": {
-            "const": 2
+            "enum": [
+              2,
+              3
+            ]
           }
         }
       },
@@ -695,6 +731,26 @@
           "primitives": {
             "items": {
               "$ref": "#/$defs/primitive"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "version": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "environment": {
+            "properties": {
+              "source": {
+                "const": "studio"
+              }
             }
           }
         }

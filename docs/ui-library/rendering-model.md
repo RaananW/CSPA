@@ -1,6 +1,6 @@
 # The Strata Rendering Model
 
-**Version 2 (Objects), which includes version 1 (Relief).** Status: normative. This document defines how Strata looks, independently of any engine,
+**Version 3 (Scene), which includes versions 2 (Objects) and 1 (Relief).** Status: normative. This document defines how Strata looks, independently of any engine,
 shading language or graphics API. Underglass's GPU presentation is one implementation of it; any other renderer that
 passes the [conformance suite](#4-conformance) is another.
 
@@ -35,7 +35,7 @@ edge, the backdrop and ring arcs.
 
 | Field | Meaning | Token source |
 | --- | --- | --- |
-| `format`, `version` | `"strata-scene"`, `1` or `2` | |
+| `format`, `version` | `"strata-scene"`, `1`, `2` or `3` (3: an environment map, 2C.4) | |
 | `camera` | Version 2, required there: `{ distance, vanish }`, the camera objects are seen through (2B.1) | `camera.distance`, the stage |
 | `environment` | Version 2: `{ source: "studio", strength }`, default strength 0.6 (2B.7) | |
 | `extent` | `{ width, height }`: the layer's border box | the element |
@@ -484,6 +484,89 @@ c' = (c · a · (1 − σ) + U) / a'
 
 Then 2.11 applies to `(c', a')` unchanged. The guard (2.9) protects caps exactly as it protects face interiors.
 
+## 2C. Scene (version 3)
+
+Version 3 adds the Scene level (design language section 16): decorative 3D around the UI. It takes no hits and
+carries no content, so none of its parts is guarded. Its motion is not part of the model: a scene is one moment, and
+whatever moves particles from frame to frame (Strata's physics) produces a new scene each frame.
+
+### 2C.1 Stage scenes
+
+A **stage scene** describes one decorative layer that covers the stage. It is a separate format,
+`"strata-stage"`, version 3, validated by `validateStageScene`:
+
+| Field | Meaning |
+| --- | --- |
+| `format`, `version` | `"strata-stage"`, `3` |
+| `extent` | `{ width, height }`: the stage, in CSS px |
+| `light` | `{ azimuth, elevation }`: the application's one light (2.1) |
+| `camera` | `{ distance, vanish }`: as in 2B.1, the vanishing point in stage px |
+| `backdrop` | Optional: `{ colour, pool, vignette, tint?, tintStrength? }` (2C.2). Without it the layer is transparent but for its particles. |
+| `particles` | At most 256 (2C.3) |
+
+### 2C.2 Backdrop
+
+The stage as a lit surface. With `R` the stage's half-diagonal, `L` the light (2.1) and `C` the stage's centre:
+
+```text
+P        = C + (L.x, L.y) · R / 2                         (the pool's centre, towards the light)
+pool     = backdrop.pool · (1 − smoothstep(0, R · (0.6 + 0.4 · L.z), ‖p − P‖))
+vignette = backdrop.vignette · smoothstep(0.45 · R, 1.1 · R, ‖p − C‖)
+base     = mix(colour, tint, tintStrength)                (tint defaults to colour, tintStrength to 0)
+out      = clamp(base · (1 + 0.25 · pool − 0.35 · vignette), 0, 1),   opaque
+```
+
+### 2C.3 Particles
+
+Each particle is a small card or disc in 3D:
+
+| Field | Meaning |
+| --- | --- |
+| `shape` | `card` (a rounded rectangle, radius a quarter of its shorter half side) or `disc` (an ellipse) |
+| `position` | `[x, y, z]`: its centre, `z` its height above the stage |
+| `size` | `[width, height]` |
+| `rotation` | Turn about the viewer's axis, degrees clockwise, default 0 |
+| `tilt` | `[tx, ty]`: its face tilted about its own x axis, then its own y axis, degrees, default `[0, 0]` |
+| `colour`, `opacity` | Its own colour, and 0–1 (default 1) |
+| `roughness`, `metallic` | Default 0.6 and 0 |
+
+- **Frame.** The card's axes `u`, `v` and normal `n` are `(1,0,0)`, `(0,1,0)`, `(0,0,1)` rotated about x by
+  `tx`, then about y by `ty`, then about z by `rotation`.
+- **Where it is seen.** The camera ray through the screen point `p` meets the card's plane at `X`. The card-local
+  point is `((X − position) · u, (X − position) · v)`. The particle's signed distance there (its rounded box or
+  ellipse, in card px) is scaled to screen px by `D / (D − z)`. Coverage is `(1 − smoothstep(−0.5, 0.5, …)) ·
+  opacity`.
+- **Light.** Two-sided: `n` is flipped when it faces away from the viewer. With `H` the half vector (2.1):
+
+  ```text
+  diffuse  = min(0.55 + 0.45 · max(n · L, 0) / L.z, 1.6)      (1 for a card facing the viewer)
+  specular = max(n · H, 0)^mix(160, 6, roughness) · (1 − roughness) · mix(0.35, 1, metallic)
+  colour   = clamp(colour · diffuse + specular, 0, 1)
+  ```
+
+- **Order.** Particles are drawn farthest first: by ascending `z`, then in list order.
+
+### 2C.4 Environment maps
+
+A version 3 object scene may set `environment` to `{ source: "map", strength, grid }`: brightness in a
+32 × 16 equirectangular grid, row by row from the zenith, column 0 at the top of the screen, each value 0–4 (1 matches
+the studio's ceiling). For a unit direction `r`:
+
+```text
+u = atan2(r.x, −r.y) / 2π + 0.5          (wraps)
+v = acos(r.z) / π
+map(r) = the grid sampled bilinearly between cell centres at (u · 32 − 0.5, v · 16 − 0.5), rows clamped
+env    = strength · (map(r) − map(0, 0, 1)) · mix(0.04, 1, metallic) · (1 − roughness)
+```
+
+with `r` the reflected direction of 2B.7. It replaces the studio term; like it, a face towards the viewer gets none.
+Loading and downsampling an image into the grid is not part of the model.
+
+### 2C.5 Compositing
+
+A stage scene's colour at a point starts as its backdrop (opaque) or as nothing, and each particle in order goes over
+it with straight-alpha "over". Conformance renders stage scenes over white.
+
 ## 3. The reference implementation
 
 `@underglass/ui/tokens` exports the model as plain TypeScript, with no GPU and no DOM
@@ -499,6 +582,7 @@ the oracle: written to be read next to this document, not to be fast. Its commen
 | `validateScene(scene)` | Format checks, matching the JSON Schema |
 | `lightVector`, `profileAngle`, `roundedBoxDistance`, `drawnArea` | The model's building blocks |
 | `resolveObject`, `objectDistance`, `sideNormal`, `domeHit`, `objectDrawable`, `reliefEquivalent`, `environmentTerm` | The Objects part (2B), in [`objects.ts`](../../packages/ui/src/tokens/objects.ts) |
+| `shadeStage`, `backdropColour`, `particleAt`, `particleOrder`, `environmentSample`, `validateStageScene` | The Scene part (2C), in [`stage.ts`](../../packages/ui/src/tokens/stage.ts) |
 
 **Where the standard and the reference implementation disagree:** the standard is authoritative. Fix the
 implementation, regenerate the suite, and record the change in the [change log](#change-log).
@@ -510,6 +594,9 @@ There are two suites, exported from `@underglass/ui/conformance/`:
 - [`relief-1.json`](../../packages/ui/conformance/relief-1.json): version 1, Relief.
 - [`objects-2.json`](../../packages/ui/conformance/objects-2.json): version 2, Objects. A renderer conforms to version
   2 when it passes both suites.
+- [`scene-3.json`](../../packages/ui/conformance/scene-3.json): version 3, Scene: backdrops, particles and an
+  environment map. A renderer conforms to version 3 when it passes all three. Stage scenes have no capture and are
+  rendered over white.
 
 **What a case holds:**
 
@@ -577,15 +664,19 @@ renderer anti-aliases the capture.
 - **Version 1 covers the Relief level:** faces, bevels, wells, finishes, shadows, focus and states.
 - **Version 2 adds the Objects level** (part 2B): solids and domes, the camera, the studio environment and hit
   safety. A version 1 scene, or a version 2 scene with no objects, shades the same under both.
-- **The Scene level** gets its own part in a later version.
-- **Reserved in version 2:** `light.intensity`, `light.ambient` and `light.colour` (one white light, as in version
-  1), environment sources other than `studio`, and the inner shadow of wells.
+- **Version 3 adds the Scene level** (part 2C): stage scenes with a backdrop and particles, and environment maps.
+- **Reserved:** `light.intensity`, `light.ambient` and `light.colour` (one white light, as in version 1), the inner
+  shadow of wells, and particle shadows.
 - **Reserved in version 1:** the `sheen`, `iridescence` and `transmission` layers, `coat.ior`, the depth of sunk faces
   (their inner shadow), and glyph-shaped marks. A check mark is presented as captured, with no primitive.
 - **Versioning:** a change that alters any expected colour is a new version of the model, with a new suite file. A
   renderer states which versions it conforms to.
 
 ## Change log
+
+- 2026-10-16: version 3 (Scene): part 2C, stage scenes (`strata-stage`) with a lit backdrop and particles,
+  environment maps for objects, the reference implementation in `stage.ts`, and the `scene-3.json` suite. The
+  [Phase 5 design](phase5.md) explains the choices.
 
 - 2026-10-16: version 2 (Objects): part 2B, the camera and environment in the scene format, the reference
   implementation in `objects.ts`, and the `objects-2.json` suite. Two decisions from the

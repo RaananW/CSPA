@@ -6,6 +6,7 @@
  * same format as a JSON Schema; `validateScene` checks it without a schema library.
  */
 import { flatten, numeric, valueOf, type ResolveOptions, type TokenGroup } from "./model.ts";
+import { validateEnvironmentMap, type EnvironmentMap } from "./stage.ts";
 
 /** The relief primitives, as `data-strata-face` names them (components README). */
 export const sceneFaces = ["raised", "well", "groove", "knob", "mark", "ring", "flat"] as const;
@@ -93,11 +94,14 @@ export const isSceneObject = (entry: SceneEntry): entry is SceneObject => "objec
 /** One layer at one moment. Every value is already resolved for the depth and theme. */
 export interface StrataScene {
   format: "strata-scene";
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   /** Version 2: the camera objects are seen through, its distance and its vanishing point in layer-local px. */
   camera?: { distance: number; vanish: [number, number] };
-  /** Version 2: the environment that objects reflect. `studio` is defined in code, with no asset. */
-  environment?: { source: "studio"; strength: number };
+  /**
+   * Version 2: the environment that objects reflect. `studio` is defined in code, with no asset; version 3 may name
+   * an environment map instead.
+   */
+  environment?: { source: "studio"; strength: number } | EnvironmentMap;
   extent: { width: number; height: number };
   /** Room drawn outside the extent, for shadows only. */
   outset?: { top: number; right: number; bottom: number; left: number };
@@ -156,15 +160,17 @@ export function validateScene(scene: unknown): SceneIssue[] {
   const materials = scene.materials;
   known(scene, ["$schema", "format", "version", "camera", "environment", "extent", "outset", "backdrop", "light", "bevel", "shadow", "interior", "state", "focus", "materials", "primitives"], "");
   if (scene.format !== "strata-scene") report("format", 'must be "strata-scene"');
-  if (scene.version !== 1 && scene.version !== 2) report("version", "must be 1 or 2");
-  const objects = scene.version === 2;
+  if (scene.version !== 1 && scene.version !== 2 && scene.version !== 3) report("version", "must be 1, 2 or 3");
+  const objects = scene.version === 2 || scene.version === 3;
   if (!objects) for (const key of ["camera", "environment"]) if (scene[key] !== undefined) report(key, "is only in version 2");
   if (objects) {
     group(scene.camera, "camera", { distance: range(100), vanish: (value, path) => {
       if (!Array.isArray(value) || value.length !== 2) report(path, "must be [x, y]");
       else value.forEach((part, index) => number(part, `${path}[${index}]`));
     } });
-    if (scene.environment !== undefined) group(scene.environment, "environment", { source: (value, path) => { if (value !== "studio") report(path, 'must be "studio"'); }, strength: range(0, 1) });
+    const environment = scene.environment;
+    if (scene.version === 3 && isObject(environment) && environment.source === "map") issues.push(...validateEnvironmentMap(environment));
+    else if (environment !== undefined) group(environment, "environment", { source: (value, path) => { if (value !== "studio") report(path, scene.version === 3 ? 'must be "studio" or "map"' : 'must be "studio"'); }, strength: range(0, 1) });
   }
   group(scene.extent, "extent", { width: range(0), height: range(0) });
   if (scene.outset !== undefined) group(scene.outset, "outset", { top: range(0), right: range(0), bottom: range(0), left: range(0) });
@@ -232,7 +238,7 @@ export function validateScene(scene: unknown): SceneIssue[] {
       const at = `primitives[${index}]`;
       if (!isObject(primitive)) return report(at, "must be an object");
       if ("object" in primitive) {
-        if (!objects) return report(`${at}.object`, "objects are only in version 2");
+        if (!objects) return report(`${at}.object`, "objects are only in versions 2 and 3");
         return validateObject(primitive, at);
       }
       known(primitive, ["face", "rect", "radius", "height", "material", "finish", "state", "ring"], at);
