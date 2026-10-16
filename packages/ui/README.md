@@ -435,3 +435,15 @@ the top layer, portalled to `<body>` (`container` in React, `to` in Vue), never 
 
 In plain HTML and Astro, give the trigger `aria-describedby` and put the `.ug-tooltip` at the end of the page;
 `attachStrata` runs it. [Anatomy](../../docs/ui-library/components/tooltip.md).
+
+## Toast
+
+`showStrataToast` (`toast` in React and Vue) shows a brief message in one region at the end of `<body>`, in the top
+layer and outside every Underglass layer, announced politely through a persistent `role="status"` list:
+
+```ts
+const handle = toast({ message: "Message sent.", intent: "success", action: { label: "Undo", onAction: undo } });
+```
+
+A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
+stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).

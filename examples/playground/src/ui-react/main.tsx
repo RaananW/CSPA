@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip } from "@underglass/ui/react";
+import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -130,6 +130,7 @@ function App() {
   const [rows, setRows] = useState({ archive: 0, locked: 0 });
   const [page, setPage] = useState(1);
   const [appBar, setAppBar] = useState(0);
+  const [toasts, setToasts] = useState(0);
   const [messages, setMessages] = useState({ upgrades: 0, dismissed: false });
   const [chips, setChips] = useState({ remote: false, removed: [] as string[] });
   const [sort, setSort] = useState<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -138,7 +139,7 @@ function App() {
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -272,7 +273,9 @@ function App() {
           <div id="loading-region" aria-busy="true" style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Skeleton id="skeleton-circle" shape="circle" /><Skeleton id="skeleton-lines" lines={2} style={{ flex: 1 }} />
           </div>
-          <p style={{ margin: 0 }}>
+          <p style={{ margin: 0, display: "flex", gap: 12 }}>
+            <Button id="notify" onClick={() => toast({ message: "Message sent.", intent: "success", duration: 1500,
+              action: { label: "Undo", onAction: () => setToasts(current => current + 1) } })}>Notify</Button>
             <Tooltip id="share-tip" content="Shares this page with your team"><Button id="share">Share</Button></Tooltip>
           </p>
           <Toolbar label="Editing" id="live-toolbar">

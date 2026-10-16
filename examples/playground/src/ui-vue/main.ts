@@ -8,7 +8,7 @@ import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
   Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
-  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip,
+  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast,
 } from "@underglass/ui/vue";
 
 const close = () => h("svg", { viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" }, [h("path", { d: "M4 4l8 8M12 4l-8 8" })]);
@@ -108,7 +108,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
-    const page = ref(1), appBar = ref(0);
+    const page = ref(1), appBar = ref(0), toasts = ref(0);
     const messages = reactive({ upgrades: 0, dismissed: false });
     const chips = reactive({ remote: false, removed: [] as string[] });
     const sort = ref<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -131,6 +131,7 @@ const App = defineComponent({
         get sort() { return sort.value; },
         get page() { return page.value; },
         get appBar() { return appBar.value; },
+        get toasts() { return toasts.value; },
         setPage: (value: number) => { page.value = value; },
         get messages() { return { ...toRaw(messages) }; },
         get chips() { return { remote: chips.remote, removed: [...chips.removed] }; },
@@ -259,7 +260,8 @@ const App = defineComponent({
               h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
                 h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
-              h("p", { style: { margin: "0" } }, [h(Tooltip, { id: "share-tip", content: "Shares this page with your team" }, { default: () => h(Button, { id: "share" }, { default: text("Share") }) })]),
+              h("p", { style: { margin: "0", display: "flex", gap: "12px" } }, [h(Button, { id: "notify", onClick: () => toast({ message: "Message sent.", intent: "success", duration: 1500,
+                action: { label: "Undo", onAction: () => { toasts.value++; } } }) }, { default: text("Notify") }), h(Tooltip, { id: "share-tip", content: "Shares this page with your team" }, { default: () => h(Button, { id: "share" }, { default: text("Share") }) })]),
               h(Toolbar, { label: "Editing", id: "live-toolbar" }, {
                 default: () => [
                   h(Button, { id: "tool-cut" }, { default: text("Cut") }), h(Button, { id: "tool-copy", disabled: true }, { default: text("Copy") }),

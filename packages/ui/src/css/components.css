@@ -1106,6 +1106,29 @@
   :where(.ug-tooltip):not(:popover-open) { opacity: 0; }
   @starting-style { :where(.ug-tooltip):popover-open { opacity: 0; } }
 
+  /* ---- Toast ---- */
+
+  /* One region in the top layer, in the end-bottom corner: a column of MessageBars at elevation.overlay. */
+  :where(.ug-toast-region) {
+    position: fixed;
+    inset: auto var(--strata-space-4) var(--strata-space-4) auto;
+    width: min(24rem, calc(100vw - 2 * var(--strata-space-4)));
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    overflow: visible;
+  }
+  :where(.ug-toast-region):dir(rtl) { inset: auto auto var(--strata-space-4) var(--strata-space-4); }
+  :where(.ug-toast-region__list) { display: flex; flex-direction: column; gap: var(--strata-space-2); }
+  :where(.ug-toast) {
+    --_h: var(--strata-elevation-overlay);
+    translate: 0 0;
+    opacity: 1;
+    transition: translate var(--strata-motion-normal) var(--strata-motion-easing-standard), opacity var(--strata-motion-normal) var(--strata-motion-easing-standard);
+  }
+  @starting-style { :where(.ug-toast) { translate: 0 8px; opacity: 0; } }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1285,7 +1308,7 @@
     :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-skeleton) { animation: none; background-image: none; }
-    :where(.ug-tooltip) { transition: none; }
+    :where(.ug-tooltip, .ug-toast) { transition: none; }
     :where(.ug-progress:indeterminate) {
       animation: none;
       background-image: repeating-linear-gradient(45deg, var(--strata-colour-accent) 0 6px, transparent 6px 12px);
