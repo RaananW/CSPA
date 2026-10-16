@@ -1,0 +1,19 @@
+---
+/**
+ * Breadcrumb (anatomy page `breadcrumb.md`): a `<nav>` landmark around an ordered list of links. The last item is
+ * the current page (`aria-current="page"`).
+ */
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  items: { label: string; href: string }[];
+  label?: string;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { items, label = "Breadcrumb", class: className, ...rest } = Astro.props;
+---
+<nav class={classes("ug-breadcrumb", className)} aria-label={label} {...rest}>
+  <ol class="ug-breadcrumb__list">{items.map((item, index) => <li class="ug-breadcrumb__item"><a class="ug-link ug-breadcrumb__link" href={item.href} aria-current={index === items.length - 1 ? "page" : undefined}>{item.label}</a></li>)}</ol>
+</nav>

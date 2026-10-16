@@ -344,3 +344,14 @@ import { Table } from "@underglass/ui/react";
   `defaultSort` (numbers by value, text with `localeCompare`). Astro renders `sort` as `aria-sort`, without buttons.
 - **Cells:** values by default; `renderCell(row, column)` in React and the `cell` slot in Vue render your own.
 - [Anatomy](../../docs/ui-library/components/table.md).
+
+## Breadcrumb
+
+`Breadcrumb` is a `<nav>` landmark named "Breadcrumb" around an ordered list of links; the last one is the current
+page (`aria-current="page"`). The separators are drawn by CSS and are not read.
+
+```tsx
+<Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Settings", href: "/settings" }, { label: "Profile", href: "/settings/profile" }]} />
+```
+
+[Anatomy](../../docs/ui-library/components/breadcrumb.md).

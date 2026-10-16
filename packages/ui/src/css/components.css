@@ -785,6 +785,32 @@
   }
   :where(.ug-table__header[aria-sort="descending"]) > :where(.ug-table__sort)::after { border-bottom: 0; border-top: 5px solid currentColor; }
 
+  /* ---- Breadcrumb ---- */
+
+  /* Links in a wrapping row, with a chevron before each item after the first; the current page is plain strong text. */
+  :where(.ug-breadcrumb__list) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--strata-space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--strata-font-size-small);
+  }
+  :where(.ug-breadcrumb__item) { display: inline-flex; align-items: center; gap: var(--strata-space-2); }
+  :where(.ug-breadcrumb__item + .ug-breadcrumb__item)::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-top: 1.5px solid var(--strata-colour-muted);
+    border-right: 1.5px solid var(--strata-colour-muted);
+    rotate: 45deg;
+    translate: -1px 0;
+  }
+  :where(.ug-breadcrumb__link) { display: inline-flex; align-items: center; min-height: var(--strata-target-min); }
+  :where(.ug-breadcrumb__link[aria-current="page"]) { color: var(--strata-colour-text); font-weight: var(--strata-font-weight-strong); text-decoration: none; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -999,6 +1025,8 @@
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-accordion__item) { border: 1px solid CanvasText; }
     :where(.ug-list) { border: 1px solid CanvasText; }
+    :where(.ug-breadcrumb__item + .ug-breadcrumb__item)::before { border-color: CanvasText; }
+    :where(.ug-breadcrumb__link[aria-current="page"]) { color: CanvasText; }
     :where(.ug-table) { border: 1px solid CanvasText; }
     :where(.ug-table__header) { border-bottom-color: CanvasText; }
     :where(.ug-table__row + .ug-table__row) > :where(.ug-table__cell) { border-top-color: CanvasText; }

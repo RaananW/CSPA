@@ -8,6 +8,7 @@
 export { default as Accordion } from "./Accordion.astro";
 export { default as AccordionItem } from "./AccordionItem.astro";
 export { default as Badge } from "./Badge.astro";
+export { default as Breadcrumb } from "./Breadcrumb.astro";
 export { default as Button } from "./Button.astro";
 export { default as ButtonGroup } from "./ButtonGroup.astro";
 export { default as Card } from "./Card.astro";
