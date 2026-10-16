@@ -165,7 +165,7 @@ compare on GPU pixels, outset included.
 - **Screen-locked tops:** raised tops are screen-locked (design language section 6), so the captured labels map
   1:1.
 - **Shadows:** analytic shadows are reused from step 3.
-- This step is the largest. It gets its own design note after steps 1 to 3 land.
+- This step is the largest. Its design note is [phase4-objects.md](phase4-objects.md).
 
 ### 5. Projective transforms
 
