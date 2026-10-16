@@ -19,4 +19,5 @@ starting point.
 - React bindings (`@underglass/ui/react`): `Button`, `IconButton`, `ToggleButton`, `Link`, `Field`, `TextField`,
   `StrataProvider` and `StrataScope`; then `TextArea`, `Checkbox`, `Switch`, `RadioGroup`, `Radio`, `Select` and `Slider`;
   then `Panel`, `Card`, `ButtonGroup`, `Divider`, `Badge`, `Spinner` and `ProgressBar`, completing Tier A.
+- Vue bindings (`@underglass/ui/vue`): the same 19 components, `StrataProvider` and `StrataScope`, with `v-model`.
 - Panel motion through depth: `strataEnter` and `strataLeave` (inert while moving, instant under reduced motion).

@@ -105,5 +105,21 @@ the markup on its [anatomy page](../../docs/ui-library/components/README.md), fo
 and passes `className`, `style` and native attributes through. `size`, `material` and `level` become the Strata
 attributes. React 18.3 and 19 are optional peers.
 
-Next: Vue and Astro bindings, then the GPU presentation (`/gpu`), as the
+## Vue
+
+```ts
+import "@underglass/ui/css";
+import { Button, Field, StrataProvider, TextField } from "@underglass/ui/vue";
+
+// Render functions or templates; the same components, props and markup as React.
+h(Field, { label: "Email", error: error.value }, () => h(TextField, { type: "email", modelValue: email.value, "onUpdate:modelValue": set }));
+h(Button, { variant: "accent", onClick: save }, () => "Save");
+```
+
+All 19 Tier A components, with `v-model` on TextField, TextArea, Select and Slider (`modelValue`), Checkbox and Switch
+(a boolean), RadioGroup (the selected value), and ToggleButton (`v-model:pressed`). Attributes and listeners fall
+through to the native element; Checkbox, Switch and Radio send `class` and `style` to the label row and the rest to the
+input. Vue 3.5 is an optional peer.
+
+Next: Astro components, then the GPU presentation (`/gpu`), as the
 [plan](../../docs/ui-library/plan.md) describes.

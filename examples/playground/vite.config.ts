@@ -19,7 +19,7 @@ export default defineConfig({
       { find: /^@underglass\/core$/, replacement: resolve(root, "../../packages/core/src/index.ts") },
       { find: /^@underglass\/core\/experimental-worker$/, replacement: resolve(root, "../../packages/core/src/experimental-worker.ts") },
       // Strata's modules from source too; its CSS (`@underglass/ui/css`) is the built stylesheet.
-      { find: /^@underglass\/ui\/(tokens|dom|react)$/, replacement: resolve(root, "../../packages/ui/src/$1/index.ts") },
+      { find: /^@underglass\/ui\/(tokens|dom|react|vue)$/, replacement: resolve(root, "../../packages/ui/src/$1/index.ts") },
     ],
     // Force a single copy of React and of Vue so the libraries and the pages share hooks, context and injection.
     dedupe: ["react", "react-dom", "vue"],

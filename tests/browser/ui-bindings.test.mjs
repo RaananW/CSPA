@@ -1,13 +1,12 @@
 /**
- * Browser test of the first Tier A batch of `@underglass/ui/react` (page `ui-react.html`, plain React, no
- * Underglass):
+ * Browser test of the Strata Tier A bindings, run against `@underglass/ui/react` (page `ui-react.html`) and
+ * `@underglass/ui/vue` (page `ui-vue.html`), which render the same components with the same ids, names and state,
+ * with no Underglass:
  * - each component renders exactly the markup example on its anatomy page (`docs/ui-library/components`), compared
  *   as canonical DOM (tags, attributes, class sets and text);
- * - real pointer and keyboard input: Button, aria-disabled, disabled and busy, IconButton, uncontrolled and
- *   controlled ToggleButton, Link, Field with label, help, error and required, TextField with and without an icon;
- * - refs reach the native element, and className, style and other attributes pass through;
- * - StrataProvider applies a theme and StrataScope a scope;
- * - axe finds no violations in the light and dark themes.
+ * - real pointer and keyboard input on every control, with Field state, refs and attribute passthrough;
+ * - roles, names and values of the surfaces and status components;
+ * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
 import AxeBuilder from "@axe-core/playwright";
@@ -15,6 +14,7 @@ import { readFileSync } from "node:fs";
 
 const page_ = name => readFileSync(new URL(`../../docs/ui-library/components/${name}`, import.meta.url), "utf8");
 const snippets = name => [...page_(name).matchAll(/```html\n([\s\S]*?)```/g)].map(match => match[1]);
+const bindings = ["react", "vue"];
 const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 /** Canonical DOM: tag, sorted attributes (class as a sorted set), and children with whitespace-collapsed text. */
@@ -41,13 +41,13 @@ const canonical = () => {
   };
 };
 
-test("Strata React components render their anatomy markup and behave natively", async ({ browser }) => {
+for (const binding of bindings) test(`Strata ${binding} components render their anatomy markup and behave natively`, async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   await page.addInitScript(canonical);
-  await page.goto("/ui-react.html");
-  await page.waitForFunction(() => window.strataReact);
-  const state = () => page.evaluate(() => ({ clicks: window.strataReact.clicks, italic: window.strataReact.italic, email: window.strataReact.email }));
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const state = () => page.evaluate(() => ({ clicks: window.strataBinding.clicks, italic: window.strataBinding.italic, email: window.strataBinding.email }));
 
   // Markup contracts.
   const contracts = { "button.md": snippets("button.md")[0], "icon-button.md": snippets("icon-button.md")[0], "toggle-button.md": snippets("toggle-button.md")[0], "link.md": snippets("link.md")[0], "field.md": snippets("field.md")[0], "text-field.md": snippets("text-field.md")[0], "text-field.md#2": snippets("text-field.md")[1],
@@ -103,7 +103,7 @@ test("Strata React components render their anatomy markup and behave natively", 
   await expect(page.locator("#large")).toHaveAttribute("data-strata-material", "lacquer");
   expect(await page.evaluate(() => {
     const element = document.getElementById("save");
-    return { ref: window.strataReact.refs.button === element, className: element.className, margin: element.style.marginRight, testid: element.dataset.testid };
+    return { ref: window.strataBinding.refs.button === element, className: element.className, margin: element.style.marginRight, testid: element.dataset.testid };
   })).toEqual({ ref: true, className: "ug-button ug-button--accent extra", margin: "4px", testid: "save" });
 
   // Link: Enter follows it; the standalone link is at least 24 by 24.
@@ -128,7 +128,7 @@ test("Strata React components render their anatomy markup and behave natively", 
   await expect(email).not.toHaveAttribute("aria-invalid");
   await expect(page.locator("#email-field .ug-field__error")).toHaveCount(0);
   expect((await state()).email).toBe("ada@example.com");
-  expect(await page.evaluate(() => window.strataReact.refs.input === document.activeElement)).toBe(true);
+  expect(await page.evaluate(() => window.strataBinding.refs.input === document.activeElement)).toBe(true);
   // A Field with no help has no description; ids are unique across Fields.
   await expect(page.getByRole("textbox", { name: "Name" })).not.toHaveAttribute("aria-describedby");
   const ids = await page.locator("main input").evaluateAll(inputs => inputs.map(input => input.id).filter(Boolean));
@@ -138,7 +138,7 @@ test("Strata React components render their anatomy markup and behave natively", 
   await search.click();
   await page.keyboard.type("strata");
   await expect(search).toHaveValue("strata");
-  expect(await page.evaluate(() => window.strataReact.refs.wrapped === document.activeElement && document.activeElement.parentElement.dataset.strataFace === "well")).toBe(true);
+  expect(await page.evaluate(() => window.strataBinding.refs.wrapped === document.activeElement && document.activeElement.parentElement.dataset.strataFace === "well")).toBe(true);
   // A disabled Field disables its control.
   await expect(page.getByRole("textbox", { name: "Locked" })).toBeDisabled();
 
@@ -147,9 +147,9 @@ test("Strata React components render their anatomy markup and behave natively", 
   await expect(page.locator("#scope")).toHaveAttribute("data-strata-density", "compact");
   expect(await page.locator("#scoped").evaluate(element => getComputedStyle(element).getPropertyValue("--strata-depth").trim())).toBe("0.1");
   expect(await page.locator("#scoped").evaluate(element => element.getBoundingClientRect().height)).toBe(24);
-  await page.evaluate(() => window.strataReact.setAccent("#0f766e"));
+  await page.evaluate(() => window.strataBinding.setAccent("#0f766e"));
   await expect(save).toHaveCSS("background-color", "rgb(15, 118, 110)");
-  await page.evaluate(() => window.strataReact.setAccent(undefined));
+  await page.evaluate(() => window.strataBinding.setAccent(undefined));
   await expect(save).toHaveCSS("background-color", "rgb(37, 99, 235)");
 
   // Accessibility in light and dark, with contrast decided in face mode.
@@ -168,12 +168,12 @@ test("Strata React components render their anatomy markup and behave natively", 
   await context.close();
 });
 
-test("Strata React choice controls keep native keyboard and form behaviour", async ({ browser }) => {
+for (const binding of bindings) test(`Strata ${binding} choice controls keep native keyboard and form behaviour`, async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
-  await page.goto("/ui-react.html");
-  await page.waitForFunction(() => window.strataReact);
-  const choices = () => page.evaluate(() => window.strataReact.choices);
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const choices = () => page.evaluate(() => window.strataBinding.choices);
   const main = page.locator("main");
 
   // Checkbox inside a Field with no label: help and error describe it; the row and Space toggle it.
@@ -259,11 +259,11 @@ test("Strata React choice controls keep native keyboard and form behaviour", asy
   await context.close();
 });
 
-test("Strata React surfaces and status components expose their roles, names and values", async ({ browser }) => {
+for (const binding of bindings) test(`Strata ${binding} surfaces and status components expose their roles, names and values`, async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
-  await page.goto("/ui-react.html");
-  await page.waitForFunction(() => window.strataReact);
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
   const main = page.locator("main");
 
   // Panel: a region named by its title, at the floating level; Card: an article named by its title, with a footer.
