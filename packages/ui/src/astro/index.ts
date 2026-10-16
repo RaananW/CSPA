@@ -7,11 +7,13 @@
  */
 export { default as Accordion } from "./Accordion.astro";
 export { default as AccordionItem } from "./AccordionItem.astro";
+export { default as Avatar } from "./Avatar.astro";
 export { default as Badge } from "./Badge.astro";
 export { default as Breadcrumb } from "./Breadcrumb.astro";
 export { default as Button } from "./Button.astro";
 export { default as ButtonGroup } from "./ButtonGroup.astro";
 export { default as Card } from "./Card.astro";
+export { default as Chip } from "./Chip.astro";
 export { default as Checkbox } from "./Checkbox.astro";
 export { default as Dialog } from "./Dialog.astro";
 export { default as Divider } from "./Divider.astro";
@@ -21,10 +23,12 @@ export { default as IconButton } from "./IconButton.astro";
 export { default as Link } from "./Link.astro";
 export { default as List } from "./List.astro";
 export { default as ListItem } from "./ListItem.astro";
+export { default as MessageBar } from "./MessageBar.astro";
 export { default as Panel } from "./Panel.astro";
 export { default as ProgressBar } from "./ProgressBar.astro";
 export { default as RadioGroup } from "./RadioGroup.astro";
 export { default as Select } from "./Select.astro";
+export { default as Skeleton } from "./Skeleton.astro";
 export { default as Slider } from "./Slider.astro";
 export { default as Spinner } from "./Spinner.astro";
 export { default as StrataProvider } from "./StrataProvider.astro";

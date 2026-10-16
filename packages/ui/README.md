@@ -355,3 +355,37 @@ page (`aria-current="page"`). The separators are drawn by CSS and are not read.
 ```
 
 [Anatomy](../../docs/ui-library/components/breadcrumb.md).
+
+## Avatar
+
+`Avatar` is a raised coin with initials or a picture: `<Avatar name="Ada Lovelace" />` shows "AL" and is read as
+"Ada Lovelace"; `src` shows a picture whose `alt` is the name; `decorative` hides it, for an avatar beside the
+name in text. It is 1.6 × the indicator size across (`size`). [Anatomy](../../docs/ui-library/components/avatar.md).
+
+## Chip and Tag
+
+`Chip` is a small raised pill in three forms: a tag (`<Chip>Design</Chip>`), a filter chip that latches like a
+ToggleButton (`pressed` or `defaultPressed` with `onPressedChange`; `v-model:pressed` in Vue) and a removable chip
+(`onRemove`; a `remove` listener in Vue) whose remove button is named "Remove {label}". In plain HTML and Astro,
+`attachStrata` toggles filter chips and dispatches `strata-remove` from a chip whose remove button is pressed.
+[Anatomy](../../docs/ui-library/components/chip.md).
+
+## Skeleton
+
+`Skeleton` holds the place of loading content: `<Skeleton lines={3} />`, `<Skeleton shape="circle" />` or
+`<Skeleton shape="rect" width="100%" height={120} />`. Placeholders are flat, shimmer (still under reduced motion) and
+are hidden from assistive technology; put `aria-busy="true"` and a status on the region that is loading.
+[Anatomy](../../docs/ui-library/components/skeleton.md).
+
+## MessageBar
+
+`MessageBar` is an inline message on a raised slab with a stripe and an icon in its `intent` (`info`, `success`,
+`warning`, `danger`). It is a live region: `status` for information and success, `alert` for warnings and errors, so
+render it when the message appears. `actions` holds buttons; `onDismiss` (a `dismiss` listener in Vue,
+`dismissible` in Astro, `strata-dismiss` in plain HTML) adds a dismiss button.
+
+```tsx
+<MessageBar intent="warning" title="Storage almost full" actions={<Button>Upgrade</Button>} onDismiss={hide}>You have used 95% of your space.</MessageBar>
+```
+
+[Anatomy](../../docs/ui-library/components/message-bar.md).

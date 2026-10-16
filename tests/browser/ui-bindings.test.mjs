@@ -8,6 +8,8 @@
  * - roles, names and values of the surfaces and status components; Tabs follow their value and take the arrow keys;
  *   Accordion sections report and follow their open state; List rows are links, buttons or static;
  *   Table headers sort the rows; a Breadcrumb is a named landmark of links;
+ *   Avatars show initials or a picture, named by the name; chips filter, and remove on request;
+ *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion; MessageBars announce by intent;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -295,11 +297,12 @@ for (const binding of bindings) test(`Strata ${binding} surfaces and status comp
   await expect(page.locator("#few")).toHaveText("7");
   // Spinner: a status that announces its label; inside a busy button it is hidden and has no role.
   // (A status takes no name from its content; its content is what the live region announces.)
-  await expect(main.getByRole("status")).toHaveText("Loading results");
+  // (MessageBars elsewhere on the page are statuses too, so the Spinner's is looked for in its panel.)
+  await expect(panel.getByRole("status")).toHaveText("Loading results");
   const saving = page.locator("#saving");
   await expect(saving).toHaveAttribute("aria-busy", "true");
   await expect(saving.locator(".ug-spinner")).not.toHaveAttribute("role");
-  await expect(main.getByRole("status")).toHaveCount(1);
+  await expect(panel.getByRole("status")).toHaveCount(1);
   // ProgressBar: named by its Field label with a value; the indeterminate bar has no value.
   const upload = main.getByRole("progressbar", { name: "Upload" });
   await expect(upload).toHaveAttribute("value", "40");
@@ -463,5 +466,104 @@ for (const binding of bindings) test(`Strata ${binding} Breadcrumb is a named la
   expect((await nav.getByRole("link", { name: "Home" }).boundingBox()).height).toBeGreaterThanOrEqual(24);
   await nav.getByRole("link", { name: "Reports" }).click();
   await expect(page).toHaveURL(/#reports$/);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Avatar shows initials named by the name, sizes with the size, and hides when decorative`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  // Initials: the first letters of the first and last words; the name is what is read.
+  await expect(page.locator("#avatar-small")).toHaveText("AL");
+  await expect(page.locator("#avatar-medium")).toHaveText("P");
+  await expect(page.locator("#avatar-large")).toHaveText("GH");
+  await expect(page.locator("#avatar-small")).toHaveRole("img");
+  await expect(page.locator("#avatar-small")).toHaveAccessibleName("Ada Lovelace");
+  await expect(page.getByRole("img", { name: "Plato" })).toHaveCount(1);
+  // Decorative: not in the accessibility tree; the name beside it is read once.
+  await expect(page.locator("#avatar-decorative")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.getByRole("img", { name: "Alan Turing" })).toHaveCount(0);
+  // Round coins, 1.6 × the indicator: 25.6, 32 and 38.4 px across.
+  const sizes = await page.evaluate(() => ["small", "medium", "large"].map(size => {
+    const element = document.getElementById(`avatar-${size}`), box = element.getBoundingClientRect();
+    return [Math.round(box.width * 10) / 10, Math.round(box.height * 10) / 10, getComputedStyle(element).borderRadius];
+  }));
+  expect(sizes).toEqual([[25.6, 25.6, "50%"], [32, 32, "50%"], [38.4, 38.4, "50%"]]);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Chip is a tag, a filter that follows its state, or removable through its named button`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  // A tag is its text, and not focusable.
+  await expect(page.locator("#tag-chip")).toHaveText("Design");
+  expect(await page.locator("#tag-chip").evaluate(chip => chip.localName)).toBe("span");
+  // A filter chip is a toggle button that reports its state, by click and by Space.
+  const remote = page.getByRole("button", { name: "Remote" });
+  await expect(remote).toHaveAttribute("aria-pressed", "false");
+  await remote.click();
+  await expect(remote).toHaveAttribute("aria-pressed", "true");
+  expect((await page.evaluate(() => window.strataBinding.chips)).remote).toBe(true);
+  await page.keyboard.press("Space");
+  await expect(remote).toHaveAttribute("aria-pressed", "false");
+  expect((await remote.boundingBox()).height).toBeGreaterThanOrEqual(24);
+  // A disabled filter chip does nothing.
+  await page.locator("#locked-chip").click({ force: true });
+  await expect(page.locator("#locked-chip")).toHaveAttribute("aria-pressed", "false");
+  // A removable chip: its remove button is named by the label, and Enter asks for removal.
+  const remove = page.getByRole("button", { name: "Remove ada@example.com" });
+  await remove.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#ada-chip")).toHaveCount(0);
+  expect((await page.evaluate(() => window.strataBinding.chips)).removed).toEqual(["ada"]);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Skeleton placeholders are hidden, sized by shape, and shimmer unless motion is reduced`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  // Hidden from the accessibility tree; the region says it is busy.
+  await expect(page.locator("#loading-region")).toHaveAttribute("aria-busy", "true");
+  expect(await page.locator("#loading-region").ariaSnapshot()).toBe("");
+  // A circle is an avatar's size; two text lines, the last one 60% wide.
+  const shapes = await page.evaluate(() => {
+    const circle = document.getElementById("skeleton-circle").getBoundingClientRect(), lines = [...document.querySelectorAll("#skeleton-lines .ug-skeleton")].map(line => line.getBoundingClientRect().width);
+    return { circle: [circle.width, circle.height], ratio: Math.round((lines[1] / lines[0]) * 100) };
+  });
+  expect(shapes).toEqual({ circle: [32, 32], ratio: 60 });
+  // The shimmer runs; under reduced motion it stops.
+  expect(await page.locator("#skeleton-circle").evaluate(element => getComputedStyle(element).animationName)).toBe("ug-skeleton-shimmer");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(await page.locator("#skeleton-circle").evaluate(element => [getComputedStyle(element).animationName, getComputedStyle(element).backgroundImage])).toEqual(["none", "none"]);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} MessageBar announces by intent, and its actions and dismiss button work`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  // The role follows the intent: polite for information and success, assertive for warnings and errors.
+  const roles = await page.evaluate(() => ["info", "success", "warning", "danger"].map(intent => document.getElementById(`message-${intent}`).getAttribute("role")));
+  expect(roles).toEqual(["status", "status", "alert", "alert"]);
+  // Each intent has its own stripe colour and icon shape.
+  const looks = await page.evaluate(() => ["info", "success", "warning", "danger"].map(intent => {
+    const icon = document.querySelector(`#message-${intent} .ug-message-bar__icon`), style = getComputedStyle(icon);
+    return `${style.backgroundColor}|${style.maskImage.length}|${style.maskImage.slice(-60)}`;
+  }));
+  expect(new Set(looks).size).toBe(4);
+  // The action is an ordinary button; the dismiss button is named, and Enter asks for dismissal.
+  const live = page.locator("#message-live");
+  await expect(live).toHaveRole("alert");
+  await live.getByRole("button", { name: "Retry" }).click();
+  expect((await page.evaluate(() => window.strataBinding.messages)).upgrades).toBe(1);
+  await live.getByRole("button", { name: "Dismiss" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#message-live")).toHaveCount(0);
   await context.close();
 });

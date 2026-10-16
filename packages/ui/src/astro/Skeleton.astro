@@ -1,0 +1,23 @@
+---
+/**
+ * Skeleton (anatomy page `skeleton.md`): flat placeholders, hidden from assistive technology, that hold the place of
+ * loading content. Put `aria-busy` and a status on the region that is loading.
+ */
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  shape?: "text" | "circle" | "rect";
+  lines?: number;
+  width?: string | number;
+  height?: string | number;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { shape = "text", lines = 1, width, height, class: className, ...rest } = Astro.props;
+const length = (value: string | number | undefined) => (typeof value === "number" ? `${value}px` : value);
+const style = width !== undefined || height !== undefined ? [width !== undefined && `width: ${length(width)}`, height !== undefined && `height: ${length(height)}`].filter(Boolean).map(rule => `${rule};`).join(" ") : undefined;
+---
+{shape === "text" && lines > 1
+  ? <span class={classes("ug-skeleton-text", className)} aria-hidden="true" style={style} {...rest}>{Array.from({ length: lines }, () => <span class="ug-skeleton ug-skeleton--text"></span>)}</span>
+  : <span class={classes("ug-skeleton", `ug-skeleton--${shape}`, className)} aria-hidden="true" style={style} {...rest}></span>}

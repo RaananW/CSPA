@@ -1,0 +1,30 @@
+---
+/**
+ * Chip (anatomy page `chip.md`): a tag, a filter chip (`pressed`: a `<button aria-pressed>`) or a removable chip
+ * (`removable`: with a remove button). `attachStrata` toggles filter chips and reports remove requests as
+ * `strata-remove` events from the chip.
+ */
+import Behaviour from "./Behaviour.astro";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  label: string;
+  /** A filter chip, on or off. */
+  pressed?: boolean;
+  /** A removable chip. */
+  removable?: boolean;
+  removeLabel?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, pressed, removable, removeLabel, size, material, level, class: className, ...rest } = Astro.props;
+const common = { class: classes("ug-chip", className), "data-strata-face": "raised", ...strataAttributes({ size, material, level }) };
+---
+{pressed !== undefined
+  ? <button {...common} type="button" aria-pressed={pressed ? "true" : "false"} {...rest}><span class="ug-chip__label">{label}</span></button>
+  : <span {...common} {...rest}><span class="ug-chip__label">{label}</span>{removable && <button class="ug-chip__remove" type="button" aria-label={removeLabel ?? `Remove ${label}`}></button>}</span>}
+<Behaviour />

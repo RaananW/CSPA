@@ -95,7 +95,11 @@ light and depth, reduced motion, keyboard input and reflow.
 | [Dialog](dialog.md) | `<section role="dialog" aria-modal>` | Raised slab at `elevation.modal`, over a scrim |
 | [Drawer](drawer.md) | `<section role="dialog" aria-modal>` | Raised slab on a viewport edge |
 | [Accordion](accordion.md) | `<details>` with `<summary>` | A stack of raised slabs; the header's chevron turns |
+| [Avatar](avatar.md) | `<span role="img">` or an `<img>` | A raised coin |
+| [Chip and Tag](chip.md) | `<span>`, or `<button aria-pressed>` | A small raised pill; a filter chip latches |
 | [Breadcrumb](breadcrumb.md) | `<nav>` around an `<ol>` of links | None (flat links) |
 | [List](list.md) | `<ul role="list">` of `<li>` rows | One raised slab; actionable rows are flat links or buttons |
+| [MessageBar](message-bar.md) | `<div role="status">` or `role="alert"` | A raised slab with an intent stripe |
+| [Skeleton](skeleton.md) | `<span aria-hidden>` placeholders | None (flat, shimmering) |
 | [Table](table.md) | `<table>` with `<caption>` and sortable headers | One raised slab; rows are flat |
 | [Tabs](tabs.md) | `<button role="tab">` in a `role="tablist"` | Flat tabs over a rail groove; the selected tab's indicator is a mark in it |
