@@ -2,6 +2,7 @@
  * Shared pieces of the React bindings: the Strata props every component accepts, and how they become the markup
  * contract's attributes (`docs/ui-library/components/README.md`).
  */
+import type { Ref, RefCallback } from "react";
 
 /** Component size (design language section 13). */
 export type StrataSize = "small" | "medium" | "large";
@@ -30,4 +31,14 @@ export function strataAttributes({ size, material, level }: StrataProps): Record
 /** Joins class names, skipping empty ones. */
 export function classes(...names: (string | false | null | undefined)[]): string {
   return names.filter(Boolean).join(" ");
+}
+
+/** One callback ref that sets every given ref: a component's own, and the one forwarded to it. */
+export function mergeRefs<T>(...refs: (Ref<T> | undefined)[]): RefCallback<T> {
+  return value => {
+    for (const ref of refs) {
+      if (typeof ref === "function") ref(value);
+      else if (ref) (ref as { current: T | null }).current = value;
+    }
+  };
 }

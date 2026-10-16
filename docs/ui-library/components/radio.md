@@ -79,11 +79,16 @@ Two per radio: the `<input>` is a `well` (circle); the dot is a `knob`, drawn fr
 <fieldset class="ug-radio-group" aria-describedby="plan-help plan-error">
   <legend class="ug-radio-group__legend">Plan</legend>
   <label class="ug-radio">
-    <input class="ug-radio__input" data-strata-face="well" type="radio" name="plan" value="free" checked />
+    <input class="ug-radio__input" data-strata-face="well" type="radio" name="plan" value="free" checked
+           aria-invalid="true" />
     <span class="ug-radio__dot" data-strata-face="knob" aria-hidden="true"></span>
     <span class="ug-radio__label">Free</span>
   </label>
-  <label class="ug-radio"><!-- next radio, same name --></label>
+  <label class="ug-radio">
+    <input class="ug-radio__input" data-strata-face="well" type="radio" name="plan" value="pro" aria-invalid="true" />
+    <span class="ug-radio__dot" data-strata-face="knob" aria-hidden="true"></span>
+    <span class="ug-radio__label">Pro</span>
+  </label>
   <p class="ug-field__help" id="plan-help">You can change it later.</p>
   <p class="ug-field__error" id="plan-error">Error: choose a plan.</p>
 </fieldset>

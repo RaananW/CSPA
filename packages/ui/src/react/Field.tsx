@@ -23,7 +23,11 @@ export function useFieldControl(): FieldControl | undefined {
 }
 
 export interface FieldProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"> {
-  label: ReactNode;
+  /**
+   * The label. Leave it out for a control that carries its own label (Checkbox, Switch): the Field then adds only
+   * help and error.
+   */
+  label?: ReactNode;
   /** Help text, read as part of the control's description. */
   help?: ReactNode;
   /** An error message; also marks the control invalid. Prefixed with `errorPrefix`, so colour is never the only signal. */
@@ -50,10 +54,12 @@ export const Field = forwardRef<HTMLDivElement, FieldProps>(function Field(
   const control: FieldControl = { id, "aria-describedby": describedBy, "aria-invalid": hasError ? true : undefined, required, disabled };
   return (
     <div ref={ref} className={classes("ug-field", className)} {...rest}>
-      <label className="ug-field__label" htmlFor={id}>
-        {label}
-        {required && <> {requiredLabel}</>}
-      </label>
+      {label !== undefined && (
+        <label className="ug-field__label" htmlFor={id}>
+          {label}
+          {required && <> {requiredLabel}</>}
+        </label>
+      )}
       <FieldContext.Provider value={control}>{children}</FieldContext.Provider>
       {help && <p className="ug-field__help" id={helpId}>{help}</p>}
       {hasError && <p className="ug-field__error" id={errorId}>{errorPrefix} {error}</p>}
