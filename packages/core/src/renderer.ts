@@ -788,11 +788,12 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       // Reuse a texture only for the same layer slot and only if it is already large enough.
       const retained = (pending?.layers ?? layers).find(layer => layer.id === spec.id
         && layer.coverage.slot === logicalSlots.get(spec.id)
-        && layer.texture.texture.width >= extent.pixelWidth && layer.texture.texture.height >= extent.pixelHeight);
+        && layer.texture.texture.width >= Math.ceil(extent.pixelWidth) && layer.texture.texture.height >= Math.ceil(extent.pixelHeight));
       const layout = { width: extent.width, height: extent.height };
       if (retained) return { ...retained, ...spec, extent: layout };
       // Nearest taps: the composition shader filters bilinearly in premultiplied space.
-      const texture = createDynamicTexture(engine!, extent.pixelWidth, extent.pixelHeight, { minFilter: "nearest", magFilter: "nearest" });
+      // The native grid can be fractional (a layer laid out at 377.25 px); the texture holds whole texels.
+      const texture = createDynamicTexture(engine!, Math.ceil(extent.pixelWidth), Math.ceil(extent.pixelHeight), { minFilter: "nearest", magFilter: "nearest" });
       textures.add(texture); resources.textures++;
       return { ...spec, extent: layout, texture,
         coverage: { slot: logicalSlots.get(spec.id)!, capturedSlot: -1, width: 0, height: 0, pixelWidth: 0, pixelHeight: 0 },
@@ -895,8 +896,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         dpr: options.size().dpr, pixelWidth: native.width, pixelHeight: native.height });
       return native;
     });
-    if (successor.layers.some((layer, index) => grids[index]!.width > layer.texture.texture.width
-      || grids[index]!.height > layer.texture.texture.height)) {
+    if (successor.layers.some((layer, index) => Math.ceil(grids[index]!.width) > layer.texture.texture.width
+      || Math.ceil(grids[index]!.height) > layer.texture.texture.height)) {
       queueMicrotask(() => {
         try { reconcile(); requestPaint(); }
         catch (error) { void recover(`Native successor preparation failed: ${String(error)}`).catch(reportFailure); }
@@ -1036,7 +1037,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
               cleanup();
               try {
                 const actual = nativeHost().getElementImageDefaultSize(probe!.element);
-                if (actual.width > texture.texture.width || actual.height > texture.texture.height) throw new Error("Functional probe native grid exceeds prepared texture");
+                if (Math.ceil(actual.width) > texture.texture.width || Math.ceil(actual.height) > texture.texture.height) throw new Error("Functional probe native grid exceeds prepared texture");
                 probeLayer.contentExtent = { width: probe!.extent, height: probe!.extent, pixelWidth: actual.width, pixelHeight: actual.height };
                 queue!.drawElementImageToTexture({ source: probe!.element }, { texture: texture.texture });
                 metrics.admission.captures++; metrics.admission.uploads++;
