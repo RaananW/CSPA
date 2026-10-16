@@ -201,6 +201,8 @@ Implemented: `attachStrataGpu(controller)`, and `useStrataGpu` for React and Vue
   from pointer, focus and ARIA, and switches the subtree to `data-strata-mode="face"`.
 - **Tokens:** applies the resolved tokens as material parameters, with uniform updates for depth and light.
 - **Bindings:** React and Vue get it as an opt-in prop or hook. Astro gets it through a client-side attachment.
+- **Presentation levels and the adjust policy:** `level` (application), `data-strata-level` (scope or component),
+  and an opt-in adjust policy that caps levels by measured frame intervals and reports every step; GPU stays on.
 
 ## Decisions (accepted 2026-10-16)
 

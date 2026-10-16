@@ -236,3 +236,38 @@ test("at the Objects level, the panel's components are objects on core's objects
   expect(relief).toEqual({ version: 1, kind: "relief", mode: "gpu", domes: 0 });
   expect(errors).toEqual([]);
 });
+
+test("the adjust policy steps the level down while frames run over budget and back up after, with GPU on", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  // Budget 25 ms, 20 frames over budget to step down, 30 frames under 20 ms to step up, over a 20-frame window.
+  await ready(page, "?level=objects&adjust=25,20,30,20");
+  expect(await page.evaluate(() => ({ cap: window.strataGpuProbe.cap(), kind: window.strataGpuProbe.controller.state().materials[0].kind })))
+    .toEqual({ cap: "scene", kind: "objects" });
+  // Each frame now costs 45 ms: the policy steps from Objects to Relief and reports it.
+  await page.evaluate(() => window.strataGpuProbe.load(45));
+  await page.waitForFunction(() => window.strataGpuProbe.adjustments().length >= 1, null, { timeout: 20000 });
+  const down = await page.evaluate(async () => { const probe = window.strataGpuProbe; probe.refresh(); await probe.controller.settle();
+    return { events: probe.adjustments(), cap: probe.cap(), mode: probe.controller.state().mode, kind: probe.controller.state().materials[0].kind, version: probe.scene().version }; });
+  expect(down.events[0]).toMatchObject({ from: "objects", to: "relief", frameBudgetMs: 25 });
+  expect(down.events[0].p95).toBeGreaterThan(25);
+  expect(down).toMatchObject({ cap: "relief", mode: "gpu", kind: "relief", version: 1 });
+  // Back to normal frames: the policy steps up to the level the page asks for, and no higher.
+  await page.evaluate(() => window.strataGpuProbe.load(0));
+  await page.waitForFunction(() => window.strataGpuProbe.adjustments().length >= 2, null, { timeout: 20000 });
+  const up = await page.evaluate(async () => { const probe = window.strataGpuProbe; probe.refresh(); await probe.controller.settle();
+    return { event: probe.adjustments()[1], cap: probe.cap(), mode: probe.controller.state().mode, kind: probe.controller.state().materials[0].kind }; });
+  expect(up.event).toMatchObject({ from: "relief", to: "objects" });
+  expect(up).toMatchObject({ cap: "objects", mode: "gpu", kind: "objects" });
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(() => window.strataGpuProbe.adjustments().length)).toBe(2);
+  expect(errors).toEqual([]);
+});
+
+test("without the adjust policy, slow frames change nothing", async ({ page }) => {
+  await ready(page, "?level=objects");
+  await page.evaluate(() => window.strataGpuProbe.load(45));
+  await page.waitForTimeout(2000);
+  const state = await page.evaluate(() => { window.strataGpuProbe.load(0); return { events: window.strataGpuProbe.adjustments(), cap: window.strataGpuProbe.cap(), kind: window.strataGpuProbe.controller.state().materials[0].kind }; });
+  expect(state).toEqual({ events: [], cap: "scene", kind: "objects" });
+});

@@ -121,6 +121,12 @@ strata.detach();                               // back to the CSS presentation
   rail with a puck. The panel then takes core's `objects` material, seen through a camera centred on the stage. Knobs
   and pucks are drawn as domes in their own colour, so their CSS paint is hidden while the GPU draws them. Any
   component can set `data-strata-level="relief"` to stay at the Relief level inside an Objects panel.
+- **The adjust policy** (off by default): `attachStrataGpu(controller, { level, adjust: { enabled: true },
+  onAdjust })`. While the 95th percentile of frame intervals stays over `frameBudgetMs` (25) for
+  `stepDownAfterFrames` (120) frames, levels step down, Scene to Objects to Relief. After `stepUpAfterFrames` (600)
+  frames under 80% of the budget they step back up, never above what the page asks for. Every step calls `onAdjust`
+  and dispatches `strata-adjust` on the root; `strata.cap()` reads the current cap. GPU stays on throughout. The
+  defaults are provisional (open issue VAL-009).
 
 ## Panel motion
 
