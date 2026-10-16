@@ -99,9 +99,10 @@ Plain HTML and Astro render both elements closed, with the `hidden` attribute:
 
 - **Top-level, rendered into a container.** The `<section>` and the scrim just before it are direct children
   of one container, never inside a layer or another panel. In React and Vue the `container` prop selects it
-  (the page body by default) and the component renders nothing while closed. On a page with
-  `@underglass/ui/gpu` the container is the Underglass root where the panel is presented as a layer; that part
-  lands separately. Other floating parts (menus, popovers, tooltips) still portal to the overlay host.
+  (the page body by default) and the component renders nothing while closed. On a page with `@underglass/ui/gpu`, render it into the Underglass root (`container`): the root is a stage, the
+  dialog fills it rather than the viewport, and while it is open the panel is its own GPU layer (relief at
+  `elevation.modal`, entering through depth) over a scrim the GPU fades. `showStrataDialog` hands both to the stage
+  as they show and takes them back before they hide, so GPU stays on throughout. Other floating parts (menus, popovers, tooltips) still portal to the overlay host.
 - The `<section>` is the boundary element and the enrollable layer. React and Vue refs, `class` and `style`
   reach it. The body is `overflow: auto`, so a tall dialog scrolls its body and keeps its title and actions.
 - `description` (React and Vue; a paragraph in plain HTML) is the first child of the body and is the
@@ -147,5 +148,7 @@ are instant too. Under `forced-colors`: `Canvas` background and a `CanvasText` b
   Astro).
 - **Accessibility:** axe in light and dark; the accessibility snapshot of an open Dialog equals that of a native
   `<dialog>` opened with `showModal()` and the same content.
-- **GPU (later):** the panel is one enrolled layer and stays on through open, close and content changes; a hit
-  inside the box reaches the native child.
+- **GPU** (`tests/browser/ui-gpu.test.mjs`): opened by a real click, the scrim and panel become layers with no GPU
+  drop; the panel has the relief material and is centred on the stage; the scrim dims the panel beneath; a real
+  click on a drawn button closes it; both layers are let go before they hide; Escape returns focus to the opener;
+  and the accessibility snapshot is the same as in ordinary DOM.

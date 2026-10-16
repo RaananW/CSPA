@@ -163,6 +163,16 @@
   :where(.ug-dialog__description, .ug-drawer__description) { margin: 0 0 var(--strata-space-3); }
   :where(.ug-dialog__actions, .ug-drawer__actions) { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--strata-space-3); }
 
+  /*
+   * On a stage (a root that presents Strata on the GPU, marked by the GPU helper) overlays fill the stage, not the
+   * viewport, and stack in document order: a GPU layer carries no z-index.
+   */
+  :where([data-strata-stage]) > :is(.ug-scrim, .ug-dialog, .ug-drawer) { position: absolute; z-index: auto; }
+  :where([data-strata-stage]) > .ug-dialog { width: min(32rem, calc(100% - 2 * var(--strata-space-5))); max-height: calc(100% - 2 * var(--strata-space-5)); }
+  :where([data-strata-stage]) > :is(.ug-drawer--start, .ug-drawer--end) { width: min(24rem, calc(100% - 2 * var(--strata-space-5))); }
+  :where([data-strata-stage]) > :is(.ug-drawer--top, .ug-drawer--bottom) { max-height: calc(100% - 2 * var(--strata-space-5)); }
+  /* Under the GPU a scrim is a layer: the GPU fades it, so its CSS opacity stays put. */
+  :where([data-strata-mode="face"]).ug-scrim { opacity: 1 !important; transition: none !important; }
   /* A drawer sits on one edge of the viewport and is square on that edge. */
   :where(.ug-drawer--start, .ug-drawer--end) { inset-block: 0; width: min(24rem, calc(100vw - 2 * var(--strata-space-5))); }
   :where(.ug-drawer--top, .ug-drawer--bottom) { inset-inline: 0; height: fit-content; max-height: calc(100dvh - 2 * var(--strata-space-5)); }
