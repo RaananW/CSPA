@@ -25,7 +25,7 @@ import { panelMotion, type PanelMover } from "../dom/motion.ts";
 export interface StrataGpuController {
   readonly container: HTMLElement;
   enroll(element: HTMLElement, options: { id: string; origin?: "center" }): () => void;
-  setMaterial(id: string, descriptor: StrataSceneMaterial): { update(scene: StrataScene): void; cancel(): void };
+  setMaterial(id: string, descriptor: StrataSceneMaterial): { update(scene: StrataPanelScene): void; cancel(): void };
   transition(id: string, motion: StrataPanelMotion): { finished: Promise<{ status: string; reason: string }>; cancel(): void };
   state(): { mode: string };
 }
@@ -37,7 +37,7 @@ export interface StrataPanelMotion {
 /** The material descriptor the helper hands to `setMaterial`: `relief` for a version 1 scene, `objects` for version 2. */
 export interface StrataSceneMaterial {
   kind: "relief" | "objects";
-  scene: StrataScene;
+  scene: StrataPanelScene;
   bounds: "layer";
   interaction: "material";
   media: "identity";
@@ -58,7 +58,7 @@ export interface StrataGpu {
   /** Rebuilds every panel's scene now (for example from the runtime's `onStatusChange`). */
   refresh(): void;
   /** The scene last given to a panel, for inspection and tests. */
-  scene(panel: HTMLElement): StrataScene | undefined;
+  scene(panel: HTMLElement): StrataPanelScene | undefined;
   /** Releases every panel: cancels materials, leaves face mode and releases the enrollments. */
   detach(): void;
 }
@@ -124,6 +124,9 @@ function radiusOf(element: Element, width: number) {
   return value.endsWith("%") ? (amount / 100) * width : Number.isFinite(amount) ? amount : 0;
 }
 
+/** The scenes the helper builds for panels: version 1 (Relief) or 2 (Objects, lit by the studio). */
+export type StrataPanelScene = Omit<StrataScene, "version" | "environment"> & { version: 1 | 2; environment?: { source: "studio"; strength: number } };
+
 /** A presentation level (design language section 16). */
 export type StrataLevel = "relief" | "objects" | "scene";
 
@@ -151,7 +154,7 @@ export function strataLevel(element: Element, fallback: StrataLevel = "relief"):
  * which includes it), it is a version 2 scene: those components become objects (design language section 6), mixed
  * into the same back-to-front list, seen through the stage's camera.
  */
-export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}): StrataScene {
+export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}): StrataPanelScene {
   registerTokens();
   const tokens = reader(panel);
   const level = (element: Element, fallback: string) =>
@@ -461,7 +464,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   sync();
   return {
     refresh: () => { if (frame) cancelAnimationFrame(frame); sync(); },
-    scene: panel => { const key = panels.get(panel)?.scene; return key ? JSON.parse(key) as StrataScene : undefined; },
+    scene: panel => { const key = panels.get(panel)?.scene; return key ? JSON.parse(key) as StrataPanelScene : undefined; },
     detach: () => {
       if (detached) return;
       detached = true;
