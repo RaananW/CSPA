@@ -9,4 +9,5 @@ export { Checkbox, Radio, RadioGroup, Switch } from "./choices.ts";
 export { Badge, Card, Divider, Panel, ProgressBar, Spinner } from "./display.ts";
 export { Field, Select, Slider, TextArea, TextField } from "./fields.ts";
 export { StrataProvider, StrataScope } from "./provider.ts";
+export { useStrataGpu } from "./gpu.ts";
 export type { FieldControl } from "./shared.ts";

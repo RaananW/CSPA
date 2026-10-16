@@ -624,13 +624,16 @@
 
   /* ---- Face mode: the GPU paints relief, CSS paints flat faces ---- */
 
-  :where([data-strata-mode="face"]) [data-strata-face] {
+  /* The mode applies to the scope element itself too: the GPU helper sets it on each enrolled panel. */
+  :where([data-strata-mode="face"])[data-strata-face], :where([data-strata-mode="face"]) [data-strata-face] {
     --_finish: none;
     box-shadow: none;
     filter: none;
   }
+  :where([data-strata-mode="face"]) .ug-slider::-webkit-slider-runnable-track { box-shadow: none; background: var(--strata-colour-track); }
+  :where([data-strata-mode="face"]) .ug-slider::-webkit-slider-thumb { box-shadow: none; background: var(--strata-colour-knob); }
   /* Under the GPU, an enrolled panel's boundary never carries a CSS transform: the GPU presentation moves it. */
-  :where([data-strata-mode="face"]) :is(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
+  :where([data-strata-mode="face"]):is(.ug-panel, .ug-card)[data-strata-motion], :where([data-strata-mode="face"]) :is(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
 
   /* ---- Preferences ---- */
 

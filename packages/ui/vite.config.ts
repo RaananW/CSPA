@@ -13,7 +13,7 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    lib: { entry: { tokens: entry("tokens"), dom: entry("dom"), react: entry("react"), vue: entry("vue") }, formats: ["es"], fileName: (_format, name) => `${name}/index.js` },
+    lib: { entry: { tokens: entry("tokens"), dom: entry("dom"), gpu: entry("gpu"), react: entry("react"), vue: entry("vue") }, formats: ["es"], fileName: (_format, name) => `${name}/index.js` },
     sourcemap: false,
     // Framework peers resolve from the consumer and are never bundled.
     rollupOptions: { external: id => /^(react|react-dom|vue)(\/|$)/.test(id) },

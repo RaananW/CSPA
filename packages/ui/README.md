@@ -89,6 +89,29 @@ const colour = shadePoint(scene, () => [0.91, 0.92, 0.94, 1], 100, 60);    // sR
 - **`@underglass/ui/conformance/relief-1.json`:** scenes, sample points and expected colours. A renderer conforms
   when its decoded pixels are within 3 (of 255) on every channel.
 
+## GPU presentation
+
+With Underglass, Strata panels can be presented on the GPU: CSS paints flat faces and core's `relief` material paints
+the depth, from the same tokens. Panels must be direct children of the Underglass root.
+
+```ts
+import { attachStrataGpu } from "@underglass/ui/gpu";
+
+const strata = attachStrataGpu(controller);   // enrolls each .ug-panel among the root's children
+// In the mount options: onStatusChange: () => strata.refresh()
+strata.detach();                               // back to the CSS presentation
+```
+
+- **React and Vue:** `useStrataGpu(controller)` from `@underglass/ui/react` or `@underglass/ui/vue` attaches for the
+  component's lifetime.
+- **Astro:** call `attachStrataGpu` from a client `<script>` once Underglass is mounted.
+- **What it reads:**
+  - token values from each panel's resolved `--strata-*` custom properties, so depth, themes and scopes apply as
+    they do in CSS;
+  - states from `:hover`, `:active`, `:focus-visible` and `:disabled`;
+  - geometry from layout, followed through CSS transitions.
+- **When GPU is off** (fallback, forced colours or disabled): panels leave face mode, and the CSS relief is back.
+
 ## Panel motion
 
 ```ts

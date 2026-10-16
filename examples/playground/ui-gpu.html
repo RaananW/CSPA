@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata on the GPU</title>
+  <style>
+    body { margin: 24px; background: var(--strata-colour-stage, white); color: var(--strata-colour-text, black); font: 16px system-ui; }
+    [hidden] { display: none !important; }
+    #frame { position: relative; width: 760px; height: 520px; }
+    #output, #ordinary { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #output { pointer-events: none; }
+    #status { white-space: pre-wrap; max-height: 8em; overflow: auto; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Strata on the GPU</h1>
+  <p>A Strata panel of native controls, enrolled with <code>@underglass/core</code> and presented by
+    <code>@underglass/ui/gpu</code>: CSS paints flat faces and core's relief material paints the depth, lit from the
+    application's one light. <button id="enable" type="button">GPU</button> <button id="disable" type="button">CSS</button>
+    <label><input id="theme" type="checkbox"> Dark</label></p>
+  <div id="frame"><canvas id="output" hidden></canvas><div id="ordinary"></div><div id="overlay"></div></div>
+  <pre id="status" role="status"></pre>
+  <script type="module" src="/src/ui-gpu/main.ts"></script>
+</body>
+</html>
