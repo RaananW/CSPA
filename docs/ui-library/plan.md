@@ -155,7 +155,7 @@ needs rewriting.
 2. **Two chains per layer.** A layer can hold its always-on material and a temporary
    transition effect at the same time. Internal change.
 3. **Relief primitives.** A layer can carry a bounded list of shapes (rounded rectangle,
-   circle, pill) in layer-local coordinates, each with height, material and state, lit
+   circle, pill, and a ring with an optional arc for spinners) in layer-local coordinates, each with height, material and state, lit
    analytically (signed distance fields). Hover, press and focus are uniform updates
    with no recapture. The list is rebuilt on the reconciliation triggers core already
    has (resize, mutation, layout).
@@ -301,7 +301,7 @@ Underglass, its WAI-ARIA Authoring Practices pattern, and the automated
    GPU tests, in order: material class and two chains, relief primitives, shadow
    outset, object pass, projective transforms (only if P0.1 passed).
 2. **UI integration over core.** A panel helper that enrolls a panel and collects relief
-   primitives and mesh anchors from `data-ug-face` markers inside it; state sync from
+   primitives and mesh anchors from `data-strata-face` markers inside it; state sync from
    pointer, focus and ARIA attributes; the presentation-mode switch; presentation levels;
    the adjust policy; depth transitions built on core motion and presence.
 3. **Bindings.** Thin React and Vue wrappers over the integration, Astro components with

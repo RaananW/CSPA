@@ -72,8 +72,8 @@ the panel plane, and with a vertical field of view that maps z = 0 one-to-one on
 | Level | Token | Height at 50% | Used by |
 | --- | --- | --- | --- |
 | Ground | `elevation.ground` | 0 | Page background, wells |
-| Raised | `elevation.raised` | 3 | Controls on a panel |
-| Floating | `elevation.floating` | 10 | Panels, cards, toolbars |
+| Raised | `elevation.raised` | 3 | Controls and cards on a panel |
+| Floating | `elevation.floating` | 10 | Panels, toolbars |
 | Overlay | `elevation.overlay` | 16 | Menus, popovers, tooltips |
 | Modal | `elevation.modal` | 24 | Dialogs, drawers |
 
@@ -82,7 +82,7 @@ the panel plane, and with a vertical field of view that maps z = 0 one-to-one on
 level's height, but the order of the levels is an invariant: ground < raised < floating <
 overlay < modal.
 
-**Panel tilt.** Panels may tilt at rest or in motion, up to `tilt.max`, which defaults to 25° and
+**Panel tilt.** Panels may tilt at rest or in motion, up to `camera.tiltMax`, which defaults to 25° and
 may be set from 0° to 60°. P0.1 proved exact native hits through perspective up to 55°.
 
 ## 3. Light
@@ -262,9 +262,15 @@ remains for parts that are not screen-locked.
 | Button | Rounded tapered key; the captured label is on its top | Travels `keyTravel` on press |
 | Text field, text area | Bezel ring just inside the field; the text sits on the face | None |
 | Switch | Rounded track (`well`), spherical knob | Knob slides; the track turns `emissive` when on |
-| Checkbox, radio | Small well, with a raised mark when checked | Mark rises |
+| Toggle button | A key that latches down | Holds at `keyTravel` while pressed on |
+| Button group | Keys on one raised plinth | The keys, as Button |
+| Select | A key with a flat chevron on its top | Travels as Button |
+| Checkbox | Small well, with a raised mark when checked | Mark rises |
+| Radio | Round well, with a knob when checked | Knob rises |
 | Slider | Rail (`metal`) with a puck | Puck follows the value |
-| Progress, spinner | Groove with an `emissive` fill | Fill advances |
+| Progress, spinner | Groove (a ring for the spinner) with an `emissive` fill or arc | Fill advances, arc turns |
+| Card, panel | Raised slab | None (a panel may move through depth) |
+| Link, badge, divider | None: flat text, a flat pill, a groove | None |
 
 ## 7. Elevation and shadow
 
@@ -301,13 +307,22 @@ themes beyond light and dark.
 | `warning` | 180, 83, 9 | 245, 166, 60 | Caution |
 | `danger` | 196, 43, 43 | 255, 120, 120 | Destructive actions, errors |
 | `info` | = `accent` | = `accent` | Information |
-| `track` | 205, 209, 217 | 78, 84, 96 | Unfilled tracks |
+| `track` | 205, 209, 217 | 52, 56, 66 | Unfilled tracks |
 | `knob` | 252, 252, 253 | 236, 238, 242 | Knobs and thumbs |
+| `edge` | 118, 124, 136 | 132, 139, 154 | Boundaries of wells, tracks and knobs |
 
 - **Text on role colours** (`on-accent`, `on-success` and so on) is derived: white or near-black
   (16, 18, 22), whichever contrasts more.
 - **Lit contrast:** with the defaults, every role keeps at least 4.7:1 with its text at the
   brightest lit state.
+- **Non-text contrast (WCAG 1.4.11):** a control's shape and state never rest on fills that are close to
+  the panel (`field`, `track`).
+  - **Boundaries:** wells, tracks and unchecked marks carry a 1 px `edge` outline, at least 3:1 against the
+    lit panel and against fields.
+  - **Fills:** an `accent` fill (progress, slider, switch on) is at least 3:1 against the unfilled `track`.
+  - **Knobs:** a knob is at least 3:1 against the track under it, or carries an `edge` ring. A knob on an
+    `accent` fill takes the `on-accent` colour.
+  - **Not by colour alone:** state is also shown by position or shape (knob position, check mark).
 - **Invariant, contrast on lit faces:** text against its face is at least 4.5:1, and large text and
   non-text indicators at least 3:1. This is measured on the **lit** face at the largest interior
   brightening and darkening (`interior.max`, 4%), not only at rest. Disabled controls are exempt,
@@ -344,13 +359,17 @@ their text with them.
 
 Each state is a change of height, light, material or pose. None changes layout or the hit area.
 
+Raised parts (keys, knobs) change height on hover and press as below. Wells (fields, checkbox and radio
+wells, tracks) keep their depth: hover and press change only their interior light, by `state.hoverLift`
+and `state.pressSink`.
+
 | State | Relief | Objects | CSS |
 | --- | --- | --- | --- |
 | Rest | Height `raised` | Key at `keyHeight` | Relief recipe |
 | Hover | Height × 1.6; interior +4% (`state.hoverLift`, clamped by `interior.max`) | Key rises by `keyHeight / 4` | Larger shadow; `brightness(1.04)` |
 | Pressed | Height × 0.25; interior −4% (`state.pressSink` 6%, clamped) | Key travels `keyTravel` | Smaller shadow; `brightness(0.96)` |
 | Focus-visible | Accent edge 0.5–3.5 px outside the shape, anti-aliased | Emissive glow on the object | `outline: 3px solid`, offset 0.5 px |
-| Selected or checked | `emissive` fill on the track or mark | Mark rises, track lights | Accent fill |
+| Selected or checked | `emissive` fill on the track or mark (`material.roles.trackOn`, `material.roles.indicator`) | Mark rises, track lights | Accent fill |
 | Disabled | Height 0, no bevel gain, 38% opacity text | Object flattened to the face | Flat; `opacity: 0.38` on content |
 | Invalid | `danger` focus-style edge and message | Same, plus the edge on the bezel | `outline` in `danger` |
 | Busy | `emissive` progress on the face | Same | Same |
@@ -385,7 +404,8 @@ Each state is a change of height, light, material or pose. None changes layout o
 - **Layering:** panels are the GPU layer unit, so pages should use a few large panels, not one
   panel per control (layer budget 32–64; 256 relief primitives per panel, P0.3).
 - **Invariant, target size:** every interactive target is at least 24 by 24 CSS px, whatever the
-  density.
+  density. Links inside a sentence are exempt, as in WCAG 2.5.8; a checkbox, radio or switch meets it
+  through its label row.
 
 ## 14. Accessibility
 
@@ -506,7 +526,9 @@ Each depth token has three anchors, at 0%, 50% and 100% (the A, B and C prototyp
 
 ## 17. Component anatomy template
 
-Every component has an anatomy page under `docs/ui-library/components/` with these headings:
+Every component has an anatomy page under [`docs/ui-library/components/`](components/README.md) with the
+headings below. The [conventions](components/README.md#conventions) define the class names, the `data-strata-`
+attributes and the seven relief primitives (`raised`, `well`, `groove`, `knob`, `mark`, `ring`, `flat`).
 
 1. **Purpose and native element:** which element it renders (`<button>`, `<input type=checkbox
    role=switch>` and so on) and the WAI-ARIA pattern it follows.
@@ -574,3 +596,7 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-15: shadows are analytic in every presentation (section 7).
 - 2026-10-15: added section 18: standalone-first layers, one markup contract, React, Vue and Astro
   bindings, and server rendering.
+- 2026-10-16: anatomy pages for every Tier A component, with the markup conventions and relief primitives
+  (section 17). From their review: the `edge` colour and non-text contrast rules, a darker dark-theme
+  `track` (the accent fill reached only 2.5:1), objects for the remaining Tier A controls, wells that keep
+  their depth on hover and press, cards at `raised`, and the inline-link target exemption.

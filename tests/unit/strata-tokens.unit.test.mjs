@@ -78,6 +78,26 @@ test("text and indicators meet contrast on lit faces in the light and dark theme
   }
 });
 
+test("control boundaries, fills and knobs meet non-text contrast in the light and dark themes", () => {
+  const interior = get("interior.max").$value;
+  for (const theme of ["light", "dark"]) {
+    const edge = themed("edge", theme), accent = themed("accent", theme);
+    // The edge outlines wells, tracks and knobs: 3:1 against the panel at every lit state, and against fields.
+    for (const factor of [1, 1 + interior, 1 - interior]) {
+      const ratio = contrast(edge, scale(themed("panel", theme), factor));
+      assert.ok(ratio >= 3, `${theme}: edge on the panel at ×${factor} is ${ratio.toFixed(2)}`);
+    }
+    assert.ok(contrast(edge, themed("field", theme)) >= 3, `${theme}: edge on a field`);
+    // A knob stands out from the unfilled track by itself, or by an edge ring.
+    const knob = themed("knob", theme), knobRatio = Math.max(contrast(knob, themed("track", theme)), contrast(edge, knob));
+    assert.ok(knobRatio >= 3, `${theme}: knob on the track is ${knobRatio.toFixed(2)}`);
+    // A filled part of a track (progress, slider, switch on) against the unfilled track.
+    assert.ok(contrast(accent, themed("track", theme)) >= 3, `${theme}: accent fill on the track`);
+    // A knob on a filled track takes the on-accent colour.
+    assert.ok(contrast(onColour(accent), accent) >= 3, `${theme}: knob on the accent track`);
+  }
+});
+
 test("the taper rule holds on a 1920 by 1080 stage at every depth anchor", () => {
   const radius = Math.hypot(960, 540);
   const heights = get("object.keyHeight").$extensions[NS].anchors, tapers = get("object.taper").$extensions[NS].anchors;
