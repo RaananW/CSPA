@@ -196,6 +196,8 @@ call `attachStrata()` yourself. Astro 7.3 is an optional peer.
 are Strata panels, not `<dialog>` elements, so the GPU presentation can enroll them like any panel. Each renders a
 `<section role="dialog" aria-modal="true">` and a `.ug-scrim` before it, into a container (the page body by default),
 never inside a layer. Closed, React and Vue render nothing and plain HTML and Astro render both with `hidden`.
+With `attachStrataGpu`, render them into the Underglass root (`container={controller.container}`): there they fill
+the stage and are presented on the GPU while open, over a scrim the GPU fades.
 
 ```tsx
 import { Button, Dialog, Drawer } from "@underglass/ui/react";
