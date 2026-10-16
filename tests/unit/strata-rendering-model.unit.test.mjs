@@ -146,9 +146,17 @@ test("key points: a knob hides the groove's bevel under it", () => {
 });
 
 test("the contrast guard changes text and face by one factor within interior.max", () => {
-  // Hand-checked: 9 px below a hovered button, the shadow would darken by more than interior.max.
-  assert.equal(at("contrast-guard", 44, 49), scaled(colour("text"), 0.96));
-  assert.equal(at("contrast-guard", 76, 49), scaled(colour("panel"), 0.96));
+  // Hand-checked: 9 px below a hovered button the shadow is S ≈ 0.0645 and the interior K ≈ 1.0055; on the guarded face
+  // the shadow is scaled by m / strength = 0.04 / 0.24, so text and face are both × K · (1 − S / 6) ≈ 0.9947.
+  const { scene } = cases["contrast-guard"], terms = shadingTerms(scene, 44, 49);
+  assert.ok(Math.abs(terms.shadow - 0.0645) < 1e-4 && terms.guard === 1);
+  const k = terms.interior * (1 - terms.shadow * scene.interior.max / scene.shadow.strength);
+  assert.equal(at("contrast-guard", 44, 49), scaled(colour("text"), k));
+  assert.equal(at("contrast-guard", 76, 49), scaled(colour("panel"), k));
+  // Scaled, not clamped: under the guard the shadow fades smoothly to nothing instead of standing as a flat plateau.
+  const lumas = [49, 51, 53, 55, 57].map(y => luma(at("contrast-guard", 76, y)));
+  for (let index = 1; index < lumas.length; index++) assert.ok(lumas[index] >= lumas[index - 1]);
+  assert.ok(lumas[0] < lumas[lumas.length - 1]);
   // Inside the bevel band the shadow is not limited.
   assert.ok(luma(at("contrast-guard", 56, 43)) < luma(scaled(colour("panel"), 0.96)));
   // Wherever the guard holds fully and nothing exempt applies, every channel is captured × one factor k, |k − 1| ≤ m.

@@ -301,7 +301,7 @@
             62.5
           ],
           "note": "rest: shadow on the slab below",
-          "expect": "#e0e2e5"
+          "expect": "#e2e4e8"
         },
         {
           "at": [
@@ -317,7 +317,7 @@
             40.5
           ],
           "note": "hover: left side, facing the vanishing point",
-          "expect": "#edeef0"
+          "expect": "#e7e8ea"
         },
         {
           "at": [
@@ -325,7 +325,7 @@
             40.5
           ],
           "note": "hover: right side, facing away",
-          "expect": "#8b8c8e"
+          "expect": "#858688"
         },
         {
           "at": [
@@ -341,7 +341,7 @@
             62.5
           ],
           "note": "hover: shadow on the slab below",
-          "expect": "#e0e2e5"
+          "expect": "#e1e3e7"
         },
         {
           "at": [

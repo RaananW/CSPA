@@ -106,6 +106,24 @@ test("a dome is ray-cast: its apex faces the viewer and its colour replaces the 
   assert.equal(domeHit(scene, knob, 60, 34).coverage, 0);
 });
 
+test("hover raises an object by a quarter of its height, and its shadow follows the cap (2B.2)", () => {
+  const key = cases["key-states"].scene.primitives[1];
+  assert.equal(resolveObject(key).z1, 16);
+  assert.equal(resolveObject({ ...key, state: { hover: true } }).z1, 18);
+  assert.equal(resolveObject({ ...key, state: { hover: true, pressed: true } }).z1, 12);
+  assert.equal(resolveObject({ ...key, state: { hover: true, disabled: true } }).z1, 16);
+  // The hovered key casts as a resting key 10 px tall would: not 8 · hoverHeight (12.8 px).
+  const scene = (entry, extra = {}) => ({ ...cases["key-states"].scene, primitives: [cases["key-states"].scene.primitives[0], { ...key, ...entry }], ...extra });
+  const shadow = (entry, x, y) => shadingTerms(scene(entry), x, y).shadow;
+  for (const [x, y] of [[84, 62], [60, 66], [90, 62]]) {
+    assert.ok(Math.abs(shadow({ state: { hover: true } }, x, y) - shadow({ height: 10 }, x, y)) < 1e-9, `at ${x}, ${y}`);
+    assert.ok(shadow({ state: { hover: true } }, x, y) < shadow({ height: 12.8 }, x, y), `at ${x}, ${y}`);
+  }
+  // hoverHeight still applies to primitives, not to objects.
+  const higher = { ...cases["key-states"].scene.state, hoverHeight: 3 };
+  assert.equal(shadingTerms(scene({ state: { hover: true } }, { state: higher }), 84, 62).shadow, shadow({ state: { hover: true } }, 84, 62));
+});
+
 test("objects that would break hit safety are drawn at the Relief level (2B.6)", () => {
   const entry = cases["relief-equivalents"];
   assert.equal(objectDrawable(entry.scene, entry.scene.primitives[1]), false, "the knob leaves its bounds");
@@ -113,11 +131,14 @@ test("objects that would break hit safety are drawn at the Relief level (2B.6)",
   for (const name of ["key-states", "slab", "switch", "bezel", "rail-and-puck", "environment"]) {
     for (const object of cases[name].scene.primitives.filter(entry => "object" in entry)) assert.equal(objectDrawable(cases[name].scene, object), true, `${name}: ${object.object}`);
   }
-  // The taper rule by hand: taper · (D − 16) ≥ 8 · R; at R = 600 a 3 px taper needs D ≥ 1616.
+  // The taper rule by hand, on the hovered geometry (the cap a quarter higher, at 18): taper · (D − 18) ≥ 10 · R; at
+  // R = 480 a 3 px taper needs D ≥ 1618, whatever the key's state.
   const key = { object: "key", rect: [0, 0, 0, 0], height: 8, base: 8, taper: 3, material: "matte" };
-  const scene = distance => ({ ...cases.slab.scene, camera: { distance, vanish: [-600, 0] } });
-  assert.equal(objectDrawable(scene(1616), key), true);
-  assert.equal(objectDrawable(scene(1615), key), false);
+  const scene = distance => ({ ...cases.slab.scene, camera: { distance, vanish: [-480, 0] } });
+  for (const state of [undefined, { hover: true }, { pressed: true }]) {
+    assert.equal(objectDrawable(scene(1618), { ...key, state }), true);
+    assert.equal(objectDrawable(scene(1617), { ...key, state }), false);
+  }
   // The relief knob keeps its colour on its footprint.
   assert.equal(shadingTerms(entry.scene, 36.5, 32.5).surface.alpha, 1);
 });

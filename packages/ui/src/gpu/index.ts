@@ -373,7 +373,8 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
   // The outset reaches the farthest shadow: the offset plus the softness of the tallest caster, hovered.
   const elevation = (tokens.number("light.elevation", 41) * Math.PI) / 180;
   const top = (entry: SceneEntry) => (isSceneObject(entry) ? (entry.base ?? 0) + (entry.object === "well" ? 0 : entry.height) : entry.height);
-  const tallest = Math.max(...entries.map(top)) * tokens.number("state.hoverHeight", 1.6);
+  // Hover multiplies a primitive's height, and raises an object's cap by a quarter of its height.
+  const tallest = Math.max(...entries.map(entry => top(entry) * (isSceneObject(entry) ? 1.25 : tokens.number("state.hoverHeight", 1.6))));
   const reach = Math.min(128, Math.ceil(tallest / Math.tan(elevation) + 1.5 * tallest + 1));
   const settings = {
     extent: { width, height },
