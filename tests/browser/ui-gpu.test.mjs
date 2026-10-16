@@ -591,3 +591,23 @@ for (const level of ["relief", "objects"]) test(`a List on the GPU at the ${leve
   expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`a Table on the GPU at the ${level} level is one raised slab, and a real click on a sort button sorts it, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  const before = await page.evaluate(() => window.strataGpuProbe.scene().primitives.length);
+  await page.evaluate(async () => { window.strataGpuProbe.addTable(); await window.strataGpuProbe.controller.settle(); });
+  const slab = await primitiveOf(page, "#gpu-table");
+  expect(slab && (slab.object ?? slab.face)).toBe(level === "objects" ? "slab" : "raised");
+  expect(await page.evaluate(() => window.strataGpuProbe.scene().primitives.length)).toBe(before + 1);
+  const amounts = () => page.locator("#gpu-table tbody tr td:last-child").allTextContents();
+  expect(await amounts()).toEqual(["120", "87.5", "42"]);
+  const button = await page.locator("#gpu-table-amount").boundingBox();
+  await page.mouse.click(button.x + button.width / 2, button.y + button.height / 2);
+  expect(await amounts()).toEqual(["42", "87.5", "120"]);
+  await expect(page.locator("#gpu-table th").nth(1)).toHaveAttribute("aria-sort", "ascending");
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});

@@ -11,12 +11,14 @@ const examples = name => [...readFileSync(new URL(`../../docs/ui-library/compone
 /** Every markup example by contract name (`text-field.md#2` is a page's second example). */
 export function contracts() {
   const names = ["button.md", "icon-button.md", "toggle-button.md", "link.md", "field.md", "text-field.md", "text-area.md", "checkbox.md", "radio.md", "switch.md",
-    "select.md", "slider.md", "button-group.md", "divider.md", "badge.md", "spinner.md", "progress-bar.md", "card.md", "panel.md", "dialog.md", "drawer.md", "tabs.md", "accordion.md", "list.md"];
+    "select.md", "slider.md", "button-group.md", "divider.md", "badge.md", "spinner.md", "progress-bar.md", "card.md", "panel.md", "dialog.md", "drawer.md", "tabs.md", "accordion.md", "list.md", "table.md"];
   const map = Object.fromEntries(names.map(name => [name, examples(name)[0]]));
   map["text-field.md#2"] = examples("text-field.md")[1];
   // A Dialog and a Drawer are shown open (React, Vue) and closed with `hidden` (plain HTML, Astro): the second example.
   map["dialog.md#2"] = examples("dialog.md")[1];
   map["drawer.md#2"] = examples("drawer.md")[1];
+  // A Table that does not sort: what Astro renders, with no sort buttons.
+  map["table.md#2"] = examples("table.md")[1];
   return map;
 }
 
@@ -50,6 +52,8 @@ export const canonicalScript = () => {
 /** The open Dialog and Drawer examples, which a binding renders on demand (it makes the page behind them inert). */
 const open = ["dialog.md", "drawer.md"];
 const closed = ["dialog.md#2", "drawer.md#2"];
+/** The contracts every binding's page renders as a matter of course, which `expectContracts` checks by default. */
+export const overlayContracts = [...open, ...closed];
 
 /**
  * Compares every `[data-contract]` container on the page with its markup example. `only` limits it to some contracts;

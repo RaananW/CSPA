@@ -7,7 +7,8 @@
  * `?level=scene` adds the Scene level (`strataGpuProbe.burst()` bursts confetti from Save), and `?environment=url` lights
  * objects with an `.hdr` environment. `strataGpuProbe.openDrawer()` opens a Drawer on the end edge that closes on a click
  * outside it (`closeOnScrim`); the Dialog does not. `strataGpuProbe.addTabs()` adds plain-markup Tabs to the panel, wired by
- * `attachStrata`, `strataGpuProbe.addAccordion()` a native `<details>` Accordion, and `strataGpuProbe.addList()` a List.
+ * `attachStrata`, `strataGpuProbe.addAccordion()` a native `<details>` Accordion, `strataGpuProbe.addList()` a List, and
+ * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -95,6 +96,17 @@ const listMarkup = `<ul class="ug-list" role="list" data-strata-face="raised" ar
   <li class="ug-list__item"><button class="ug-list__action" type="button" id="gpu-list-archive"><span class="ug-list__text"><span class="ug-list__primary">Archive</span><span class="ug-list__secondary">Older than a year</span></span></button></li>
   <li class="ug-list__item"><span class="ug-list__text"><span class="ug-list__primary">Storage</span></span><span class="ug-list__end">4.2 GB</span></li>
 </ul>`;
+/** A Table in plain markup (`table.md`), added by `strataGpuProbe.addTable()`; its Amount button sorts the rows. */
+const tableMarkup = `<div class="ug-table" data-strata-face="raised" id="gpu-table" style="margin-top:12px"><table class="ug-table__table"><caption class="ug-table__caption">Payments</caption>
+  <thead><tr><th class="ug-table__header" scope="col">Customer</th><th class="ug-table__header ug-table__header--numeric" scope="col"><button class="ug-table__sort" type="button" id="gpu-table-amount">Amount</button></th></tr></thead>
+  <tbody>${[["Ada", 120], ["Grace", 87.5], ["Alan", 42]].map(([name, amount]) => `<tr class="ug-table__row"><td class="ug-table__cell">${name}</td><td class="ug-table__cell ug-table__cell--numeric">${amount}</td></tr>`).join("")}</tbody></table></div>`;
+function sortTable() {
+  const header = panel.querySelector<HTMLElement>("#gpu-table-amount")!.parentElement!, body = panel.querySelector("#gpu-table tbody")!;
+  const direction = header.getAttribute("aria-sort") === "ascending" ? "descending" : "ascending";
+  header.setAttribute("aria-sort", direction);
+  const rows = [...body.children].sort((a, b) => (Number(a.lastElementChild!.textContent) - Number(b.lastElementChild!.textContent)) * (direction === "ascending" ? 1 : -1));
+  body.append(...rows);
+}
 let archived = 0;
 let saves = 0;
 // Declared before mounting: the runtime may report status while it mounts.
@@ -144,6 +156,7 @@ window.strataGpuProbe = {
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
+  addTable: () => { panel.insertAdjacentHTML("beforeend", tableMarkup); panel.querySelector("#gpu-table-amount")!.addEventListener("click", sortTable); strata?.refresh(); },
   addList: () => { panel.insertAdjacentHTML("beforeend", listMarkup); panel.querySelector("#gpu-list-archive")!.addEventListener("click", () => { archived++; }); strata?.refresh(); },
   archived: () => archived,
   addAccordion: () => { panel.insertAdjacentHTML("beforeend", accordionMarkup); strata?.refresh(); },
@@ -157,6 +170,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void;
   } }
 }

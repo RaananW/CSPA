@@ -326,3 +326,21 @@ import { List, ListItem } from "@underglass/ui/react";
 - A row with `href` is a link (`current` sets `aria-current`); with `onClick` (React), a click listener or `button`
   (Vue, Astro) it is a button (`disabled` disables it); otherwise it is static.
 - `start` is decorative (`aria-hidden`); `end` is read. [Anatomy](../../docs/ui-library/components/list.md).
+
+## Table
+
+`Table` is a native `<table>` with a caption on one raised slab. Header cells have `scope="col"`, numeric columns
+align to the end, and a sortable column's header holds a button; the sorted column carries `aria-sort`.
+
+```tsx
+import { Table } from "@underglass/ui/react";
+
+<Table caption="Invoices" defaultSort={{ key: "number", direction: "ascending" }}
+  columns={[{ key: "number", header: "Number", sortable: true }, { key: "amount", header: "Amount", numeric: true, sortable: true }]}
+  rows={invoices} />
+```
+
+- **Sorting:** controlled with `sort` and `onSortChange` (`v-model:sort` in Vue), or by the component with
+  `defaultSort` (numbers by value, text with `localeCompare`). Astro renders `sort` as `aria-sort`, without buttons.
+- **Cells:** values by default; `renderCell(row, column)` in React and the `cell` slot in Vue render your own.
+- [Anatomy](../../docs/ui-library/components/table.md).

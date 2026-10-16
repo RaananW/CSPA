@@ -29,6 +29,7 @@ export { default as Spinner } from "./Spinner.astro";
 export { default as StrataProvider } from "./StrataProvider.astro";
 export { default as StrataScope } from "./StrataScope.astro";
 export { default as Switch } from "./Switch.astro";
+export { default as Table } from "./Table.astro";
 export { default as Tabs } from "./Tabs.astro";
 export { default as TextArea } from "./TextArea.astro";
 export { default as TextField } from "./TextField.astro";
