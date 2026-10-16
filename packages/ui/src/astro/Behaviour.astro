@@ -1,0 +1,10 @@
+---
+/**
+ * Loads the plain-DOM behaviour (`attachStrata`) once per page: ToggleButton state, aria-disabled blocking and
+ * checkbox indeterminate. Astro bundles and deduplicates the script.
+ */
+---
+<script>
+  import { attachStrata } from "../dom/behaviour.ts";
+  attachStrata();
+</script>

@@ -1,0 +1,14 @@
+---
+/** StrataProvider: applies an application theme's token stylesheet (the `strata.theme` layer) to the page. */
+import { createStrataTheme, isTheme, type StrataTheme, type StrataThemeInput } from "../tokens/theme.ts";
+
+interface Props {
+  theme?: StrataTheme | StrataThemeInput;
+}
+
+const { theme } = Astro.props;
+const built = theme === undefined ? undefined : isTheme(theme as StrataTheme) ? theme as StrataTheme : createStrataTheme(theme as StrataThemeInput);
+if (built?.issues.length) console.error(`Strata theme: ${built.issues.map(({ path, message }) => `${path}: ${message}`).join("; ")}`);
+---
+{built && <style is:inline data-strata-theme-sheet="" set:html={built.css()} />}
+<slot />

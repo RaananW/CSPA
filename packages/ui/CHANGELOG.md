@@ -20,4 +20,6 @@ starting point.
   `StrataProvider` and `StrataScope`; then `TextArea`, `Checkbox`, `Switch`, `RadioGroup`, `Radio`, `Select` and `Slider`;
   then `Panel`, `Card`, `ButtonGroup`, `Divider`, `Badge`, `Spinner` and `ProgressBar`, completing Tier A.
 - Vue bindings (`@underglass/ui/vue`): the same 19 components, `StrataProvider` and `StrataScope`, with `v-model`.
+- Astro components (`@underglass/ui/astro`): the same 19 components, server-rendered, and `attachStrata` in `/dom` for
+  the behaviour native elements need without a binding.
 - Panel motion through depth: `strataEnter` and `strataLeave` (inert while moving, instant under reduced motion).

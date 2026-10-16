@@ -1,0 +1,26 @@
+---
+/** Card (anatomy page `card.md`): a raised slab inside a Panel, named by its title. Slots: the body, and `footer`. */
+import { nextId } from "./field.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  title?: string;
+  titleLevel?: 2 | 3 | 4 | 5 | 6;
+  titleId?: string;
+  as?: "article" | "section" | "div";
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { title, titleLevel = 3, titleId, as: Element = "article", size, material, level, class: className, ...rest } = Astro.props;
+const id = titleId ?? nextId("card-title");
+const Heading = `h${titleLevel}`;
+---
+<Element class={classes("ug-card", className)} data-strata-face="raised" aria-labelledby={title !== undefined ? id : undefined} {...strataAttributes({ size, material, level })} {...rest}>
+  {title !== undefined && <Heading id={id} class="ug-card__title">{title}</Heading>}
+  <div class="ug-card__body"><slot /></div>
+  {Astro.slots.has("footer") && <div class="ug-card__footer"><slot name="footer" /></div>}
+</Element>

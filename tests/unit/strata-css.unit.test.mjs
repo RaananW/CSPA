@@ -52,4 +52,5 @@ test("Strata's neutral layers import no UI framework and each binding imports on
   }
   for (const file of sources("react")) assert.deepEqual(imports(file.text, /^vue(\/|$)/), [], file.name);
   for (const file of sources("vue")) assert.deepEqual(imports(file.text, /^(react|react-dom)(\/|$)/), [], file.name);
+  for (const file of sources("astro")) assert.deepEqual(imports(file.text, /^(react|react-dom|vue)(\/|$)/), [], file.name);
 });

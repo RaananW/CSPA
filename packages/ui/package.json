@@ -40,6 +40,7 @@
       "types": "./dist/vue/index.d.ts",
       "import": "./dist/vue/index.js"
     },
+    "./astro": "./src/astro/index.ts",
     "./css": "./dist/css/strata.css",
     "./css/tokens.css": "./dist/css/tokens.css",
     "./css/components.css": "./dist/css/components.css"
@@ -56,6 +57,11 @@
     "dist/*.js",
     "dist/tokens.json",
     "dist/css/*.css",
+    "src/astro/*",
+    "src/shared/*.ts",
+    "src/dom/*.ts",
+    "src/tokens/*.ts",
+    "src/tokens/*.json",
     "CHANGELOG.md"
   ],
   "sideEffects": [
@@ -67,13 +73,17 @@
   },
   "peerDependencies": {
     "react": "^18.3.1 || ^19.0.0",
-    "vue": "^3.5.0"
+    "vue": "^3.5.0",
+    "astro": "^7.3.0"
   },
   "peerDependenciesMeta": {
     "react": {
       "optional": true
     },
     "vue": {
+      "optional": true
+    },
+    "astro": {
       "optional": true
     }
   },

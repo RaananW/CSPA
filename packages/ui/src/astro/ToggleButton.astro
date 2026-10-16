@@ -1,0 +1,22 @@
+---
+/**
+ * ToggleButton (anatomy page `toggle-button.md`): a latching `<button aria-pressed>`. `attachStrata` toggles it in the
+ * browser and dispatches `strata-pressed-change`.
+ */
+import Behaviour from "./Behaviour.astro";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  pressed?: boolean;
+  type?: "button" | "submit" | "reset";
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { pressed = false, type = "button", size, material, level, class: className, ...rest } = Astro.props;
+---
+<button type={type} class={classes("ug-toggle-button", className)} data-strata-face="raised" aria-pressed={String(pressed)} {...strataAttributes({ size, material, level })} {...rest}><span class="ug-toggle-button__label"><slot /></span></button>
+<Behaviour />

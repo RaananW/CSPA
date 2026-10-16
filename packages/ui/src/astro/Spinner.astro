@@ -1,0 +1,20 @@
+---
+/**
+ * Spinner (anatomy page `spinner.md`): a status whose label is the announced content. `decorative` inside a busy
+ * Button: no role, hidden from assistive technology.
+ */
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  label: string;
+  size?: "small" | "medium" | "large";
+  showLabel?: boolean;
+  decorative?: boolean;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, size = "medium", showLabel = false, decorative = false, class: className, ...rest } = Astro.props;
+const sizes = { small: "sm", medium: "md", large: "lg" } as const;
+---
+<span class={classes("ug-spinner", `ug-spinner--${sizes[size]}`, showLabel && "ug-spinner--labelled", className)} role={decorative ? undefined : "status"} aria-hidden={decorative ? "true" : undefined} data-strata-face="ring" {...rest}><span class="ug-spinner__arc" aria-hidden="true"></span><span class="ug-spinner__label">{label}</span></span>

@@ -1,0 +1,93 @@
+---
+/**
+ * Strata Astro check page: `#contracts` renders each anatomy page's markup example with `@underglass/ui/astro`, and
+ * `main` holds live controls the browser test drives with real input. Server-rendered HTML; the only script is the
+ * components' own `attachStrata`.
+ */
+import "@underglass/ui/css";
+import {
+  Badge, Button, ButtonGroup, Card, Checkbox, Divider, IconButton, Link, Panel, ProgressBar, RadioGroup, Select, Slider, Spinner,
+  StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton,
+} from "@underglass/ui/astro";
+
+const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata Astro check</title>
+</head>
+<body>
+<StrataProvider theme={{ colour: { accent: "#1d4ed8" } }}>
+  <div id="contracts" hidden>
+    <div data-contract="button.md"><Button variant="accent"><Fragment slot="icon" />Save</Button></div>
+    <div data-contract="icon-button.md"><IconButton label="Close" /></div>
+    <div data-contract="toggle-button.md"><ToggleButton>Bold</ToggleButton></div>
+    <div data-contract="link.md"><Link href="/docs">Read the guide</Link></div>
+    <div data-contract="field.md"><TextField label="Email" id="email" help="We only use it for receipts." error="enter an address like name@example.com." required /></div>
+    <div data-contract="text-field.md"><TextField type="email" id="email" name="email" autocomplete="email" /></div>
+    <div data-contract="text-field.md#2"><TextField type="search" id="q"><Fragment slot="icon" /></TextField></div>
+    <div data-contract="text-area.md"><TextArea id="notes" name="notes" rows={3} /></div>
+    <div data-contract="checkbox.md"><Checkbox name="news">Send me the newsletter</Checkbox></div>
+    <div data-contract="radio.md"><RadioGroup legend="Plan" name="plan" value="free" help="You can change it later." error="choose a plan." options={[{ value: "free", label: "Free" }, { value: "pro", label: "Pro" }]} /></div>
+    <div data-contract="switch.md"><Switch name="wifi">Wi-Fi</Switch></div>
+    <div data-contract="select.md"><Select id="size" name="size" value="" options={[{ value: "", label: "Choose a size", disabled: true }, { value: "s", label: "Small" }, { value: "m", label: "Medium" }]} /></div>
+    <div data-contract="button-group.md"><ButtonGroup label="Alignment"><Button>Left</Button><Button>Centre</Button><Button>Right</Button></ButtonGroup></div>
+    <div data-contract="divider.md"><Divider /><Divider orientation="vertical" /></div>
+    <div data-contract="badge.md"><Badge variant="success">Active</Badge></div>
+    <div data-contract="spinner.md"><Spinner label="Loading" /></div>
+    <div data-contract="progress-bar.md"><label for="upload">Upload</label><ProgressBar id="upload" value={40} max={100} /></div>
+    <div data-contract="card.md"><Card title="Latency" titleId="card-1-title">…<Fragment slot="footer" /></Card></div>
+    <div data-contract="panel.md"><Panel title="Settings" titleId="settings-title" /></div>
+    <div data-contract="slider.md"><Slider min="0" max="100" step="1" value="40" aria-label="Volume" /></div>
+  </div>
+  <main style="display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); padding: 24px">
+    <section class="ug-panel" data-strata-face="raised" aria-label="Buttons">
+      <form id="form" style="display: flex; flex-wrap: wrap; gap: 12px">
+        <Button variant="accent" id="save" class="extra">Save</Button>
+        <Button id="blocked" aria-disabled="true">Unavailable</Button>
+        <Button id="busy" busy>Saving</Button>
+        <IconButton id="close" label="Close"><Fragment set:html={close} /></IconButton>
+        <ToggleButton id="bold">Bold</ToggleButton>
+        <Button id="large" size="large" material="lacquer">Large</Button>
+      </form>
+      <p>Read the <Link id="inline-link" href="#guide">guide</Link>, or <Link id="standalone-link" standalone href="#more">more</Link>.</p>
+    </section>
+    <section class="ug-panel" data-strata-face="raised" aria-label="Fields">
+      <TextField label="Email" help="We only use it for receipts." error="enter an address like name@example.com." required type="email" id="email-input" />
+      <TextField label="Name" value="Ada" />
+      <TextField label="Search" help="Titles and tags." type="search"><Fragment slot="icon" set:html={close} /></TextField>
+      <TextField label="Locked" value="Read only" disabled />
+    </section>
+    <section class="ug-panel" data-strata-face="raised" aria-label="Choices">
+      <Checkbox id="terms" help="Required to continue.">I accept the terms</Checkbox>
+      <Checkbox id="mixed" indeterminate>Select all</Checkbox>
+      <Switch id="wifi" checked>Wi-Fi</Switch>
+      <Switch id="airplane" disabled reverse>Airplane mode</Switch>
+      <RadioGroup legend="Plan" help="You can change it later." required options={[{ value: "free", label: "Free" }, { value: "pro", label: "Pro" }, { value: "team", label: "Team", disabled: true }, { value: "enterprise", label: "Enterprise" }]} />
+      <Select label="Size" value="m" options={[{ value: "s", label: "Small" }, { value: "m", label: "Medium" }, { value: "l", label: "Large" }]} />
+      <Slider label="Volume" help="0 to 100." min="0" max="100" step="5" value="40" />
+      <TextArea label="Notes" resize="none" />
+    </section>
+    <Panel title="Status" id="status-panel">
+      <Card title="Latency" id="latency-card">p95 is 41 ms.<Button slot="footer" id="details">Details</Button></Card>
+      <Divider id="rule" />
+      <div style="display: flex; gap: 12px; align-items: center">
+        <ButtonGroup label="View" orientation="vertical" id="view-group"><Button>List</Button><Button>Grid</Button></ButtonGroup>
+        <Divider orientation="vertical" id="vertical-rule" />
+        <Badge id="inbox" variant="accent" count={120} />
+        <Badge id="few" count={7} />
+      </div>
+      <Spinner id="loading" label="Loading results" showLabel />
+      <Button id="saving" variant="accent" busy><Spinner slot="icon" decorative label="Saving" size="small" />Saving</Button>
+      <ProgressBar label="Upload" id="upload-progress" value={40} />
+      <ProgressBar id="sync-progress" aria-label="Syncing" />
+    </Panel>
+    <StrataScope depth={0.1} density="compact" size="small" id="scope" aria-label="Compact scope" role="region">
+      <section class="ug-panel" data-strata-face="raised" aria-label="Scoped"><Button id="scoped">Scoped</Button></section>
+    </StrataScope>
+  </main>
+</StrataProvider>
+</body>
+</html>

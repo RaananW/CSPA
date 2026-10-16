@@ -1,0 +1,19 @@
+---
+/** IconButton (anatomy page `icon-button.md`): an icon-only `<button>` named by `label`. The slot is the icon. */
+import Behaviour from "./Behaviour.astro";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  label: string;
+  type?: "button" | "submit" | "reset";
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, type = "button", size, material, level, class: className, ...rest } = Astro.props;
+---
+<button type={type} class={classes("ug-icon-button", className)} data-strata-face="raised" aria-label={label} {...strataAttributes({ size, material, level })} {...rest}><span class="ug-icon-button__icon" aria-hidden="true"><slot /></span></button>
+<Behaviour />

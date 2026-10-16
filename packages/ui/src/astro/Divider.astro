@@ -1,0 +1,14 @@
+---
+/** Divider (anatomy page `divider.md`): an `<hr>` groove; vertical says so with `aria-orientation`. */
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  orientation?: "horizontal" | "vertical";
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { orientation = "horizontal", class: className, ...rest } = Astro.props;
+const vertical = orientation === "vertical";
+---
+<hr class={classes("ug-divider", vertical && "ug-divider--vertical", className)} data-strata-face="groove" aria-orientation={vertical ? "vertical" : undefined} {...rest} />

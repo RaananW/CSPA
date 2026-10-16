@@ -32,3 +32,6 @@ fixtures/worker/app/program.json
 # Agent and editor worktrees
 .claude/worktrees/
 .cache/
+
+# Astro fixture build cache (fixtures/astro-strata builds into its own dist/).
+.astro/

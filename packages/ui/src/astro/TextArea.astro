@@ -1,0 +1,31 @@
+---
+/** TextArea (anatomy page `text-area.md`): a native `<textarea>` well, 3 rows by default. The slot is its initial text. */
+import Field from "./Field.astro";
+import { fieldControl } from "./field.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  id?: string;
+  label?: string;
+  help?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+  rows?: number;
+  resize?: "vertical" | "none" | "both" | "horizontal";
+  requiredLabel?: string;
+  errorPrefix?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { id, label, help, error, required, disabled, invalid, rows = 3, resize = "vertical", requiredLabel, errorPrefix, size, material, level, class: className, ...rest } = Astro.props;
+const field = fieldControl({ id, label, help, error, required, disabled, invalid });
+---
+<Field wrap={field.wrap} controlId={field.id} label={label} help={help} error={error} required={required} requiredLabel={requiredLabel} errorPrefix={errorPrefix}>
+  <textarea class={classes("ug-text-area", className)} data-strata-face="well" rows={rows} style={resize !== "vertical" ? `resize: ${resize}` : undefined} {...strataAttributes({ size, material, level })} {...field.attrs} {...rest}><slot /></textarea>
+</Field>

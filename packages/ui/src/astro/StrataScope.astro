@@ -1,0 +1,16 @@
+---
+/** StrataScope: a `<div>` subtree with its own depth, theme, density, size, level, material, tokens or colours. */
+import { resolveStrataScope, type ScopeOverrides } from "../dom/theme.ts";
+import type { StrataTheme } from "../tokens/theme.ts";
+
+interface Props extends ScopeOverrides {
+  base?: StrataTheme;
+  [attribute: string]: unknown;
+}
+
+const { depth, theme, density, size, level, material, colour, tokens, base, ...rest } = Astro.props;
+const resolved = resolveStrataScope({ depth, theme, density, size, level, material, colour, tokens }, base);
+if (resolved.issues.length) console.error(`Strata scope: ${resolved.issues.map(({ path, message }) => `${path}: ${message}`).join("; ")}`);
+const style = [...resolved.properties].map(([name, value]) => `${name}: ${value}`).join("; ") || undefined;
+---
+<div {...Object.fromEntries(resolved.attributes)} style={style} {...rest}><slot /></div>

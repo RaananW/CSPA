@@ -10,63 +10,21 @@
  */
 import { test, expect } from "../helpers/current-browser.mjs";
 import AxeBuilder from "@axe-core/playwright";
-import { readFileSync } from "node:fs";
+import { canonicalScript, expectContracts } from "../helpers/strata-contract.mjs";
 
-const page_ = name => readFileSync(new URL(`../../docs/ui-library/components/${name}`, import.meta.url), "utf8");
-const snippets = name => [...page_(name).matchAll(/```html\n([\s\S]*?)```/g)].map(match => match[1]);
 const bindings = ["react", "vue"];
 const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
-
-/** Canonical DOM: tag, sorted attributes (class as a sorted set), and children with whitespace-collapsed text. */
-const canonical = () => {
-  window.canonical = root => {
-    const walk = node => {
-      if (node.nodeType === Node.TEXT_NODE) { const text = node.textContent.replace(/\s+/g, " ").trim(); return text || null; }
-      if (node.nodeType !== Node.ELEMENT_NODE) return null;
-      // React sets an option's selection as a property, not the `selected` attribute; selects compare their value.
-      const attrs = [...node.attributes].filter(({ name }) => name !== "selected").map(({ name, value }) => `${name}=${name === "class" ? value.split(/\s+/).filter(Boolean).sort().join(" ") : value}`).sort();
-      const children = [];
-      let text = "";
-      for (const child of node.childNodes) {
-        const value = walk(child);
-        if (value === null) continue;
-        if (typeof value === "string") { text = text ? `${text} ${value}` : value; continue; }
-        if (text) { children.push(text); text = ""; }
-        children.push(value);
-      }
-      if (text) children.push(text);
-      return { tag: node.localName, attrs, children, ...(node.localName === "select" ? { value: node.value } : {}) };
-    };
-    return [...root.childNodes].map(walk).filter(Boolean);
-  };
-};
 
 for (const binding of bindings) test(`Strata ${binding} components render their anatomy markup and behave natively`, async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
-  await page.addInitScript(canonical);
+  await page.addInitScript(canonicalScript);
   await page.goto(`/ui-${binding}.html`);
   await page.waitForFunction(() => window.strataBinding);
   const state = () => page.evaluate(() => ({ clicks: window.strataBinding.clicks, italic: window.strataBinding.italic, email: window.strataBinding.email }));
 
   // Markup contracts.
-  const contracts = { "button.md": snippets("button.md")[0], "icon-button.md": snippets("icon-button.md")[0], "toggle-button.md": snippets("toggle-button.md")[0], "link.md": snippets("link.md")[0], "field.md": snippets("field.md")[0], "text-field.md": snippets("text-field.md")[0], "text-field.md#2": snippets("text-field.md")[1],
-    "text-area.md": snippets("text-area.md")[0], "checkbox.md": snippets("checkbox.md")[0], "radio.md": snippets("radio.md")[0], "switch.md": snippets("switch.md")[0], "select.md": snippets("select.md")[0], "slider.md": snippets("slider.md")[0],
-    "button-group.md": snippets("button-group.md")[0], "divider.md": snippets("divider.md")[0], "badge.md": snippets("badge.md")[0], "spinner.md": snippets("spinner.md")[0], "progress-bar.md": snippets("progress-bar.md")[0], "card.md": snippets("card.md")[0], "panel.md": snippets("panel.md")[0] };
-  for (const [name, html] of Object.entries(contracts)) {
-    const [rendered, expected] = await page.evaluate(([n, h]) => {
-      const template = document.createElement("template");
-      // Parsed into a live container, so a select's value reflects its markup as it would on a page.
-      const host = document.createElement("div");
-      host.hidden = true;
-      host.innerHTML = h;
-      document.body.append(host);
-      const expected = window.canonical(host);
-      host.remove();
-      return [window.canonical(document.querySelector(`[data-contract="${n}"]`)), expected];
-    }, [name, html]);
-    expect(rendered, `${name} matches its markup contract`).toEqual(expected);
-  }
+  await expectContracts(page, expect);
 
   // Button: pointer and keyboard activate once each; type="button" never submits the form.
   const save = page.locator("#save");

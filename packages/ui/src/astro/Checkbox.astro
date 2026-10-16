@@ -1,0 +1,36 @@
+---
+/**
+ * Checkbox (anatomy page `checkbox.md`): a native checkbox in its label row; the slot is the label. `class` and
+ * `style` go on the row, other attributes on the input. `indeterminate` is applied in the browser by `attachStrata`.
+ * `help` and `error` render a Field without a label around it.
+ */
+import Behaviour from "./Behaviour.astro";
+import Field from "./Field.astro";
+import { fieldControl } from "./field.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  id?: string;
+  checked?: boolean;
+  indeterminate?: boolean;
+  help?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+  errorPrefix?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  style?: string;
+  [attribute: string]: unknown;
+}
+
+const { id, checked, indeterminate, help, error, required, disabled, invalid, errorPrefix, size, material, level, class: className, style, ...rest } = Astro.props;
+const field = fieldControl({ id, help, error, required, disabled, invalid }, "checkbox");
+---
+<Field wrap={field.wrap} controlId={field.id} help={help} error={error} errorPrefix={errorPrefix}>
+  <label class={classes("ug-checkbox", className)} style={style} {...strataAttributes({ size, material, level })}><input class="ug-checkbox__input" data-strata-face="well" type="checkbox" checked={checked} data-strata-indeterminate={indeterminate ? "" : undefined} {...field.attrs} {...rest} /><span class="ug-checkbox__mark" data-strata-face="mark" aria-hidden="true"></span><span class="ug-checkbox__label"><slot /></span></label>
+</Field>
+{indeterminate && <Behaviour />}
