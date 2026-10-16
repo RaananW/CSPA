@@ -14,7 +14,7 @@ const entries = ["index", "build", "experimental-worker", "worker-thread"].map(n
 const coreDeclarations = [
   "admission", "affine", "animation", "build", "compiled", "compiler", "composition", "css-animation",
   "device-lifecycle", "effects", "enrollment", "hosts", "index", "module", "motion",
-  "mount-boundary", "native", "publication", "renderer", "ripple", "runtime", "timeline", "viewport",
+  "mount-boundary", "native", "publication", "relief", "renderer", "ripple", "runtime", "timeline", "viewport",
   "experimental-worker", "worker-thread", "worker-protocol",
 ];
 const reactDeclarations = ["build", "experimental-worker", "index", "react", "worker-thread"];
