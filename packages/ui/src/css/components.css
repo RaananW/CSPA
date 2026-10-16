@@ -1080,6 +1080,32 @@
   }
   :where(.ug-app-bar__title) > :where(h1, h2, h3, h4, h5, h6) { margin: 0; font: inherit; }
 
+  /* ---- Tooltip ---- */
+
+  /* A small floating slab in the top layer, placed beside its trigger by the behaviour (`position: fixed`). */
+  :where(.ug-tooltip) {
+    --_h: var(--strata-elevation-overlay);
+    position: fixed;
+    inset: auto;
+    box-sizing: border-box;
+    max-width: min(20rem, calc(100vw - 8px));
+    margin: 0;
+    padding: var(--strata-space-1) var(--strata-space-3);
+    border: 0;
+    border-radius: var(--strata-radius-small);
+    background-color: var(--strata-colour-text);
+    color: var(--strata-colour-panel);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-small);
+    line-height: var(--strata-font-line-height-body);
+    box-shadow: calc(var(--strata-shadow-dx) * var(--_h) * 0.5) calc(var(--strata-shadow-dy) * var(--_h) * 0.5) calc(var(--_h) * 0.9 + 1px) rgb(0 0 0 / min(1, calc(var(--strata-shadow-strength) * 1.56)));
+    overflow: visible;
+    opacity: 1;
+    transition: opacity var(--strata-motion-fast) var(--strata-motion-easing-standard), display var(--strata-motion-fast) allow-discrete, overlay var(--strata-motion-fast) allow-discrete;
+  }
+  :where(.ug-tooltip):not(:popover-open) { opacity: 0; }
+  @starting-style { :where(.ug-tooltip):popover-open { opacity: 0; } }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1259,6 +1285,7 @@
     :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-skeleton) { animation: none; background-image: none; }
+    :where(.ug-tooltip) { transition: none; }
     :where(.ug-progress:indeterminate) {
       animation: none;
       background-image: repeating-linear-gradient(45deg, var(--strata-colour-accent) 0 6px, transparent 6px 12px);
@@ -1296,6 +1323,7 @@
     :where(.ug-accordion__item) { border: 1px solid CanvasText; }
     :where(.ug-list) { border: 1px solid CanvasText; }
     :where(.ug-avatar) { border: 1px solid CanvasText; }
+    :where(.ug-tooltip) { border: 1px solid CanvasText; background-color: Canvas; color: CanvasText; box-shadow: none; }
     :where(.ug-app-bar) { border: 1px solid CanvasText; }
     :where(.ug-pagination__link) { border: 1px solid ButtonBorder; }
     :where(.ug-pagination__link[aria-current="page"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }

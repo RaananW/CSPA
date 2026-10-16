@@ -8,7 +8,7 @@ import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
   Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
-  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar,
+  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip,
 } from "@underglass/ui/vue";
 
 const close = () => h("svg", { viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" }, [h("path", { d: "M4 4l8 8M12 4l-8 8" })]);
@@ -42,6 +42,9 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("message-bar.md", h(MessageBar, { intent: "warning", title: "Storage almost full", onDismiss: () => {} }, {
     default: text("You have used 95% of your space."), actions: () => h(Button, null, { default: text("Upgrade") }),
   })),
+  h("div", { "data-contract": "tooltip.md", id: "tooltip-contract" }, [
+    h(Tooltip, { id: "copy-tip", content: "Copies the address to the clipboard", to: "#tooltip-contract" }, { default: () => h(IconButton, { label: "Copy link" }) }),
+  ]),
   contract("app-bar.md", h(AppBar, { title: "Underglass" }, { start: () => h(IconButton, { label: "Menu" }), end: () => h(Button, null, { default: text("Sign in") }) })),
   contract("toolbar.md", h(Toolbar, { label: "Formatting" }, {
     default: () => [h(ToggleButton, null, { default: text("Bold") }), h(ToggleButton, null, { default: text("Italic") }), h(Divider, { orientation: "vertical" }), h(Button, null, { default: text("Undo") })],
@@ -256,6 +259,7 @@ const App = defineComponent({
               h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
                 h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
+              h("p", { style: { margin: "0" } }, [h(Tooltip, { id: "share-tip", content: "Shares this page with your team" }, { default: () => h(Button, { id: "share" }, { default: text("Share") }) })]),
               h(Toolbar, { label: "Editing", id: "live-toolbar" }, {
                 default: () => [
                   h(Button, { id: "tool-cut" }, { default: text("Cut") }), h(Button, { id: "tool-copy", disabled: true }, { default: text("Copy") }),
