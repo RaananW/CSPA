@@ -71,7 +71,7 @@ const json = theme.toJSON();
 
 ## Rendering model
 
-The Relief look is specified independently of any engine in the
+The Relief and Objects looks are specified independently of any engine in the
 [Strata Rendering Model](../../docs/ui-library/rendering-model.md). This package ships its scene format, a reference
 implementation and its conformance suite:
 
@@ -88,6 +88,11 @@ const colour = shadePoint(scene, () => [0.91, 0.92, 0.94, 1], 100, 60);    // sR
 - **`@underglass/ui/scene.schema.json`:** the scene format as a JSON Schema.
 - **`@underglass/ui/conformance/relief-1.json`:** scenes, sample points and expected colours. A renderer conforms
   when its decoded pixels are within 3 (of 255) on every channel.
+- **`@underglass/ui/conformance/scene-3.json`:** version 3, the Scene level: stage scenes (`format: "strata-stage"`,
+  a lit backdrop and particles, `shadeStage`) and objects reflecting an environment map.
+- **`@underglass/ui/conformance/objects-2.json`:** the same for version 2, the Objects level. Version 2 scenes add a
+  `camera` and may mix objects (`{ object: "key", rect, height, base, taper, travel, material }`, or a dome such as
+  `{ object: "knob", rect, height, base, material, colour, bounds }`) into the back-to-front list.
 
 ## GPU presentation
 

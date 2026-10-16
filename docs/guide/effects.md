@@ -117,6 +117,11 @@ shadows, finishes and focus edges. Strata's GPU presentation builds these scenes
 you; `handle.update(scene)` changes states such as hover and press without
 recompiling.
 
+The `objects` material takes a version 2 scene: the same, plus real 3D objects (keys
+that travel when pressed, wells, bezels, spherical knobs) seen through a perspective
+camera. Their tops stay exactly on the captured labels, and nothing is ever drawn
+outside the control it belongs to, so clicks still land on the real elements.
+
 ## Transition effects on interactive layers
 
 A layer with real controls can carry an effect **while it is in a transition**:

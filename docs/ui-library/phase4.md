@@ -166,6 +166,7 @@ compare on GPU pixels, outset included.
   1:1.
 - **Shadows:** analytic shadows are reused from step 3.
 - This step is the largest. Its design note is [phase4-objects.md](phase4-objects.md).
+- Implemented in core as the `objects` material (steps 4a to 4c); `@underglass/ui/gpu` builds its scenes in 4d.
 
 ### 5. Projective transforms
 

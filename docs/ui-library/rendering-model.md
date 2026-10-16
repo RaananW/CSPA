@@ -1,6 +1,6 @@
 # The Strata Rendering Model
 
-**Version 1 (Relief).** Status: normative. This document defines how Strata looks, independently of any engine,
+**Version 3 (Scene), which includes versions 2 (Objects) and 1 (Relief).** Status: normative. This document defines how Strata looks, independently of any engine,
 shading language or graphics API. Underglass's GPU presentation is one implementation of it; any other renderer that
 passes the [conformance suite](#4-conformance) is another.
 
@@ -35,7 +35,9 @@ edge, the backdrop and ring arcs.
 
 | Field | Meaning | Token source |
 | --- | --- | --- |
-| `format`, `version` | `"strata-scene"`, `1` | |
+| `format`, `version` | `"strata-scene"`, `1`, `2` or `3` (3: an environment map, 2C.4) | |
+| `camera` | Version 2, required there: `{ distance, vanish }`, the camera objects are seen through (2B.1) | `camera.distance`, the stage |
+| `environment` | Version 2: `{ source: "studio", strength }`, default strength 0.6 (2B.7) | |
 | `extent` | `{ width, height }`: the layer's border box | the element |
 | `outset` | `{ top, right, bottom, left }`, default 0: room drawn outside the extent, for shadows only. It never takes hits. | the renderer |
 | `backdrop` | The colour under the layer | `colour.stage` |
@@ -46,7 +48,7 @@ edge, the backdrop and ring arcs.
 | `state` | `{ hoverHeight, pressHeight, hoverLift, pressSink }` | `state.*` |
 | `focus` | `{ colour, width, offset }` | `colour.accent`, `focus.*` |
 | `materials` | Materials by name, as numeric layers (below) | `material.presets.*` |
-| `primitives` | At most 256, **back to front**: a later primitive sits on an earlier one | the DOM (`data-strata-face`) |
+| `primitives` | At most 256, **back to front**: a later primitive sits on an earlier one. In version 2 the list may also hold objects (2B). | the DOM (`data-strata-face`) |
 
 **Materials.** Each material has optional layers. Absent parameters take the defaults shown.
 
@@ -175,10 +177,9 @@ An implementation may take `∇d` analytically, or by central differences with a
 implementation uses differences of exactly 0.5 px.
 
 **Occlusion.** Primitives are visited back to front. On reaching primitive `i`, every term accumulated so far is
-multiplied by `1 − αᵢ`: the bevel light (2.5), the interior offset and finish (2.6), and the arc overlay's colour and
-alpha (2.7). A
-primitive therefore hides the relief of those beneath it. Cast shadows (2.8) and the focus edge (2.10) are not
-occluded.
+multiplied by `1 − αᵢ`: the bevel light (2.5), the interior offset and finish (2.6), the arc overlay's colour and
+alpha (2.7), and the cast shadow (2.8). A primitive therefore hides the relief, and the shadows, of those beneath it;
+its own shadow is added after. The focus edge (2.10) is not occluded.
 
 ### 2.5 Bevel light
 
@@ -330,6 +331,242 @@ over that. Over `B`, this gives the same result.
 
 **The outset.** It holds no captured content (`a = 0`), so only shadows and focus edges appear there.
 
+## 2B. Objects (version 2)
+
+Version 2 adds the Objects level: each control's canonical object from [design language section 6](design-language.md#6-objects),
+seen through the stage's perspective camera. Objects are **entries of the same back-to-front list** as relief
+primitives, so a key on a slab, or a knob in a well, occludes what lies beneath it exactly as a primitive does (2.4).
+Everything in part 2 still applies: an object adds a normal, coverage and a cast height where a primitive has its
+profile and band.
+
+### 2B.1 Camera, objects and the environment
+
+**Camera.** `camera.distance` is `D`; `camera.vanish` is the vanishing point `V`, the stage's centre in layer-local
+px. A point at height `z` drawn at `q` appears on the screen at `V + (q − V) · D / (D − z)`.
+
+**Screen-locking.** A point at height `z` is *screen-locked* when it is placed at `V + (p − V) · (D − z) / D`, so
+that it appears exactly at `p`. Solids are built screen-locked (design language section 6): their caps carry the
+captured content, texel for pixel.
+
+**Objects.**
+
+| Field | Meaning |
+| --- | --- |
+| `object` | **Solids:** `key`, `slab`, `bezel`, `well`, `rail`, `mark`. **Domes:** `knob`, `puck`. |
+| `rect` | The base: the native control's border box |
+| `radius` | A solid's corner radius, clamped to half the shorter side. A dome's footprint is always fully round. |
+| `height` | Height above `base`; for a `well`, its depth below it |
+| `base` | The height of the surface it stands on, default 0 (a key on a slab stands at the slab's height) |
+| `taper` | A solid's inset of its cap from its base |
+| `width` | A bezel's ring width (required for a bezel) |
+| `travel` | How far a key's or mark's cap sinks when pressed, default 0 |
+| `material` | A key of `materials` |
+| `colour` | A dome's own colour (required for domes): domes carry no captured content |
+| `finish` | Finish zones on a solid's cap |
+| `bounds` | The native control's border box, which must contain every drawn pixel; default `rect` |
+| `state` | As for primitives |
+
+**Environment.** `environment.source` is `studio` (the only source in the format); `environment.strength` is in 0–1,
+default 0.6.
+
+### 2B.2 Derived values per object
+
+- **Heights.** `z0 = base`. A well's cap (its floor) is at `z1 = z0 − height`; every other solid's cap is at
+  `z1 = z0 + height − travel · pressed` (travel only for keys and marks, at most `height`). A dome's apex is at
+  `z1 = z0 + height`.
+- **Lit:** an object is lit unless it is disabled or its material is emissive.
+- **Band** `b`, for the guard (2.9): the taper for a lit solid, `min(hw, hh)` for a lit dome, and 0 otherwise.
+- **Cast height** `h`, for objects with `z1 > z0` that are not disabled:
+
+  ```text
+  h = (z1 − z0) · (1 + (hoverHeight − 1)·hover) · (1 − (1 − pressHeight)·pressed)
+  ```
+
+  For keys and marks the last factor is 1: their travel already lowers `z1`. A well casts nothing.
+
+### 2B.3 Footprints
+
+- A solid's footprint is its rounded box (2.2) with radius `r`. A **bezel**'s is the ring of width `w` just inside it:
+  `d = | d_box + w/2 | − w/2`.
+- A dome's footprint is its rect's inscribed pill (a box with radius `min(hw, hh)`).
+- **Coverage** of a solid is `α = 1 − smoothstep(−0.5, 0.5, d)`, as for primitives. A dome's coverage is its
+  silhouette's (2B.5).
+
+### 2B.4 Solids
+
+A solid's base outline and its cap are both screen-locked. On the screen, a point `p` inside the footprint is then:
+
+- on the **cap** where `d ≤ −taper`. The cap is flat, so it takes the interior terms of 2.6 (the state and gloss offset,
+  and finish zones when `finish` is set), and the captured content at `p`;
+- on a **side** where `−taper < d ≤ 0`. Each side projects into the band between the cap and the base outline, so a
+  solid never draws outside its base.
+
+**Side normal.** With `g` the outward direction of the footprint's distance field (2.4):
+
+```text
+B  = p − d · g                                  (the base point across the band)
+T  = B − taper · g                              (the cap point)
+P0 = V + (B − V) · (D − z0) / D                 (both, screen-locked)
+P1 = V + (T − V) · (D − z1) / D
+Δ  = P1 − P0
+n  = normalize((z1 − z0) · g,  −g · Δ)
+```
+
+The side facing the vanishing point is steeper than the side facing away. That asymmetry, and the sides' change
+with travel, are what perspective adds to Relief's symmetric bevel.
+
+**Light.** Where `−taper < d` (inside the band, or within the half pixel outside it that coverage weighs), a lit side
+adds the bevel light of 2.5 with this `n`, plus the environment term (2B.7), times `α`.
+
+### 2B.5 Domes
+
+A dome is the upper half of an ellipsoid with semi-axes `hw`, `hh` and `z1 − z0`, centred on `(cx, cy, z0)`. It is not
+screen-locked, so it is ray-cast. The ray through the screen point `p` meets height `z` at `p − u · z`, with
+`u = (p − V) / D`. On the ellipsoid that gives a quadratic `a·z² + b·z + c = 0`, with `e = p − (cx, cy)`,
+`s = (1/hw², 1/hh², 1/(z1 − z0)²)`:
+
+```text
+a = u.x²·s.x + u.y²·s.y + s.z
+b = −2·(e.x·u.x·s.x + e.y·u.y·s.y) − 2·z0·s.z
+c = e.x²·s.x + e.y²·s.y + z0²·s.z − 1
+```
+
+- **Hit:** the higher root `z = (−b + √(b² − 4ac)) / 2a`, valid when `z ≥ z0`. The normal is
+  `normalize((e.x − u.x·z)·s.x, (e.y − u.y·z)·s.y, (z − z0)·s.z)`.
+- **Coverage:** the smallest normalised radius the ray reaches is `ρ = √max(c − b²/4a + 1, 0)`. The silhouette's
+  signed distance is `(ρ − 1) · min(hw, hh)`, and coverage is `1 − smoothstep(−0.5, 0.5, …)` of it, or 0 without a
+  valid hit.
+- **Colour:** a dome paints its `colour` over the captured content as the surface the light falls on. Domes
+  accumulate into one surface overlay, back to front and occluded like arcs (2.7): `U = U·(1 − α) + colour·α`,
+  `σ = σ + α·(1 − σ)`.
+- **Light:** a lit dome adds the bevel light (2.5) with its normal, plus the environment term, times its coverage.
+
+### 2B.6 Hit safety
+
+Objects never take hits, so the native control's box must contain every pixel an object draws.
+
+- **Solids** draw only inside their base (2B.4). The **taper rule** keeps their sides facing the viewer: at the base
+  corner farthest from `V`, at distance `R`,
+
+  ```text
+  taper · (D − max(z0, z1)) ≥ |z1 − z0| · R
+  ```
+
+- **Domes** must project inside `bounds`: the eight corners of the dome's bounding box (its rect at `z0` and at
+  `z1`), projected, lie within it.
+- **The resting geometry is checked** (no state), so a state change never moves an object across the rule.
+
+An object that breaks its rule is drawn at the **Relief level**: a key, slab, rail or mark as a `raised` primitive (a
+mark as a `mark`), a well as a `well`, a dome as a `knob` that keeps its colour on its footprint, and a bezel not at
+all (the field's own well remains). It keeps its place in the back-to-front list. A renderer reports such objects.
+
+### 2B.7 The environment
+
+The studio environment is a brightness for a reflected direction: a dark floor rising to a bright ceiling. With the
+viewer straight ahead, a normal `n` reflects towards `r.z = 2·n.z² − 1`:
+
+```text
+studio(z) = mix(0.18, 0.92, smoothstep(−0.35, 0.65, z))
+env       = strength · (studio(r.z) − studio(1)) · mix(0.04, 1, metallic) · (1 − roughness)
+```
+
+Like the bevel's Lambert term, it is relative to a flat face: a cap or a dome's apex gets none, so caps keep the
+interior budget of 2.9. Steep metal sides reflect the darker horizon.
+
+### 2B.8 Compositing
+
+Domes change the content before light. With the captured `(c, a)` and the surface overlay `(U, σ)`:
+
+```text
+a' = a · (1 − σ) + σ
+c' = (c · a · (1 − σ) + U) / a'
+```
+
+Then 2.11 applies to `(c', a')` unchanged. The guard (2.9) protects caps exactly as it protects face interiors.
+
+## 2C. Scene (version 3)
+
+Version 3 adds the Scene level (design language section 16): decorative 3D around the UI. It takes no hits and
+carries no content, so none of its parts is guarded. Its motion is not part of the model: a scene is one moment, and
+whatever moves particles from frame to frame (Strata's physics) produces a new scene each frame.
+
+### 2C.1 Stage scenes
+
+A **stage scene** describes one decorative layer that covers the stage. It is a separate format,
+`"strata-stage"`, version 3, validated by `validateStageScene`:
+
+| Field | Meaning |
+| --- | --- |
+| `format`, `version` | `"strata-stage"`, `3` |
+| `extent` | `{ width, height }`: the stage, in CSS px |
+| `light` | `{ azimuth, elevation }`: the application's one light (2.1) |
+| `camera` | `{ distance, vanish }`: as in 2B.1, the vanishing point in stage px |
+| `backdrop` | Optional: `{ colour, pool, vignette, tint?, tintStrength? }` (2C.2). Without it the layer is transparent but for its particles. |
+| `particles` | At most 256 (2C.3) |
+
+### 2C.2 Backdrop
+
+The stage as a lit surface. With `R` the stage's half-diagonal, `L` the light (2.1) and `C` the stage's centre:
+
+```text
+P        = C + (L.x, L.y) · R / 2                         (the pool's centre, towards the light)
+pool     = backdrop.pool · (1 − smoothstep(0, R · (0.6 + 0.4 · L.z), ‖p − P‖))
+vignette = backdrop.vignette · smoothstep(0.45 · R, 1.1 · R, ‖p − C‖)
+base     = mix(colour, tint, tintStrength)                (tint defaults to colour, tintStrength to 0)
+out      = clamp(base · (1 + 0.25 · pool − 0.35 · vignette), 0, 1),   opaque
+```
+
+### 2C.3 Particles
+
+Each particle is a small card or disc in 3D:
+
+| Field | Meaning |
+| --- | --- |
+| `shape` | `card` (a rounded rectangle, radius a quarter of its shorter half side) or `disc` (an ellipse) |
+| `position` | `[x, y, z]`: its centre, `z` its height above the stage |
+| `size` | `[width, height]` |
+| `rotation` | Turn about the viewer's axis, degrees clockwise, default 0 |
+| `tilt` | `[tx, ty]`: its face tilted about its own x axis, then its own y axis, degrees, default `[0, 0]` |
+| `colour`, `opacity` | Its own colour, and 0–1 (default 1) |
+| `roughness`, `metallic` | Default 0.6 and 0 |
+
+- **Frame.** The card's axes `u`, `v` and normal `n` are `(1,0,0)`, `(0,1,0)`, `(0,0,1)` rotated about x by
+  `tx`, then about y by `ty`, then about z by `rotation`.
+- **Where it is seen.** The camera ray through the screen point `p` meets the card's plane at `X`. The card-local
+  point is `((X − position) · u, (X − position) · v)`. The particle's signed distance there (its rounded box or
+  ellipse, in card px) is scaled to screen px by `D / (D − z)`. Coverage is `(1 − smoothstep(−0.5, 0.5, …)) ·
+  opacity`.
+- **Light.** Two-sided: `n` is flipped when it faces away from the viewer. With `H` the half vector (2.1):
+
+  ```text
+  diffuse  = min(0.55 + 0.45 · max(n · L, 0) / L.z, 1.6)      (1 for a card facing the viewer)
+  specular = max(n · H, 0)^mix(160, 6, roughness) · (1 − roughness) · mix(0.35, 1, metallic)
+  colour   = clamp(colour · diffuse + specular, 0, 1)
+  ```
+
+- **Order.** Particles are drawn farthest first: by ascending `z`, then in list order.
+
+### 2C.4 Environment maps
+
+A version 3 object scene may set `environment` to `{ source: "map", strength, grid }`: brightness in a
+32 × 16 equirectangular grid, row by row from the zenith, column 0 at the top of the screen, each value 0–4 (1 matches
+the studio's ceiling). For a unit direction `r`:
+
+```text
+u = atan2(r.x, −r.y) / 2π + 0.5          (wraps)
+v = acos(r.z) / π
+map(r) = the grid sampled bilinearly between cell centres at (u · 32 − 0.5, v · 16 − 0.5), rows clamped
+env    = strength · (map(r) − map(0, 0, 1)) · mix(0.04, 1, metallic) · (1 − roughness)
+```
+
+with `r` the reflected direction of 2B.7. It replaces the studio term; like it, a face towards the viewer gets none.
+Loading and downsampling an image into the grid is not part of the model.
+
+### 2C.5 Compositing
+
+A stage scene's colour at a point starts as its backdrop (opaque) or as nothing, and each particle in order goes over
+it with straight-alpha "over". Conformance renders stage scenes over white.
+
 ## 3. The reference implementation
 
 `@underglass/ui/tokens` exports the model as plain TypeScript, with no GPU and no DOM
@@ -344,14 +581,22 @@ the oracle: written to be read next to this document, not to be fast. Its commen
 | `sceneSettings(tokens, { depth, theme })` | A scene's settings from a token source |
 | `validateScene(scene)` | Format checks, matching the JSON Schema |
 | `lightVector`, `profileAngle`, `roundedBoxDistance`, `drawnArea` | The model's building blocks |
+| `resolveObject`, `objectDistance`, `sideNormal`, `domeHit`, `objectDrawable`, `reliefEquivalent`, `environmentTerm` | The Objects part (2B), in [`objects.ts`](../../packages/ui/src/tokens/objects.ts) |
+| `shadeStage`, `backdropColour`, `particleAt`, `particleOrder`, `environmentSample`, `validateStageScene` | The Scene part (2C), in [`stage.ts`](../../packages/ui/src/tokens/stage.ts) |
 
 **Where the standard and the reference implementation disagree:** the standard is authoritative. Fix the
 implementation, regenerate the suite, and record the change in the [change log](#change-log).
 
 ## 4. Conformance
 
-The suite is [`relief-1.json`](../../packages/ui/conformance/relief-1.json), exported as
-`@underglass/ui/conformance/relief-1.json`.
+There are two suites, exported from `@underglass/ui/conformance/`:
+
+- [`relief-1.json`](../../packages/ui/conformance/relief-1.json): version 1, Relief.
+- [`objects-2.json`](../../packages/ui/conformance/objects-2.json): version 2, Objects. A renderer conforms to version
+  2 when it passes both suites.
+- [`scene-3.json`](../../packages/ui/conformance/scene-3.json): version 3, Scene: backdrops, particles and an
+  environment map. A renderer conforms to version 3 when it passes all three. Stage scenes have no capture and are
+  rendered over white.
 
 **What a case holds:**
 
@@ -373,6 +618,16 @@ The cases cover:
 - another light direction;
 - each bevel profile;
 - the dark theme.
+
+The Objects suite covers:
+
+- keys on a slab at rest, hovered, pressed and disabled, seen from one side;
+- a slab's cap, sides and shadow;
+- a well with a dome knob standing on its floor;
+- a bezel around a field, with guarded text;
+- a metal rail with a puck;
+- objects drawn as their Relief equivalents;
+- the environment on metal and matte sides.
 
 **What it means to conform.** A renderer conforms to version 1 when, for every case, it does the following:
 
@@ -407,14 +662,29 @@ renderer anti-aliases the capture.
 ## 5. Scope and versions
 
 - **Version 1 covers the Relief level:** faces, bevels, wells, finishes, shadows, focus and states.
-- **The Objects and Scene levels** get their own parts in a later version. Their data (object kinds, proportions,
-  travel) is already engine-neutral in the design language.
+- **Version 2 adds the Objects level** (part 2B): solids and domes, the camera, the studio environment and hit
+  safety. A version 1 scene, or a version 2 scene with no objects, shades the same under both.
+- **Version 3 adds the Scene level** (part 2C): stage scenes with a backdrop and particles, and environment maps.
+- **Reserved:** `light.intensity`, `light.ambient` and `light.colour` (one white light, as in version 1), the inner
+  shadow of wells, and particle shadows.
 - **Reserved in version 1:** the `sheen`, `iridescence` and `transmission` layers, `coat.ior`, the depth of sunk faces
   (their inner shadow), and glyph-shaped marks. A check mark is presented as captured, with no primitive.
 - **Versioning:** a change that alters any expected colour is a new version of the model, with a new suite file. A
   renderer states which versions it conforms to.
 
 ## Change log
+
+- 2026-10-16: version 3 (Scene): part 2C, stage scenes (`strata-stage`) with a lit backdrop and particles,
+  environment maps for objects, the reference implementation in `stage.ts`, and the `scene-3.json` suite. The
+  [Phase 5 design](phase5.md) explains the choices.
+
+- 2026-10-16: version 2 (Objects): part 2B, the camera and environment in the scene format, the reference
+  implementation in `objects.ts`, and the `objects-2.json` suite. Two decisions from the
+  [Objects design](phase4-objects.md) are refined:
+  - **One list:** objects are entries of the same back-to-front list as primitives, so a key on a slab, a knob in a
+    well and a field's bezel over its well occlude in document order with the relief primitives around them.
+  - **Cast shadows are occluded** (2.4), so a rail's shadow no longer falls on the puck standing above it. No
+    expected colour of version 1 changes.
 
 - 2026-10-16: writing core's GPU implementation settled three details. None changes an expected colour in the suite
   except the sample positions:

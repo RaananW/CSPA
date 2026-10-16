@@ -13,8 +13,8 @@ import type { MountBoundaryOptions } from "./mount-boundary.js";
 import { DeclarationOwnership, prepareAnimation, rejectImportantPresentation, type AnimationPlayback } from "./animation.js";
 import { validateCSSSource, type CSSAnimationSource } from "./css-animation.js";
 import { decorative, interactive, validateRipple, type Ripple } from "./ripple.js";
-import type { ReliefScene } from "./relief.js";
-import { effectNumber, validateEffects, validateMaterial, type EffectDescriptor, type EffectHandle, type EffectResult, type MaterialDescriptor, type MaterialHandle } from "./effects.js";
+import { reliefDegraded, type ReliefScene } from "./relief.js";
+import { effectNumber, isSceneMaterial, validateEffects, validateMaterial, type EffectDescriptor, type EffectHandle, type EffectResult, type MaterialDescriptor, type MaterialHandle } from "./effects.js";
 import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion.js";
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
 import { nativeEditingControl, nativeScrollKind } from "./native.js";
@@ -1645,7 +1645,7 @@ export class CanvasRuntime {
     if (state.initializing || state.transitioning || state.resources.pendingEngines || (state.resources.pendingCleanups && state.mode !== "gpu") || state.resources.probeReadbacks) throw new Error("Materials require idle DOM or admitted GPU without pending lifecycle work");
     // A definition the layer's current pass was not built with gets a new pass, compiled as a successor while
     // the previous frame keeps presenting.
-    const rebuild = state.mode === "gpu" && !this.renderer().acceptsMaterial(id, value.kind === "relief" ? "relief" : value.definition);
+    const rebuild = state.mode === "gpu" && !this.renderer().acceptsMaterial(id, isSceneMaterial(value) ? "relief" : value.definition);
     let active = true;
     let resolve!: (result: EffectResult) => void;
     const finished = new Promise<EffectResult>(done => { resolve = done; });
@@ -1666,7 +1666,7 @@ export class CanvasRuntime {
       update: change => {
         this.assertLive();
         if (!active || this.materials.get(id) !== entry) throw new Error("Material handle is no longer active");
-        entry.value = validateMaterial(entry.value.kind === "relief"
+        entry.value = validateMaterial(isSceneMaterial(entry.value)
           ? { ...entry.value, scene: change as ReliefScene }
           : { ...entry.value, parameters: change as Record<string, number> });
         this.requestDraw();
@@ -1729,8 +1729,9 @@ export class CanvasRuntime {
         return { id, interaction: effect.values[0]!.interaction, amplitude: ripple?.parameters.amplitude ?? 0, seconds: ripple?.time.seconds ?? effect.values[0]!.time.seconds, playing: ripple?.time.playing ?? false,
           effects: effect.values.map(value => ({ kind: value.kind, parameters: { ...value.parameters }, time: { ...value.time } })) };
       }),
-      materials: [...this.materials].map(([id, { value }]) => value.kind === "relief"
-        ? { id, kind: value.kind, primitives: value.scene.primitives.length, interior: { ...value.scene.interior } }
+      materials: [...this.materials].map(([id, { value }]) => isSceneMaterial(value)
+        ? { id, kind: value.kind, primitives: value.scene.primitives.length, interior: { ...value.scene.interior },
+          ...(value.kind === "objects" ? { degraded: reliefDegraded(value.scene) } : {}) }
         : { id, kind: value.kind, name: value.definition.name, parameters: { ...value.parameters }, interior: { ...value.interior } }),
       // Fixed values, not measured from live state.
       effectBudget: { passes: 1, operationsPerLayer: 3, extraTextures: 0, uniformBytesPerLayer: 160, gpuTimestampMs: null },

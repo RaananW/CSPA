@@ -49,7 +49,8 @@ test("the validator reports each kind of broken scene at its path", () => {
     const paths = validateScene(scene).map(issue => issue.path);
     assert.ok(paths.includes(path), `${path} in ${JSON.stringify(paths)}`);
   };
-  broken(scene => { scene.version = 2; }, "version");
+  broken(scene => { scene.version = 4; }, "version");
+  broken(scene => { scene.camera = { distance: 1600, vanish: [0, 0] }; }, "camera");
   broken(scene => { scene.surprise = true; }, "surprise");
   broken(scene => { scene.extent.depth = 1; }, "extent.depth");
   broken(scene => { scene.backdrop = "white"; }, "backdrop");

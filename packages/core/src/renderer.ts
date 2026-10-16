@@ -29,7 +29,7 @@ import { layerBlend, layerShader, layerUniforms, passShaders, type PassShaders }
 import { RELIEF_VEC4S, reliefUniforms } from "./relief.js";
 import { createAdmissionProbe, verifyFrameBounds, verifyProbeGeometry, verifyProbePixels, verifyProjectiveHits, type FrameBounds } from "./admission.js";
 import type { Ripple } from "./ripple.js";
-import type { ApplicationEffect, EffectDescriptor, MaterialDescriptor } from "./effects.js";
+import { isSceneMaterial, type ApplicationEffect, type EffectDescriptor, type MaterialDescriptor } from "./effects.js";
 import type { CompiledMotion, CompiledProgramSet } from "./compiled.js";
 
 /**
@@ -232,7 +232,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   function customOf(layer: EnrolledLayer) {
     const material = layer.material?.();
     return passShaders(layer.effects?.().find(value => value.kind === "custom")?.definition,
-      material?.kind === "relief" ? "relief" : material?.definition);
+      isSceneMaterial(material) ? "relief" : material?.definition);
   }
   // Written to a relief pass whose layer no longer has a relief material, until the pass is rebuilt.
   const noRelief = new Float32Array(RELIEF_VEC4S * 4);
@@ -309,7 +309,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       const block = layerUniforms(layer, size.dpr, size, shift, shade, pass.custom, !!options.compiled);
       if (pass.custom?.relief) {
         const material = layer.material?.();
-        setEffectUniforms(pass.effect, { 2: block, 3: material?.kind === "relief" ? reliefUniforms(material.scene) : noRelief });
+        setEffectUniforms(pass.effect, { 2: block, 3: isSceneMaterial(material) ? reliefUniforms(material.scene) : noRelief });
       } else setEffectUniforms(pass.effect, block);
     });
   }

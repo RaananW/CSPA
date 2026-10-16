@@ -25,6 +25,6 @@ export type { CSSAnimationSource } from "./css-animation.js";
 export type { CompiledAnimation, CompiledProgramSet } from "./compiled.js";
 export type { Ripple } from "./ripple.js";
 export { defineEffect } from "./effects.js";
-export type { ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult, MaterialDescriptor, MaterialHandle, CustomMaterial, ReliefMaterial } from "./effects.js";
-export type { ReliefScene, ReliefPrimitive, ReliefMaterial as ReliefSceneMaterial } from "./relief.js";
+export type { ApplicationEffect, ParameterRange, EffectDescriptor, EffectTime, EffectHandle, EffectResult, MaterialDescriptor, MaterialHandle, CustomMaterial, ReliefMaterial, ObjectsMaterial } from "./effects.js";
+export type { ReliefScene, ReliefPrimitive, ReliefObject, ReliefMaterial as ReliefSceneMaterial } from "./relief.js";
 export type { MotionKeyframe, MotionTiming, MotionDescriptor, MotionHandle, TransitionHandle, TransitionResult, CoordinatedMotion } from "./motion.js";
