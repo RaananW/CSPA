@@ -4,10 +4,10 @@
  *
  * - `dist/css/tokens.css`: the token custom properties (`strata.tokens` layer).
  * - `dist/css/components.css`: the Tier A components (`strata.components` layer).
- * - `dist/css/strata.css`: both, with the layer order declared first.
+ * - `dist/css/strata.css`: both; the token stylesheet declares the layer order first.
  */
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { strataTokens, tokensToCss, validateTokens } from "../src/tokens/index.ts";
+import { layerOrder, strataTokens, tokensToCss, validateTokens } from "../src/tokens/index.ts";
 
 const issues = validateTokens(strataTokens);
 if (issues.length) {
@@ -16,10 +16,11 @@ if (issues.length) {
 }
 const dist = new URL("../dist/", import.meta.url);
 const tokens = tokensToCss(strataTokens);
-const components = await readFile(new URL("../src/css/components.css", import.meta.url), "utf8");
+// Every stylesheet declares the layer order first, so the layers rank the same whichever one loads first.
+const components = `${layerOrder}\n\n${await readFile(new URL("../src/css/components.css", import.meta.url), "utf8")}`;
 await mkdir(new URL("css/", dist), { recursive: true });
 await writeFile(new URL("css/tokens.css", dist), tokens);
 await writeFile(new URL("css/components.css", dist), components);
-await writeFile(new URL("css/strata.css", dist), `@layer strata.tokens, strata.components;\n\n${tokens}\n${components}`);
+await writeFile(new URL("css/strata.css", dist), `${tokens}\n${components}`);
 await writeFile(new URL("tokens.json", dist), `${JSON.stringify(strataTokens, null, 2)}\n`);
 console.log("strata tokens: valid; wrote dist/css/strata.css, tokens.css, components.css and dist/tokens.json");

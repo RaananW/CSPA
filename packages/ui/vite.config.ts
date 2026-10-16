@@ -11,7 +11,7 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    lib: { entry: { tokens: `${import.meta.dirname}/src/tokens/index.ts` }, formats: ["es"], fileName: (_format, name) => `${name}/index.js` },
+    lib: { entry: { tokens: `${import.meta.dirname}/src/tokens/index.ts`, dom: `${import.meta.dirname}/src/dom/index.ts` }, formats: ["es"], fileName: (_format, name) => `${name}/index.js` },
     sourcemap: false,
   },
 });

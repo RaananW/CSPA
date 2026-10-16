@@ -3,11 +3,11 @@
  * W3C Design Tokens JSON (also exported as `@underglass/ui/tokens.json`); the stylesheet generated from it is
  * `@underglass/ui/css/tokens.css`.
  */
-import source from "./strata.tokens.json" with { type: "json" };
+import { strataSource } from "./source.ts";
 import type { TokenGroup } from "./model.ts";
 
 /** The Strata token source (W3C Design Tokens format). */
-export const strataTokens: TokenGroup = source as TokenGroup;
+export const strataTokens: TokenGroup = strataSource;
 
 export { blend, flatten, namespace, numeric, resolve, themesOf, valueOf } from "./model.ts";
 export type { ResolveOptions, ThemeInfo, Token, TokenGroup, TokenMeta, TokenNode, TokenValue } from "./model.ts";
@@ -15,6 +15,9 @@ export { contrast, luminance, nearBlack, onColour, parseHex, scale, textColour, 
 export type { Rgb } from "./contrast.ts";
 export { validateTokens } from "./validate.ts";
 export type { Issue } from "./validate.ts";
-export { cssVariable, tokensToCss } from "./css.ts";
+export { cssVariable, layerOrder, literal as tokenCssValue, tokensToCss } from "./css.ts";
+export type { TokensCssOptions } from "./css.ts";
 export { finish, finishGradient, finishRecipes } from "./finish.ts";
 export type { FinishRecipe } from "./finish.ts";
+export { StrataThemeError, createStrataTheme, loadStrataTheme, themeTokenPaths } from "./theme.ts";
+export type { CreateThemeOptions, StrataTheme, StrataThemeInput, ThemedColour } from "./theme.ts";
