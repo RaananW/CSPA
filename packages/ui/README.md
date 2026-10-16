@@ -413,3 +413,12 @@ same with and without script; `attachStrata` does it for plain HTML and Astro.
 ```
 
 [Anatomy](../../docs/ui-library/components/toolbar.md).
+
+## AppBar
+
+`AppBar` is the application's top bar: a `<header>` (the banner landmark at the top level) on a raised slab, with
+`start` and `end` controls and a `title` between them that truncates. [Anatomy](../../docs/ui-library/components/app-bar.md).
+
+```tsx
+<AppBar title="Underglass" start={<IconButton label="Menu" icon={<MenuIcon />} />} end={<Button>Sign in</Button>} />
+```

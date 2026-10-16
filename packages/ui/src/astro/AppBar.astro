@@ -1,0 +1,23 @@
+---
+/**
+ * AppBar (anatomy page `app-bar.md`): the application's top bar, a `<header>` on a raised slab with optional `start`
+ * and `end` slots and a title between them.
+ */
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  title: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { title, size, material, level, class: className, ...rest } = Astro.props;
+---
+<header class={classes("ug-app-bar", className)} data-strata-face="raised" {...strataAttributes({ size, material, level })} {...rest}>
+  {Astro.slots.has("start") && <div class="ug-app-bar__start"><slot name="start" /></div>}
+  <span class="ug-app-bar__title">{title}</span>
+  {Astro.slots.has("end") && <div class="ug-app-bar__end"><slot name="end" /></div>}
+</header>

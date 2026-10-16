@@ -19,6 +19,7 @@ export { Skeleton } from "./skeleton.ts";
 export { MessageBar } from "./message-bar.ts";
 export { Pagination } from "./pagination.ts";
 export { Toolbar } from "./toolbar.ts";
+export { AppBar } from "./app-bar.ts";
 export type { MessageIntent } from "../shared/message.ts";
 export { Breadcrumb } from "./breadcrumb.ts";
 export type { BreadcrumbItem } from "./breadcrumb.ts";

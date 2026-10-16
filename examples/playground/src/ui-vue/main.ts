@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar,
 } from "@underglass/ui/vue";
 
@@ -42,6 +42,7 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("message-bar.md", h(MessageBar, { intent: "warning", title: "Storage almost full", onDismiss: () => {} }, {
     default: text("You have used 95% of your space."), actions: () => h(Button, null, { default: text("Upgrade") }),
   })),
+  contract("app-bar.md", h(AppBar, { title: "Underglass" }, { start: () => h(IconButton, { label: "Menu" }), end: () => h(Button, null, { default: text("Sign in") }) })),
   contract("toolbar.md", h(Toolbar, { label: "Formatting" }, {
     default: () => [h(ToggleButton, null, { default: text("Bold") }), h(ToggleButton, null, { default: text("Italic") }), h(Divider, { orientation: "vertical" }), h(Button, null, { default: text("Undo") })],
   })),
@@ -104,7 +105,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
-    const page = ref(1);
+    const page = ref(1), appBar = ref(0);
     const messages = reactive({ upgrades: 0, dismissed: false });
     const chips = reactive({ remote: false, removed: [] as string[] });
     const sort = ref<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -126,6 +127,7 @@ const App = defineComponent({
         get rows() { return { ...toRaw(rows) }; },
         get sort() { return sort.value; },
         get page() { return page.value; },
+        get appBar() { return appBar.value; },
         setPage: (value: number) => { page.value = value; },
         get messages() { return { ...toRaw(messages) }; },
         get chips() { return { remote: chips.remote, removed: [...chips.removed] }; },
@@ -138,6 +140,10 @@ const App = defineComponent({
       return h(StrataProvider, { theme: accent.value ? { colour: { accent: accent.value } } : undefined }, {
         default: () => [
           Contracts(),
+          h(AppBar, { id: "live-app-bar", style: { margin: "24px 24px 0" }, title: "Strata check" }, {
+            start: () => h(IconButton, { id: "app-menu", label: "Menu" }, { default: close }),
+            end: () => h(Button, { id: "app-sign-in", onClick: () => { appBar.value++; } }, { default: text("Sign in") }),
+          }),
           h("main", { style: { display: "grid", gap: "24px", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", padding: "24px" } }, [
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Buttons" }, [
               h("form", { onSubmit: (event: Event) => { event.preventDefault(); clicks.submit++; }, style: { display: "flex", flexWrap: "wrap", gap: "12px" } }, [

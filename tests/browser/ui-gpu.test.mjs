@@ -703,3 +703,16 @@ for (const level of ["relief", "objects"]) test(`a Toolbar on the GPU at the ${l
   expect((await primitiveOf(page, "#gpu-tool-italic")).state.pressed).toBe(true);
   expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
 });
+
+for (const level of ["relief", "objects"]) test(`an AppBar on the GPU at the ${level} level is a raised slab with its control's key on it, GPU on`, async ({ page }) => {
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addAppBar(); await window.strataGpuProbe.controller.settle(); });
+  const bar = await primitiveOf(page, "#gpu-app-bar"), button = await primitiveOf(page, "#gpu-sign-in");
+  expect(bar.object ?? bar.face).toBe(level === "objects" ? "slab" : "raised");
+  expect(button.object ?? button.face).toBe(level === "objects" ? "key" : "raised");
+  if (level === "objects") expect(button.base).toBeGreaterThan(bar.base ?? 0);
+  const box = await page.locator("#gpu-sign-in").boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  expect(await page.evaluate(() => window.strataGpuProbe.signIns())).toBe(1);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+});

@@ -1051,6 +1051,35 @@
   :where(.ug-pagination__link--previous, .ug-pagination__link--next):dir(rtl)::before { scale: -1 1; }
   :where(.ug-pagination__ellipsis) { display: inline-flex; align-items: center; min-width: var(--strata-target-min); justify-content: center; color: var(--strata-colour-muted); }
 
+  /* ---- AppBar ---- */
+
+  /* The application's top bar: a raised slab with controls at its ends and the title between them. */
+  :where(.ug-app-bar) {
+    --_finish: var(--strata-finish-role-control);
+    display: flex;
+    align-items: center;
+    gap: var(--strata-space-3);
+    box-sizing: border-box;
+    min-height: calc(var(--strata-control-height) + var(--strata-control-offset) + 2 * var(--strata-space-3));
+    padding: var(--strata-space-3) var(--strata-space-4);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+  }
+  :where(.ug-app-bar__start, .ug-app-bar__end) { display: flex; flex: none; align-items: center; gap: var(--strata-space-2); }
+  :where(.ug-app-bar__title) {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--strata-font-size-subtitle);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: var(--strata-font-line-height-heading);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  :where(.ug-app-bar__title) > :where(h1, h2, h3, h4, h5, h6) { margin: 0; font: inherit; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1267,6 +1296,7 @@
     :where(.ug-accordion__item) { border: 1px solid CanvasText; }
     :where(.ug-list) { border: 1px solid CanvasText; }
     :where(.ug-avatar) { border: 1px solid CanvasText; }
+    :where(.ug-app-bar) { border: 1px solid CanvasText; }
     :where(.ug-pagination__link) { border: 1px solid ButtonBorder; }
     :where(.ug-pagination__link[aria-current="page"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-message-bar) { border: 1px solid CanvasText; border-inline-start: 4px solid CanvasText; }
