@@ -109,8 +109,9 @@ exactly its parameters, and `interior: { max }` within 0..0.1.
   layer-local CSS px. The pass gets a second uniform binding (binding 3, about 25 KB) holding the scene, with each
   primitive's derived values computed on the CPU. `handle.update(scene)` replaces the scene (states, rectangles,
   primitives added or removed) without recompiling. Its decoded GPU pixels pass the model's conformance suite
-  (`tests/browser/relief.test.mjs`). Face interiors are guarded as section 2.9 of the model defines; the layer's
-  own box bounds the drawing until the shadow outset lands.
+  (`tests/browser/relief.test.mjs`). Face interiors are guarded as section 2.9 of the model defines. The scene's
+  `outset` (at most 128 px per side) grows the drawn rectangle for shadows only, on every side the layer's clip does
+  not cut; native hits keep the layer's border box, so the outset never takes a hit.
 - One pass may hold a custom effect and a custom material; a new definition is
   compiled as a successor while the previous frame keeps presenting.
 - Replacement resolves the previous handle as `replaced`. The material survives
