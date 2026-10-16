@@ -175,3 +175,26 @@ test("the Strata specimen honours reduced motion, keyboard input and narrow view
   await page.screenshot({ path: `${directory}/specimen-320.png`, fullPage: true });
   await context.close();
 });
+
+test("Strata component sizes scale indicators, switches and controls, and keep 24 px targets", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto("/ui-specimen.html");
+  const expected = { small: [16, 30, 28], medium: [20, 36, 34], large: [24, 44, 40] };
+  for (const [size, [indicator, switchWidth, control]] of Object.entries(expected)) {
+    const scope = page.locator(`[data-strata-size="${size}"]`).first();
+    const box = async selector => scope.locator(selector).first().boundingBox();
+    const checkbox = await box(".ug-checkbox__input"), radio = await box(".ug-radio__input"), track = await box(".ug-switch__input"), button = await box(".ug-button");
+    expect([checkbox.width, checkbox.height, radio.width], `${size}: checkbox and radio`).toEqual([indicator, indicator, indicator]);
+    expect([track.width, track.height], `${size}: switch`).toEqual([switchWidth, indicator]);
+    expect(button.height, `${size}: button height`).toBe(control);
+    // The label row is the target: at least 24 px high at every size.
+    for (const row of [".ug-checkbox", ".ug-radio", ".ug-switch"]) expect((await box(row)).height, `${size}: ${row} row`).toBeGreaterThanOrEqual(24);
+    // Clicking the label toggles the control.
+    const label = scope.locator(".ug-checkbox__label").first(), input = scope.locator(".ug-checkbox__input").first();
+    const before = await input.isChecked();
+    await label.click();
+    expect(await input.isChecked()).toBe(!before);
+  }
+  await context.close();
+});

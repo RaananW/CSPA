@@ -421,6 +421,16 @@ and `state.pressSink`.
 
 - **Layering:** panels are the GPU layer unit, so pages should use a few large panels, not one
   panel per control (layer budget 32–64; 256 relief primitives per panel, P0.3).
+- **Component size:** independent of density, `data-strata-size` (`small`, `medium` by default, or `large`) on a
+  component or a scope sizes its controls:
+
+  | Token | Small | Medium | Large | Used by |
+  | --- | --- | --- | --- | --- |
+  | `size.indicator` | 16 | 20 | 24 | Checkbox and radio box, switch track height |
+  | `size.switchWidth` | 30 | 36 | 44 | Switch track width |
+  | `size.control` | −6 | 0 | +6 | Added to the density's control height (buttons, fields, selects) |
+  | `size.font` | `font.size.small` | `font.size.body` | `font.size.subtitle` | Control text |
+
 - **Invariant, target size:** every interactive target is at least 24 by 24 CSS px, whatever the
   density. Links inside a sentence are exempt, as in WCAG 2.5.8; a checkbox, radio or switch meets it
   through its label row.
@@ -624,3 +634,4 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-16: review of the specimen: lower relief (`shadow.strength` 0.24 at 50%, panels at 8), a switch knob
   that keeps its colour (ringed in `on-accent` when on), a tinted face for toggle buttons that are on, and a 2 px
   `edge` outline on raised faces in the high-contrast themes (`outline.width`).
+- 2026-10-16: component sizes (`size.*`, `data-strata-size`, section 13); checkbox, radio and switch default to 20 px.
