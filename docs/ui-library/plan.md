@@ -3,7 +3,7 @@
 **Status:** accepted plan (2026-10-15). Phases 0 to 5 are implemented (2026-10-16): the design language and tokens,
 Tier A components with Dialog and Drawer, and the GPU presentation at the Relief, Objects and Scene levels with the
 adjust policy ([Phase 4](phase4.md), [Objects](phase4-objects.md), [Phase 5](phase5.md)). Tier B is under way (Dialog, Drawer,
-[Tabs](components/tabs.md), [Accordion](components/accordion.md), [List](components/list.md) and [Table](components/table.md) are done); the rest of Tier B, Tier C and the showcase gallery remain. Later phases may refine it through their own PRs.
+[Tabs](components/tabs.md), [Accordion](components/accordion.md), [List](components/list.md), [Table](components/table.md) and [Breadcrumb](components/breadcrumb.md) are done); the rest of Tier B, Tier C and the showcase gallery remain. Later phases may refine it through their own PRs.
 
 **Names:** the design language is **Strata**; the package is `@underglass/ui`.
 

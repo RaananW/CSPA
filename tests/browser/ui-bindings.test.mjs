@@ -7,7 +7,7 @@
  * - real pointer and keyboard input on every control, with Field state, refs and attribute passthrough;
  * - roles, names and values of the surfaces and status components; Tabs follow their value and take the arrow keys;
  *   Accordion sections report and follow their open state; List rows are links, buttons or static;
- *   Table headers sort the rows;
+ *   Table headers sort the rows; a Breadcrumb is a named landmark of links;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -442,5 +442,26 @@ for (const binding of bindings) test(`Strata ${binding} Table sorts its rows fro
   expect(await controlled.locator("tbody tr td:first-child").allTextContents()).toEqual(["1003", "1001", "1002"]);
   await page.evaluate(() => window.strataBinding.setSort({ key: "number", direction: "descending" }));
   await expect(controlled.locator("th").first()).toHaveAttribute("aria-sort", "descending");
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Breadcrumb is a named landmark of links, the last one the current page`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const nav = page.locator("#live-breadcrumb");
+  await expect(nav).toHaveRole("navigation");
+  await expect(nav).toHaveAccessibleName("Breadcrumb");
+  await expect(nav.getByRole("listitem")).toHaveCount(3);
+  await expect(nav.getByRole("link")).toHaveText(["Home", "Reports", "Latency"]);
+  await expect(nav.getByRole("link", { name: "Latency" })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: "Reports" })).not.toHaveAttribute("aria-current");
+  // The separators are drawn by CSS and are not read: the accessibility tree has only the links.
+  expect(await nav.ariaSnapshot()).not.toMatch(/- text:/);
+  // Each link is at least the target size, and a click follows it.
+  expect((await nav.getByRole("link", { name: "Home" }).boundingBox()).height).toBeGreaterThanOrEqual(24);
+  await nav.getByRole("link", { name: "Reports" }).click();
+  await expect(page).toHaveURL(/#reports$/);
   await context.close();
 });
