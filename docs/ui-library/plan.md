@@ -1,7 +1,9 @@
 # Plan: a 3D UI component library with its own design language
 
-**Status:** accepted plan (2026-10-15). Nothing here is implemented yet and nothing
-here changes current behaviour. Later phases may refine it through their own PRs.
+**Status:** accepted plan (2026-10-15). Phases 0 to 5 are implemented (2026-10-16): the design language and tokens,
+Tier A components with Dialog and Drawer, and the GPU presentation at the Relief, Objects and Scene levels with the
+adjust policy ([Phase 4](phase4.md), [Objects](phase4-objects.md), [Phase 5](phase5.md)). Tiers B and C (except Dialog
+and Drawer) and the showcase gallery remain. Later phases may refine it through their own PRs.
 
 **Names:** the design language is **Strata**; the package is `@underglass/ui`.
 

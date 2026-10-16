@@ -325,3 +325,95 @@ test("without the adjust policy, slow frames change nothing", async ({ page }) =
   const state = await page.evaluate(() => { window.strataGpuProbe.load(0); return { events: window.strataGpuProbe.adjustments(), cap: window.strataGpuProbe.cap(), kind: window.strataGpuProbe.controller.state().materials[0].kind }; });
   expect(state).toEqual({ events: [], cap: "scene", kind: "objects" });
 });
+
+/** A small equirectangular Radiance file: a bright upper half and a dim lower half, flat RGBE. */
+function hdr(width = 32, height = 16) {
+  const header = Buffer.from(`#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y ${height} +X ${width}\n`, "latin1");
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+    // Mantissa 128 with exponent 129 is 1.0; 128 with 127 is 0.25.
+    pixels.set([128, 128, 128, y < height / 2 ? 129 : 127], (y * width + x) * 4);
+  }
+  return Buffer.concat([header, pixels]);
+}
+
+test("at the Scene level a lit backdrop sits behind the panels and confetti bursts over them, decorative and with GPU on", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, "?level=scene");
+  await page.waitForFunction(() => window.strataGpuProbe.controller.state().materials.some(material => material.kind === "stage"));
+  const initial = await page.evaluate(() => {
+    const probe = window.strataGpuProbe, state = probe.controller.state(), backdrop = probe.root().firstElementChild;
+    return { mode: state.mode, layers: state.layers.map(layer => layer.id), materials: state.materials.map(material => `${material.id}:${material.kind}`),
+      backdrop: { id: backdrop.id, inert: backdrop.inert, hidden: backdrop.getAttribute("aria-hidden"), width: backdrop.offsetWidth } };
+  });
+  expect(initial.mode).toBe("gpu");
+  // The backdrop is the first layer, behind the panel; the panel is at the Objects level, which the Scene level includes.
+  expect(initial.layers).toEqual(["strata-backdrop", "gpu-panel"]);
+  expect(initial.materials).toEqual(["gpu-panel:objects", "strata-backdrop:stage"]);
+  expect(initial.backdrop).toEqual({ id: "strata-backdrop", inert: true, hidden: "true", width: 760 });
+  // The backdrop's vignette darkens the stage's corner.
+  const lit = await snap(page, "scene-backdrop");
+  expect(luma(lit(4, 516))).toBeLessThan(235);
+
+  // A burst from Save: a particle layer in front of the panel, moved every frame by scene updates.
+  await page.evaluate(() => { window.bursting = window.strataGpuProbe.burst({ seed: 7, count: 60 }); });
+  await page.waitForFunction(() => window.strataGpuProbe.controller.state().materials.some(material => material.id === "strata-particles" && material.particles > 0));
+  const during = await page.evaluate(() => { const state = window.strataGpuProbe.controller.state();
+    return { mode: state.mode, layers: state.layers.map(layer => layer.id), particles: state.materials.find(material => material.id === "strata-particles").particles }; });
+  expect(during.mode).toBe("gpu");
+  expect(during.layers).toEqual(["strata-backdrop", "gpu-panel", "strata-particles"]);
+  expect(during.particles).toBeGreaterThan(0);
+  // Decorative: a real click through the particles still reaches Save.
+  const save = await page.locator("#gpu-save").boundingBox();
+  await page.mouse.click(save.x + save.width / 2, save.y + save.height / 2);
+  expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
+  // When the last particle has gone, the layer is let go and removed, and the burst resolves.
+  await page.evaluate(() => window.bursting);
+  const after = await page.evaluate(() => ({ mode: window.strataGpuProbe.controller.state().mode, layers: window.strataGpuProbe.controller.state().layers.map(layer => layer.id),
+    element: !!document.getElementById("strata-particles") }));
+  expect(after).toEqual({ mode: "gpu", layers: ["strata-backdrop", "gpu-panel"], element: false });
+
+  // Below the Scene level (here the root set to Objects) the backdrop goes, and bursts draw nothing.
+  await page.evaluate(async () => { window.strataGpuProbe.root().setAttribute("data-strata-level", "objects"); window.strataGpuProbe.refresh(); await window.strataGpuProbe.controller.settle(); });
+  const objects = await page.evaluate(async () => { await window.strataGpuProbe.burst(); const state = window.strataGpuProbe.controller.state();
+    return { mode: state.mode, layers: state.layers.map(layer => layer.id), backdrop: !!document.getElementById("strata-backdrop") }; });
+  expect(objects).toEqual({ mode: "gpu", layers: ["gpu-panel"], backdrop: false });
+  expect(errors).toEqual([]);
+});
+
+test("under reduced motion the Scene level keeps its backdrop and bursts nothing", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await ready(page, "?level=scene");
+  await page.waitForFunction(() => window.strataGpuProbe.controller.state().materials.some(material => material.kind === "stage"));
+  const result = await page.evaluate(async () => { await window.strataGpuProbe.burst(); const state = window.strataGpuProbe.controller.state();
+    return { mode: state.mode, layers: state.layers.map(layer => layer.id) }; });
+  expect(result).toEqual({ mode: "gpu", layers: ["strata-backdrop", "gpu-panel"] });
+});
+
+test("an environment map loaded from an .hdr lights the objects as a version 3 scene", async ({ page }) => {
+  await page.route(url => url.pathname === "/test-environment.hdr", route => route.fulfill({ status: 200, contentType: "application/octet-stream", body: hdr() }));
+  await ready(page, "?level=objects&environment=/test-environment.hdr");
+  await page.waitForFunction(() => window.strataGpuProbe.scene()?.version === 3);
+  const scene = await page.evaluate(() => { const probe = window.strataGpuProbe, scene = probe.scene();
+    return { mode: probe.controller.state().mode, kind: probe.controller.state().materials[0].kind, source: scene.environment.source,
+      cells: scene.environment.grid.length, top: scene.environment.grid[0], bottom: scene.environment.grid[511] }; });
+  // Normalized so the upper quarter averages 1: the bright half is 1, the dim half a quarter of it.
+  expect(scene).toEqual({ mode: "gpu", kind: "objects", source: "map", cells: 512, top: 1, bottom: 0.25 });
+});
+
+test("at the Scene level a panel entering settles with a spring: it overshoots its depth and comes to rest", async ({ page }) => {
+  await ready(page, "?level=scene");
+  await page.evaluate(() => window.strataGpuProbe.leave());
+  const scales = await page.evaluate(async () => {
+    const probe = window.strataGpuProbe, seen = [];
+    const entering = probe.enter({ tilt: 10 });
+    while (seen.length < 200) { await new Promise(requestAnimationFrame); seen.push(probe.controller.state().layers.find(layer => layer.id === "gpu-panel").transform.scaleX); if (seen.at(-1) === 1 && seen.length > 5) break; }
+    await entering;
+    return { min: Math.min(...seen), last: probe.controller.state().layers.find(layer => layer.id === "gpu-panel").transform, mode: probe.controller.state().mode };
+  });
+  // From the modal depth (a scale over 1), past rest (under 1), back to 1.
+  expect(scales.min).toBeLessThan(1);
+  expect(scales.last).toMatchObject({ scaleX: 1, scaleY: 1, opacity: 1 });
+  expect(scales.mode).toBe("gpu");
+});

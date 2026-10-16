@@ -168,6 +168,8 @@
    * viewport, and stack in document order: a GPU layer carries no z-index.
    */
   :where([data-strata-stage]) > :is(.ug-scrim, .ug-dialog, .ug-drawer) { position: absolute; z-index: auto; }
+  /* The Scene level's decorative layers (backdrop, particles), added by the GPU helper: the stage's size, no input. */
+  :where([data-strata-stage]) > .ug-stage-layer { position: absolute; inset: 0; pointer-events: none; }
   :where([data-strata-stage]) > .ug-dialog { width: min(32rem, calc(100% - 2 * var(--strata-space-5))); max-height: calc(100% - 2 * var(--strata-space-5)); }
   :where([data-strata-stage]) > :is(.ug-drawer--start, .ug-drawer--end) { width: min(24rem, calc(100% - 2 * var(--strata-space-5))); }
   :where([data-strata-stage]) > :is(.ug-drawer--top, .ug-drawer--bottom) { max-height: calc(100% - 2 * var(--strata-space-5)); }

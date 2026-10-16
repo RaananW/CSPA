@@ -83,6 +83,18 @@ A new version of the [Rendering Model](rendering-model.md) adds a **Scene** part
   (now 1702 vec4s, about 27 KB, with the map after the primitives) and pass, so nothing else changes. Their decoded
   GPU pixels pass `scene-3.json`: 17 of 18 samples exact, 1 within 1/255.
 
+- **5c, done:** the Scene level in `@underglass/ui/gpu`.
+  - **Backdrop:** at the Scene level the helper adds a decorative layer as the root's first child (inert,
+    `aria-hidden`, enrolled with `decorative: true`) with a stage scene of the backdrop; it is removed below the level.
+  - **Particles:** `strata.burst(origin, options)` (and `strataBurst(element)`) adds a particle layer as the root's
+    last child and moves seeded confetti with a fixed-step integrator (gravity, drag, spin and tumble, a damped bounce
+    on the stage's floor), one scene update per frame; the layer is let go and removed when the last particle has gone.
+    Reduced motion draws nothing.
+  - **Settling:** a panel entering at the Scene level follows a damped spring (24 keyframes) through depth and tilt.
+  - **Environment:** `environment: url` loads an `.hdr` (flat or run-length encoded), downsamples it to the 32 × 16
+    grid normalized so its upper quarter averages 1, and lights every object scene with it (version 3).
+  - **Adjust policy:** its cap applies to the stage too, so stepping down from `scene` removes the backdrop and particles.
+
 ## Order of work
 
 1. **5a:** this note and the Scene part of the Rendering Model, its reference and `scene-3.json` (docs and

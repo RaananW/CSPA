@@ -557,7 +557,8 @@ Each depth token has three anchors, at 0%, 50% and 100% (the A, B and C prototyp
 | `objects` | Opt-in | PBR meshes per section 6, with travel and pose | CSS relief |
 | `scene` | Opt-in | Decorative 3D around the UI: particles, physics, environment light | Nothing (decorative) |
 
-- **Setting the level:** per application, per scope or per component. On the GPU (`@underglass/ui/gpu`) each
+- **Setting the level:** per application, per scope or per component. The Scene level's decorative layers belong to
+  the stage, so they follow the level of the root (the application's, or a scope around the root). On the GPU (`@underglass/ui/gpu`) each
   element takes its own `data-strata-level`, else its nearest scope's, else the application's; a panel with any
   component at the Objects level is drawn with core's `objects` material.
 - **Adjust policy (opt-in):** `adjust: { enabled, frameBudgetMs, stepDownAfterFrames,

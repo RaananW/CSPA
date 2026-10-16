@@ -4,10 +4,12 @@
  * for `tests/browser/ui-gpu.test.mjs`; `?dom` starts in the CSS presentation, `?plain` leaves the panel to the page
  * (no `attachStrataGpu`), `?level=objects` presents the components as objects, and `?adjust=budget,down,up,window` turns
  * the adjust policy on (frame budget in ms, then frame counts); `strataGpuProbe.load(ms)` makes each frame that slow.
+ * `?level=scene` adds the Scene level (`strataGpuProbe.burst()` bursts confetti from Save), and `?environment=url` lights
+ * objects with an `.hdr` environment.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
-import { attachStrataGpu, type StrataAdjustEvent, type StrataGpu } from "@underglass/ui/gpu";
+import { attachStrataGpu, type BurstOptions, type StrataAdjustEvent, type StrataGpu } from "@underglass/ui/gpu";
 import { showStrataDialog, strataEnter, strataLeave, type DialogHandle, type PanelMotionOptions } from "@underglass/ui/dom";
 
 const markup = `
@@ -91,11 +93,11 @@ const controller: CanvasController = mountApplicationModule({
   panel.querySelector("#gpu-save")!.addEventListener("click", () => { saves++; panel.querySelector("#gpu-count")!.textContent = `Saved ${saves} times`; });
   return () => container.replaceChildren();
 } });
-const level = params.get("level") === "objects" ? "objects" : undefined;
+const level = params.get("level") === "objects" || params.get("level") === "scene" ? params.get("level") as "objects" | "scene" : undefined;
 const adjusting = params.get("adjust")?.split(",").map(Number);
 const adjustments: StrataAdjustEvent[] = [];
 const adjust = adjusting ? { enabled: true, frameBudgetMs: adjusting[0], stepDownAfterFrames: adjusting[1], stepUpAfterFrames: adjusting[2], window: adjusting[3] } : undefined;
-strata = params.has("plain") ? undefined : attachStrataGpu(controller, { level, adjust, onAdjust: event => adjustments.push(event) });
+strata = params.has("plain") ? undefined : attachStrataGpu(controller, { level, adjust, onAdjust: event => adjustments.push(event), environment: params.get("environment") ?? undefined });
 // An artificial cost per frame, so tests can drive the adjust policy.
 let load = 0;
 const busy = () => { const until = performance.now() + load; while (performance.now() < until) { /* spin */ } if (load) requestAnimationFrame(busy); };
@@ -112,6 +114,8 @@ window.strataGpuProbe = {
   refresh: () => strata?.refresh(),
   detach: () => { strata?.detach(); strata = undefined; },
   cap: () => strata?.cap(), adjustments: () => [...adjustments],
+  burst: options => strata?.burst(panel.querySelector("#gpu-save")!, options) ?? Promise.resolve(),
+  root: () => root,
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes],
@@ -122,6 +126,7 @@ declare global {
     controller: CanvasController; panel(): HTMLElement; saves(): number;
     scene(): ReturnType<StrataGpu["scene"]>; refresh(): void; detach(): void;
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
+    burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
     dialog(): HTMLElement | undefined; closes(): string[];
   } }
