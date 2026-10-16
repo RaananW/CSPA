@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Badge, Button, ButtonGroup, Card, Checkbox, Divider, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
+  Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
   Spinner, StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/vue";
 
@@ -15,6 +15,10 @@ const close = () => h("svg", { viewBox: "0 0 16 16", fill: "none", stroke: "curr
 const text = (value: string) => () => value;
 const option = (value: string, label: string, extra: Record<string, unknown> = {}) => h("option", { value, ...extra }, label);
 const contract = (name: string, children: VNode | VNode[]) => h("div", { "data-contract": name }, children);
+
+// A Dialog and a Drawer render only while open, so the test opens them (`window.strataOverlays`) to compare.
+const overlays = ref(false);
+Object.assign(window, { strataOverlays: (open: boolean) => { overlays.value = open; } });
 
 /** Each anatomy page's markup example, rendered by the binding. */
 const Contracts = () => h("div", { id: "contracts", hidden: true }, [
@@ -41,11 +45,23 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("progress-bar.md", [h("label", { for: "upload" }, "Upload"), h(ProgressBar, { id: "upload", value: 40, max: 100 })]),
   contract("card.md", h(Card, { title: "Latency", titleId: "card-1-title" }, { default: text("…"), footer: () => [] })),
   contract("panel.md", h(Panel, { title: "Settings", titleId: "settings-title" })),
+  contract("dialog.md", h(Dialog, { open: overlays.value, container: '[data-contract="dialog.md"]', title: "Discard changes?", titleId: "discard-title", description: "Your edits will be lost.", descriptionId: "discard-description" }, {
+    actions: () => h(Button, { "data-strata-close": "" }, { default: text("Keep editing") }),
+  })),
+  contract("drawer.md", h(Drawer, { open: overlays.value, container: '[data-contract="drawer.md"]', title: "Filters", titleId: "filters-title", description: "Narrow the list.", descriptionId: "filters-description" }, {
+    actions: () => h(Button, { "data-strata-close": "" }, { default: text("Done") }),
+  })),
   contract("slider.md", h(Slider, { min: 0, max: 100, step: 1, defaultValue: 40, "aria-label": "Volume" })),
 ]);
 
+/** What the dialog check reads: the live Dialog's panel (the exposed ref) and the reasons it was asked to close. */
+const strataDialog = { panel: null as HTMLElement | null, reasons: [] as string[] };
+Object.assign(window, { strataDialog });
+
 const App = defineComponent({
   setup() {
+    const liveOpen = ref(false);
+    const liveRef = ref<{ panel: HTMLElement | null } | null>(null);
     const clicks = reactive({ save: 0, blocked: 0, disabled: 0, close: 0, submit: 0 });
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined);
     const choices = reactive({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
@@ -57,6 +73,7 @@ const App = defineComponent({
         get italic() { return italic.value; },
         get email() { return email.value; },
         get choices() { return { ...toRaw(choices) }; },
+        get liveDialog() { return liveRef.value?.panel ?? null; },
         get refs() { return { button: buttonRef.value?.$el ?? null, input: inputRef.value?.input ?? null, wrapped: wrappedRef.value?.input ?? null }; },
         setAccent: (value: string | undefined) => { accent.value = value; },
       },
@@ -132,7 +149,17 @@ const App = defineComponent({
             h(StrataScope, { depth: 0.1, density: "compact", size: "small", id: "scope", "aria-label": "Compact scope", role: "region" }, {
               default: () => h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Scoped" }, [h(Button, { id: "scoped" }, { default: text("Scoped") })]),
             }),
+            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Overlays" }, [
+              h(Button, { id: "open-live", onClick: () => { liveOpen.value = true; } }, { default: text("Open live dialog") }),
+            ]),
           ]),
+          h(Dialog, {
+            ref: liveRef, open: liveOpen.value, title: "Live dialog", description: "Controlled by state.", class: "extra", id: "live-dialog",
+            onClose: (reason: string) => { strataDialog.reasons.push(reason); liveOpen.value = false; },
+          }, {
+            default: () => h(TextField, { "aria-label": "Live field", id: "live-field" }),
+            actions: () => h(Button, { id: "live-done", onClick: () => { liveOpen.value = false; } }, { default: text("Done") }),
+          }),
         ],
       });
     };

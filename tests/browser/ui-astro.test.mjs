@@ -1,7 +1,7 @@
 /**
  * Browser test of the Strata Astro components (`@underglass/ui/astro`): builds the static fixture site
  * (`fixtures/astro-strata`) with Astro, serves its output through request routing, and checks that
- * - each component renders exactly the markup example on its anatomy page;
+ * - each component renders exactly the markup example on its anatomy page (a Dialog and a Drawer closed, with `hidden`);
  * - the page works with JavaScript off: labels, native keyboard on radios, select, slider, checkbox and switch, roles,
  *   names, values and Field descriptions;
  * - with JavaScript, `attachStrata` toggles ToggleButton, blocks aria-disabled activation and sets indeterminate;
@@ -12,7 +12,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalScript, expectContracts } from "../helpers/strata-contract.mjs";
+import { canonicalScript, expectClosedOverlayContracts, expectContracts } from "../helpers/strata-contract.mjs";
 
 const root = fileURLToPath(new URL("../../fixtures/astro-strata/", import.meta.url));
 const dist = new URL("../../fixtures/astro-strata/dist/", import.meta.url);
@@ -45,6 +45,8 @@ async function open(browser, options = {}) {
 test("Strata Astro components render their anatomy markup and work without JavaScript", async ({ browser }) => {
   const { context, page } = await open(browser, { javaScriptEnabled: false });
   await expectContracts(page, expect);
+  // A Dialog and a Drawer render closed, with `hidden`.
+  await expectClosedOverlayContracts(page, expect);
   const main = page.locator("main");
 
   // Fields: label, required suffix, description and error, all server-rendered.
