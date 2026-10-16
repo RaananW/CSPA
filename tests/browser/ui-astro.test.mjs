@@ -122,6 +122,17 @@ test("Strata Astro components get their browser behaviour from attachStrata and 
   await page.keyboard.press("Space");
   await expect(bold).toHaveAttribute("aria-pressed", "false");
   expect(await changes.jsonValue()).toEqual([true, false]);
+  // A filter chip toggles like a ToggleButton; a chip's remove button reports strata-remove from the chip.
+  const remote = page.locator("#remote-chip");
+  await remote.click();
+  await expect(remote).toHaveAttribute("aria-pressed", "true");
+  await remote.focus();
+  await page.keyboard.press("Space");
+  await expect(remote).toHaveAttribute("aria-pressed", "false");
+  expect(await changes.jsonValue()).toEqual([true, false, true, false]);
+  const removed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-remove", event => list.push(event.target.id)); return list; });
+  await page.getByRole("button", { name: "Remove ada@example.com" }).click();
+  expect(await removed.jsonValue()).toEqual(["ada-chip"]);
   // aria-disabled: focusable, and no click reaches the page's listeners or submits the form.
   const blocked = page.locator("#blocked");
   await page.evaluate(() => {

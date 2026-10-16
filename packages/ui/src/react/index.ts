@@ -23,6 +23,8 @@ export type { SelectProps, SliderProps } from "./Select.tsx";
 export { TextArea } from "./TextArea.tsx";
 export type { TextAreaProps } from "./TextArea.tsx";
 export { Avatar } from "./Avatar.tsx";
+export { Chip } from "./Chip.tsx";
+export type { ChipProps } from "./Chip.tsx";
 export type { AvatarProps } from "./Avatar.tsx";
 export { Breadcrumb } from "./Breadcrumb.tsx";
 export type { BreadcrumbItem, BreadcrumbProps } from "./Breadcrumb.tsx";
