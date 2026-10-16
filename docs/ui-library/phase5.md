@@ -76,6 +76,13 @@ A new version of the [Rendering Model](rendering-model.md) adds a **Scene** part
 | 3 | **Environment maps.** | A brightness grid in the scene (version 3 of the format), loaded and downsampled by Strata. Core never fetches. | Core loads `.hdr` and `.env` URLs. Fewer steps for apps, but network access and decoding in core. |
 | 4 | **Who owns the decorative layers.** | The GPU helper creates, enrolls and removes them. Apps only set the level. | Apps render a backdrop and a particle element. More control, more ways to break the decorative contract. |
 
+## Progress
+
+- **5a, done:** this note, version 3 of the Rendering Model (part 2C), `stage.ts` and `scene-3.json`.
+- **5b, done:** core's `stage` material and environment maps in the `objects` material. Both share the relief binding
+  (now 1702 vec4s, about 27 KB, with the map after the primitives) and pass, so nothing else changes. Their decoded
+  GPU pixels pass `scene-3.json`: 17 of 18 samples exact, 1 within 1/255.
+
 ## Order of work
 
 1. **5a:** this note and the Scene part of the Rendering Model, its reference and `scene-3.json` (docs and

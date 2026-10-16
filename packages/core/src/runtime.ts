@@ -14,6 +14,7 @@ import { DeclarationOwnership, prepareAnimation, rejectImportantPresentation, ty
 import { validateCSSSource, type CSSAnimationSource } from "./css-animation.js";
 import { decorative, interactive, validateRipple, type Ripple } from "./ripple.js";
 import { reliefDegraded, type ReliefScene } from "./relief.js";
+import type { StageScene } from "./stage.js";
 import { effectNumber, isSceneMaterial, validateEffects, validateMaterial, type EffectDescriptor, type EffectHandle, type EffectResult, type MaterialDescriptor, type MaterialHandle } from "./effects.js";
 import { compileMotion, type CoordinatedMotion, type MotionDescriptor, type MotionHandle, type TransitionHandle, type TransitionResult } from "./motion.js";
 import { EnrollmentError, type EnrollmentOptions } from "./enrollment.js";
@@ -1667,7 +1668,7 @@ export class CanvasRuntime {
         this.assertLive();
         if (!active || this.materials.get(id) !== entry) throw new Error("Material handle is no longer active");
         entry.value = validateMaterial(isSceneMaterial(entry.value)
-          ? { ...entry.value, scene: change as ReliefScene }
+          ? { ...entry.value, scene: change as ReliefScene & StageScene }
           : { ...entry.value, parameters: change as Record<string, number> });
         this.requestDraw();
       },
@@ -1729,7 +1730,9 @@ export class CanvasRuntime {
         return { id, interaction: effect.values[0]!.interaction, amplitude: ripple?.parameters.amplitude ?? 0, seconds: ripple?.time.seconds ?? effect.values[0]!.time.seconds, playing: ripple?.time.playing ?? false,
           effects: effect.values.map(value => ({ kind: value.kind, parameters: { ...value.parameters }, time: { ...value.time } })) };
       }),
-      materials: [...this.materials].map(([id, { value }]) => isSceneMaterial(value)
+      materials: [...this.materials].map(([id, { value }]) => value.kind === "stage"
+        ? { id, kind: value.kind, particles: value.scene.particles.length, backdrop: value.scene.backdrop !== undefined }
+        : isSceneMaterial(value)
         ? { id, kind: value.kind, primitives: value.scene.primitives.length, interior: { ...value.scene.interior },
           ...(value.kind === "objects" ? { degraded: reliefDegraded(value.scene) } : {}) }
         : { id, kind: value.kind, name: value.definition.name, parameters: { ...value.parameters }, interior: { ...value.interior } }),

@@ -5,12 +5,12 @@
  * the case's scene becomes the layer's material. Only `@underglass/core` is used: the scene format is the contract.
  * `window.conformanceProbe` is the test hook.
  */
-import { compileStyle, mountApplicationModule, type CanvasController, type MaterialHandle, type ReliefScene } from "@underglass/core";
+import { compileStyle, mountApplicationModule, type CanvasController, type MaterialHandle, type ReliefScene, type StageScene } from "@underglass/core";
 
 /** Where the layer's top-left corner sits in the frame, in CSS px. */
 const ORIGIN = { x: 40, y: 40 };
 interface CapturePaint { rect: [number, number, number, number]; radius?: number; colour: string }
-interface ConformanceCase { name: string; scene: ReliefScene; capture: CapturePaint[] }
+interface ConformanceCase { name: string; scene: ReliefScene | StageScene; capture: CapturePaint[] }
 
 const host = (id: string) => document.getElementById(id)!;
 let release: (() => void) | undefined;
@@ -25,9 +25,13 @@ const controller: CanvasController = mountApplicationModule({
   return () => { release?.(); container.replaceChildren(); };
 } });
 
-/** Replaces the shown case: paints its capture as a new layer, enrolls it and gives it the case's scene. */
+/**
+ * Replaces the shown case: paints its capture as a new layer, enrolls it and gives it the case's scene. A stage scene
+ * (version 3, `strata-stage`) has no capture: its layer is an empty decorative element with the `stage` material.
+ */
 async function show(entry: ConformanceCase) {
-  const kind = entry.scene.version === 2 ? "objects" : "relief";
+  const stage = entry.scene.format === "strata-stage";
+  const kind = stage ? "stage" : entry.scene.version === 1 ? "relief" : "objects";
   material?.cancel();
   release?.();
   section?.remove();
@@ -43,10 +47,11 @@ async function show(entry: ConformanceCase) {
     section.append(div);
   }
   root.append(section);
-  release = controller.enroll(section, { id: "case" });
+  if (stage) { section.inert = true; section.setAttribute("aria-hidden", "true"); }
+  release = controller.enroll(section, { id: "case", decorative: stage });
   await controller.settle();
   if (controller.state().mode !== "gpu") await controller.enable();
-  material = controller.setMaterial("case", { kind, scene: entry.scene, bounds: "layer", interaction: "material", media: "identity", fallback: "static" });
+  material = controller.setMaterial("case", { kind, scene: entry.scene as never, bounds: "layer", interaction: "material", media: "identity", fallback: "static" });
   await controller.settle();
   const state = controller.state();
   return { mode: state.mode, reason: state.reason, revision: state.registryRevision };
@@ -55,7 +60,7 @@ async function show(entry: ConformanceCase) {
 window.conformanceProbe = {
   origin: ORIGIN,
   show,
-  update: async (scene: ReliefScene) => { material!.update(scene); await controller.settle(); return controller.state().registryRevision; },
+  update: async (scene: ReliefScene | StageScene) => { material!.update(scene); await controller.settle(); return controller.state().registryRevision; },
   state: () => controller.state(),
   settle: () => controller.settle(),
   dispose: () => controller.dispose(),
@@ -66,7 +71,7 @@ declare global {
   interface Window { conformanceProbe: {
     origin: typeof ORIGIN;
     show(entry: ConformanceCase): Promise<{ mode: string; reason: string; revision: number }>;
-    update(scene: ReliefScene): Promise<number>;
+    update(scene: ReliefScene | StageScene): Promise<number>;
     state(): ReturnType<CanvasController["state"]>;
     settle(): Promise<void>;
     dispose(): ReturnType<CanvasController["dispose"]>;
