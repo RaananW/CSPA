@@ -143,7 +143,9 @@ test("panel motion carries a presented panel through depth on the GPU, inert whi
   expect(moving).toMatchObject({ mode: "gpu", inert: true, motion: null, origin: "center" });
   expect(moving.transform.tiltX).toBeGreaterThan(0);
   expect(moving.transform.scaleX).toBeGreaterThan(1);
-  expect(moving.height).toBeGreaterThan(8);
+  // The scene height travels from the panel's own level (8) towards the modal one (24) on the motion's easing.
+  expect(moving.height).toBeGreaterThan(9);
+  expect(moving.height).toBeLessThan(24);
   await page.evaluate(() => window.leaving);
   const left = await page.evaluate(() => {
     const probe = window.strataGpuProbe, state = probe.controller.state();

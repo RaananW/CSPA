@@ -224,7 +224,7 @@ function milliseconds(value: string): number {
 
 /** A CSS `cubic-bezier()` timing function (or `linear`), as progress over time, for the scene height during motion. */
 function bezier(value: string): (t: number) => number {
-  const match = value.match(/cubic-bezier(([^)]+))/);
+  const match = value.match(/cubic-bezier\(([^)]+)\)/);
   const [x1, y1, x2, y2] = match ? match[1]!.split(",").map(Number) as [number, number, number, number] : [0, 0, 1, 1];
   const at = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
   return x => {
