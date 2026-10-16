@@ -22,8 +22,8 @@ A **round well** with a **knob** (the dot) when selected. The well's base is the
 | Well | Circle (`radius.pill`) sunk by `elevation.well` (2) | −`elevation.well` | No |
 | Dot | Sphere of diameter box − 4 · `object.taper` (12 at the default), centred | `elevation.raised` (3) | Rises from the well floor on select, sinks when another radio is chosen |
 
-The input's border box is 24 by 24 px (`target.min`, a fixed rule), so the native control meets the target
-size on its own. The dot is centred and well inside the box.
+The input's border box is `size.indicator` square: 16, 20 (default) or 24 px by `data-strata-size` (section
+13), and the label row is at least `target.min` (24) high and covers the whole row, so the row is the target (WCAG 2.5.8). The dot is half the box. The dot is centred and well inside the box.
 
 The section 6 vocabulary lists "Checkbox, radio: small well with a raised mark". Radio uses the `knob`
 primitive for the dot, as the [README](README.md) index says: a round dot reads as a sphere, not a glyph.
@@ -114,7 +114,7 @@ Two per radio: the `<input>` is a `well` (circle); the dot is a `knob`, drawn fr
 ## 9. CSS presentation
 
 The `well` recipe as a circle, the dot as a sphere shaded from the light, the dot in `accent`. The box is
-24 by 24 and the row at least the density's control height. Legend and options sit on `space.2` gaps.
+`size.indicator` square and the row at least the density's control height. Legend and options sit on `space.2` gaps.
 Under `forced-colors`: `Field` background, a `ButtonBorder` border, the dot in `FieldText`, `GrayText`
 when disabled, a `Highlight` focus outline. The dot's presence shows the state.
 

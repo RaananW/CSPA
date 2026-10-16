@@ -23,6 +23,7 @@ native attributes (`:hover`, `:active`, `:focus-visible`, `:checked`, `:disabled
 | `data-strata-depth` | A scope | Depth for the subtree, 0–1 |
 | `data-strata-theme` | The root or a scope | `light`, `dark`, `contrast` or `contrast-dark`; the root follows the system without it |
 | `data-strata-density` | The root or a scope | `compact`, `comfortable` or `spacious` |
+| `data-strata-size` | A component or a scope | `small`, `medium` (default) or `large`: indicator, switch and control sizes |
 | `data-strata-mode` | The root or a scope | `face`: the GPU paints relief, so CSS paints flat faces (no bevel, shadow or finish) |
 | `data-strata-preview` | A control | `hover`, `active` or `focus`: shows a state statically, for specimens and tests only |
 

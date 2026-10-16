@@ -22,8 +22,8 @@ A **small well** with a **raised mark** when checked. The well's base is the inp
 | Check mark | Check glyph raised in the well, inset `object.taper` from the box edge | `elevation.raised` (3) | Rises from the well floor on check, sinks on uncheck |
 | Indeterminate mark | A horizontal bar, same height and inset | `elevation.raised` | As the check mark |
 
-The input's border box is 24 by 24 px: a fixed rule equal to `target.min`, so the native control meets the
-target size on its own. The well fills the whole box and the mark stays inside the inset, so every drawn pixel
+The input's border box is `size.indicator` square: 16, 20 (default) or 24 px for `data-strata-size` small,
+medium or large (section 13). At large it meets the target size on its own; at every size the label row is at least `target.min` (24) high and covers the whole row, so the row is the target (WCAG 2.5.8). The well fills the whole box and the mark stays inside the inset, so every drawn pixel
 is inside the native element (the footprint rule).
 
 ## 3. Faces and materials
@@ -81,7 +81,7 @@ Two: the `<input>` is a `well` (`radius.small`); the check or bar is a `mark`, s
 </label>
 ```
 
-- The `<input>` is the boundary element (`appearance: none`, 24 by 24). Refs and `checked` reach it.
+- The `<input>` is the boundary element (`appearance: none`, `size.indicator` square). Refs and `checked` reach it.
 - The wrapping `<label>` extends the hit target: the whole row, at least the density's control height tall,
   toggles the input. The mark is `pointer-events: none` and lies over the input.
 - `indeterminate` is set as a property on every render (it has no attribute). A click clears it and toggles
@@ -103,7 +103,7 @@ Two: the `<input>` is a `well` (`radius.small`); the check or bar is a `mark`, s
 ## 9. CSS presentation
 
 The `well` recipe at `radius.small`, with the mark as an inline SVG or masked shape in `accent`. The box
-is 24 by 24 (`target.min`) and the row is at least the density's control height. Under `forced-colors`:
+is `size.indicator` square and the row is at least the density's control height and never under 24. Under `forced-colors`:
 `Field` background, a `ButtonBorder` border, the mark in `FieldText`, `GrayText` when disabled, and a
 `Highlight` focus outline. The mark's shape, not its colour, shows the state, so it survives.
 

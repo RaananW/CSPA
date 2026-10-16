@@ -1381,6 +1381,155 @@
       }
     }
   },
+  "size": {
+    "$description": "Component sizes (section 13): data-strata-size=\"small\", \"medium\" (default) or \"large\" on a component or a scope.",
+    "indicator": {
+      "small": {
+        "$type": "dimension",
+        "$value": "16px",
+        "$description": "Checkbox and radio box, and switch track height, at small.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true,
+            "min": 12,
+            "max": 32
+          }
+        }
+      },
+      "medium": {
+        "$type": "dimension",
+        "$value": "20px",
+        "$description": "Checkbox and radio box, and switch track height, at medium.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true,
+            "min": 12,
+            "max": 32
+          }
+        }
+      },
+      "large": {
+        "$type": "dimension",
+        "$value": "24px",
+        "$description": "Checkbox and radio box, and switch track height, at large.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true,
+            "min": 12,
+            "max": 32
+          }
+        }
+      }
+    },
+    "switchWidth": {
+      "small": {
+        "$type": "dimension",
+        "$value": "30px",
+        "$description": "Switch track width at small.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true,
+            "min": 24,
+            "max": 64
+          }
+        }
+      },
+      "medium": {
+        "$type": "dimension",
+        "$value": "36px",
+        "$description": "Switch track width at medium.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true,
+            "min": 24,
+            "max": 64
+          }
+        }
+      },
+      "large": {
+        "$type": "dimension",
+        "$value": "44px",
+        "$description": "Switch track width at large.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true,
+            "min": 24,
+            "max": 64
+          }
+        }
+      }
+    },
+    "control": {
+      "small": {
+        "$type": "dimension",
+        "$value": "-6px",
+        "$description": "Change to the density's control height at small.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true,
+            "min": -12,
+            "max": 12
+          }
+        }
+      },
+      "medium": {
+        "$type": "dimension",
+        "$value": "0px",
+        "$description": "Change to the density's control height at medium.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true,
+            "min": -12,
+            "max": 12
+          }
+        }
+      },
+      "large": {
+        "$type": "dimension",
+        "$value": "6px",
+        "$description": "Change to the density's control height at large.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true,
+            "min": -12,
+            "max": 12
+          }
+        }
+      }
+    },
+    "font": {
+      "small": {
+        "$type": "dimension",
+        "$value": "{font.size.small}",
+        "$description": "Control text at small.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "medium": {
+        "$type": "dimension",
+        "$value": "{font.size.body}",
+        "$description": "Control text at medium.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      },
+      "large": {
+        "$type": "dimension",
+        "$value": "{font.size.subtitle}",
+        "$description": "Control text at large.",
+        "$extensions": {
+          "dev.underglass.strata": {
+            "scope": true
+          }
+        }
+      }
+    }
+  },
   "motion": {
     "fast": {
       "$type": "duration",

@@ -56,6 +56,22 @@ function blended(token: Token): string {
   return `calc(${number(medium)}${unit} + ${number(medium - subtle)}${unit} * min(${t}, 0) + ${number(bold - medium)}${unit} * max(${t}, 0))`;
 }
 
+/**
+ * The current size's values for each size in the source (`size.<part>.<size>`): `--strata-indicator`,
+ * `--strata-switch-width`, `--strata-control-offset` and `--strata-control-font`.
+ */
+function sizes(tokens: Token[]): [string, string[]][] {
+  const parts: Record<string, string> = { indicator: "indicator", switchWidth: "switch-width", control: "control-offset", font: "control-font" };
+  const bySize = new Map<string, string[]>();
+  for (const token of tokens.filter(token => token.path.startsWith("size."))) {
+    const [, part, size] = token.path.split(".") as [string, string, string];
+    if (!parts[part]) continue;
+    bySize.set(size, [...(bySize.get(size) ?? []), `--strata-${parts[part]}: var(${cssVariable(token.path)});`]);
+  }
+  // The default comes first, so a size set on the root itself overrides it.
+  return [...bySize.entries()].sort(([a], [b]) => Number(b === "medium") - Number(a === "medium"));
+}
+
 const block = (selector: string, lines: string[], indent = "  ") => `${indent}${selector} {\n${lines.map(line => `${indent}  ${line}`).join("\n")}\n${indent}}`;
 
 /** The token stylesheet for `source`. */
@@ -123,6 +139,8 @@ export function tokensToCss(source: TokenGroup): string {
     block("[data-strata-depth]", ["--strata-depth: attr(data-strata-depth type(<number>), 0.5);"], "    "),
     "  }",
     ...Object.entries(densities).map(([density, [height, padding]]) => block(`[data-strata-density="${density}"]`, [`--strata-control-height: ${height}px;`, `--strata-panel-padding: ${padding}px;`])),
+    // Component size (section 13): medium by default; data-strata-size on a component or a scope picks another.
+    ...sizes(tokens).map(([size, lines]) => block(size === "medium" ? `:root, [data-strata-size="medium"]` : `[data-strata-size="${size}"]`, lines)),
     block(`:root, [data-strata-theme="${light}"]`, themeLines(light)),
     ...Object.keys(themes).filter(theme => theme !== light).map(theme => block(`[data-strata-theme="${theme}"]`, themeLines(theme))),
   ];

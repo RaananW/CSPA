@@ -134,7 +134,7 @@
     gap: var(--strata-space-2);
     box-sizing: border-box;
     min-width: var(--strata-target-min);
-    min-height: max(var(--strata-control-height), var(--strata-target-min));
+    min-height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
     margin: 0;
     padding: 0 var(--strata-space-5);
     border: var(--strata-outline-width) solid var(--strata-colour-edge);
@@ -142,7 +142,7 @@
     background-color: var(--strata-colour-secondary);
     color: var(--_text);
     font-family: var(--strata-font-family);
-    font-size: var(--strata-font-size-body);
+    font-size: var(--strata-control-font);
     font-weight: var(--strata-font-weight-strong);
     line-height: 1;
     cursor: pointer;
@@ -161,7 +161,7 @@
   :where(.ug-button__icon, .ug-icon-button__icon) { display: inline-grid; width: 1.15em; height: 1.15em; }
   :where(.ug-button__icon, .ug-icon-button__icon) > svg { width: 100%; height: 100%; }
   :where(.ug-icon-button) {
-    width: max(var(--strata-control-height), var(--strata-target-min));
+    width: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
     padding: 0;
   }
   :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select):is(:disabled, [aria-disabled="true"]) {
@@ -225,14 +225,14 @@
   :where(.ug-text-field, .ug-text-area, .ug-text-field__wrap) {
     --_finish: var(--strata-finish-role-field);
     box-sizing: border-box;
-    min-height: max(var(--strata-control-height), var(--strata-target-min));
+    min-height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
     margin: 0;
     padding: 0 var(--strata-space-4);
     border-radius: var(--strata-radius-control);
     background-color: var(--strata-colour-field);
     color: var(--strata-colour-text);
     font-family: var(--strata-font-family);
-    font-size: var(--strata-font-size-body);
+    font-size: var(--strata-control-font);
   }
   :where(.ug-text-area) {
     padding: var(--strata-space-3) var(--strata-space-4);
@@ -269,7 +269,7 @@
     --_text: var(--strata-colour-text);
     --_chevron: var(--strata-colour-muted);
     box-sizing: border-box;
-    min-height: max(var(--strata-control-height), var(--strata-target-min));
+    min-height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
     margin: 0;
     padding: 0 calc(var(--strata-space-5) + 12px) 0 var(--strata-space-4);
     border: var(--strata-outline-width) solid var(--strata-colour-edge);
@@ -285,7 +285,7 @@
     background-repeat: no-repeat;
     color: var(--_text);
     font-family: var(--strata-font-family);
-    font-size: var(--strata-font-size-body);
+    font-size: var(--strata-control-font);
     cursor: pointer;
   }
 
@@ -296,10 +296,10 @@
     display: inline-flex;
     align-items: center;
     gap: var(--strata-space-3);
-    min-height: max(var(--strata-control-height), var(--strata-target-min));
+    min-height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
     color: var(--strata-colour-text);
     font-family: var(--strata-font-family);
-    font-size: var(--strata-font-size-body);
+    font-size: var(--strata-control-font);
     cursor: pointer;
   }
   :where(.ug-checkbox__input, .ug-radio__input) {
@@ -307,8 +307,8 @@
     --_bevel: calc(var(--strata-bevel-width) * 0.5);
     flex: none;
     box-sizing: border-box;
-    width: var(--strata-target-min);
-    height: var(--strata-target-min);
+    width: var(--strata-indicator);
+    height: var(--strata-indicator);
     margin: 0;
     appearance: none;
     border-radius: var(--strata-radius-small);
@@ -325,8 +325,8 @@
   :where(.ug-checkbox__label, .ug-radio__label, .ug-switch__label) { min-width: 0; }
   /* The check mark: drawn by a mask, raised when checked. */
   :where(.ug-checkbox__mark) {
-    width: var(--strata-target-min);
-    height: var(--strata-target-min);
+    width: var(--strata-indicator);
+    height: var(--strata-indicator);
     translate: 0 -50%;
     background-color: var(--strata-colour-accent);
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
@@ -340,8 +340,8 @@
     mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 12h10' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
   }
   :where(.ug-radio__dot) {
-    --_size: calc(var(--strata-target-min) - 4 * var(--strata-object-taper));
-    left: calc((var(--strata-target-min) - var(--_size)) / 2);
+    --_size: calc(var(--strata-indicator) * 0.5);
+    left: calc((var(--strata-indicator) - var(--_size)) / 2);
     width: var(--_size);
     height: var(--_size);
     translate: 0 -50%;
@@ -385,8 +385,8 @@
     --_bevel: calc(var(--strata-bevel-width) * 0.5);
     flex: none;
     box-sizing: border-box;
-    width: 44px;
-    height: var(--strata-target-min);
+    width: var(--strata-switch-width);
+    height: var(--strata-indicator);
     margin: 0;
     appearance: none;
     border-radius: var(--strata-radius-pill);
@@ -399,7 +399,7 @@
     box-shadow: 0 0 calc(4px * var(--_gain) + 2px) color-mix(in srgb, var(--strata-colour-accent) 55%, transparent);
   }
   :where(.ug-switch__knob) {
-    --_size: calc(var(--strata-target-min) - 2 * var(--strata-object-taper));
+    --_size: calc(var(--strata-indicator) - 2 * var(--strata-object-taper));
     left: var(--strata-object-taper);
     box-sizing: border-box;
     width: var(--_size);
@@ -414,12 +414,12 @@
     transition: translate var(--strata-motion-normal) var(--strata-motion-easing-standard), border-color var(--strata-motion-normal) var(--strata-motion-easing-standard);
   }
   :where(.ug-switch__input:checked + .ug-switch__knob) {
-    translate: calc(44px - var(--strata-target-min)) -50%;
+    translate: calc(var(--strata-switch-width) - var(--strata-indicator)) -50%;
     border-color: var(--strata-colour-on-accent);
   }
   :where(.ug-switch__input:disabled + .ug-switch__knob) { box-shadow: none; opacity: 0.38; }
   :where(.ug-switch--reverse) { flex-direction: row-reverse; justify-content: flex-end; }
-  :where(.ug-switch--reverse .ug-switch__knob) { left: auto; right: calc(44px - var(--strata-target-min) + var(--strata-object-taper)); }
+  :where(.ug-switch--reverse .ug-switch__knob) { left: auto; right: calc(var(--strata-switch-width) - var(--strata-indicator) + var(--strata-object-taper)); }
 
   /* ---- Slider: a groove rail with a knob ---- */
 

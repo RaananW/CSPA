@@ -17,9 +17,10 @@ A **track** (a well) with a **spherical knob** that slides. The track's base is 
 | Part | Shape | Height at 50% | Moves |
 | --- | --- | --- | --- |
 | Track | Pill (`radius.pill`) sunk by `elevation.well` (2) | −`elevation.well` | No; turns `emissive` when on |
-| Knob | Sphere of diameter track height − 2 · `object.taper` (18 at the default) | `elevation.raised` (3) | Slides the track width minus the track height, over `motion.normal` |
+| Knob | Sphere of diameter track height − 2 · `object.taper` (14 at the default size) | `elevation.raised` (3) | Slides the track width minus the track height, over `motion.normal` |
 
-The input's border box is 44 by 24 px: the height equals `target.min`, and the width is a fixed rule. The
+The input's border box is `size.switchWidth` by `size.indicator`: 30 by 16, 36 by 20 (default) or 44 by 24 px for
+`data-strata-size` small, medium or large (section 13), and the label row is at least `target.min` (24) high and covers the whole row, so the row is the target (WCAG 2.5.8). The
 track fills the box. The knob's whole travel stays inside it, inset by `object.taper` at both ends, so the
 native control covers every position of the knob (section 6, moving parts). The knob casts a shadow onto the
 track.
@@ -83,7 +84,7 @@ CSS `transform`, never in the input's box.
 </label>
 ```
 
-- The `<input>` is the boundary element (`appearance: none`, 44 by 24). Refs and `checked` reach it.
+- The `<input>` is the boundary element (`appearance: none`, `size.switchWidth` by `size.indicator`). Refs and `checked` reach it.
 - The wrapping `<label>` extends the hit target to the whole row, at least the density's control height.
   The knob is `pointer-events: none` and lies over the input.
 - A label on the other side of the track is a `reverse` prop; the DOM order stays, so the focus and reading
@@ -105,8 +106,8 @@ CSS `transform`, never in the input's box.
 ## 9. CSS presentation
 
 The `well` recipe as a pill, the on-track as `accent` with a glow shadow for the `emissive` material, and
-the knob as a circle with a spherical gradient and a cast shadow from the light. The input is 44 by 24
-(`target.min` high); the row is at least the density's control height. Under `forced-colors`: the track has
+the knob as a circle with a spherical gradient and a cast shadow from the light. The input is `size.switchWidth` by
+`size.indicator`; the row is at least the density's control height. Under `forced-colors`: the track has
 a `ButtonBorder` border; off is `Field` with a `ButtonText` knob at the start; on is `Highlight` with a
 `HighlightText` knob at the end; `GrayText` when disabled; no glow. Position and fill both show the state.
 
