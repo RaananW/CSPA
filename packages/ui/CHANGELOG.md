@@ -16,4 +16,6 @@ starting point.
 - Component sizes (`data-strata-size`: small, medium, large) and high-contrast outlines.
 - The theme runtime: `createStrataTheme`, `loadStrataTheme` and `StrataThemeError` in `/tokens`;
   `applyStrataTheme` (runtime updates) and `strataScope` (subtree overrides, validated) in `@underglass/ui/dom`.
+- React bindings (`@underglass/ui/react`): `Button`, `IconButton`, `ToggleButton`, `Link`, `Field`, `TextField`,
+  `StrataProvider` and `StrataScope`.
 - Panel motion through depth: `strataEnter` and `strataLeave` (inert while moving, instant under reduced motion).

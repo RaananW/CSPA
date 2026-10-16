@@ -5,6 +5,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": true,
@@ -15,7 +16,10 @@
       "@underglass/react": ["../../packages/react/src/index.ts"],
       "@underglass/vue": ["../../packages/vue/src/index.ts"],
       "@underglass/core": ["../../packages/core/src/index.ts"],
-      "@underglass/core/experimental-worker": ["../../packages/core/src/experimental-worker.ts"]
+      "@underglass/core/experimental-worker": ["../../packages/core/src/experimental-worker.ts"],
+      "@underglass/ui/tokens": ["../../packages/ui/src/tokens/index.ts"],
+      "@underglass/ui/dom": ["../../packages/ui/src/dom/index.ts"],
+      "@underglass/ui/react": ["../../packages/ui/src/react/index.ts"]
     }
   },
   "include": ["src"]

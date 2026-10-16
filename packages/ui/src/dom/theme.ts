@@ -95,8 +95,12 @@ export interface StrataScope {
 
 const roles = ["accent", "success", "warning", "danger", "info"];
 
-/** Checks scope overrides against the source and returns the custom properties and attributes to apply. */
-function resolveScope(overrides: ScopeOverrides, source: TokenGroup): { issues: Issue[]; properties: Map<string, string>; attributes: Map<string, string> } {
+/**
+ * Checks scope overrides against the source and returns the custom properties and attributes to apply. Pure, so
+ * bindings can render a scope on the server.
+ */
+export function resolveStrataScope(overrides: ScopeOverrides, base?: TokenGroup | StrataTheme): { issues: Issue[]; properties: Map<string, string>; attributes: Map<string, string> } {
+  const source = sourceOf(base);
   const issues: Issue[] = [], properties = new Map<string, string>(), attributes = new Map<string, string>([["data-strata-scope", ""]]);
   const byPath = new Map(flatten(source).map(token => [token.path, token]));
   const themes = themesOf(source);
@@ -180,7 +184,6 @@ function resolveScope(overrides: ScopeOverrides, source: TokenGroup): { issues: 
  * `report: "throw"` nothing is applied.
  */
 export function strataScope(element: HTMLElement, overrides: ScopeOverrides, options: ScopeOptions = {}): StrataScope {
-  const source = sourceOf(options.base);
   const mode = options.report ?? "error";
   let applied: { properties: Map<string, string>; attributes: Map<string, string> } = { properties: new Map(), attributes: new Map() };
   let issues: readonly Issue[] = [];
@@ -191,7 +194,7 @@ export function strataScope(element: HTMLElement, overrides: ScopeOverrides, opt
     applied = { properties: new Map(), attributes: new Map() };
   };
   const apply = (next: ScopeOverrides) => {
-    const resolved = resolveScope(next, source);
+    const resolved = resolveStrataScope(next, options.base);
     report(resolved.issues, mode, "scope");
     clear();
     for (const [name, value] of resolved.properties) element.style.setProperty(name, value);

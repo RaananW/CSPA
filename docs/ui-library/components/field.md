@@ -61,7 +61,7 @@ None. Field carries no `data-strata-face`.
 
 ```html
 <div class="ug-field">
-  <label class="ug-field__label" for="email">Email</label>
+  <label class="ug-field__label" for="email">Email (required)</label>
   <input id="email" class="ug-text-field" data-strata-face="well"
          aria-describedby="email-help email-error" aria-invalid="true" required />
   <p class="ug-field__help" id="email-help">We only use it for receipts.</p>

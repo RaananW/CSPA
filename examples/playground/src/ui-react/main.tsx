@@ -1,0 +1,83 @@
+/**
+ * Strata React check page (`ui-react.html`): the first Tier A batch from `@underglass/ui/react`, in plain React
+ * with no Underglass. `#contracts` renders each component exactly as its anatomy page's markup example, so the browser
+ * test can compare them; the panels below are live controls the test drives with real input through
+ * `window.strataReact`.
+ */
+import "@underglass/ui/css";
+import { useRef, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { Button, Field, IconButton, Link, StrataProvider, StrataScope, TextField, ToggleButton } from "@underglass/ui/react";
+
+const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
+
+/** Each anatomy page's markup example, rendered by the binding. */
+function Contracts() {
+  return (
+    <div id="contracts" hidden>
+      <div data-contract="button.md"><Button variant="accent" icon={null}>Save</Button></div>
+      <div data-contract="icon-button.md"><IconButton label="Close" icon={null} /></div>
+      <div data-contract="toggle-button.md"><ToggleButton>Bold</ToggleButton></div>
+      <div data-contract="link.md"><Link href="/docs">Read the guide</Link></div>
+      <div data-contract="field.md">
+        <Field label="Email" controlId="email" help="We only use it for receipts." error="enter an address like name@example.com." required>
+          <TextField />
+        </Field>
+      </div>
+      <div data-contract="text-field.md"><TextField type="email" id="email" name="email" autoComplete="email" /></div>
+      <div data-contract="text-field.md#2"><TextField icon={null} type="search" id="q" /></div>
+    </div>
+  );
+}
+
+function App() {
+  const [clicks, setClicks] = useState({ save: 0, blocked: 0, disabled: 0, close: 0, submit: 0 });
+  const [italic, setItalic] = useState(true);
+  const [email, setEmail] = useState("");
+  const [accent, setAccent] = useState<string | undefined>(undefined);
+  const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
+  const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
+  const invalid = email.length > 0 && !email.includes("@");
+  Object.assign(window, { strataReact: { clicks, italic, email, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent } });
+  return (
+    <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
+      <Contracts />
+      <main style={{ display: "grid", gap: 24, gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", padding: 24 }}>
+        <section className="ug-panel" data-strata-face="raised" aria-label="Buttons">
+          <form onSubmit={event => { event.preventDefault(); count("submit")(); }} style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+            <Button ref={buttonRef} variant="accent" id="save" className="extra" style={{ marginRight: 4 }} data-testid="save" onClick={count("save")}>Save</Button>
+            <Button id="blocked" aria-disabled="true" onClick={count("blocked")}>Unavailable</Button>
+            <Button id="disabled" disabled onClick={count("disabled")}>Disabled</Button>
+            <Button id="busy" busy>Saving</Button>
+            <IconButton id="close" label="Close" icon={close} onClick={count("close")} />
+            <ToggleButton id="bold" defaultPressed={false}>Bold</ToggleButton>
+            <ToggleButton id="italic" pressed={italic} onPressedChange={setItalic}>Italic</ToggleButton>
+            <Button id="large" size="large" material="lacquer">Large</Button>
+          </form>
+          <p>Read the <Link id="inline-link" href="#guide">guide</Link>, or <Link id="standalone-link" standalone href="#more">more</Link>.</p>
+        </section>
+        <section className="ug-panel" data-strata-face="raised" aria-label="Fields">
+          <Field label="Email" help="We only use it for receipts." error={invalid ? "enter an address like name@example.com." : undefined} required id="email-field">
+            <TextField ref={inputRef} type="email" value={email} onChange={event => setEmail(event.target.value)} />
+          </Field>
+          <Field label="Name">
+            <TextField defaultValue="Ada" />
+          </Field>
+          <Field label="Search" help="Titles and tags.">
+            <TextField ref={wrappedRef} type="search" icon={close} />
+          </Field>
+          <Field label="Locked" disabled>
+            <TextField defaultValue="Read only" />
+          </Field>
+        </section>
+        <StrataScope depth={0.1} density="compact" size="small" id="scope" aria-label="Compact scope" role="region">
+          <section className="ug-panel" data-strata-face="raised" aria-label="Scoped">
+            <Button id="scoped">Scoped</Button>
+          </section>
+        </StrataScope>
+      </main>
+    </StrataProvider>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(<App />);

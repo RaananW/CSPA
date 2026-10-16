@@ -219,6 +219,7 @@
   :where(.ug-field__help, .ug-field__error) { margin: 0; font-size: var(--strata-font-size-small); line-height: var(--strata-font-line-height-body); }
   :where(.ug-field__help) { color: var(--strata-colour-muted); }
   :where(.ug-field__error) { color: var(--strata-colour-danger-text); }
+  :where(.ug-field):has(:disabled) :is(.ug-field__label, .ug-field__help) { color: color-mix(in srgb, var(--strata-colour-text) 38%, transparent); }
 
   /* ---- Text field and text area ---- */
 
