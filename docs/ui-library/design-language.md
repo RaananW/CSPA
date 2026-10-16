@@ -565,7 +565,9 @@ Each depth token has three anchors, at 0%, 50% and 100% (the A, B and C prototyp
   down from `scene` to `objects` to `relief`, and they step back up after a recovery window.
   - **Reporting:** every step fires a diagnostic event.
   - **GPU stays on:** the policy never switches GPU off. Defaults are set from measurements on a
-    low-end GPU (open).
+    low-end GPU (open: until then, 25 ms over a 60-frame window, 120 frames down and 600 up; open issue VAL-009).
+  - **Where it runs:** `@underglass/ui/gpu` measures frame intervals itself and caps every element's level; the
+    95th percentile ignores intervals over 250 ms (hidden tabs, stalls).
 
 ## 17. Component anatomy template
 

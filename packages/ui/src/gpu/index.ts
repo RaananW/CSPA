@@ -57,6 +57,35 @@ export interface StrataGpuOptions {
    * `data-strata-level`: `relief` by default. `objects` presents components as objects.
    */
   level?: StrataLevel;
+  /**
+   * The adjust policy (design language section 16), off by default. When the 95th percentile of frame intervals stays
+   * over `frameBudgetMs` for `stepDownAfterFrames` frames, the levels step down (Scene to Objects to Relief); after
+   * `stepUpAfterFrames` frames back under 80% of the budget, they step up again, never above what the page sets. Every
+   * step is reported through `onAdjust` and a `strata-adjust` event on the root. GPU stays on.
+   */
+  adjust?: StrataAdjustPolicy;
+  /** Called with every step of the adjust policy. */
+  onAdjust?(event: StrataAdjustEvent): void;
+}
+/** The adjust policy's settings. The defaults are provisional, until measured on a low-end GPU. */
+export interface StrataAdjustPolicy {
+  enabled: boolean;
+  /** Default 25 ms (40 frames per second). */
+  frameBudgetMs?: number;
+  /** Default 120 frames over budget. */
+  stepDownAfterFrames?: number;
+  /** Default 600 frames back under budget. */
+  stepUpAfterFrames?: number;
+  /** Frames the 95th percentile is taken over; default 60. */
+  window?: number;
+}
+/** One step of the adjust policy: the highest level presented before and after, and the measurement that caused it. */
+export interface StrataAdjustEvent {
+  from: StrataLevel;
+  to: StrataLevel;
+  /** The 95th percentile of the last frame intervals, in ms. */
+  p95: number;
+  frameBudgetMs: number;
 }
 export interface StrataGpu {
   /** Rebuilds every panel's scene now (for example from the runtime's `onStatusChange`). */
@@ -65,6 +94,8 @@ export interface StrataGpu {
   scene(panel: HTMLElement): StrataPanelScene | undefined;
   /** Releases every panel: cancels materials, leaves face mode and releases the enrollments. */
   detach(): void;
+  /** The highest level the adjust policy currently allows (`scene` when it allows everything, or when it is off). */
+  cap(): StrataLevel;
 }
 
 const faces: readonly SceneFace[] = ["raised", "well", "groove", "knob", "mark", "ring", "flat"];
@@ -144,7 +175,13 @@ export interface StrataSceneOptions {
   stage?: Element;
   /** Collects the elements drawn as domes, whose own CSS paint the helper hides while GPU presents them. */
   domes?: Set<Element>;
+  /** The highest level to present at (the adjust policy's cap); `scene` by default. */
+  cap?: StrataLevel;
 }
+
+/** The levels from lowest to highest. */
+export const strataLevels: readonly StrataLevel[] = ["relief", "objects", "scene"];
+const lower = (a: StrataLevel, b: StrataLevel) => (strataLevels.indexOf(a) <= strataLevels.indexOf(b) ? a : b);
 
 /** The level an element is presented at: its own `data-strata-level`, or the nearest scope's, or the default. */
 export function strataLevel(element: Element, fallback: StrataLevel = "relief"): StrataLevel {
@@ -190,7 +227,7 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
       disabled: control.matches(":disabled, [aria-disabled='true']"),
     };
   };
-  const objects = (element: Element) => strataLevel(element, options.level) !== "relief";
+  const objects = (element: Element) => lower(strataLevel(element, options.level), options.cap ?? "scene") !== "relief";
   // Objects (design language section 6): the tokens of their proportions, and the height each surface's top stands at.
   const keyHeight = tokens.number("object.keyHeight", 8), keyTravel = tokens.number("object.keyTravel", 6), taper = tokens.number("object.taper", 3);
   const tops = new Map<Element, number>(), floors = new Map<Element, number>();
@@ -380,6 +417,47 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   let serial = 0, frame = 0, detached = false;
   const schedule = () => { if (!frame && !detached) frame = requestAnimationFrame(sync); };
   const resize = new ResizeObserver(schedule);
+  // The adjust policy: a cap on levels, moved by frame intervals measured here (no core dependency).
+  let cap: StrataLevel = "scene";
+  const policy = { frameBudgetMs: 25, stepDownAfterFrames: 120, stepUpAfterFrames: 600, window: 60, ...options.adjust };
+  const intervals: number[] = [];
+  let over = 0, under = 0, previous = 0, meter = 0;
+  /** The highest level any panel (or the application) asks for, so the cap never rises above it. */
+  const wanted = () => {
+    let highest: StrataLevel = options.level ?? "relief";
+    for (const element of panels.keys()) {
+      for (const node of [element, ...element.querySelectorAll("[data-strata-level]")]) highest = strataLevels[Math.max(strataLevels.indexOf(highest), strataLevels.indexOf(strataLevel(node, options.level)))]!;
+    }
+    return highest;
+  };
+  const step = (to: StrataLevel, p95: number) => {
+    const event: StrataAdjustEvent = { from: lower(cap, wanted()), to, p95, frameBudgetMs: policy.frameBudgetMs };
+    cap = to;
+    intervals.length = 0; over = 0; under = 0;
+    options.onAdjust?.(event);
+    root.dispatchEvent(new CustomEvent("strata-adjust", { detail: event }));
+    schedule();
+  };
+  const measure = (now: number) => {
+    meter = 0;
+    if (detached) return;
+    // A hidden tab or a stall is not rendering cost: intervals over 250 ms are not counted.
+    if (previous && now - previous < 250) {
+      intervals.push(now - previous);
+      if (intervals.length > policy.window) intervals.shift();
+    }
+    previous = now;
+    if (intervals.length >= policy.window && controller.state().mode === "gpu") {
+      const sorted = [...intervals].sort((a, b) => a - b), p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))]!;
+      const highest = wanted(), current = lower(cap, highest);
+      over = p95 > policy.frameBudgetMs ? over + 1 : 0;
+      under = p95 <= policy.frameBudgetMs * 0.8 ? under + 1 : 0;
+      if (over >= policy.stepDownAfterFrames && current !== "relief") step(strataLevels[strataLevels.indexOf(current) - 1]!, p95);
+      else if (under >= policy.stepUpAfterFrames && strataLevels.indexOf(cap) < strataLevels.indexOf(highest)) step(strataLevels[strataLevels.indexOf(current) + 1]!, p95);
+    }
+    meter = requestAnimationFrame(measure);
+  };
+  if (options.adjust?.enabled) meter = requestAnimationFrame(measure);
   const presenting = () => controller.state().mode === "gpu" && !forced.matches;
   // A layer must never be hidden while presented (it would have no size), so only shown children are taken on.
   const shown = (element: Element): element is HTMLElement => element instanceof HTMLElement && !element.hidden && element.checkVisibility();
@@ -490,7 +568,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
     if (element.getAttribute("data-strata-mode") !== "face") element.setAttribute("data-strata-mode", "face");
     const motion = entry.motion;
     const domes = new Set<Element>();
-    const scene = strataScene(element, { level: options.level, stage: root, domes,
+    const scene = strataScene(element, { level: options.level, cap, stage: root, domes,
       ...(motion ? { height: motion.from + (motion.to - motion.from) * motion.ease(Math.min(1, (performance.now() - motion.start) / motion.duration)) } : {}) });
     markDomes(entry, domes);
     const key = JSON.stringify(scene);
@@ -546,10 +624,12 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   return {
     refresh: () => { if (frame) cancelAnimationFrame(frame); sync(); },
     scene: panel => { const key = panels.get(panel)?.scene; return key ? JSON.parse(key) as StrataPanelScene : undefined; },
+    cap: () => cap,
     detach: () => {
       if (detached) return;
       detached = true;
       if (frame) cancelAnimationFrame(frame);
+      if (meter) cancelAnimationFrame(meter);
       for (const type of events) root.removeEventListener(type, schedule, true);
       mutation.disconnect(); resize.disconnect(); clearInterval(poll); forced.removeEventListener("change", schedule);
       for (const element of [...panels.keys()]) releasePanel(element);
