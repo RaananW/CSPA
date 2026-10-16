@@ -36,20 +36,20 @@ export interface CompiledAnimation {
 }
 
 /**
- * Floats in one layer's uniform block (13 vec4s): inverse matrix and grid, extent and opacity, ripple, three effects,
- * clip and material. Shared by the per-layer pass and the worker compositor.
+ * Floats in one layer's uniform block (14 vec4s): inverse matrix and grid, extent and opacity, ripple, three effects,
+ * clip, material, and the inverse's projective row. Shared by the per-layer pass and the worker compositor.
  */
-export const LAYER_BLOCK_FLOATS = 52;
-/** Floats in one per-layer pass uniform buffer: header (12), layer block (52), compiled slot (4). */
-export const LAYER_PASS_FLOATS = 68;
+export const LAYER_BLOCK_FLOATS = 56;
+/** Floats in one per-layer pass uniform buffer: header (12), layer block (56), compiled slot (4). */
+export const LAYER_PASS_FLOATS = 72;
 
 /** What the CSS compiler emits: the animations plus the single shared per-layer program. */
 export interface CompiledProgramSet {
   /**
-   * 3: one per-layer program drawn once per layer, with the material slot in the layer block. Version 1 held one
-   * program per layer count; version 2 predates the material slot.
+   * 4: one per-layer program drawn once per layer, with the material slot and the projective row in the layer block.
+   * Version 1 held one program per layer count; version 2 predates the material slot; version 3 the projective row.
    */
-  version: 3;
+  version: 4;
   animations: readonly CompiledAnimation[];
   programs: readonly Pick<EffectWrapperOptions, "bindings" | "fragmentWGSL" | "vertexWGSL">[];
 }
@@ -65,11 +65,12 @@ export interface CompiledMotion {
   origin: { x: number; y: number };
 }
 
-/** Throws a descriptive error unless `compiled` is a well-formed version 3 set the compositor can use. */
+/** Throws a descriptive error unless `compiled` is a well-formed version 4 set the compositor can use. */
 export function validateCompiledPrograms(compiled: CompiledProgramSet) {
   if ((compiled as { version?: unknown } | undefined)?.version === 1) throw new Error("Compiled program set version 1 predates per-layer drawing; rebuild it with the matching @underglass/css-compiler");
   if ((compiled as { version?: unknown } | undefined)?.version === 2) throw new Error("Compiled program set version 2 predates the material slot in the layer uniform block; rebuild it with the matching @underglass/css-compiler");
-  if (!compiled || compiled.version !== 3 || !Array.isArray(compiled.animations) || !Array.isArray(compiled.programs)
+  if ((compiled as { version?: unknown } | undefined)?.version === 3) throw new Error("Compiled program set version 3 predates the projective row in the layer uniform block; rebuild it with the matching @underglass/css-compiler");
+  if (!compiled || compiled.version !== 4 || !Array.isArray(compiled.animations) || !Array.isArray(compiled.programs)
     || compiled.animations.length < 1 || compiled.animations.length > 32 || compiled.programs.length !== 1) {
     throw new Error("Invalid compiled program set");
   }

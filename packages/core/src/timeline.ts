@@ -5,7 +5,7 @@
  * opacity. Used by `animation.ts` (source animations), `motion.ts` (typed motion) and
  * `css-animation.ts` (CSS provenance checks); it touches no DOM.
  */
-import type { Transform } from "./affine.js";
+import { DEFAULT_PERSPECTIVE, TILT_MAX, type Transform } from "./affine.ts";
 
 /** Timing for a timeline. Times are milliseconds; `iterations` may be `Infinity`. Only the listed values are supported. */
 export interface TimelineTiming {
@@ -26,18 +26,28 @@ export interface TimelineFrame {
 
 // Number syntax accepted inside transform strings (optional sign, decimals and exponent).
 const numeric = "(-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:e[+-]?\\d+)?)";
-// The only transform shape supported: translate(x px[, y px]) rotate(deg) scale(s[, t]).
-const trs = new RegExp(`^translate\\(${numeric}px(?:,\\s*${numeric}px)?\\) rotate\\(${numeric}deg\\) scale\\(${numeric}(?:,\\s*${numeric})?\\)$`, "i");
+// The only transform shape supported: translate(x px[, y px]) [perspective(px)] rotate(deg) [rotateX(deg) rotateY(deg)]
+// scale(s[, t]). The optional tilt parts compose as the canonical matrix does (affine.ts).
+const trs = new RegExp(`^translate\\(${numeric}px(?:,\\s*${numeric}px)?\\)(?: perspective\\(${numeric}px\\))? rotate\\(${numeric}deg\\)(?: rotateX\\(${numeric}deg\\) rotateY\\(${numeric}deg\\))? scale\\(${numeric}(?:,\\s*${numeric})?\\)$`, "i");
+/** The tilt channels and their identity values. */
+const tiltKeys = ["tiltX", "tiltY", "perspective"] as const;
+const tiltIdentity = { tiltX: 0, tiltY: 0, perspective: DEFAULT_PERSPECTIVE };
 /** Parses `none` or a supported transform string into numeric channels; throws on anything else or out-of-range values. */
 export function parseTransform(value: string): Transform {
   if (value === "none") return { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1 };
   const match = value.match(trs);
-  if (!match) throw new Error("Only none or translate(px, px) rotate(deg) scale(number[, number]) is supported");
-  const [x, y, rotation, scaleX, scaleY] = match.slice(1).map(Number);
-  const result = { x: x!, y: match[2] === undefined ? 0 : y!, rotation: rotation!, scaleX: scaleX!, scaleY: match[5] === undefined ? scaleX! : scaleY! };
-  if (!Object.values(result).every(Number.isFinite) || Math.abs(result.x) > 1e6 || Math.abs(result.y) > 1e6
-    || Math.abs(result.rotation) > 36000 || result.scaleX < 1e-4 || result.scaleY < 1e-4
-    || result.scaleX > 1e6 || result.scaleY > 1e6) throw new Error("Timeline transform exceeds finite positive-scale limits");
+  if (!match) throw new Error("Only none or translate(px, px) [perspective(px)] rotate(deg) [rotateX(deg) rotateY(deg)] scale(number[, number]) is supported");
+  const [x, y, perspective, rotation, tiltX, tiltY, scaleX, scaleY] = match.slice(1).map(Number);
+  const result: Transform = { x: x!, y: match[2] === undefined ? 0 : y!, rotation: rotation!, scaleX: scaleX!, scaleY: match[8] === undefined ? scaleX! : scaleY! };
+  // Tilt channels appear only when the string names them, so untilted transforms stay as they were.
+  if (match[3] !== undefined) result.perspective = perspective!;
+  if (match[5] !== undefined) { result.tiltX = tiltX!; result.tiltY = tiltY!; }
+  if (!Object.values(result).every(Number.isFinite) || Math.abs(result.x!) > 1e6 || Math.abs(result.y!) > 1e6
+    || Math.abs(result.rotation!) > 36000 || result.scaleX! < 1e-4 || result.scaleY! < 1e-4
+    || result.scaleX! > 1e6 || result.scaleY! > 1e6) throw new Error("Timeline transform exceeds finite positive-scale limits");
+  if (Math.abs(result.tiltX ?? 0) > TILT_MAX || Math.abs(result.tiltY ?? 0) > TILT_MAX || (result.perspective ?? DEFAULT_PERSPECTIVE) < 100) {
+    throw new Error(`Timeline tilt requires angles within ±${TILT_MAX} degrees and a perspective of at least 100 px`);
+  }
   return result;
 }
 
@@ -96,6 +106,9 @@ export function compileTimeline(frames: TimelineFrame[], timing: TimelineTiming)
     if (typeof frame.opacity === "string" && !frame.opacity.trim() || !Number.isFinite(opacity) || opacity < 0 || opacity > 1) throw new Error("Timeline opacity must be in [0,1]");
     return { offset: frame.offset, transform: { ...parseTransform(frame.transform), opacity }, ease: easing(frame.easing ?? "linear") };
   });
+  // A timeline with any tilted frame interpolates the tilt channels on every frame (identity where a frame has none).
+  const tilts = compiled.some(frame => tiltKeys.some(key => frame.transform[key] !== undefined));
+  if (tilts) for (const frame of compiled) for (const key of tiltKeys) frame.transform[key] ??= tiltIdentity[key];
   // Worst case interpolation per segment (easing overshoot included) must stay finite and keep positive scales.
   for (let index = 1; index < compiled.length; index++) {
     const start = compiled[index - 1]!, finish = compiled[index]!;
@@ -103,9 +116,10 @@ export function compileTimeline(frames: TimelineFrame[], timing: TimelineTiming)
     const inputs = [index === 1 ? Math.min(0, globalEase.min / span) : 0,
       index === compiled.length - 1 ? Math.max(1, (globalEase.max - start.offset) / span) : 1];
     const range = [start.ease.min, start.ease.max, ...inputs.map(start.ease.at)];
-    for (const progress of range) for (const key of ["x", "y", "rotation", "scaleX", "scaleY"] as const) {
+    for (const progress of range) for (const key of ["x", "y", "rotation", "scaleX", "scaleY", ...(tilts ? tiltKeys : [])] as const) {
       const value = start.transform[key]! * (1 - progress) + finish.transform[key]! * progress;
-      if (!Number.isFinite(value) || Math.abs(value) > 1e6 || (key === "scaleX" || key === "scaleY") && value < 1e-4) {
+      if (!Number.isFinite(value) || Math.abs(value) > 1e6 || (key === "scaleX" || key === "scaleY") && value < 1e-4
+        || (key === "tiltX" || key === "tiltY") && Math.abs(value) > TILT_MAX || key === "perspective" && value < 100) {
         throw new Error("Easing path crosses singular scale or exceeds finite timeline limits");
       }
     }
@@ -128,7 +142,7 @@ export function compileTimeline(frames: TimelineFrame[], timing: TimelineTiming)
       const start = compiled[index - 1]!, finish = compiled[index]!;
       const t = start.ease.at((fraction - start.offset) / (finish.offset - start.offset));
       const result: Transform = {};
-      for (const key of ["x", "y", "rotation", "scaleX", "scaleY", "opacity"] as const) {
+      for (const key of ["x", "y", "rotation", "scaleX", "scaleY", "opacity", ...(tilts ? tiltKeys : [])] as const) {
         result[key] = start.transform[key]! * (1 - t) + finish.transform[key]! * t;
       }
       result.opacity = Math.max(0, Math.min(1, result.opacity!));

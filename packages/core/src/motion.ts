@@ -5,7 +5,7 @@
  * runtime exposes this through its motion and transition APIs; the handle types are the public
  * return values.
  */
-import { affine, type Transform } from "./affine.ts";
+import { canonical, DEFAULT_PERSPECTIVE, type Transform } from "./affine.ts";
 import type { AnimationPlayback } from "./animation.js";
 import { compileTimeline, type TimelineFrame, type TimelineTiming } from "./timeline.ts";
 
@@ -55,17 +55,21 @@ export function compileMotion(descriptor: MotionDescriptor) {
     throw new Error("Unsupported typed motion descriptor/timing property");
   }
   const frames: TimelineFrame[] = descriptor.keyframes.map(frame => {
-    if (Object.keys(frame).some(key => !["offset", "easing", "x", "y", "rotation", "scaleX", "scaleY", "opacity"].includes(key))) {
+    if (Object.keys(frame).some(key => !["offset", "easing", "x", "y", "rotation", "scaleX", "scaleY", "opacity", "tiltX", "tiltY", "perspective"].includes(key))) {
       throw new Error("Unsupported typed motion keyframe property");
     }
-    const { x = 0, y = 0, rotation = 0, scaleX = 1, scaleY = 1, opacity = 1 } = frame;
-    if (![x, y, rotation, scaleX, scaleY, opacity].every(value => typeof value === "number" && Number.isFinite(value))) {
+    const { x = 0, y = 0, rotation = 0, scaleX = 1, scaleY = 1, opacity = 1, tiltX = 0, tiltY = 0, perspective = DEFAULT_PERSPECTIVE } = frame;
+    if (![x, y, rotation, scaleX, scaleY, opacity, tiltX, tiltY, perspective].every(value => typeof value === "number" && Number.isFinite(value))) {
       throw new Error("Typed motion channels require finite numbers");
     }
     // Called only for its validation: throws if the channels cannot form an invertible transform.
-    affine({ x, y, rotation, scaleX, scaleY, opacity });
+    canonical({ x, y, rotation, scaleX, scaleY, opacity, tiltX, tiltY, perspective });
+    // A frame that names a tilt channel carries the tilt parts, in the canonical composition order.
+    const tilt = frame.tiltX !== undefined || frame.tiltY !== undefined || frame.perspective !== undefined;
     return { offset: frame.offset, easing: frame.easing, opacity,
-      transform: `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scaleX}, ${scaleY})` };
+      transform: tilt
+        ? `translate(${x}px, ${y}px) perspective(${perspective}px) rotate(${rotation}deg) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${scaleX}, ${scaleY})`
+        : `translate(${x}px, ${y}px) rotate(${rotation}deg) scale(${scaleX}, ${scaleY})` };
   });
   const timing = { ...descriptor.timing };
   const timeline = compileTimeline(frames, timing);

@@ -352,6 +352,8 @@ export class WorkerCanvasController {
           layer.layout.width, layer.layout.height, 1, layer.animation === "opacity" ? 1 : -1,
           layer.animation === "ripple" && !this.reduced.matches && !this.forced.matches ? 6 : 0, 0, w, h], at);
         uniforms.set([0, 0, layer.layout.width, layer.layout.height], at + 40);
+        // The inverse's projective row: worker layers are never tilted.
+        uniforms.set([0, 0, 1, 0], at + 52);
         const image = canvas.captureElementImage(layer.element) as WorkerSnapshot;
         images.push({ slot: layer.slot, width: w, height: h, image });
         this.resources.snapshots++; this.captures++;
@@ -522,6 +524,7 @@ export class WorkerCanvasController {
           uniforms.set([1, 0, 0, extent.width / 8, 0, 1, 0, extent.height / 8, 8, 8, 1, -1, 0, 0, extent.width, extent.height], 4);
           // The clip of slot 0: header 4 plus block offset 40.
           uniforms.set([0, 0, 8, 8], 4 + 40);
+          uniforms.set([0, 0, 1, 0], 4 + 52);
           let transferred = false;
           try {
             const response = await this.request({ type: "frame", id: ++this.nextID, probe: true, width: canvas.width, height: canvas.height,

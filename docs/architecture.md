@@ -531,6 +531,18 @@ is explicit and inert/aria-hidden with no interactive/editable descendants.
 These constraints are checked again at runtime. There is no second engine,
 extra effect texture/capture, raw GL or private device access.
 
+**Tilted layers** (`tiltX`, `tiltY`, `perspective`) use one projective matrix for GPU sampling (the shader maps
+canvas to layer through the inverse homography of the layer's plane), native hit geometry (a 3D `canvasTransform`,
+verified to all 16 coefficients) and ordinary DOM (`matrix3d`).
+
+- **Admission:** admission proves the browser hit-tests through the projection. Two witnesses on the probe, tilted
+  50° and viewed from its own size, are a point only the projection covers and a point only a flat stand-in covers.
+  Without that proof, tilt is refused on the GPU.
+- **Corners:** every corner of a tilted layer must stay in front of the viewer.
+- **Clipping:** a tilted layer has no rectangular clip, because Chromium hit-tests a projected `canvasClip` by its
+  bounding box (crbug.com/573454036, WICG html-in-canvas#186). A tilted layer inside a clipping viewport, or with
+  clipped overflow, is a diagnosed policy violation. Its uncut border box is exact.
+
 Transition effects (`interaction: "inert"`) apply the same bounded operations to a
 non-decorative layer for the length of a transition. Hit-geometry safety holds
 because no control can take input meanwhile: the runtime sets `inert` on the

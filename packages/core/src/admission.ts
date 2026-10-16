@@ -138,3 +138,43 @@ export function verifyFrameBounds(host: DrawableCanvas, probe: ReturnType<typeof
     });
   return { result: !hits[0] ? "unverifiable" : hits[1] ? "unbounded" : "bounded", edge: candidate.edge, hits };
 }
+
+/**
+ * Functional proof that native hit testing follows a projective (tilted) `canvasTransform` through its perspective,
+ * as P0.1 showed: the probe is tilted 50 degrees about its vertical axis, viewed from its own size away, so its near
+ * edge magnifies and its far edge shrinks. A point inside the projected probe that a flat stand-in (the same matrix
+ * without perspective) would miss must hit; a point inside the flat stand-in but outside the projected probe must
+ * not. `unverifiable` means a witness is off screen or the margins are under 1.5 CSS px; tilt then stays off.
+ */
+export function verifyProjectiveHits(host: DrawableCanvas, probe: ReturnType<typeof createAdmissionProbe>,
+  origin = { x: 0, y: 0 }): { result: "proven" | "failed" | "unverifiable"; hits?: boolean[] } {
+  const extent = probe.extent, half = extent / 2;
+  const centre = { x: origin.x + probe.matrix.e, y: origin.y + probe.matrix.f };
+  const matrix = new DOMMatrix(`translate(${centre.x}px, ${centre.y}px) perspective(${extent}px) rotateY(50deg) translate(${-half}px, ${-half}px)`);
+  const flat = new DOMMatrix(`translate(${centre.x}px, ${centre.y}px) rotateY(50deg) translate(${-half}px, ${-half}px)`);
+  const projectPoint = (m: DOMMatrixReadOnly, x: number, y: number) => { const p = m.transformPoint({ x, y }); return { x: p.x / p.w, y: p.y / p.w }; };
+  // Local position of a canvas point under a matrix, through the inverse homography of its z = 0 plane.
+  const unproject = (m: DOMMatrixReadOnly, point: { x: number; y: number }) => {
+    const [[a, b, c], [d, e, f], [g, h, i]] = [[m.m11, m.m21, m.m41], [m.m12, m.m22, m.m42], [m.m14, m.m24, m.m44]] as const;
+    const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+    const inv = [[(e * i - f * h) / det, (c * h - b * i) / det, (b * f - c * e) / det], [(f * g - d * i) / det, (a * i - c * g) / det, (c * d - a * f) / det],
+      [(d * h - e * g) / det, (b * g - a * h) / det, (a * e - b * d) / det]];
+    const w = inv[2]![0]! * point.x + inv[2]![1]! * point.y + inv[2]![2]!;
+    return { x: (inv[0]![0]! * point.x + inv[0]![1]! * point.y + inv[0]![2]!) / w, y: (inv[1]![0]! * point.x + inv[1]![1]! * point.y + inv[1]![2]!) / w };
+  };
+  // Signed distance (local px) from the probe square: positive outside.
+  const outside = ({ x, y }: { x: number; y: number }) => Math.max(-x, x - extent, -y, y - extent);
+  const inside = projectPoint(matrix, extent * 0.08, extent * 0.08);
+  const beyond = projectPoint(flat, extent * 0.97, half);
+  if (outside(unproject(flat, inside)) < 1.5 || outside(unproject(matrix, beyond)) < 1.5) return { result: "unverifiable" };
+  host.updateElementGeometry(probe.element, { canvasTransform: matrix, canvasClip: { x: 0, y: 0, width: extent, height: extent } });
+  validateAppliedGeometry(host, probe.element, matrix);
+  const rect = host.getBoundingClientRect(), view = host.ownerDocument.defaultView!;
+  const locations = [inside, beyond].map(point => ({ x: rect.x + point.x, y: rect.y + point.y }));
+  if (locations.some(point => point.x < 0 || point.y < 0 || point.x >= view.innerWidth || point.y >= view.innerHeight)) return { result: "unverifiable" };
+  const hits = locations.map(point => {
+    const hit = host.ownerDocument.elementFromPoint(point.x, point.y);
+    return hit === probe.element || !!hit && probe.element.contains(hit);
+  });
+  return { result: hits[0] && !hits[1] ? "proven" : "failed", hits };
+}

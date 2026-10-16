@@ -169,6 +169,14 @@ compare on GPU pixels, outset included.
 
 ### 5. Projective transforms
 
+Implemented without waiting for #186:
+- **Transforms:** `Transform` gains `tiltX`, `tiltY` and `perspective`, composed as CSS composes them.
+- **Shader:** maps canvas to layer through the inverse homography. The layer block gains a projective row: 56 floats,
+  and compiled sets move to version 4.
+- **Admission:** proves projective hits with two witnesses, and tilt on the GPU requires that proof.
+- **The #186 case is refused:** a tilted layer inside a clipping viewport, or with clipped overflow. Unclipped tilted
+  layers need no `canvasClip`, the same rule core already used for rotation (open issue SCOPE-007).
+
 - **What:** a projective canonical matrix, its admission check, and native hit witnesses, so panels can tilt (P0.1
   passed on a 16k-point grid).
 - **When:** last, after WICG #186 settles, because rotated `canvasClip` hit testing is still open upstream.

@@ -360,7 +360,20 @@ excluded from authored Surface/Box props. Existing arbitrary classes/ancestor
 selectors are not normalized or proven compatible.
 The positioned x/y origin applies to Surface; Box remains ordinary flow layout.
 
-`Transform` supports x/y, scaleX/scaleY, rotation in degrees and opacity.
+`Transform` supports x/y, scaleX/scaleY, rotation in degrees, opacity, and a tilt.
+
+**Tilt:**
+- **Channels:** `tiltX` and `tiltY` are in degrees, at most ±60, with the same directions as CSS `rotateX` and `rotateY`.
+  `perspective` is the viewer distance in CSS px; it defaults to 1600 and must be at least 100.
+- **The matrix:** a tilted layer's matrix is projective, composed as CSS composes
+  `translate() perspective() rotate() rotateX() rotateY() scale()` about the pivot.
+  - On the GPU, pixels and native hits follow the projection.
+  - In ordinary DOM, the same matrix is applied as `matrix3d`.
+- **Admission proves it:** admission tests projective hit testing on the installed browser
+  (`metrics.admission.last.projective`). Tilt on the GPU needs that proof.
+- **Clipping:** a tilted layer must not be clipped by a viewport or by its own overflow. Chromium hit-tests a
+  projected `canvasClip` by its bounding box (crbug.com/573454036, WICG html-in-canvas#186), so such a layer is
+  refused with a diagnosis rather than hit-tested wrongly.
 Rotation and scale pivot around the layer's static `origin`, like CSS
 `transform-origin`: `"top-left"` (default), `"center"` or `{ x, y }` fractions
 of the layer's layout size (`{ x: .5, y: .5 }` is the centre). The origin is not

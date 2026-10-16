@@ -1,14 +1,14 @@
 /**
  * Packs layer state into uniform buffers and generates the WGSL that composites layers. Each layer
- * is described by a fixed block of 13 vec4s (see `BLOCK`): the inverse transform, extent, opacity,
- * ripple, up to three effects, the clip and the material. The uploaded inverse layer matrix maps each output
+ * is described by a fixed block of 14 vec4s (see `BLOCK`): the inverse transform, extent, opacity,
+ * ripple, up to three effects, the clip, the material and the inverse's projective row. The uploaded inverse layer matrix maps each output
  * pixel back into layer-local space, where the shader applies compiled motion and effects, then samples the
  * captured texture. `renderer.ts` draws one pass per layer (`layerShader`/`layerUniforms`);
  * `compositionShader`/`compositionUniforms` is the single-pass variant. Effect packing is in
  * `effects.ts` and compiled motion in `compiled.ts`.
  */
 import type { EffectWrapperOptions } from "@babylonjs/lite";
-import { validateGeometry } from "./native.js";
+import { homography, invertRows, validateGeometry } from "./native.js";
 import type { Ripple } from "./ripple.js";
 import { effectUniforms, materialUniforms, MATERIAL_INTERIOR_CEILING, type EffectDescriptor, type ApplicationEffect, type MaterialDescriptor } from "./effects.js";
 import { LAYER_BLOCK_FLOATS, LAYER_PASS_FLOATS, type CompiledMotion } from "./compiled.js";
@@ -35,7 +35,7 @@ interface CompositeLayer {
   compiledMotion?(): CompiledMotion | undefined;
 }
 
-/** Uniform floats per layer block (13 vec4s): inverse matrix + grid, extent/opacity, ripple, 3 effects, clip, material. */
+/** Uniform floats per layer block (14 vec4s): inverse matrix + grid, extent/opacity, ripple, 3 effects, clip, material, projective row. */
 const BLOCK = LAYER_BLOCK_FLOATS;
 /** vec4s per layer block. */
 const BLOCK_VEC4S = BLOCK / 4;
@@ -72,7 +72,7 @@ export function drawRectangle(clip: { x: number; y: number; width: number; heigh
   };
 }
 
-/** Writes one layer's 13-vec4 uniform block at `offset` and returns its canvas-space matrix and clip. */
+/** Writes one layer's 14-vec4 uniform block at `offset` and returns its canvas-space matrix and clip. */
 function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeLayer, shift: number, customIndex: number, compiled: boolean,
   materialIndex = -1) {
   // Compiled motion is evaluated in the shader, so the matrix only carries the motion's origin.
@@ -80,9 +80,11 @@ function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeL
   const base = motion ? new DOMMatrix().translate(motion.origin.x, motion.origin.y) : layer.matrix();
   // `shift` is a horizontal canvas-space offset applied to the whole layer.
   const matrix = new DOMMatrix().translate(shift, 0).multiply(base);
-  validateGeometry(matrix);
-  // The shader maps canvas -> layer-local, so it needs the inverse (only its 2D rows are uploaded).
-  const inverse = matrix.inverse();
+  validateGeometry(matrix, layer.extent);
+  // The shader maps canvas -> layer-local, so it needs the inverse: the 2D rows of an affine matrix, or the inverse
+  // homography of a tilted one (its third row divides).
+  const inverse = matrix.is2D ? matrix.inverse() : undefined;
+  const rows = matrix.is2D ? undefined : invertRows(homography(matrix));
   const content = layer.contentExtent ?? { width: layer.extent.width, height: layer.extent.height,
     pixelWidth: layer.extent.width, pixelHeight: layer.extent.height };
   // vec4 0-1: inverse rows plus texels per CSS pixel; vec4 2: extent, opacity, custom effect slot
@@ -90,8 +92,8 @@ function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeL
   // vec4 3: ripple amplitude, ripple time (wrapped to keep f32 precision) and captured pixel size.
   // With compiled motion the uniform opacity is 1; the shader applies the animated opacity instead.
   values.set([
-    inverse.a, inverse.c, inverse.e, content.pixelWidth / Math.max(1, content.width),
-    inverse.b, inverse.d, inverse.f, content.pixelHeight / Math.max(1, content.height),
+    ...(inverse ? [inverse.a, inverse.c, inverse.e] : rows![0]), content.pixelWidth / Math.max(1, content.width),
+    ...(inverse ? [inverse.b, inverse.d, inverse.f] : rows![1]), content.pixelHeight / Math.max(1, content.height),
     layer.extent.width, layer.extent.height, motion ? 1 : layer.opacity(), customIndex,
     layer.ripple?.()?.amplitude ?? 0, (layer.ripple?.()?.seconds ?? 0) % 1000, content.pixelWidth, content.pixelHeight,
   ], offset);
@@ -106,6 +108,8 @@ function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeL
   // Relief passes read the drawn rectangle from vec4 12; hits keep using the clip alone.
   const draw = drawRectangle(clip, layer.extent, material?.kind === "relief" ? material.scene.outset : undefined);
   if (material?.kind === "relief") values.set([draw.x0, draw.y0, draw.x1, draw.y1], offset + 48);
+  // vec4 13: the inverse's projective row, (0, 0, 1) for an affine layer.
+  values.set([...(rows ? rows[2] : [0, 0, 1]), 0], offset + 52);
   return { matrix, clip, motion, draw };
 }
 
@@ -134,8 +138,9 @@ export function compositionUniforms(layers: CompositeLayer[], dpr: number, shift
 function layerBody(index: number, base: number, playback: number | undefined, custom: readonly (ApplicationEffect | undefined)[],
   decorativeAnimation: boolean, emit: (alpha: string) => string, materials: readonly (ApplicationEffect | undefined)[] = [], relief = false) {
   return `{
+      // Canvas to layer-local through the inverse homography; the third row is (0, 0, 1) for an affine layer.
       var local = vec2f(dot(state[${base}].xyz, vec3f(p, 1.0)),
-        dot(state[${base + 1}].xyz, vec3f(p, 1.0)));
+        dot(state[${base + 1}].xyz, vec3f(p, 1.0))) / dot(state[${base + 13}].xyz, vec3f(p, 1.0));
       var compiledOpacity = 1.0;
       ${playback !== undefined ? `let playback = state[${playback}];
       if (playback.x > 0.0) {
@@ -363,7 +368,7 @@ export function layerUniforms(layer: CompositeLayer, dpr: number, frame: { width
   if (compiled) values.set([motion ? motion.index + 1 : 0, motion?.phase ?? 0, 0, 0], LAYER_HEADER + BLOCK);
   // Compiled motion moves the layer inside the shader, so it may cover the whole frame.
   const corners = motion ? [] : [[draw.x0, draw.y0], [draw.x1, draw.y0], [draw.x0, draw.y1], [draw.x1, draw.y1]]
-    .map(([x, y]) => matrix.transformPoint({ x: x!, y: y! }));
+    .map(([x, y]) => { const point = matrix.transformPoint({ x: x!, y: y! }); return { x: point.x / point.w, y: point.y / point.w }; });
   // Pixels of padding so antialiased edges are not cut off by the bounding triangle.
   const pad = 2;
   const bounds = motion ? [0, 0, frame.width, frame.height] : [
