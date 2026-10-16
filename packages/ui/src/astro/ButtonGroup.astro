@@ -1,0 +1,17 @@
+---
+/** ButtonGroup (anatomy page `button-group.md`): keys on one plinth, a named group. */
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  label: string;
+  orientation?: "horizontal" | "vertical";
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, orientation = "horizontal", size, material, level, class: className, ...rest } = Astro.props;
+---
+<div class={classes("ug-button-group", orientation === "vertical" && "ug-button-group--vertical", className)} role="group" aria-label={label} data-strata-face="raised" {...strataAttributes({ size, material, level })} {...rest}><slot /></div>

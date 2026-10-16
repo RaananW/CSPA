@@ -1,0 +1,15 @@
+---
+/** Badge (anatomy page `badge.md`): a flat pill. `count` above `max` reads "99+", with the full number visually hidden. */
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  variant?: "neutral" | "accent" | "success" | "warning" | "danger" | "info";
+  count?: number;
+  max?: number;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { variant = "neutral", count, max = 99, class: className, ...rest } = Astro.props;
+---
+<span class={classes("ug-badge", variant !== "neutral" && `ug-badge--${variant}`, className)} data-strata-face="flat" {...rest}>{count === undefined ? <slot /> : count > max ? <Fragment>{`${max}+`}<span class="ug-badge__full">{` (${count})`}</span></Fragment> : String(count)}</span>

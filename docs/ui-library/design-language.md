@@ -606,6 +606,11 @@ packages are thin bindings that render the same markup and wire the same behavio
   rendered DOM with the contract.
 - **Order:** React first, then Vue, then Astro. Other stacks (Svelte, Solid, Angular, server
   templates) use the markup with `/css` and `/dom`; more bindings can follow.
+- **Astro.** Astro components have no shared context, so they render the same markup through a slightly different
+  API: controls take the Field props (`label`, `help`, `error`, `required`) and render their own Field, and
+  RadioGroup renders its radios from `options`. The behaviours native elements need without a binding (ToggleButton
+  state, `aria-disabled` blocking, checkbox `indeterminate`) come from `attachStrata` in `/dom`, which the components
+  load as one small script.
 - **Server rendering.** The markup and CSS render on the server with no JavaScript, so pages are
   readable and usable before scripts load. Astro components do exactly that. Behaviour and GPU
   presentation attach in the browser: through the plain-DOM runtime, or through React or Vue
@@ -645,6 +650,7 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-16: review of the specimen: lower relief (`shadow.strength` 0.24 at 50%, panels at 8), a switch knob
   that keeps its colour (ringed in `on-accent` when on), a tinted face for toggle buttons that are on, and a 2 px
   `edge` outline on raised faces in the high-contrast themes (`outline.width`).
+- 2026-10-16: the Astro components and `attachStrata` (section 18).
 - 2026-10-16: panel motion helpers for the CSS presentation (section 12).
 - 2026-10-16: the theme runtime API (section 15): `createStrataTheme`, `applyStrataTheme`, `strataScope`, and the
   `strata.theme` cascade layer.

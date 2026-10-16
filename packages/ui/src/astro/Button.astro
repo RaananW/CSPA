@@ -1,0 +1,20 @@
+---
+/** Button (anatomy page `button.md`): a native `<button>` key. Slots: the label, and an optional `icon`. */
+import Behaviour from "./Behaviour.astro";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  variant?: "secondary" | "accent" | "danger";
+  type?: "button" | "submit" | "reset";
+  busy?: boolean;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { variant = "secondary", type = "button", busy = false, size, material, level, class: className, ...rest } = Astro.props;
+---
+<button type={type} class={classes("ug-button", variant !== "secondary" && `ug-button--${variant}`, className)} data-strata-face="raised" aria-busy={busy ? "true" : undefined} {...strataAttributes({ size, material, level })} {...rest}>{Astro.slots.has("icon") && <span class="ug-button__icon" aria-hidden="true"><slot name="icon" /></span>}<span class="ug-button__label"><slot /></span></button>
+<Behaviour />

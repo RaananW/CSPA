@@ -1,0 +1,32 @@
+---
+/**
+ * Field (anatomy page `field.md`): a label, a control, help and an error. Controls render it themselves when given
+ * Field props; use it directly for a custom control, giving that control `id={controlId}` and
+ * `aria-describedby` with `${controlId}-help` and `${controlId}-error` for the parts that exist. With `wrap={false}`
+ * it renders only its slot.
+ */
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  controlId: string;
+  label?: string;
+  help?: string;
+  error?: string;
+  required?: boolean;
+  requiredLabel?: string;
+  errorPrefix?: string;
+  wrap?: boolean;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { controlId, label, help, error, required, requiredLabel = "(required)", errorPrefix = "Error:", wrap = true, class: className, disabled: _disabled, ...rest } = Astro.props;
+---
+{wrap ? (
+  <div class={classes("ug-field", className)} {...rest}>
+    {label !== undefined && <label class="ug-field__label" for={controlId}>{required ? `${label} ${requiredLabel}` : label}</label>}
+    <slot />
+    {help && <p class="ug-field__help" id={`${controlId}-help`}>{help}</p>}
+    {error && <p class="ug-field__error" id={`${controlId}-error`}>{`${errorPrefix} ${error}`}</p>}
+  </div>
+) : <slot />}

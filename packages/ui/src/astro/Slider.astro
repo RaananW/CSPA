@@ -1,0 +1,24 @@
+---
+/** Slider (anatomy page `slider.md`): a native `<input type="range">`; keys, pointer and touch are native. */
+import Field from "./Field.astro";
+import { fieldControl } from "./field.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  id?: string;
+  label?: string;
+  help?: string;
+  disabled?: boolean;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { id, label, help, disabled, size, material, level, class: className, ...rest } = Astro.props;
+const field = fieldControl({ id, label, help, disabled });
+---
+<Field wrap={field.wrap} controlId={field.id} label={label} help={help}>
+  <input type="range" class={classes("ug-slider", className)} data-strata-face="groove" {...strataAttributes({ size, material, level })} {...field.attrs} {...rest} />
+</Field>

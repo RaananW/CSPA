@@ -1,0 +1,38 @@
+---
+/**
+ * Select (anatomy page `select.md`): a native `<select>`. Give `options` (with `value` selecting one), or `<option>`
+ * elements in the slot.
+ */
+import Field from "./Field.astro";
+import { fieldControl } from "./field.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Option { value: string; label: string; disabled?: boolean }
+
+interface Props {
+  id?: string;
+  options?: Option[];
+  value?: string;
+  label?: string;
+  help?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+  requiredLabel?: string;
+  errorPrefix?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { id, options, value, label, help, error, required, disabled, invalid, requiredLabel, errorPrefix, size, material, level, class: className, ...rest } = Astro.props;
+const field = fieldControl({ id, label, help, error, required, disabled, invalid });
+---
+<Field wrap={field.wrap} controlId={field.id} label={label} help={help} error={error} required={required} requiredLabel={requiredLabel} errorPrefix={errorPrefix}>
+  <select class={classes("ug-select", className)} data-strata-face="raised" {...strataAttributes({ size, material, level })} {...field.attrs} {...rest}>
+    {options ? options.map(option => <option value={option.value} disabled={option.disabled} selected={option.value === value}>{option.label}</option>) : <slot />}
+  </select>
+</Field>

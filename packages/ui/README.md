@@ -121,5 +121,24 @@ All 19 Tier A components, with `v-model` on TextField, TextArea, Select and Slid
 through to the native element; Checkbox, Switch and Radio send `class` and `style` to the label row and the rest to the
 input. Vue 3.5 is an optional peer.
 
-Next: Astro components, then the GPU presentation (`/gpu`), as the
+## Astro
+
+```astro
+---
+import "@underglass/ui/css";
+import { Button, Panel, RadioGroup, TextField } from "@underglass/ui/astro";
+---
+<Panel title="Account">
+  <TextField label="Email" type="email" help="We only use it for receipts." required />
+  <RadioGroup legend="Plan" value="free" options={[{ value: "free", label: "Free" }, { value: "pro", label: "Pro" }]} />
+  <Button variant="accent" type="submit">Save</Button>
+</Panel>
+```
+
+The same 19 components, rendered to HTML on the server with no JavaScript. Controls take the Field props themselves,
+and RadioGroup renders its radios from `options`. ToggleButton state, `aria-disabled` and checkbox `indeterminate`
+come from `attachStrata` (`@underglass/ui/dom`), which the components load. For plain HTML or other server templates,
+call `attachStrata()` yourself. Astro 7.3 is an optional peer.
+
+Next: the GPU presentation (`/gpu`), as the
 [plan](../../docs/ui-library/plan.md) describes.

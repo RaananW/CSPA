@@ -1,0 +1,38 @@
+---
+/**
+ * RadioGroup (anatomy page `radio.md`): native radios in a `<fieldset>` named by its `<legend>`. Astro has no component
+ * context, so the group renders its radios from `options`; `value` selects one. An error marks every radio invalid and
+ * joins the help in the fieldset's description. Arrow keys, Tab and Space are native.
+ */
+import { nextId } from "./field.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Option { value: string; label: string; disabled?: boolean }
+
+interface Props {
+  legend: string;
+  options: Option[];
+  name?: string;
+  value?: string;
+  help?: string;
+  error?: string;
+  required?: boolean;
+  errorPrefix?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { legend, options, name = nextId("radio"), value, help, error, required, errorPrefix = "Error:", size, material, level, class: className, ...rest } = Astro.props;
+const describedBy = [help ? `${name}-help` : "", error ? `${name}-error` : ""].filter(Boolean).join(" ") || undefined;
+---
+<fieldset class={classes("ug-radio-group", className)} aria-describedby={describedBy} {...strataAttributes({ size, material, level })} {...rest}>
+  <legend class="ug-radio-group__legend">{legend}</legend>
+  {options.map(option => (
+    <label class="ug-radio"><input class="ug-radio__input" data-strata-face="well" type="radio" name={name} value={option.value} checked={option.value === value} disabled={option.disabled} required={required} aria-invalid={error ? "true" : undefined} /><span class="ug-radio__dot" data-strata-face="knob" aria-hidden="true"></span><span class="ug-radio__label">{option.label}</span></label>
+  ))}
+  {help && <p class="ug-field__help" id={`${name}-help`}>{help}</p>}
+  {error && <p class="ug-field__error" id={`${name}-error`}>{`${errorPrefix} ${error}`}</p>}
+</fieldset>
