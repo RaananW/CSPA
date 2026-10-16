@@ -10,8 +10,8 @@
  * `attachStrata`, `strataGpuProbe.addAccordion()` a native `<details>` Accordion, `strataGpuProbe.addList()` a List, and
  * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts, `strataGpuProbe.addAvatar()` an Avatar, and
  * `strataGpuProbe.addChips()` a tag and a filter chip, `strataGpuProbe.addMessage()` a MessageBar with an action, and
- * `strataGpuProbe.addPagination()` three page keys, `strataGpuProbe.addToolbar()` a Toolbar of toggle buttons, and
- * `strataGpuProbe.addAppBar()` an AppBar.
+ * `strataGpuProbe.addPagination()` three page keys, `strataGpuProbe.addToolbar()` a Toolbar of toggle buttons, 
+ * `strataGpuProbe.addAppBar()` an AppBar, and `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -111,6 +111,12 @@ function sortTable() {
   body.append(...rows);
 }
 let archived = 0;
+/** A tooltip for Save (`tooltip.md`), added by `strataGpuProbe.addTooltip()`: the tooltip goes to the end of the body. */
+function addTooltip() {
+  panel.querySelector("#gpu-save")!.setAttribute("aria-describedby", "gpu-save-tip");
+  document.body.insertAdjacentHTML("beforeend", '<div class="ug-tooltip" id="gpu-save-tip" role="tooltip" popover="manual">Saves your changes</div>');
+  attachStrata(panel);
+}
 /** An AppBar in plain markup (`app-bar.md`), added by `strataGpuProbe.addAppBar()`; its button counts presses. */
 const appBarMarkup = `<header class="ug-app-bar" data-strata-face="raised" id="gpu-app-bar" style="margin-top:12px"><span class="ug-app-bar__title">Underglass</span><div class="ug-app-bar__end"><button type="button" class="ug-button" data-strata-face="raised" id="gpu-sign-in"><span class="ug-button__label">Sign in</span></button></div></header>`;
 let signIns = 0;
@@ -173,6 +179,7 @@ window.strataGpuProbe = {
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
+  addTooltip,
   addAppBar: () => { panel.insertAdjacentHTML("beforeend", appBarMarkup); panel.querySelector("#gpu-sign-in")!.addEventListener("click", () => { signIns++; }); strata?.refresh(); },
   signIns: () => signIns,
   addToolbar: () => { panel.insertAdjacentHTML("beforeend", toolbarMarkup); attachStrata(panel); strata?.refresh(); },
@@ -202,6 +209,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void;
   } }
 }

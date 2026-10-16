@@ -1,0 +1,20 @@
+---
+/**
+ * Tooltip (anatomy page `tooltip.md`): the tooltip element. Place it at the end of the page, outside every Underglass
+ * layer, and give its trigger `aria-describedby={id}`; `attachStrata`, which the component loads, shows and hides it.
+ */
+import Behaviour from "./Behaviour.astro";
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  id: string;
+  content: string;
+  placement?: "top" | "bottom";
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { id, content, placement = "top", class: className, ...rest } = Astro.props;
+---
+<div class={classes("ug-tooltip", className)} id={id} role="tooltip" popover="manual" data-strata-placement={placement === "bottom" ? "bottom" : undefined} {...rest}>{content}</div>
+<Behaviour />

@@ -137,6 +137,15 @@ test("Strata Astro components get their browser behaviour from attachStrata and 
   const dismissed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-dismiss", event => list.push(event.target.id)); return list; });
   await page.locator("#astro-message").getByRole("button", { name: "Dismiss" }).click();
   expect(await dismissed.jsonValue()).toEqual(["astro-message"]);
+  // Tooltip (attachStrata): the contract's trigger is hidden, so a tooltip is added for a visible control.
+  await page.evaluate(() => {
+    document.getElementById("astro-cut").setAttribute("aria-describedby", "astro-cut-tip");
+    document.body.insertAdjacentHTML("beforeend", '<div class="ug-tooltip" id="astro-cut-tip" role="tooltip" popover="manual">Cuts the selection</div>');
+  });
+  await page.locator("#astro-cut").hover();
+  await expect(page.locator("#astro-cut-tip")).toBeVisible();
+  await page.mouse.move(5, 5);
+  await expect(page.locator("#astro-cut-tip")).toBeHidden();
   // Toolbar (attachStrata): one tab stop once focus enters; the arrows move, skipping the disabled control.
   await page.locator("#astro-cut").focus();
   expect(await page.locator("#astro-toolbar button").evaluateAll(buttons => buttons.map(button => button.getAttribute("tabindex")))).toEqual(["0", null, "-1"]);

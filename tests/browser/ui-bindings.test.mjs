@@ -11,7 +11,7 @@
  *   Avatars show initials or a picture, named by the name; chips filter, and remove on request;
  *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion; MessageBars announce by intent;
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
- *   an AppBar is the banner with its controls;
+ *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -157,7 +157,8 @@ for (const binding of bindings) test(`Strata ${binding} Dialog is modal, control
     className: element.className, ref: element === window.strataDialog.panel || element === window.strataBinding.liveDialog,
   }))).toEqual({ parent: true, scrim: "ug-scrim", modal: "true", className: expect.stringContaining("ug-panel ug-dialog"), ref: true });
   await expect(dialog).toHaveClass(/extra/);
-  expect(await inert()).toEqual(["root"]);
+  // The app's root and the tooltip portalled beside it in the body are inert behind the modal.
+  expect(await inert()).toEqual(["root", "share-tip"]);
   // Tab stays inside.
   for (let step = 0; step < 6; step++) {
     await page.keyboard.press("Tab");
@@ -658,5 +659,41 @@ for (const binding of bindings) test(`Strata ${binding} AppBar is the banner lan
     return { order: start.right <= box.left && box.right <= end.left, oneLine: box.height < 40, truncated: title.scrollWidth > title.clientWidth };
   });
   expect(layout).toEqual({ order: true, oneLine: true, truncated: true });
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Tooltip describes its trigger, shows on hover and focus above it, and hides on leave and Escape`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const share = page.locator("#share"), tip = page.locator("#share-tip");
+  // The trigger is described by the tooltip, which is portalled to the body.
+  await expect(share).toHaveAccessibleDescription("Shares this page with your team");
+  expect(await tip.evaluate(element => element.parentElement === document.body)).toBe(true);
+  await expect(tip).toBeHidden();
+  // Hover: shown after the delay, above the trigger and centred on it.
+  await share.hover();
+  await expect(tip).toBeVisible();
+  const [a, t] = [await share.boundingBox(), await tip.boundingBox()];
+  expect(t.y + t.height).toBeLessThanOrEqual(a.y);
+  expect(Math.abs(t.x + t.width / 2 - (a.x + a.width / 2))).toBeLessThanOrEqual(1);
+  // The pointer can move onto the tooltip without hiding it; leaving both hides it.
+  await page.mouse.move(t.x + t.width / 2, t.y + t.height / 2, { steps: 4 });
+  await page.waitForTimeout(250);
+  await expect(tip).toBeVisible();
+  await page.mouse.move(5, 5);
+  await expect(tip).toBeHidden();
+  // Keyboard focus shows it at once; Escape hides it and keeps focus.
+  await page.locator("#share").evaluate(element => element.blur());
+  await page.keyboard.press("Tab");
+  await share.focus();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(share).toBeFocused();
+  await expect(tip).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(tip).toBeHidden();
+  await expect(share).toBeFocused();
   await context.close();
 });

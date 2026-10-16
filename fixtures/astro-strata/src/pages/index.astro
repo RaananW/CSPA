@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import {
   Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, RadioGroup, Select, Skeleton, Slider, Spinner, Table, Tabs,
-  StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton, Toolbar,
+  StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton, Toolbar, Tooltip,
 } from "@underglass/ui/astro";
 
 const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
@@ -36,6 +36,7 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     <div data-contract="chip.md"><Chip label="Design" /><Chip label="Remote" pressed /><Chip label="ada@example.com" removable /></div>
     <div data-contract="message-bar.md"><MessageBar intent="warning" title="Storage almost full" dismissible>You have used 95% of your space.<Fragment slot="actions"><Button>Upgrade</Button></Fragment></MessageBar></div>
     <div data-contract="app-bar.md"><AppBar title="Underglass"><Fragment slot="start"><IconButton label="Menu" /></Fragment><Fragment slot="end"><Button>Sign in</Button></Fragment></AppBar></div>
+    <div data-contract="tooltip.md"><IconButton label="Copy link" aria-describedby="copy-tip" /><Tooltip id="copy-tip" content="Copies the address to the clipboard" /></div>
     <div data-contract="toolbar.md"><Toolbar label="Formatting"><ToggleButton>Bold</ToggleButton><ToggleButton>Italic</ToggleButton><Divider orientation="vertical" /><Button>Undo</Button></Toolbar></div>
     <div data-contract="pagination.md"><Pagination page={4} count={10} href="/items?page={page}" /></div>
     <div data-contract="skeleton.md"><Skeleton shape="circle" /><Skeleton lines={3} /><Skeleton shape="rect" width="100%" height={120} /></div>

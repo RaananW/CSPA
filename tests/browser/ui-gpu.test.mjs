@@ -716,3 +716,24 @@ for (const level of ["relief", "objects"]) test(`an AppBar on the GPU at the ${l
   expect(await page.evaluate(() => window.strataGpuProbe.signIns())).toBe(1);
   expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
 });
+
+for (const level of ["relief", "objects"]) test(`a Tooltip for a GPU-presented control at the ${level} level shows above it on a real hover, outside the layer, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(() => window.strataGpuProbe.addTooltip());
+  const save = await page.locator("#gpu-save").boundingBox();
+  await page.mouse.move(save.x + save.width / 2, save.y + save.height / 2);
+  const tip = page.locator("#gpu-save-tip");
+  await expect(tip).toBeVisible();
+  const box = await tip.boundingBox();
+  expect(box.y + box.height).toBeLessThanOrEqual(save.y);
+  expect(Math.abs(box.x + box.width / 2 - (save.x + save.width / 2))).toBeLessThanOrEqual(1);
+  // The tooltip is in the top layer, outside the Underglass root, so the panel stays on the GPU.
+  expect(await page.evaluate(() => !window.strataGpuProbe.root().contains(document.getElementById("gpu-save-tip")))).toBe(true);
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  await page.mouse.move(5, 5);
+  await expect(tip).toBeHidden();
+  expect(errors).toEqual([]);
+});

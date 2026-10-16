@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar } from "@underglass/ui/react";
+import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -15,6 +15,7 @@ const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeW
 function Contracts() {
   // A Dialog and a Drawer render only while open, so the test opens them (`window.strataOverlays`) to compare.
   const [overlays, setOverlays] = useState(false);
+  const [tooltipHost, setTooltipHost] = useState<HTMLElement | null>(null);
   const [dialogHost, setDialogHost] = useState<HTMLElement | null>(null), [drawerHost, setDrawerHost] = useState<HTMLElement | null>(null);
   useEffect(() => { Object.assign(window, { strataOverlays: setOverlays }); }, []);
   return (
@@ -105,6 +106,9 @@ function Contracts() {
       </div>
       <div data-contract="app-bar.md">
         <AppBar title="Underglass" start={<IconButton label="Menu" icon={null} />} end={<Button>Sign in</Button>} />
+      </div>
+      <div data-contract="tooltip.md" ref={setTooltipHost}>
+        {tooltipHost && <Tooltip id="copy-tip" content="Copies the address to the clipboard" container={tooltipHost}><IconButton label="Copy link" icon={null} /></Tooltip>}
       </div>
       <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
@@ -268,6 +272,9 @@ function App() {
           <div id="loading-region" aria-busy="true" style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Skeleton id="skeleton-circle" shape="circle" /><Skeleton id="skeleton-lines" lines={2} style={{ flex: 1 }} />
           </div>
+          <p style={{ margin: 0 }}>
+            <Tooltip id="share-tip" content="Shares this page with your team"><Button id="share">Share</Button></Tooltip>
+          </p>
           <Toolbar label="Editing" id="live-toolbar">
             <Button id="tool-cut">Cut</Button><Button id="tool-copy" disabled>Copy</Button><Button id="tool-paste" aria-disabled="true">Paste</Button>
             <Divider orientation="vertical" /><ToggleButton id="tool-wrap">Wrap</ToggleButton>

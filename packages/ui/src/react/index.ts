@@ -29,6 +29,8 @@ export { MessageBar } from "./MessageBar.tsx";
 export { Pagination } from "./Pagination.tsx";
 export { Toolbar } from "./Toolbar.tsx";
 export { AppBar } from "./AppBar.tsx";
+export { Tooltip } from "./Tooltip.tsx";
+export type { TooltipProps } from "./Tooltip.tsx";
 export type { AppBarProps } from "./AppBar.tsx";
 export type { ToolbarProps } from "./Toolbar.tsx";
 export type { PaginationProps } from "./Pagination.tsx";

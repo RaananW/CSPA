@@ -10,6 +10,7 @@
  *   `[data-strata-close]` inside an open one closes it;
  * - a click on a chip's remove button dispatches a bubbling `strata-remove` event from the chip, and one on a
  *   MessageBar's dismiss button a bubbling `strata-dismiss` event from the bar;
+ * - Tooltips: `attachStrataTooltips` shows and hides every `.ug-tooltip` named by a trigger's `aria-describedby`;
  * - Toolbars: the first time focus enters one, its controls get a roving tabindex (one tab stop), and the arrow keys,
  *   Home and End move between them;
  * - Tabs: a click on a tab selects it, and the arrow keys, Home and End move between tabs and select them (only move,
@@ -19,6 +20,7 @@
 import { showStrataDialog, type DialogHandle } from "./dialog.ts";
 import { selectStrataTab, strataTabsActivation, strataTabTarget } from "./tabs.ts";
 import { rovingStrataToolbar, strataToolbarTarget } from "./toolbar.ts";
+import { attachStrataTooltips } from "./tooltip.ts";
 
 const attached = new WeakMap<Document | HTMLElement, () => void>();
 
@@ -48,6 +50,7 @@ function applyIndeterminate(root: Document | HTMLElement) {
  */
 export function attachStrata(root: Document | HTMLElement = document): () => void {
   applyIndeterminate(root);
+  attachStrataTooltips(root instanceof Document ? root : root.ownerDocument);
   const existing = attached.get(root);
   if (existing) return existing;
   const block = (event: Event) => {

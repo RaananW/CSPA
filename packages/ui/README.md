@@ -422,3 +422,16 @@ same with and without script; `attachStrata` does it for plain HTML and Astro.
 ```tsx
 <AppBar title="Underglass" start={<IconButton label="Menu" icon={<MenuIcon />} />} end={<Button>Sign in</Button>} />
 ```
+
+## Tooltip
+
+`Tooltip` describes one trigger (APG Tooltip): shown 300 ms after the pointer rests on it or at once on keyboard
+focus, kept while the pointer is on the tooltip, hidden on leave, blur or Escape. It is a `role="tooltip"` popover in
+the top layer, portalled to `<body>` (`container` in React, `to` in Vue), never inside an Underglass layer.
+
+```tsx
+<Tooltip content="Copies the address to the clipboard"><IconButton label="Copy link" icon={<LinkIcon />} /></Tooltip>
+```
+
+In plain HTML and Astro, give the trigger `aria-describedby` and put the `.ug-tooltip` at the end of the page;
+`attachStrata` runs it. [Anatomy](../../docs/ui-library/components/tooltip.md).

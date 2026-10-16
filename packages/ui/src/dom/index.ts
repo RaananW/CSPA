@@ -14,5 +14,6 @@ export type { DialogCloseReason, DialogHandle, DialogOptions } from "./dialog.ts
 export { attachStrata } from "./behaviour.ts";
 export { selectStrataTab, strataTabsActivation, strataTabTarget } from "./tabs.ts";
 export { rovingStrataToolbar, strataToolbarTarget } from "./toolbar.ts";
+export { attachStrataTooltips, hideStrataTooltip, showStrataTooltip } from "./tooltip.ts";
 export type { TabChange, TabsActivation } from "./tabs.ts";
 export type { PressedChange } from "./behaviour.ts";
