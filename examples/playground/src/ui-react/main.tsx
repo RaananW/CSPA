@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Button, Checkbox, Field, IconButton, Link, Radio, RadioGroup, Select, Slider, StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
+import { Badge, Button, ButtonGroup, Card, Checkbox, Divider, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider, Spinner, StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -42,6 +42,13 @@ function Contracts() {
           <option value="m">Medium</option>
         </Select>
       </div>
+      <div data-contract="button-group.md"><ButtonGroup label="Alignment"><Button>Left</Button><Button>Centre</Button><Button>Right</Button></ButtonGroup></div>
+      <div data-contract="divider.md"><Divider /><Divider orientation="vertical" /></div>
+      <div data-contract="badge.md"><Badge variant="success">Active</Badge></div>
+      <div data-contract="spinner.md"><Spinner label="Loading" /></div>
+      <div data-contract="progress-bar.md"><label htmlFor="upload">Upload</label><ProgressBar id="upload" value={40} max={100} /></div>
+      <div data-contract="card.md"><Card title="Latency" titleId="card-1-title" footer={null}>…</Card></div>
+      <div data-contract="panel.md"><Panel title="Settings" titleId="settings-title" /></div>
       <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
   );
@@ -114,6 +121,20 @@ function App() {
             <TextArea value={choices.notes} onChange={event => choose("notes", event.target.value)} resize="none" />
           </Field>
         </section>
+        <Panel title="Status" id="status-panel">
+          <Card title="Latency" id="latency-card" footer={<Button id="details">Details</Button>}>p95 is 41 ms.</Card>
+          <Divider id="rule" />
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <ButtonGroup label="View" orientation="vertical" id="view-group"><Button>List</Button><Button>Grid</Button></ButtonGroup>
+            <Divider orientation="vertical" id="vertical-rule" />
+            <Badge id="inbox" variant="accent" count={120} />
+            <Badge id="few" count={7} />
+          </div>
+          <Spinner id="loading" label="Loading results" showLabel />
+          <Button id="saving" variant="accent" busy icon={<Spinner decorative label="Saving" size="small" />}>Saving</Button>
+          <Field label="Upload" controlId="upload-progress"><ProgressBar value={40} /></Field>
+          <ProgressBar id="sync-progress" aria-label="Syncing" />
+        </Panel>
         <StrataScope depth={0.1} density="compact" size="small" id="scope" aria-label="Compact scope" role="region">
           <section className="ug-panel" data-strata-face="raised" aria-label="Scoped">
             <Button id="scoped">Scoped</Button>

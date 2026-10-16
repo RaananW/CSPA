@@ -22,3 +22,7 @@ export { Select, Slider } from "./Select.tsx";
 export type { SelectProps, SliderProps } from "./Select.tsx";
 export { TextArea } from "./TextArea.tsx";
 export type { TextAreaProps } from "./TextArea.tsx";
+export { Badge, ButtonGroup, Divider, ProgressBar, Spinner } from "./Display.tsx";
+export type { BadgeProps, ButtonGroupProps, DividerProps, ProgressBarProps, SpinnerProps } from "./Display.tsx";
+export { Card, Panel } from "./Surface.tsx";
+export type { CardProps, PanelProps } from "./Surface.tsx";

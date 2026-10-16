@@ -98,11 +98,12 @@ import { Button, Field, StrataProvider, StrataScope, TextField } from "@undergla
 </StrataProvider>
 ```
 
-Components so far: `Button`, `IconButton`, `ToggleButton`, `Link`, `Field`, `TextField`, `TextArea`, `Checkbox`,
-`Switch`, `RadioGroup` with `Radio`, `Select` and `Slider`. Each renders exactly
+Every Tier A component: `Button`, `IconButton`, `ToggleButton`, `ButtonGroup`, `Link`, `Field`, `TextField`,
+`TextArea`, `Checkbox`, `RadioGroup` with `Radio`, `Switch`, `Select`, `Slider`, `Card`, `Panel`, `Divider`, `Badge`,
+`Spinner` and `ProgressBar`. Each renders exactly
 the markup on its [anatomy page](../../docs/ui-library/components/README.md), forwards a ref to its native element,
 and passes `className`, `style` and native attributes through. `size`, `material` and `level` become the Strata
 attributes. React 18.3 and 19 are optional peers.
 
-Next: the rest of Tier A, Vue and Astro bindings, then the GPU presentation (`/gpu`), as the
+Next: Vue and Astro bindings, then the GPU presentation (`/gpu`), as the
 [plan](../../docs/ui-library/plan.md) describes.

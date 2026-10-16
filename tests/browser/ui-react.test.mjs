@@ -51,7 +51,8 @@ test("Strata React components render their anatomy markup and behave natively", 
 
   // Markup contracts.
   const contracts = { "button.md": snippets("button.md")[0], "icon-button.md": snippets("icon-button.md")[0], "toggle-button.md": snippets("toggle-button.md")[0], "link.md": snippets("link.md")[0], "field.md": snippets("field.md")[0], "text-field.md": snippets("text-field.md")[0], "text-field.md#2": snippets("text-field.md")[1],
-    "text-area.md": snippets("text-area.md")[0], "checkbox.md": snippets("checkbox.md")[0], "radio.md": snippets("radio.md")[0], "switch.md": snippets("switch.md")[0], "select.md": snippets("select.md")[0], "slider.md": snippets("slider.md")[0] };
+    "text-area.md": snippets("text-area.md")[0], "checkbox.md": snippets("checkbox.md")[0], "radio.md": snippets("radio.md")[0], "switch.md": snippets("switch.md")[0], "select.md": snippets("select.md")[0], "slider.md": snippets("slider.md")[0],
+    "button-group.md": snippets("button-group.md")[0], "divider.md": snippets("divider.md")[0], "badge.md": snippets("badge.md")[0], "spinner.md": snippets("spinner.md")[0], "progress-bar.md": snippets("progress-bar.md")[0], "card.md": snippets("card.md")[0], "panel.md": snippets("panel.md")[0] };
   for (const [name, html] of Object.entries(contracts)) {
     const [rendered, expected] = await page.evaluate(([n, h]) => {
       const template = document.createElement("template");
@@ -255,5 +256,45 @@ test("Strata React choice controls keep native keyboard and form behaviour", asy
   await expect(notes).toHaveCSS("resize", "none");
   await page.keyboard.press("Tab");
   await expect(notes).not.toBeFocused();
+  await context.close();
+});
+
+test("Strata React surfaces and status components expose their roles, names and values", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto("/ui-react.html");
+  await page.waitForFunction(() => window.strataReact);
+  const main = page.locator("main");
+
+  // Panel: a region named by its title, at the floating level; Card: an article named by its title, with a footer.
+  const panel = main.getByRole("region", { name: "Status" });
+  await expect(panel).toHaveAttribute("data-strata-elevation", "floating");
+  const card = panel.getByRole("article", { name: "Latency" });
+  await expect(card.locator(".ug-card__body")).toHaveText("p95 is 41 ms.");
+  await card.getByRole("button", { name: "Details" }).click();
+  // Dividers are separators; the vertical one says so.
+  await expect(page.locator("#rule")).toHaveRole("separator");
+  await expect(page.locator("#vertical-rule")).toHaveAttribute("aria-orientation", "vertical");
+  // ButtonGroup: a named group, vertical by class only.
+  const view = main.getByRole("group", { name: "View" });
+  await expect(view).toHaveClass("ug-button-group ug-button-group--vertical");
+  await expect(view.getByRole("button")).toHaveCount(2);
+  // Badge: a count above the limit reads 99+ and keeps the full number for assistive technology.
+  await expect(page.locator("#inbox")).toHaveText("99+ (120)");
+  expect(await page.locator("#inbox .ug-badge__full").evaluate(element => element.getBoundingClientRect().width)).toBeLessThanOrEqual(1);
+  await expect(page.locator("#few")).toHaveText("7");
+  // Spinner: a status that announces its label; inside a busy button it is hidden and has no role.
+  // (A status takes no name from its content; its content is what the live region announces.)
+  await expect(main.getByRole("status")).toHaveText("Loading results");
+  const saving = page.locator("#saving");
+  await expect(saving).toHaveAttribute("aria-busy", "true");
+  await expect(saving.locator(".ug-spinner")).not.toHaveAttribute("role");
+  await expect(main.getByRole("status")).toHaveCount(1);
+  // ProgressBar: named by its Field label with a value; the indeterminate bar has no value.
+  const upload = main.getByRole("progressbar", { name: "Upload" });
+  await expect(upload).toHaveAttribute("value", "40");
+  expect(await upload.evaluate(element => element.position)).toBeCloseTo(0.4, 5);
+  const sync = main.getByRole("progressbar", { name: "Syncing" });
+  expect(await sync.evaluate(element => [element.hasAttribute("value"), element.position])).toEqual([false, -1]);
   await context.close();
 });

@@ -32,7 +32,7 @@ export interface FieldProps extends Omit<HTMLAttributes<HTMLDivElement>, "childr
   help?: ReactNode;
   /** An error message; also marks the control invalid. Prefixed with `errorPrefix`, so colour is never the only signal. */
   error?: ReactNode;
-  /** The control's id; generated when absent. */
+  /** The control's id; generated when absent. Set it here, not on the control, so the label keeps pointing at it. */
   controlId?: string;
   required?: boolean;
   disabled?: boolean;
