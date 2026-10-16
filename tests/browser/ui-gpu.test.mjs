@@ -456,3 +456,53 @@ test("at the Scene level a panel entering settles with a spring: it overshoots i
   expect(scales.last).toMatchObject({ scaleX: 1, scaleY: 1, opacity: 1 });
   expect(scales.mode).toBe("gpu");
 });
+
+for (const level of ["relief", "objects"]) test(`Tabs on the GPU at the ${level} level: the rail is a groove, the selected tab's indicator moves with real clicks and keys, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addTabs(); await window.strataGpuProbe.controller.settle(); });
+  const indicator = value => `#gpu-tabs-tab-${value} .ug-tab__indicator`;
+  /** The scene's entry for the element, at either level (a relief face or an object). */
+  const entryOf = selector => primitiveOf(page, selector).then(entry => entry && (entry.object ?? entry.face));
+  // The rail is a groove (at both levels: it has no object); only the selected tab's indicator is drawn, as a mark.
+  expect(await entryOf("#gpu-tabs .ug-tabs__rail")).toBe("groove");
+  expect(await entryOf(indicator("overview"))).toBe("mark");
+  expect(await entryOf(indicator("activity"))).toBeNull();
+  expect((await primitiveOf(page, indicator("overview"))).material).toBe("emissive");
+  // The rail comes before the indicators, so the indicator is drawn over it.
+  expect(await page.evaluate(() => { const scene = window.strataGpuProbe.scene(), rail = scene.primitives.findIndex(entry => entry.face === "groove" && entry.rect[2] > 300);
+    return rail >= 0 && rail < scene.primitives.length - 1; })).toBe(true);
+  /** The indicator's centre in the frame's CSS px, from its tab (it is laid out even while hidden). */
+  const centre = value => page.evaluate(id => {
+    const frame = document.getElementById("frame").getBoundingClientRect(), tab = document.getElementById(id).getBoundingClientRect();
+    return [tab.left + tab.width / 2 - frame.left, tab.bottom - 2 - frame.top];
+  }, `gpu-tabs-tab-${value}`);
+  const accent = ([r, , b]) => b - r > 60;
+  const before = await snap(page, `tabs-${level}-overview`);
+  const [ox, oy] = await centre("overview"), [ax, ay] = await centre("activity");
+  expect(accent(before(ox, oy)), `overview indicator ${before(ox, oy)}`).toBe(true);
+  expect(accent(before(ax, ay)), `no activity indicator ${before(ax, ay)}`).toBe(false);
+
+  // A real click on Activity, through the GPU-presented panel: it is selected, and the indicator moves under it.
+  const activity = await page.locator("#gpu-tabs-tab-activity").boundingBox();
+  await page.mouse.click(activity.x + activity.width / 2, activity.y + activity.height / 3);
+  await expect(page.locator("#gpu-tabs-tab-activity")).toHaveAttribute("aria-selected", "true");
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(await entryOf(indicator("activity"))).toBe("mark");
+  expect(await entryOf(indicator("overview"))).toBeNull();
+  const after = await snap(page, `tabs-${level}-activity`);
+  expect(accent(after(ax, ay)), `activity indicator ${after(ax, ay)}`).toBe(true);
+  expect(accent(after(ox, oy)), `no overview indicator ${after(ox, oy)}`).toBe(false);
+  await expect(page.locator("#gpu-tabs-panel-activity")).toBeVisible();
+
+  // The arrow keys select through the GPU too.
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#gpu-tabs-tab-settings")).toBeFocused();
+  await expect(page.locator("#gpu-tabs-tab-settings")).toHaveAttribute("aria-selected", "true");
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(await entryOf(indicator("settings"))).toBe("mark");
+  expect(errors).toEqual([]);
+});

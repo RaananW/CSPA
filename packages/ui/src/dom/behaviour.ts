@@ -7,10 +7,13 @@
  *   control stays focusable without activating;
  * - a checkbox with `data-strata-indeterminate` gets the `indeterminate` property, which has no attribute;
  * - a click on `[data-strata-open="id"]` shows the Dialog or Drawer with that id (`showStrataDialog`), and a click on a
- *   `[data-strata-close]` inside an open one closes it.
+ *   `[data-strata-close]` inside an open one closes it;
+ * - Tabs: a click on a tab selects it, and the arrow keys, Home and End move between tabs and select them (only move,
+ *   with `data-strata-activation="manual"` on the tablist, until Enter or Space clicks the tab).
  * The React and Vue bindings do the same themselves, so they need none of this.
  */
 import { showStrataDialog, type DialogHandle } from "./dialog.ts";
+import { selectStrataTab, strataTabsActivation, strataTabTarget } from "./tabs.ts";
 
 const attached = new WeakMap<Document | HTMLElement, () => void>();
 
@@ -63,7 +66,21 @@ export function attachStrata(root: Document | HTMLElement = document): () => voi
     const panel = closer?.closest<HTMLElement>(".ug-dialog, .ug-drawer");
     if (panel && !panel.hidden) void opened.get(panel)?.close();
   };
+  const tab = (event: Event) => {
+    const target = (event.target as Element | null)?.closest?.<HTMLElement>(".ug-tabs__list [role='tab']");
+    if (target && !event.defaultPrevented && !(target as HTMLButtonElement).disabled) selectStrataTab(target);
+  };
+  const tabKey = (event: KeyboardEvent) => {
+    const from = (event.target as Element | null)?.closest?.(".ug-tabs__list [role='tab']");
+    const target = from && !event.defaultPrevented && !event.altKey && !event.ctrlKey && !event.metaKey ? strataTabTarget(from, event.key) : undefined;
+    if (!target) return;
+    event.preventDefault();
+    target.focus();
+    if (strataTabsActivation(target.closest("[role='tablist']")!) === "automatic") selectStrataTab(target);
+  };
   root.addEventListener("click", block, true);
+  root.addEventListener("click", tab);
+  root.addEventListener("keydown", tabKey as EventListener);
   root.addEventListener("click", open);
   root.addEventListener("click", close);
   root.addEventListener("click", toggle);
@@ -72,6 +89,8 @@ export function attachStrata(root: Document | HTMLElement = document): () => voi
     root.removeEventListener("click", toggle);
     root.removeEventListener("click", open);
     root.removeEventListener("click", close);
+    root.removeEventListener("click", tab);
+    root.removeEventListener("keydown", tabKey as EventListener);
     attached.delete(root);
   };
   attached.set(root, detach);

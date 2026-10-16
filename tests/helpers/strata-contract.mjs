@@ -11,7 +11,7 @@ const examples = name => [...readFileSync(new URL(`../../docs/ui-library/compone
 /** Every markup example by contract name (`text-field.md#2` is a page's second example). */
 export function contracts() {
   const names = ["button.md", "icon-button.md", "toggle-button.md", "link.md", "field.md", "text-field.md", "text-area.md", "checkbox.md", "radio.md", "switch.md",
-    "select.md", "slider.md", "button-group.md", "divider.md", "badge.md", "spinner.md", "progress-bar.md", "card.md", "panel.md", "dialog.md", "drawer.md"];
+    "select.md", "slider.md", "button-group.md", "divider.md", "badge.md", "spinner.md", "progress-bar.md", "card.md", "panel.md", "dialog.md", "drawer.md", "tabs.md"];
   const map = Object.fromEntries(names.map(name => [name, examples(name)[0]]));
   map["text-field.md#2"] = examples("text-field.md")[1];
   // A Dialog and a Drawer are shown open (React, Vue) and closed with `hidden` (plain HTML, Astro): the second example.

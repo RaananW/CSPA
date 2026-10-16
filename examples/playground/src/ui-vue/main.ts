@@ -8,7 +8,7 @@ import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
   Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
-  Spinner, StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton,
+  Spinner, StrataProvider, StrataScope, Switch, Tab, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/vue";
 
 const close = () => h("svg", { viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" }, [h("path", { d: "M4 4l8 8M12 4l-8 8" })]);
@@ -35,6 +35,18 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
     default: () => [h(Radio, { value: "free" }, { default: text("Free") }), h(Radio, { value: "pro" }, { default: text("Pro") })],
   })),
   contract("switch.md", h(Switch, { name: "wifi" }, { default: text("Wi-Fi") })),
+  contract("tabs.md", h(Tabs, { id: "account", defaultValue: "profile" }, {
+    default: () => [
+      h(TabList, { label: "Account" }, { default: () => [
+        h(Tab, { value: "profile" }, { default: text("Profile") }),
+        h(Tab, { value: "security" }, { default: text("Security") }),
+        h(Tab, { value: "billing", disabled: true }, { default: text("Billing") }),
+      ] }),
+      h(TabPanel, { value: "profile" }, { default: () => h("p", null, "Your name and photo.") }),
+      h(TabPanel, { value: "security" }, { default: () => h("p", null, "Your password and two-step sign-in.") }),
+      h(TabPanel, { value: "billing" }, { default: () => h("p", null, "Your plan and invoices.") }),
+    ],
+  })),
   contract("select.md", h(Select, { id: "size", name: "size", defaultValue: "" }, {
     default: () => [option("", "Choose a size", { disabled: true }), option("s", "Small"), option("m", "Medium")],
   })),
@@ -63,7 +75,7 @@ const App = defineComponent({
     const liveOpen = ref(false);
     const liveRef = ref<{ panel: HTMLElement | null } | null>(null);
     const clicks = reactive({ save: 0, blocked: 0, disabled: 0, close: 0, submit: 0 });
-    const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined);
+    const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const choices = reactive({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
     const buttonRef = ref<{ $el: HTMLElement } | null>(null), inputRef = ref<{ input: HTMLInputElement } | null>(null), wrappedRef = ref<{ input: HTMLInputElement } | null>(null);
     const count = (key: keyof typeof clicks) => () => { clicks[key]++; };
@@ -76,6 +88,8 @@ const App = defineComponent({
         get liveDialog() { return liveRef.value?.panel ?? null; },
         get refs() { return { button: buttonRef.value?.$el ?? null, input: inputRef.value?.input ?? null, wrapped: wrappedRef.value?.input ?? null }; },
         setAccent: (value: string | undefined) => { accent.value = value; },
+        get tab() { return tab.value; },
+        setTab: (value: string) => { tab.value = value; },
       },
     });
     return () => {
@@ -149,6 +163,29 @@ const App = defineComponent({
             h(StrataScope, { depth: 0.1, density: "compact", size: "small", id: "scope", "aria-label": "Compact scope", role: "region" }, {
               default: () => h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Scoped" }, [h(Button, { id: "scoped" }, { default: text("Scoped") })]),
             }),
+            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Tabs" }, [
+              h(Tabs, { id: "live-tabs", modelValue: tab.value, "onUpdate:modelValue": (value: string) => { tab.value = value; } }, {
+                default: () => [
+                  h(TabList, { label: "Preferences" }, { default: () => [
+                    h(Tab, { value: "general" }, { default: text("General") }),
+                    h(Tab, { value: "privacy" }, { default: text("Privacy") }),
+                    h(Tab, { value: "advanced", disabled: true }, { default: text("Advanced") }),
+                    h(Tab, { value: "help" }, { default: text("Help") }),
+                  ] }),
+                  h(TabPanel, { value: "general" }, { default: text("General settings.") }),
+                  h(TabPanel, { value: "privacy" }, { default: text("Privacy settings.") }),
+                  h(TabPanel, { value: "advanced" }, { default: text("Advanced settings.") }),
+                  h(TabPanel, { value: "help" }, { default: text("Help and feedback.") }),
+                ],
+              }),
+              h(Tabs, { id: "manual-tabs", defaultValue: "one", orientation: "vertical", activation: "manual" }, {
+                default: () => [
+                  h(TabList, { label: "Manual" }, { default: () => [h(Tab, { value: "one" }, { default: text("One") }), h(Tab, { value: "two" }, { default: text("Two") })] }),
+                  h(TabPanel, { value: "one" }, { default: text("First.") }),
+                  h(TabPanel, { value: "two" }, { default: text("Second.") }),
+                ],
+              }),
+            ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Overlays" }, [
               h(Button, { id: "open-live", onClick: () => { liveOpen.value = true; } }, { default: text("Open live dialog") }),
             ]),

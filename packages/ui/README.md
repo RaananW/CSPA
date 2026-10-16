@@ -259,3 +259,31 @@ scrim, outside the panel, closes it only with `closeOnScrim` (a prop in React, V
 
 Next: the GPU presentation (`/gpu`), as the
 [plan](../../docs/ui-library/plan.md) describes.
+
+## Tabs
+
+`Tabs` follow the APG Tabs pattern with automatic activation: a `tablist` of `<button role="tab">` elements and a
+`tabpanel` for each. A rail runs under the tabs, and the selected tab's accent indicator stands in it; on the GPU they
+are a groove and a lit mark. Only the selected tab is in the tab order; the arrow keys (Up and Down when vertical),
+Home and End move between tabs and select them, skipping disabled ones.
+
+```tsx
+import { Tab, TabList, TabPanel, Tabs } from "@underglass/ui/react";
+
+<Tabs id="account" value={tab} onChange={setTab}>
+  <TabList label="Account">
+    <Tab value="profile">Profile</Tab>
+    <Tab value="security">Security</Tab>
+  </TabList>
+  <TabPanel value="profile">…</TabPanel>
+  <TabPanel value="security">…</TabPanel>
+</Tabs>
+```
+
+- **Selection:** `value` and `onChange` (`v-model` in Vue), or `defaultValue`. Give one of them: with neither, no
+  tab is selected. Ids are `{id}-tab-{value}` and `{id}-panel-{value}`.
+- **Options:** `orientation="vertical"`; `activation="manual"` makes the arrows move focus only, until Enter or Space.
+- **Astro:** `<Tabs label="Account" tabs={[{ value: "profile", label: "Profile" }]} value="profile">` with one slot per
+  panel, named by its value; it selects the first enabled tab by default.
+- **Plain HTML:** the markup on the [anatomy page](../../docs/ui-library/components/tabs.md), wired by `attachStrata`,
+  which dispatches `strata-tab-change` with `{ tab, panel }`.

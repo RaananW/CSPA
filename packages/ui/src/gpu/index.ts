@@ -752,7 +752,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   for (const type of events) root.addEventListener(type, schedule, true);
   const mutation = new MutationObserver(schedule);
   mutation.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "disabled", "checked", "aria-checked",
-    "aria-disabled", "aria-pressed", "data-strata-closing", "data-strata-face", "data-strata-material", "data-strata-elevation", "data-strata-level", "data-strata-depth", "data-strata-theme", "data-strata-scope", "data-strata-preview", "hidden"] });
+    "aria-disabled", "aria-pressed", "aria-selected", "data-strata-closing", "data-strata-face", "data-strata-material", "data-strata-elevation", "data-strata-level", "data-strata-depth", "data-strata-theme", "data-strata-scope", "data-strata-preview", "hidden"] });
   resize.observe(root);
   const poll = setInterval(schedule, options.poll ?? 500);
   forced.addEventListener("change", schedule);

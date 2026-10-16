@@ -6,12 +6,13 @@
  * the adjust policy on (frame budget in ms, then frame counts); `strataGpuProbe.load(ms)` makes each frame that slow.
  * `?level=scene` adds the Scene level (`strataGpuProbe.burst()` bursts confetti from Save), and `?environment=url` lights
  * objects with an `.hdr` environment. `strataGpuProbe.openDrawer()` opens a Drawer on the end edge that closes on a click
- * outside it (`closeOnScrim`); the Dialog does not.
+ * outside it (`closeOnScrim`); the Dialog does not. `strataGpuProbe.addTabs()` adds plain-markup Tabs to the panel, wired by
+ * `attachStrata`.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
 import { attachStrataGpu, type BurstOptions, type StrataAdjustEvent, type StrataGpu } from "@underglass/ui/gpu";
-import { showStrataDialog, strataEnter, strataLeave, type DialogHandle, type PanelMotionOptions } from "@underglass/ui/dom";
+import { attachStrata, showStrataDialog, strataEnter, strataLeave, type DialogHandle, type PanelMotionOptions } from "@underglass/ui/dom";
 
 const markup = `
   <h2 id="gpu-title" style="margin:0 0 12px;font-size:18px">Account</h2>
@@ -76,6 +77,14 @@ function openDialog(kind: "dialog" | "drawer" = "dialog") {
   for (const button of section.querySelectorAll("button")) button.addEventListener("click", () => void close(button.id.replace(`gpu-${kind}-`, "")));
   dialog = { panel: section, handle };
 }
+/** Tabs in plain markup (`tabs.md`), added to the panel by `strataGpuProbe.addTabs()`. */
+const tabsMarkup = `<div class="ug-tabs" id="gpu-tabs" style="margin-top:12px">
+  <div class="ug-tabs__list" role="tablist" aria-label="Views">
+    <span class="ug-tabs__rail" data-strata-face="groove" aria-hidden="true"></span>
+    ${["overview", "activity", "settings"].map((value, index) => `<button class="ug-tab" type="button" role="tab" id="gpu-tabs-tab-${value}" aria-selected="${index === 0}" aria-controls="gpu-tabs-panel-${value}"${index ? ' tabindex="-1"' : ""}><span class="ug-tab__label">${value[0]!.toUpperCase() + value.slice(1)}</span><span class="ug-tab__indicator" data-strata-face="mark" aria-hidden="true"></span></button>`).join("")}
+  </div>
+  ${["overview", "activity", "settings"].map((value, index) => `<div class="ug-tabs__panel" role="tabpanel" id="gpu-tabs-panel-${value}" aria-labelledby="gpu-tabs-tab-${value}" tabindex="0"${index ? " hidden" : ""}>The ${value} view.</div>`).join("")}
+</div>`;
 let saves = 0;
 // Declared before mounting: the runtime may report status while it mounts.
 let strata: StrataGpu | undefined;
@@ -124,6 +133,7 @@ window.strataGpuProbe = {
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
+  addTabs: () => { panel.insertAdjacentHTML("beforeend", tabsMarkup); attachStrata(panel); strata?.refresh(); },
   leave: options => strataLeave(panel, options),
 };
 declare global {
@@ -133,6 +143,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void;
   } }
 }
