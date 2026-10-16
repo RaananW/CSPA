@@ -376,3 +376,16 @@ ToggleButton (`pressed` or `defaultPressed` with `onPressedChange`; `v-model:pre
 `<Skeleton shape="rect" width="100%" height={120} />`. Placeholders are flat, shimmer (still under reduced motion) and
 are hidden from assistive technology; put `aria-busy="true"` and a status on the region that is loading.
 [Anatomy](../../docs/ui-library/components/skeleton.md).
+
+## MessageBar
+
+`MessageBar` is an inline message on a raised slab with a stripe and an icon in its `intent` (`info`, `success`,
+`warning`, `danger`). It is a live region: `status` for information and success, `alert` for warnings and errors, so
+render it when the message appears. `actions` holds buttons; `onDismiss` (a `dismiss` listener in Vue,
+`dismissible` in Astro, `strata-dismiss` in plain HTML) adds a dismiss button.
+
+```tsx
+<MessageBar intent="warning" title="Storage almost full" actions={<Button>Upgrade</Button>} onDismiss={hide}>You have used 95% of your space.</MessageBar>
+```
+
+[Anatomy](../../docs/ui-library/components/message-bar.md).

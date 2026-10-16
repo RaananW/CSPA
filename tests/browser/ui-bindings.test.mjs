@@ -9,7 +9,7 @@
  *   Accordion sections report and follow their open state; List rows are links, buttons or static;
  *   Table headers sort the rows; a Breadcrumb is a named landmark of links;
  *   Avatars show initials or a picture, named by the name; chips filter, and remove on request;
- *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion;
+ *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion; MessageBars announce by intent;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -539,5 +539,30 @@ for (const binding of bindings) test(`Strata ${binding} Skeleton placeholders ar
   expect(await page.locator("#skeleton-circle").evaluate(element => getComputedStyle(element).animationName)).toBe("ug-skeleton-shimmer");
   await page.emulateMedia({ reducedMotion: "reduce" });
   expect(await page.locator("#skeleton-circle").evaluate(element => [getComputedStyle(element).animationName, getComputedStyle(element).backgroundImage])).toEqual(["none", "none"]);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} MessageBar announces by intent, and its actions and dismiss button work`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  // The role follows the intent: polite for information and success, assertive for warnings and errors.
+  const roles = await page.evaluate(() => ["info", "success", "warning", "danger"].map(intent => document.getElementById(`message-${intent}`).getAttribute("role")));
+  expect(roles).toEqual(["status", "status", "alert", "alert"]);
+  // Each intent has its own stripe colour and icon shape.
+  const looks = await page.evaluate(() => ["info", "success", "warning", "danger"].map(intent => {
+    const icon = document.querySelector(`#message-${intent} .ug-message-bar__icon`), style = getComputedStyle(icon);
+    return `${style.backgroundColor}|${style.maskImage.length}|${style.maskImage.slice(-60)}`;
+  }));
+  expect(new Set(looks).size).toBe(4);
+  // The action is an ordinary button; the dismiss button is named, and Enter asks for dismissal.
+  const live = page.locator("#message-live");
+  await expect(live).toHaveRole("alert");
+  await live.getByRole("button", { name: "Retry" }).click();
+  expect((await page.evaluate(() => window.strataBinding.messages)).upgrades).toBe(1);
+  await live.getByRole("button", { name: "Dismiss" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#message-live")).toHaveCount(0);
   await context.close();
 });

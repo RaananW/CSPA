@@ -16,6 +16,8 @@ export { List, ListItem } from "./list.ts";
 export { Avatar } from "./avatar.ts";
 export { Chip } from "./chip.ts";
 export { Skeleton } from "./skeleton.ts";
+export { MessageBar } from "./message-bar.ts";
+export type { MessageIntent } from "../shared/message.ts";
 export { Breadcrumb } from "./breadcrumb.ts";
 export type { BreadcrumbItem } from "./breadcrumb.ts";
 export { Table } from "./table.ts";

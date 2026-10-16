@@ -1,0 +1,31 @@
+---
+/**
+ * MessageBar (anatomy page `message-bar.md`): an inline message on a raised slab, a live region whose role follows its
+ * intent, with an optional `actions` slot and a dismiss button (`dismissible`), which `attachStrata` reports as a
+ * `strata-dismiss` event from the bar.
+ */
+import Behaviour from "./Behaviour.astro";
+import { messageRole, type MessageIntent } from "../shared/message.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  intent?: MessageIntent;
+  title?: string;
+  dismissible?: boolean;
+  dismissLabel?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { intent = "info", title, dismissible, dismissLabel = "Dismiss", size, material, level, class: className, ...rest } = Astro.props;
+---
+<div class={classes("ug-message-bar", `ug-message-bar--${intent}`, className)} data-strata-face="raised" role={messageRole(intent)} {...strataAttributes({ size, material, level })} {...rest}>
+  <span class="ug-message-bar__icon" aria-hidden="true"></span>
+  <div class="ug-message-bar__content">{title !== undefined && <p class="ug-message-bar__title">{title}</p>}<p class="ug-message-bar__body"><slot /></p></div>
+  {Astro.slots.has("actions") && <div class="ug-message-bar__actions"><slot name="actions" /></div>}
+  {dismissible && <button class="ug-message-bar__dismiss" type="button" aria-label={dismissLabel}></button>}
+</div>
+<Behaviour />

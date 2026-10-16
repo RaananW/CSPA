@@ -25,6 +25,8 @@ export type { TextAreaProps } from "./TextArea.tsx";
 export { Avatar } from "./Avatar.tsx";
 export { Chip } from "./Chip.tsx";
 export { Skeleton } from "./Skeleton.tsx";
+export { MessageBar } from "./MessageBar.tsx";
+export type { MessageBarProps, MessageIntent } from "./MessageBar.tsx";
 export type { SkeletonProps } from "./Skeleton.tsx";
 export type { ChipProps } from "./Chip.tsx";
 export type { AvatarProps } from "./Avatar.tsx";
