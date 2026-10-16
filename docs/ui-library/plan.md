@@ -315,12 +315,12 @@ step 0, the [Strata Rendering Model](rendering-model.md), specifies the Relief l
    an inert background. If they cannot match `<dialog>` on the accessibility tests
    below, they fall back to `<dialog>` in the overlay host.
 
-## Phase 5: Scene level (later)
+## Phase 5: Scene level
 
 Decorative 3D around the UI on the shared engine: particles, physics flourishes (for
 example confetti on submit, cards settling), environment light and backdrops.
 Decorative only, so it never affects hits or controls. Scoped after Tier A ships at
-both Relief and Objects levels.
+both Relief and Objects levels. The [Phase 5 design](phase5.md) turns it into steps.
 
 ## Accessibility
 

@@ -29,5 +29,7 @@ export { cameraOf, domeHit, domeObjects, environmentTerm, objectDistance, object
 export type { DomeHit, ResolvedObject } from "./objects.ts";
 export { bevelSlopeMax, drawnArea, guardRamp, lightVector, profileAngle, renderScene, roundedBoxDistance, shadePoint, shadingTerms } from "./shade.ts";
 export type { CapturedColour, Rgb01, Rgba, ShadingTerms } from "./shade.ts";
-export { buildConformance, buildObjectsConformance, capturedFrom, conformanceCases, conformanceTolerance, objectsCases } from "./conformance.ts";
+export { buildConformance, buildObjectsConformance, buildSceneConformance, capturedFrom, conformanceCases, conformanceTolerance, objectsCases, sceneCases } from "./conformance.ts";
+export { backdropColour, environmentColumns, environmentRows, environmentSample, particleAt, particleOrder, shadeStage, stageParticleBudget, validateEnvironmentMap, validateStageScene } from "./stage.ts";
+export type { EnvironmentMap, StageIssue, StageParticle, StageScene } from "./stage.ts";
 export type { CapturePaint, ConformanceCase, ConformanceSample, ConformanceSuite } from "./conformance.ts";

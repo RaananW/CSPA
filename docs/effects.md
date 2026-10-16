@@ -119,7 +119,13 @@ exactly its parameters, and `interior: { max }` within 0..0.1.
   are ray-cast in their own colour. An object that would draw outside its control (the taper rule, or a dome leaving
   its `bounds`) is drawn as its Relief equivalent, and `state().materials[].degraded` lists it with the reason. Its
   decoded GPU pixels pass `objects-2.json` (`tests/browser/objects.test.mjs`). Objects share the relief binding, so
-  a layer is at either level and nothing else changes: no extra pass, texture or depth buffer.
+  a layer is at either level and nothing else changes: no extra pass, texture or depth buffer. A version 3 scene may
+  set `environment` to a 32 × 16 brightness map, which the objects reflect instead of the studio.
+- `kind: "stage"` draws a stage scene (version 3 of the model, part 2C) on a **decorative** layer: a lit backdrop (a
+  pool of the light and a vignette) and up to 256 particles, lit cards and discs in perspective. The layer's own
+  content is empty and takes no hits. Particles move by `handle.update(scene)` each frame, with no recompile; their
+  physics is the application's. `state().materials` reports `{ kind: "stage", particles, backdrop }`. Its decoded GPU
+  pixels pass `scene-3.json` (`tests/browser/stage.test.mjs`).
 - One pass may hold a custom effect and a custom material; a new definition is
   compiled as a successor while the previous frame keeps presenting.
 - Replacement resolves the previous handle as `replaced`. The material survives

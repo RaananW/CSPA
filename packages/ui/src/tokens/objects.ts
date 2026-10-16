@@ -12,6 +12,7 @@
  *   not screen-locked; they carry no captured content, only their own colour.
  */
 import type { SceneObject, ScenePrimitive, StrataScene } from "./scene.ts";
+import { environmentSample } from "./stage.ts";
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const smoothstep = (edge0: number, edge1: number, x: number) => { const t = clamp((x - edge0) / (edge1 - edge0), 0, 1); return t * t * (3 - 2 * t); };
@@ -172,12 +173,18 @@ export function reliefEquivalent(object: SceneObject): ScenePrimitive | undefine
 /**
  * 2B.7: the studio environment, a brightness for the reflected direction: a dark floor rising to a bright ceiling.
  * `environmentTerm` is relative to a flat face, like the bevel's Lambert term, so a cap facing the viewer gets none.
+ * A version 3 scene may reflect an environment map instead (2C.4), sampled the same way relative to straight up.
  */
 export function studio(z: number): number {
   return 0.18 + (0.92 - 0.18) * smoothstep(-0.35, 0.65, z);
 }
 export function environmentTerm(scene: StrataScene, normal: Vec3, roughness: number, metallic: number): number {
   const strength = scene.environment?.strength ?? 0.6;
+  const environment = scene.environment;
+  if (environment?.source === "map") {
+    const r: [number, number, number] = [2 * normal[2] * normal[0], 2 * normal[2] * normal[1], 2 * normal[2] * normal[2] - 1];
+    return strength * (environmentSample(environment, r) - environmentSample(environment, [0, 0, 1])) * (0.04 + 0.96 * metallic) * (1 - roughness);
+  }
   const reflected = 2 * normal[2] * normal[2] - 1;
   return strength * (studio(reflected) - studio(1)) * (0.04 + 0.96 * metallic) * (1 - roughness);
 }
