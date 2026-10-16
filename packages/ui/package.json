@@ -34,6 +34,10 @@
       "types": "./dist/dom/index.d.ts",
       "import": "./dist/dom/index.js"
     },
+    "./gpu": {
+      "types": "./dist/gpu/index.d.ts",
+      "import": "./dist/gpu/index.js"
+    },
     "./react": {
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react/index.js"
@@ -52,6 +56,8 @@
     "dist/tokens/*.d.ts",
     "dist/dom/*.js",
     "dist/dom/*.d.ts",
+    "dist/gpu/*.js",
+    "dist/gpu/*.d.ts",
     "dist/react/*.js",
     "dist/react/*.d.ts",
     "dist/vue/*.js",

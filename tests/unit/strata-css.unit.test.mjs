@@ -46,11 +46,18 @@ test("the stylesheet is layered and honours every user preference", () => {
 test("Strata's neutral layers import no UI framework and each binding imports only its own", () => {
   const sources = directory => readdirSync(new URL(`../../packages/ui/src/${directory}/`, import.meta.url)).map(name => ({ name: `${directory}/${name}`, text: readFileSync(new URL(`../../packages/ui/src/${directory}/${name}`, import.meta.url), "utf8") }));
   const imports = (text, pattern) => [...text.matchAll(/from "([^"]+)"/g)].map(match => match[1]).filter(name => pattern.test(name));
-  for (const file of [...sources("tokens"), ...sources("dom"), ...sources("shared")]) {
+  for (const file of [...sources("tokens"), ...sources("dom"), ...sources("gpu"), ...sources("shared")]) {
     if (!file.name.endsWith(".ts")) continue;
     assert.deepEqual(imports(file.text, /^(react|react-dom|vue)(\/|$)/), [], file.name);
   }
   for (const file of sources("react")) assert.deepEqual(imports(file.text, /^vue(\/|$)/), [], file.name);
   for (const file of sources("vue")) assert.deepEqual(imports(file.text, /^(react|react-dom)(\/|$)/), [], file.name);
   for (const file of sources("astro")) assert.deepEqual(imports(file.text, /^(react|react-dom|vue)(\/|$)/), [], file.name);
+  // The GPU helper speaks the scene format and takes the controller as a value: it never imports Underglass.
+  for (const file of sources("gpu")) assert.deepEqual(imports(file.text, /^@underglass\//), [], file.name);
+});
+
+test("face mode applies to the scope element itself, so an enrolled panel drops its own CSS relief", () => {
+  assert.ok(css.includes(`:where([data-strata-mode="face"])[data-strata-face], :where([data-strata-mode="face"]) [data-strata-face]`));
+  assert.ok(css.includes(`:where([data-strata-mode="face"]) .ug-slider::-webkit-slider-thumb { box-shadow: none;`));
 });

@@ -175,6 +175,15 @@ compare on GPU pixels, outset included.
 
 ### 6. Strata over core: `@underglass/ui/gpu`
 
+Implemented: `attachStrataGpu(controller)`, and `useStrataGpu` for React and Vue.
+- **Tokens:** read from each panel's resolved `--strata-*` properties. The numeric ones are registered, so their
+  depth blends resolve to numbers.
+- **States:** read from `:hover`, `:active`, `:focus-visible` and `:disabled`.
+- **Geometry:** read from layout, and followed through CSS transitions frame by frame.
+- **No dependency on core:** the helper never imports `@underglass/core`.
+- **A core bug, fixed separately:** building the helper showed that layers laid out at fractional sizes never
+  admitted (#78).
+
 - **Panel helper:** enrolls each `.ug-panel` as a layer, collects its `data-strata-face` primitives, syncs state
   from pointer, focus and ARIA, and switches the subtree to `data-strata-mode="face"`.
 - **Tokens:** applies the resolved tokens as material parameters, with uniform updates for depth and light.

@@ -19,6 +19,7 @@
       "@underglass/core/experimental-worker": ["../../packages/core/src/experimental-worker.ts"],
       "@underglass/ui/tokens": ["../../packages/ui/src/tokens/index.ts"],
       "@underglass/ui/dom": ["../../packages/ui/src/dom/index.ts"],
+      "@underglass/ui/gpu": ["../../packages/ui/src/gpu/index.ts"],
       "@underglass/ui/react": ["../../packages/ui/src/react/index.ts"],
       "@underglass/ui/vue": ["../../packages/ui/src/vue/index.ts"]
     }
