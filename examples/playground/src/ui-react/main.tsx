@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
+import { Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -99,6 +99,7 @@ function Contracts() {
       <div data-contract="message-bar.md">
         <MessageBar intent="warning" title="Storage almost full" actions={<Button>Upgrade</Button>} onDismiss={() => {}}>You have used 95% of your space.</MessageBar>
       </div>
+      <div data-contract="pagination.md"><Pagination page={4} count={10} href={page => `/items?page=${page}`} /></div>
       <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
   );
@@ -117,6 +118,7 @@ function App() {
   const [tab, setTab] = useState("general");
   const [faq, setFaq] = useState({ delivery: false, warranty: true });
   const [rows, setRows] = useState({ archive: 0, locked: 0 });
+  const [page, setPage] = useState(1);
   const [messages, setMessages] = useState({ upgrades: 0, dismissed: false });
   const [chips, setChips] = useState({ remote: false, removed: [] as string[] });
   const [sort, setSort] = useState<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -125,7 +127,7 @@ function App() {
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -257,6 +259,7 @@ function App() {
           <div id="loading-region" aria-busy="true" style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Skeleton id="skeleton-circle" shape="circle" /><Skeleton id="skeleton-lines" lines={2} style={{ flex: 1 }} />
           </div>
+          <Pagination id="live-pagination" page={page} count={12} onPageChange={setPage} />
           <Breadcrumb id="live-breadcrumb" items={[{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }]} />
         </section>
         <section className="ug-panel" data-strata-face="raised" aria-label="Lists">

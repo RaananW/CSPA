@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
+  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/vue";
 
@@ -42,6 +42,7 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("message-bar.md", h(MessageBar, { intent: "warning", title: "Storage almost full", onDismiss: () => {} }, {
     default: text("You have used 95% of your space."), actions: () => h(Button, null, { default: text("Upgrade") }),
   })),
+  contract("pagination.md", h(Pagination, { page: 4, count: 10, href: (page: number) => `/items?page=${page}` })),
   contract("skeleton.md", [h(Skeleton, { shape: "circle" }), h(Skeleton, { lines: 3 }), h(Skeleton, { shape: "rect", width: "100%", height: 120 })]),
   contract("breadcrumb.md", h(Breadcrumb, { items: [{ label: "Home", href: "/" }, { label: "Settings", href: "/settings" }, { label: "Profile", href: "/settings/profile" }] })),
   contract("list.md", h(List, { label: "Mailboxes" }, {
@@ -100,6 +101,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
+    const page = ref(1);
     const messages = reactive({ upgrades: 0, dismissed: false });
     const chips = reactive({ remote: false, removed: [] as string[] });
     const sort = ref<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -120,6 +122,8 @@ const App = defineComponent({
         get faq() { return { ...toRaw(faq) }; },
         get rows() { return { ...toRaw(rows) }; },
         get sort() { return sort.value; },
+        get page() { return page.value; },
+        setPage: (value: number) => { page.value = value; },
         get messages() { return { ...toRaw(messages) }; },
         get chips() { return { remote: chips.remote, removed: [...chips.removed] }; },
         setSort: (value: { key: string; direction: "ascending" | "descending" } | undefined) => { sort.value = value; },
@@ -243,6 +247,7 @@ const App = defineComponent({
               h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
                 h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
+              h(Pagination, { id: "live-pagination", page: page.value, count: 12, "onUpdate:page": (value: number) => { page.value = value; } }),
               h(Breadcrumb, { id: "live-breadcrumb", items: [{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }] }),
             ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Lists" }, [

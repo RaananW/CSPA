@@ -10,6 +10,7 @@
  *   Table headers sort the rows; a Breadcrumb is a named landmark of links;
  *   Avatars show initials or a picture, named by the name; chips filter, and remove on request;
  *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion; MessageBars announce by intent;
+ *   Pagination moves between pages;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -564,5 +565,35 @@ for (const binding of bindings) test(`Strata ${binding} MessageBar announces by 
   await live.getByRole("button", { name: "Dismiss" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#message-live")).toHaveCount(0);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Pagination moves between pages with its keys, and disables Previous and Next at the ends`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const nav = page.locator("#live-pagination");
+  const shown = () => nav.locator(".ug-pagination__item").evaluateAll(items => items.map(item => item.textContent || (item.querySelector(".ug-pagination__link--previous") ? "<" : ">")).join(" "));
+  await expect(nav).toHaveRole("navigation");
+  await expect(nav).toHaveAccessibleName("Pagination");
+  expect(await shown()).toBe("< 1 2 3 4 5 … 12 >");
+  await expect(nav.getByRole("button", { name: "Page 1", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("button", { name: "Previous page" })).toBeDisabled();
+  // A click on a page, and Enter on Next, move through onPageChange (v-model:page).
+  await nav.getByRole("button", { name: "Page 5", exact: true }).click();
+  expect(await page.evaluate(() => window.strataBinding.page)).toBe(5);
+  expect(await shown()).toBe("< 1 … 4 5 6 … 12 >");
+  await nav.getByRole("button", { name: "Next page" }).focus();
+  await page.keyboard.press("Enter");
+  expect(await page.evaluate(() => window.strataBinding.page)).toBe(6);
+  await expect(nav.getByRole("button", { name: "Page 6", exact: true })).toHaveAttribute("aria-current", "page");
+  // At the last page, Next is disabled.
+  await page.evaluate(() => window.strataBinding.setPage(12));
+  await expect(nav.getByRole("button", { name: "Next page" })).toBeDisabled();
+  expect(await shown()).toBe("< 1 … 8 9 10 11 12 >");
+  // The skipped runs are hidden; the keys are at least the target size.
+  expect(await nav.locator("[aria-hidden='true']").count()).toBe(1);
+  expect((await nav.getByRole("button", { name: "Page 1", exact: true }).boundingBox()).height).toBeGreaterThanOrEqual(24);
   await context.close();
 });

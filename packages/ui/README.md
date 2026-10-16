@@ -389,3 +389,15 @@ render it when the message appears. `actions` holds buttons; `onDismiss` (a `dis
 ```
 
 [Anatomy](../../docs/ui-library/components/message-bar.md).
+
+## Pagination
+
+`Pagination` is a `<nav>` named "Pagination" around a row of page keys: links with `href` (a function; a `{page}`
+template in Astro), or buttons with `onPageChange` (`v-model:page` in Vue). It shows the first and last pages, the
+current page and `siblings` (1) either side, with ellipses for the gaps; the current page's key is held down.
+
+```tsx
+<Pagination page={page} count={12} onPageChange={setPage} />
+```
+
+[Anatomy](../../docs/ui-library/components/pagination.md).
