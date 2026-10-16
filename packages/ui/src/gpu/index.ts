@@ -12,19 +12,19 @@
  * `@underglass/core`: it takes the controller as a value and speaks the scene format.
  */
 import { cssVariable, flatten, numeric, strataTokens } from "../tokens/index.ts";
-import type { ScenePrimitive, StrataScene, SceneFace, SceneMaterial } from "../tokens/scene.ts";
+import type { ScenePrimitive, StrataReliefScene, SceneFace, SceneMaterial } from "../tokens/scene.ts";
 
 /** What the helper needs from an Underglass controller (`CanvasController` from `@underglass/core`). */
 export interface StrataGpuController {
   readonly container: HTMLElement;
   enroll(element: HTMLElement, options: { id: string }): () => void;
-  setMaterial(id: string, descriptor: StrataReliefMaterial): { update(scene: StrataScene): void; cancel(): void };
+  setMaterial(id: string, descriptor: StrataReliefMaterial): { update(scene: StrataReliefScene): void; cancel(): void };
   state(): { mode: string };
 }
 /** The material descriptor the helper hands to `setMaterial`. */
 export interface StrataReliefMaterial {
   kind: "relief";
-  scene: StrataScene;
+  scene: StrataReliefScene;
   bounds: "layer";
   interaction: "material";
   media: "identity";
@@ -40,7 +40,7 @@ export interface StrataGpu {
   /** Rebuilds every panel's scene now (for example from the runtime's `onStatusChange`). */
   refresh(): void;
   /** The scene last given to a panel, for inspection and tests. */
-  scene(panel: HTMLElement): StrataScene | undefined;
+  scene(panel: HTMLElement): StrataReliefScene | undefined;
   /** Releases every panel: cancels materials, leaves face mode and releases the enrollments. */
   detach(): void;
 }
@@ -107,7 +107,7 @@ function radiusOf(element: Element, width: number) {
 }
 
 /** Builds a panel's scene from its markup, layout, states and resolved tokens. */
-export function strataScene(panel: HTMLElement): StrataScene {
+export function strataScene(panel: HTMLElement): StrataReliefScene {
   registerTokens();
   const tokens = reader(panel);
   const level = (element: Element, fallback: string) =>
@@ -185,7 +185,7 @@ export function strataScene(panel: HTMLElement): StrataScene {
     outset: { top: reach, right: reach, bottom: reach, left: reach },
     backdrop: tokens.colour("stage"),
     light: { azimuth: tokens.number("light.azimuth", 323), elevation: tokens.number("light.elevation", 41) },
-    bevel: { width: tokens.number("bevel.width", 6), gain: tokens.number("bevel.gain", 0.55), profile: (tokens.raw("bevel.profile") || "quarter-round") as StrataScene["bevel"]["profile"] },
+    bevel: { width: tokens.number("bevel.width", 6), gain: tokens.number("bevel.gain", 0.55), profile: (tokens.raw("bevel.profile") || "quarter-round") as StrataReliefScene["bevel"]["profile"] },
     shadow: { strength: tokens.number("shadow.strength", 0.24) },
     interior: { max: Math.min(0.1, tokens.number("interior.max", 0.04)) },
     state: { hoverHeight: tokens.number("state.hoverHeight", 1.6), pressHeight: tokens.number("state.pressHeight", 0.25),
@@ -259,7 +259,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   sync();
   return {
     refresh: () => { if (frame) cancelAnimationFrame(frame); sync(); },
-    scene: panel => { const key = panels.get(panel)?.scene; return key ? JSON.parse(key) as StrataScene : undefined; },
+    scene: panel => { const key = panels.get(panel)?.scene; return key ? JSON.parse(key) as StrataReliefScene : undefined; },
     detach: () => {
       if (detached) return;
       detached = true;

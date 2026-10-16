@@ -1,8 +1,20 @@
 # Strata Phase 4, step 4: the Objects level
 
-**Status:** proposed (2026-10-16), for review. This is the design note that the [Phase 4 design](phase4.md#4-object-pass)
-promised for step 4 once steps 1 to 3 had landed. Steps 0 to 3 and 6 are done, so the Relief level runs end to end on
-the GPU (#74 to #79). Each decision below has a recommendation and an alternative.
+**Status:** accepted (2026-10-16, #80): all five recommendations. This is the design note that the
+[Phase 4 design](phase4.md#4-object-pass) promised for step 4 once steps 1 to 3 had landed. Steps 0 to 3 and 6 are
+done, so the Relief level runs end to end on the GPU (#74 to #79). Each decision below has a recommendation and an
+alternative.
+
+**Progress:**
+
+- **4a, done:** version 2 of the [Rendering Model](rendering-model.md) (part 2B), the reference implementation
+  (`objects.ts` in `@underglass/ui/tokens`) and `objects-2.json`. Writing it refined two points:
+  - **One back-to-front list.** Objects are entries of the scene's `primitives` list, not a separate list, so they
+    occlude in document order with the relief primitives around them (a field's bezel over its well, a knob in a
+    well).
+  - **Solids are screen-space exact.** With screen-locked base outlines and caps, a solid's sides always project into
+    the band between its cap and its base, so solids never draw outside their control. The taper rule then keeps
+    their sides facing the viewer; only domes need the bounds check.
 
 **Upstream check:**
 
