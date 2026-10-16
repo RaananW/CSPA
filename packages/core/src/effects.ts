@@ -5,6 +5,7 @@
  * `composition.ts` writes and its shader reads. Effects never touch native capture or hit
  * geometry; ordinary DOM shows the layer's static original content instead.
  */
+import { validateReliefScene, type ReliefScene } from "./relief.js";
 
 /** Effect clock: `seconds` is the effect time (0..1e6) and `playing` whether it advances each frame. */
 export interface EffectTime { seconds: number; playing?: boolean }
@@ -174,19 +175,32 @@ export function effectUniforms(values: readonly EffectDescriptor[] = []) {
  * runtime keeps any change to one brightness factor per point within `interior.max`, the same for text and the
  * face around it, so no material can break text contrast (Strata Rendering Model, section 2.9).
  *
- * `custom` evaluates the definition's WGSL on a neutral mid-grey input and takes the ratio of its luma to the
- * input's as the factor; the captured colour itself never reaches it.
+ * - `custom` evaluates the definition's WGSL on a neutral mid-grey input and takes the ratio of its luma to the
+ *   input's as the factor; the captured colour itself never reaches it. The whole layer is guarded.
+ * - `relief` is core's built-in implementation of the Strata Rendering Model: it shades the scene's relief
+ *   primitives (bevels, wells, finishes, shadows, focus edges, ring arcs), guarding face interiors as section 2.9
+ *   of the model defines. Its look is data; it needs no WGSL from the application.
  */
-export interface MaterialDescriptor {
-  kind: "custom";
-  definition: ApplicationEffect;
-  parameters: Record<string, number>;
+export type MaterialDescriptor = CustomMaterial | ReliefMaterial;
+/** Fields every material declares: it stays in the layer, relights pixels in place, and DOM shows the original. */
+interface MaterialPolicy {
   bounds: "layer";
   interaction: "material";
   media: "identity";
   fallback: "static";
+}
+/** A trusted application colour function, held to one brightness factor. */
+export interface CustomMaterial extends MaterialPolicy {
+  kind: "custom";
+  definition: ApplicationEffect;
+  parameters: Record<string, number>;
   /** The largest brightness change on the layer's interior: 0..0.1 (Strata's `interior.max`). */
   interior: { max: number };
+}
+/** The built-in relief material: a Strata scene, version 1 (`docs/ui-library/rendering-model.md`). */
+export interface ReliefMaterial extends MaterialPolicy {
+  kind: "relief";
+  scene: ReliefScene;
 }
 /**
  * Handle for a layer's material, returned by `setMaterial`. A material persists across DOM and GPU presentation
@@ -197,8 +211,11 @@ export interface MaterialHandle {
   /** Settles once, when the material stops applying. */
   readonly finished: Promise<EffectResult>;
   state(): { active: boolean; material: MaterialDescriptor };
-  /** Replaces the parameters (same schema) without recompiling. */
-  update(parameters: Record<string, number>): void;
+  /**
+   * Changes the material without recompiling: a custom material's parameters (same schema), or a relief
+   * material's whole scene (states, rectangles, primitives added or removed).
+   */
+  update(change: Record<string, number> | ReliefScene): void;
   cancel(): void;
   dispose(): void;
 }
@@ -206,9 +223,12 @@ export interface MaterialHandle {
 export const MATERIAL_INTERIOR_CEILING = 0.1;
 /** Validates a material and returns a normalized copy (parameters in schema order). Throws on the first problem. */
 export function validateMaterial(value: MaterialDescriptor): MaterialDescriptor {
-  if (!value || value.bounds !== "layer" || value.interaction !== "material" || value.media !== "identity" || value.fallback !== "static"
-    || !value.parameters || !value.interior) throw new Error("Materials require layer bounds, material interaction, identity media and static DOM fallback");
+  if (!value || value.bounds !== "layer" || value.interaction !== "material" || value.media !== "identity" || value.fallback !== "static") {
+    throw new Error("Materials require layer bounds, material interaction, identity media and static DOM fallback");
+  }
+  if (value.kind === "relief") return { ...value, scene: validateReliefScene(value.scene) };
   if (value.kind !== "custom") throw new Error("Unsupported material kind");
+  if (!value.parameters || !value.interior) throw new Error("Custom materials require parameters and an interior budget");
   if (!definitions.has(value.definition)) throw new Error("Custom materials must come from defineEffect");
   const names = Object.keys(value.definition.parameters);
   if (Object.keys(value.parameters).length !== names.length || Object.keys(value.parameters).some(name => !names.includes(name))) throw new Error("Material parameter keys must match the declared schema exactly");
@@ -218,12 +238,14 @@ export function validateMaterial(value: MaterialDescriptor): MaterialDescriptor 
 }
 /**
  * Packs a material into the 8 floats (two vec4s) of a layer's uniform block: control `(kind code, interior max,
- * definition slot, 0)` with code custom 1 (0 is no material), then up to four parameters, zero-padded. `slot` is
- * the index of the material's definition among those the pass was built with, or -1.
+ * definition slot, 0)` with codes custom 1 and relief 2 (0 is no material), then up to four parameters,
+ * zero-padded. `slot` is the index of the material's definition among those the pass was built with, or -1. A
+ * relief material's scene goes in its own binding (`reliefUniforms`).
  */
 export function materialUniforms(value: MaterialDescriptor | undefined, slot: number) {
   const result = new Float32Array(8);
   if (!value) return result;
+  if (value.kind === "relief") { result.set([2, value.scene.interior.max, 0, 0]); return result; }
   const parameters = Object.keys(value.definition.parameters).map(name => value.parameters[name]!);
   result.set([1, Math.min(value.interior.max, MATERIAL_INTERIOR_CEILING), slot, 0, ...parameters, ...Array(4 - parameters.length).fill(0)]);
   return result;

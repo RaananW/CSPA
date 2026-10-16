@@ -119,6 +119,14 @@ step 2.
 
 ### 2. Relief primitives
 
+Implemented: `setMaterial(id, { kind: "relief", scene })`, shading the rendering model's scene in WGSL
+(`packages/core/src/relief.ts`). Its decoded GPU pixels pass the conformance suite: 57 of the 60 samples inside the
+layer match exactly, and 3 are 1 unit off. One deviation from decision 2: Lite's effect wrapper offers only uniform,
+texture and sampler bindings, so the primitives live in a **second uniform binding**, not a storage buffer. 256
+primitives with their header and material table take about 25 KB, inside WebGPU's guaranteed 64 KiB per uniform
+binding, and only relief passes carry it. Relief is refused with compiled program sets for now, like custom
+materials.
+
 - **Primitive list:** a layer may carry up to **256** primitives (the P0.3 budget). Each has:
   - a shape: rounded box, circle, pill or ring with an arc;
   - a rectangle in layer-local px and a radius;

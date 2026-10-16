@@ -10,7 +10,7 @@ import { registerHooks } from "node:module";
 // This hook maps those specifiers to `.ts` for the dynamic import below, then is removed.
 const sourceImports = registerHooks({
   resolve(specifier, context, next) {
-    if (context.parentURL?.endsWith("/core/src/composition.ts") && specifier.startsWith("./") && specifier.endsWith(".js")) {
+    if (context.parentURL?.includes("/core/src/") && specifier.startsWith("./") && specifier.endsWith(".js")) {
       return next(specifier.replace(/\.js$/, ".ts"), context);
     }
     return next(specifier, context);

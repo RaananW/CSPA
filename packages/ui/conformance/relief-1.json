@@ -2,7 +2,7 @@
   "format": "strata-conformance",
   "model": "strata-scene/1",
   "tolerance": 3,
-  "description": "Strata rendering model, version 1: Relief. Paint each case's capture (rounded rectangles in order, over transparent) as the layer's content, render the scene over its backdrop, and compare each sample's decoded pixel with `expect`: every channel within `tolerance` (0–255).",
+  "description": "Strata rendering model, version 1: Relief. Paint each case's capture (rounded rectangles in order, over transparent) as the layer's content, render the scene over its backdrop at a device scale of 1 (one device pixel per CSS px), and compare the decoded pixel whose centre is each sample's `at` with `expect`: every channel within `tolerance` (0–255).",
   "cases": [
     {
       "name": "panel",
@@ -140,72 +140,72 @@
       "samples": [
         {
           "at": [
-            100,
-            60
+            100.5,
+            60.5
           ],
           "note": "interior: captured × (1 + gloss)",
           "expect": "#eaecf0"
         },
         {
           "at": [
-            100,
-            2
+            100.5,
+            2.5
           ],
           "note": "top bevel, towards the light: brighter",
           "expect": "#ffffff"
         },
         {
           "at": [
-            100,
-            118
+            100.5,
+            118.5
           ],
           "note": "bottom bevel, away from the light: darker",
-          "expect": "#909296"
+          "expect": "#84868a"
         },
         {
           "at": [
-            2,
-            60
+            2.5,
+            60.5
           ],
           "note": "left bevel",
-          "expect": "#fbfdff"
+          "expect": "#fcfeff"
         },
         {
           "at": [
-            198,
-            60
+            198.5,
+            60.5
           ],
           "note": "right bevel",
-          "expect": "#9fa1a5"
+          "expect": "#94969a"
         },
         {
           "at": [
-            100,
-            121
+            100.5,
+            121.5
           ],
           "note": "full shadow just below the panel: backdrop × (1 − strength)",
           "expect": "#c2c2c2"
         },
         {
           "at": [
-            100,
-            130
+            100.5,
+            130.5
           ],
           "note": "shadow falling off",
-          "expect": "#d7d7d7"
+          "expect": "#d9d9d9"
         },
         {
           "at": [
-            100,
-            -12
+            100.5,
+            -11.5
           ],
           "note": "outset on the light side: backdrop",
           "expect": "#ffffff"
         },
         {
           "at": [
-            -20,
-            -20
+            -19.5,
+            -19.5
           ],
           "note": "outset corner: backdrop",
           "expect": "#ffffff"
@@ -449,96 +449,96 @@
       "samples": [
         {
           "at": [
-            48,
-            40
+            48.5,
+            40.5
           ],
           "note": "rest: interior",
           "expect": "#f8f9fb"
         },
         {
           "at": [
-            48,
-            26
+            48.5,
+            26.5
           ],
           "note": "rest: top bevel",
           "expect": "#ffffff"
         },
         {
           "at": [
-            48,
-            59
+            48.5,
+            59.5
           ],
           "note": "rest: shadow below",
-          "expect": "#bbbcc0"
+          "expect": "#c0c1c5"
         },
         {
           "at": [
-            124,
-            40
+            124.5,
+            40.5
           ],
           "note": "hover: interior",
           "expect": "#ffffff"
         },
         {
           "at": [
-            124,
-            26
+            124.5,
+            26.5
           ],
           "note": "hover: top bevel",
           "expect": "#ffffff"
         },
         {
           "at": [
-            124,
-            59
+            124.5,
+            59.5
           ],
           "note": "hover: shadow below",
-          "expect": "#b3b5b8"
+          "expect": "#b5b7ba"
         },
         {
           "at": [
-            200,
-            40
+            200.5,
+            40.5
           ],
           "note": "pressed: interior",
           "expect": "#edeef0"
         },
         {
           "at": [
-            200,
-            26
+            200.5,
+            26.5
           ],
           "note": "pressed: top bevel",
           "expect": "#ffffff"
         },
         {
           "at": [
-            200,
-            59
+            200.5,
+            59.5
           ],
           "note": "pressed: shadow below",
           "expect": "#eaecf0"
         },
         {
           "at": [
-            276,
-            40
+            276.5,
+            40.5
           ],
           "note": "disabled: interior",
           "expect": "#f7f8fa"
         },
         {
           "at": [
-            276,
-            26
+            276.5,
+            26.5
           ],
           "note": "disabled: top bevel",
           "expect": "#f7f8fa"
         },
         {
           "at": [
-            276,
-            59
+            276.5,
+            59.5
           ],
           "note": "disabled: shadow below",
           "expect": "#eaecf0"
@@ -725,40 +725,40 @@
       "samples": [
         {
           "at": [
-            100,
-            32
+            100.5,
+            32.5
           ],
           "note": "well interior",
           "expect": "#ffffff"
         },
         {
           "at": [
-            100,
-            18
+            100.5,
+            18.5
           ],
           "note": "well top bevel, nearest the light: darker",
-          "expect": "#a6a6a6"
+          "expect": "#b3b3b3"
         },
         {
           "at": [
-            100,
-            46
+            100.5,
+            46.5
           ],
           "note": "well bottom bevel: brighter",
           "expect": "#ffffff"
         },
         {
           "at": [
-            100,
-            72
+            100.5,
+            72.5
           ],
           "note": "groove centre, all bevel at 8 px high",
-          "expect": "#ced2db"
+          "expect": "#e5e9f1"
         },
         {
           "at": [
-            100,
-            58
+            100.5,
+            58.5
           ],
           "note": "panel interior between them",
           "expect": "#eaecf0"
@@ -944,35 +944,35 @@
       "samples": [
         {
           "at": [
-            60,
-            32
+            60.5,
+            32.5
           ],
           "note": "knob centre: flat top of the dome",
-          "expect": "#fefeff"
+          "expect": "#f6f6f7"
         },
         {
           "at": [
-            54,
-            25
+            54.5,
+            25.5
           ],
           "note": "knob, towards the light",
           "expect": "#ffffff"
         },
         {
           "at": [
-            67,
-            39
+            67.5,
+            39.5
           ],
           "note": "knob, away from the light",
-          "expect": "#7e7e7f"
+          "expect": "#757576"
         },
         {
           "at": [
-            70,
-            46
+            70.5,
+            46.5
           ],
           "note": "the knob's shadow, below and right of it",
-          "expect": "#cbcdd0"
+          "expect": "#d4d5d9"
         }
       ]
     },
@@ -1149,24 +1149,24 @@
       "samples": [
         {
           "at": [
-            54.849,
-            25.151
+            54.5,
+            25.5
           ],
           "note": "on the arc, at 45°: the arc colour",
           "expect": "#2563eb"
         },
         {
           "at": [
-            25.151,
-            54.849
+            25.5,
+            54.5
           ],
           "note": "on the ring, at 225°: the groove",
-          "expect": "#cdd1d9"
+          "expect": "#c8ccd4"
         },
         {
           "at": [
-            40,
-            40
+            40.5,
+            40.5
           ],
           "note": "inside the ring: panel interior",
           "expect": "#eaecf0"
@@ -1335,24 +1335,24 @@
       "samples": [
         {
           "at": [
-            22,
-            32
+            22.5,
+            32.5
           ],
           "note": "2 px outside the left edge: the focus colour",
           "expect": "#2563eb"
         },
         {
           "at": [
-            16,
-            32
+            16.5,
+            32.5
           ],
           "note": "8 px outside the left edge: no edge",
           "expect": "#eaecf0"
         },
         {
           "at": [
-            56,
-            32
+            56.5,
+            32.5
           ],
           "note": "interior",
           "expect": "#f8f9fb"
@@ -1541,43 +1541,43 @@
       "samples": [
         {
           "at": [
-            48,
-            13.76
+            48.5,
+            13.5
           ],
           "note": "lacquer, top zone: the reflection band",
-          "expect": "#2f6df5"
+          "expect": "#3472fa"
         },
         {
           "at": [
-            48,
-            32
+            48.5,
+            32.5
           ],
           "note": "lacquer, centre: interior budget only",
           "expect": "#2666f1"
         },
         {
           "at": [
-            128,
-            13.76
+            128.5,
+            13.5
           ],
           "note": "metal, top zone: the bright half",
           "expect": "#ffffff"
         },
         {
           "at": [
-            128,
-            32
+            128.5,
+            32.5
           ],
           "note": "metal, centre",
           "expect": "#f9fafc"
         },
         {
           "at": [
-            128,
-            49.28
+            128.5,
+            49.5
           ],
           "note": "metal, bottom zone: the dark half",
-          "expect": "#c4c5c6"
+          "expect": "#c2c2c4"
         }
       ]
     },
@@ -1739,24 +1739,24 @@
       "samples": [
         {
           "at": [
-            48,
-            24
+            48.5,
+            24.5
           ],
           "note": "centre: the captured colour",
           "expect": "#2563eb"
         },
         {
           "at": [
-            48,
-            18
+            48.5,
+            18.5
           ],
           "note": "edge band: still the captured colour",
           "expect": "#2563eb"
         },
         {
           "at": [
-            48,
-            34
+            48.5,
+            34.5
           ],
           "note": "its shadow below",
           "expect": "#e0e2e5"
@@ -1934,27 +1934,27 @@
       "samples": [
         {
           "at": [
-            44,
-            49
+            44.5,
+            49.5
           ],
           "note": "label 9 px below the button, past the bevel band and the ramp: text × (1 − interior.max)",
           "expect": "#1b1d23"
         },
         {
           "at": [
-            76,
-            49
+            76.5,
+            49.5
           ],
           "note": "panel beside the label: panel × (1 − interior.max)",
           "expect": "#e0e2e5"
         },
         {
           "at": [
-            56,
-            43
+            56.5,
+            43.5
           ],
           "note": "3 px below the button, inside the bevel band: the shadow, unguarded",
-          "expect": "#b3b5b8"
+          "expect": "#b5b7ba"
         }
       ]
     },
@@ -2117,27 +2117,27 @@
       "samples": [
         {
           "at": [
-            56,
-            18
+            56.5,
+            18.5
           ],
           "note": "top bevel, away from the light: darker",
-          "expect": "#a4a5a7"
+          "expect": "#afb0b2"
         },
         {
           "at": [
-            56,
-            46
+            56.5,
+            46.5
           ],
           "note": "bottom bevel, towards the light: brighter",
           "expect": "#ffffff"
         },
         {
           "at": [
-            56,
-            13
+            56.5,
+            13.5
           ],
           "note": "the shadow above the button",
-          "expect": "#b4b6b9"
+          "expect": "#b2b4b7"
         }
       ]
     },
@@ -2300,27 +2300,27 @@
       "samples": [
         {
           "at": [
-            56,
-            17
+            56.5,
+            17.5
           ],
           "note": "top bevel near the edge",
           "expect": "#ffffff"
         },
         {
           "at": [
-            56,
-            20
+            56.5,
+            20.5
           ],
           "note": "top bevel, middle",
           "expect": "#ffffff"
         },
         {
           "at": [
-            56,
-            46
+            56.5,
+            46.5
           ],
           "note": "bottom bevel, middle",
-          "expect": "#9e9fa1"
+          "expect": "#929395"
         }
       ]
     },
@@ -2483,24 +2483,24 @@
       "samples": [
         {
           "at": [
-            56,
-            17
+            56.5,
+            17.5
           ],
           "note": "top bevel near the edge",
           "expect": "#ffffff"
         },
         {
           "at": [
-            56,
-            20
+            56.5,
+            20.5
           ],
           "note": "top bevel, middle",
           "expect": "#ffffff"
         },
         {
           "at": [
-            56,
-            46
+            56.5,
+            46.5
           ],
           "note": "bottom bevel, middle",
           "expect": "#b7b8ba"
@@ -2666,27 +2666,27 @@
       "samples": [
         {
           "at": [
-            56,
-            17
+            56.5,
+            17.5
           ],
           "note": "top bevel near the edge",
           "expect": "#ffffff"
         },
         {
           "at": [
-            56,
-            20
+            56.5,
+            20.5
           ],
           "note": "top bevel, middle",
           "expect": "#ffffff"
         },
         {
           "at": [
-            56,
-            46
+            56.5,
+            46.5
           ],
           "note": "bottom bevel, middle",
-          "expect": "#cfd0d2"
+          "expect": "#dadbdd"
         }
       ]
     },
@@ -2871,40 +2871,40 @@
       "samples": [
         {
           "at": [
-            48,
-            32
+            48.5,
+            32.5
           ],
           "note": "button interior",
           "expect": "#6192ff"
         },
         {
           "at": [
-            48,
-            18
+            48.5,
+            18.5
           ],
           "note": "button top bevel",
           "expect": "#81b2ff"
         },
         {
           "at": [
-            100,
-            72
+            100.5,
+            72.5
           ],
           "note": "well interior",
           "expect": "#1e2128"
         },
         {
           "at": [
-            100,
-            62
+            100.5,
+            62.5
           ],
           "note": "well top bevel",
           "expect": "#000000"
         },
         {
           "at": [
-            140,
-            32
+            140.5,
+            32.5
           ],
           "note": "panel interior",
           "expect": "#2c3038"
