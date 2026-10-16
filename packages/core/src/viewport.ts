@@ -25,16 +25,19 @@ export function intersectViewport(a: ViewportRect, b: ViewportRect): ViewportRec
  * True when all four corners of an `extent`-sized box, mapped through the 2D affine `matrix`
  * (a, b, c, d, e, f as in `DOMMatrix`), lie inside `clip` (edges inclusive).
  */
-export function viewportContains(matrix: Pick<DOMMatrixReadOnly, "a" | "b" | "c" | "d" | "e" | "f">,
+export function viewportContains(matrix: Pick<DOMMatrixReadOnly, "a" | "b" | "c" | "d" | "e" | "f"> & Partial<Pick<DOMMatrixReadOnly, "is2D" | "m14" | "m24" | "m44">>,
   extent: { width: number; height: number }, clip: ViewportRect): boolean {
   return [[0, 0], [extent.width, 0], [0, extent.height], [extent.width, extent.height]].every(([x, y]) => {
-    const at = { x: matrix.a * x + matrix.c * y + matrix.e, y: matrix.b * x + matrix.d * y + matrix.f };
+    // A projective matrix divides by w; a corner at or behind the viewer is never contained.
+    const w = matrix.is2D === false ? matrix.m14! * x! + matrix.m24! * y! + matrix.m44! : 1;
+    if (!(w > 1e-6)) return false;
+    const at = { x: (matrix.a * x! + matrix.c * y! + matrix.e) / w, y: (matrix.b * x! + matrix.d * y! + matrix.f) / w };
     return at.x >= clip.x && at.y >= clip.y && at.x <= clip.x + clip.width && at.y <= clip.y + clip.height;
   });
 }
 /** Positive axis-aligned scale/translation: the only form a local clip rectangle can represent. */
-export function axisAligned(matrix: Pick<DOMMatrixReadOnly, "a" | "b" | "c" | "d">): boolean {
-  return matrix.b === 0 && matrix.c === 0 && matrix.a > 0 && matrix.d > 0;
+export function axisAligned(matrix: Pick<DOMMatrixReadOnly, "a" | "b" | "c" | "d"> & Partial<Pick<DOMMatrixReadOnly, "is2D">>): boolean {
+  return matrix.is2D !== false && matrix.b === 0 && matrix.c === 0 && matrix.a > 0 && matrix.d > 0;
 }
 /**
  * Converts `clip` from the parent space into the local space of a layer with `matrix`. Only valid

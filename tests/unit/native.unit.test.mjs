@@ -66,11 +66,23 @@ test("paint timeout and request failure remove listeners", async () => {
   assert.equal(listeners, 0);
 });
 
-// `validateGeometry` must throw for a non-invertible, non-finite or 3D matrix.
+// `validateGeometry` must throw for a non-invertible or non-finite 2D matrix, and for a projective one that is not
+// finite, not invertible on its plane, or puts a corner of the layer at or behind the viewer.
 test("bad native geometry is rejected atomically", () => {
   const identity = { is2D: true, a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
   assert.doesNotThrow(() => validateGeometry(identity));
-  for (const invalid of [{ a: 0 }, { f: NaN }, { is2D: false }]) {
+  for (const invalid of [{ a: 0 }, { f: NaN }]) {
     assert.throws(() => validateGeometry({ ...identity, ...invalid }), /finite invertible/);
   }
+  // A projective matrix as DOMMatrix exposes it: column-major m11..m44.
+  const projective = values => {
+    const names = ["m11", "m12", "m13", "m14", "m21", "m22", "m23", "m24", "m31", "m32", "m33", "m34", "m41", "m42", "m43", "m44"];
+    return { is2D: false, ...Object.fromEntries(names.map((name, index) => [name, values[index]])), toFloat64Array: () => Float64Array.from(values) };
+  };
+  // Viewed from 100 px with w = 1 - x / 400 across the layer: valid for a 200 px layer, behind the viewer at 400 px.
+  const tilt = [1, 0, 0, -1 / 400, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
+  assert.doesNotThrow(() => validateGeometry(projective(tilt), { width: 200, height: 100 }));
+  assert.throws(() => validateGeometry(projective(tilt), { width: 400, height: 100 }), /in front of the viewer/);
+  assert.throws(() => validateGeometry(projective(tilt.map((value, index) => index === 5 ? NaN : value))), /finite projective/);
+  assert.throws(() => validateGeometry(projective(tilt.map((value, index) => index === 0 || index === 3 ? 0 : value))), /invertible/);
 });

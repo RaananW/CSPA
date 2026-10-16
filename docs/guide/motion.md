@@ -18,6 +18,10 @@ const result = await handle.finished; // { status: "completed" | "cancelled" | .
 - Keyframes are numeric: `x`, `y`, `rotation` (degrees), `scaleX`, `scaleY` and
   `opacity`. An omitted channel means its identity value, not "keep the previous
   one".
+- Layers can also **tilt** out of the screen: `tiltX` and `tiltY` in degrees (at most
+  ±60, as CSS `rotateX` and `rotateY`), viewed from `perspective` CSS px (1600 by
+  default). Clicks follow the tilted controls exactly. A tilted layer must not sit
+  inside a scrolling box that clips it, or clip its own overflow.
 - Starting a new transition on the same layer continues smoothly from where the
   current one is.
 - Rotation and scale pivot around the layer's `origin`. Set `origin="center"` on the

@@ -45,11 +45,11 @@ test("a material packs into two vec4s: control (code, budget, slot) and paramete
   assert.equal(materialUniforms(validateMaterial(material), -1)[2], -1);
 });
 
-test("the per-layer block grows to 13 vec4s with the material after the clip", () => {
-  assert.equal(LAYER_PASS_FLOATS, 12 + 52 + 4);
+test("the per-layer block has 14 vec4s: the material after the clip, then the projective row", () => {
+  assert.equal(LAYER_PASS_FLOATS, 12 + 56 + 4);
   const shader = layerShader(undefined, undefined, definition);
   assert.equal(shader.bindings.at(-1).uniformByteLength, LAYER_PASS_FLOATS * 4);
-  assert.match(shader.fragmentWGSL, /array<vec4f, 17>/);
+  assert.match(shader.fragmentWGSL, /array<vec4f, 18>/);
   // Header 3 vec4s, then the block: the material control is block vec4 11, its parameters vec4 12.
   assert.match(shader.fragmentWGSL, /let materialControl = state\[14\];/);
   assert.match(shader.fragmentWGSL, /material0\(vec4f\(0\.5, 0\.5, 0\.5, 1\.0\), local, extent, 0\.0, state\[15\]\)/);

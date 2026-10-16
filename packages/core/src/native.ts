@@ -108,25 +108,59 @@ export function isDrawableContext(context: CanvasRenderingContext2D): context is
   return typeof Reflect.get(context, "drawElementImage") === "function";
 }
 
-/** Throws unless `matrix` is a finite, invertible 2D transform (non-degenerate determinant). */
-export function validateGeometry(matrix: DOMMatrixReadOnly): void {
-  if (!matrix.is2D || ![matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f].every(Number.isFinite)
-    || !Number.isFinite(matrix.a * matrix.d - matrix.b * matrix.c)
-    || Math.abs(matrix.a * matrix.d - matrix.b * matrix.c) < 1e-8) {
-    throw new Error("Native geometry requires a finite invertible 2D transform");
+/**
+ * The planar homography a layer matrix applies to its z = 0 plane, as rows: canvas `(X, Y, W)` from local
+ * `(x, y, 1)`. For a 2D matrix the last row is `(0, 0, 1)`.
+ */
+export function homography(matrix: DOMMatrixReadOnly): [number, number, number][] {
+  return [[matrix.m11, matrix.m21, matrix.m41], [matrix.m12, matrix.m22, matrix.m42], [matrix.m14, matrix.m24, matrix.m44]];
+}
+/** Inverse of a 3x3 matrix given as rows; throws when it is (near) singular or not finite. */
+export function invertRows(m: [number, number, number][]): [number, number, number][] {
+  const [[a, b, c], [d, e, f], [g, h, i]] = m as [[number, number, number], [number, number, number], [number, number, number]];
+  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
+  const determinant = a * A + b * B + c * C;
+  if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-12) throw new Error("Native geometry requires an invertible transform");
+  const rows: [number, number, number][] = [
+    [A / determinant, -(b * i - c * h) / determinant, (b * f - c * e) / determinant],
+    [B / determinant, (a * i - c * g) / determinant, -(a * f - c * d) / determinant],
+    [C / determinant, -(a * h - b * g) / determinant, (a * e - b * d) / determinant],
+  ];
+  if (!rows.flat().every(Number.isFinite)) throw new Error("Native geometry requires an invertible transform");
+  return rows;
+}
+/**
+ * Throws unless `matrix` is a finite, invertible 2D transform (non-degenerate determinant), or a finite planar
+ * projective transform whose homography is invertible and, when `extent` is given, keeps every corner of the
+ * layer in front of the viewer.
+ */
+export function validateGeometry(matrix: DOMMatrixReadOnly, extent?: { width: number; height: number }): void {
+  if (matrix.is2D) {
+    if (![matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f].every(Number.isFinite)
+      || !Number.isFinite(matrix.a * matrix.d - matrix.b * matrix.c)
+      || Math.abs(matrix.a * matrix.d - matrix.b * matrix.c) < 1e-8) {
+      throw new Error("Native geometry requires a finite invertible 2D transform");
+    }
+    return;
   }
-
+  if (!Array.from(matrix.toFloat64Array()).every(Number.isFinite)) throw new Error("Native geometry requires a finite projective transform");
+  const rows = homography(matrix);
+  invertRows(rows);
+  if (extent && [[0, 0], [extent.width, 0], [0, extent.height], [extent.width, extent.height]]
+    .some(([x, y]) => !(rows[2]![0] * x! + rows[2]![1] * y! + rows[2]![2] > 1e-6))) {
+    throw new Error("Native geometry requires every corner of a tilted layer in front of the viewer");
+  }
 }
 
 /**
- * Reads back the transform the browser holds for `element` and throws if it is not a valid 2D
- * transform or differs from `expected` by more than 1e-5 in any component.
+ * Reads back the transform the browser holds for `element` and throws if it is not a valid transform, does not
+ * match `expected` in dimensionality, or differs from it by more than 1e-5 in any of its 16 components.
  */
 export function validateAppliedGeometry(canvas: DrawableCanvas, element: Element, expected: DOMMatrixReadOnly): void {
   const actual = canvas.getElementTransform(element);
   validateGeometry(actual);
-  if (["a", "b", "c", "d", "e", "f"].some(key =>
-    Math.abs(Reflect.get(actual, key) - Reflect.get(expected, key)) > 1e-5)) {
+  const a = actual.toFloat64Array(), b = expected.toFloat64Array();
+  if (actual.is2D !== expected.is2D || a.some((value, index) => Math.abs(value - b[index]!) > 1e-5)) {
     throw new Error("Native geometry did not apply the requested transform");
   }
 }

@@ -38,12 +38,12 @@ test("build emits literal WGSL programs and generated native geometry samplers",
   // Infinity must survive code generation; JSON would have turned it into null.
   assert.equal(compiled.animations[0].timing.iterations, Infinity);
   // One per-layer program serves any layer count; the runtime draws it once per layer.
-  assert.equal(compiled.version, 3);
+  assert.equal(compiled.version, 4);
   assert.equal(compiled.programs.length, 1);
   assert.match(compiled.programs[0].fragmentWGSL, /compiled_sample/);
   assert.match(compiled.programs[0].vertexWGSL, /effectFullscreenVertex/);
-  // Byte size of the program's final (uniform) binding: 12 header + 52 layer block + 4 compiled-slot floats.
-  assert.equal(compiled.programs[0].bindings.at(-1).uniformByteLength, (12 + 52 + 4) * 4);
+  // Byte size of the program's final (uniform) binding: 12 header + 56 layer block + 4 compiled-slot floats.
+  assert.equal(compiled.programs[0].bindings.at(-1).uniformByteLength, (12 + 56 + 4) * 4);
   const timeline = compileTimeline(animations[0].values, animations[0].timing);
   // Tolerance allows for f32 rounding between the generated sampler and the reference timeline.
   for (const time of [0, 17.3, 250, 500, 740, 1000, 1500, 2000, 5734]) {
@@ -61,6 +61,7 @@ test("build emits literal WGSL programs and generated native geometry samplers",
   assert.throws(() => validateCompiledPrograms({ ...compiled, version: 1 }), /rebuild/);
   // A set built before the material slot fails clearly instead of misreading the uniform block.
   assert.throws(() => validateCompiledPrograms({ ...compiled, version: 2 }), /predates the material slot.*rebuild/);
+  assert.throws(() => validateCompiledPrograms({ ...compiled, version: 3 }), /predates the projective row.*rebuild/);
 });
 // Each variant leaves the supported subset. The error must be a PostCSS `CssSyntaxError` carrying a
 // source line, so the build can point at the offending CSS.

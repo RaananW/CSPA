@@ -6,7 +6,7 @@
  * listeners and RAF clocks for reconciliation, viewport geometry, visibility, reduced motion, controller
  * motion, declarative transitions, animation ownership and decorative effects.
  */
-import { affine, cssMatrix, pivot, point, type Transform, type TransformOrigin } from "./affine.js";
+import { canonical, cssMatrix, DEFAULT_PERSPECTIVE, pivot, project, tilted, type Transform, type TransformOrigin } from "./affine.js";
 import { createSurfaceRenderer, type SurfaceRendererOptions } from "./renderer.js";
 import type { Layout } from "./compiler.js";
 import type { MountBoundaryOptions } from "./mount-boundary.js";
@@ -433,7 +433,7 @@ export class CanvasRuntime {
    */
   private matrix(layer: LayerDefinition, transform: Transform = layer.transform, placed = true) {
     const around = pivot(layer.origin, { width: layer.element.offsetWidth, height: layer.element.offsetHeight });
-    return affine(transform, placed ? this.origin(layer) : undefined, around);
+    return canonical(transform, placed ? this.origin(layer) : undefined, around);
   }
   /**
    * The layer's laid-out position in root (canvas content) coordinates, net of ancestor scroll offsets;
@@ -559,12 +559,16 @@ export class CanvasRuntime {
     // ancestor, the output canvas content box already bounds its GPU pixels and,
     // as proven at admission, its native hits, so only its own overflow clip remains.
     if (!clip && geometry && !axisAligned(applied) && this.canvasBoundsFrame()) {
+      // A tilted layer has no rectangular clip at all (crbug.com/573454036, WICG html-in-canvas#186): only its own
+      // box, uncut, has exact hits.
+      if (!applied.is2D && geometry.own) throw new Error("Tilted layers with clipped content require a flat transform until projective canvasClip hit testing is fixed (WICG html-in-canvas#186)");
       // Chromium hit-tests a rotated canvasClip by its canvas-space bounding box (crbug.com/573454036), so a
       // clipped-away overflow would stay clickable; refuse rather than mismatch hits.
       if (geometry.own && geometry.overflowing) throw new Error("Rotated layers with clipped overflowing content require ordinary DOM");
       return geometry.own;
     }
     clip = clip ? intersectViewport(clip, frame) : frame;
+    if (!applied.is2D) throw new Error("Tilted layers inside a clipping viewport require a flat transform until projective canvasClip hit testing is fixed (WICG html-in-canvas#186)");
     const local = localViewport(applied, clip);
     return geometry?.own ? intersectViewport(local, geometry.own) : local;
   }
@@ -647,10 +651,15 @@ export class CanvasRuntime {
       try { viewport = this.viewportClip(layer); }
       catch (error) { return String(error); }
       const corners = [[0, 0], [layer.element.offsetWidth, 0], [0, layer.element.offsetHeight], [layer.element.offsetWidth, layer.element.offsetHeight]];
-      if (!viewport && !this.canvasBoundsFrame() && corners.some(([x, y]) => {
-        const p = point(matrix, { x: x!, y: y! });
-        return p.x < 0 || p.y < 0 || p.x > width || p.y > height;
-      })) return `Transformed layer requires unsupported outer clipping: ${layer.id}`;
+      let outside: boolean;
+      try {
+        outside = corners.some(([x, y]) => { const p = project(matrix, { x: x!, y: y! }); return p.x < 0 || p.y < 0 || p.x > width || p.y > height; });
+      } catch (error) { return `${String(error)}: ${layer.id}`; }
+      if (!viewport && !this.canvasBoundsFrame() && outside) return `Transformed layer requires unsupported outer clipping: ${layer.id}`;
+      // A tilted layer needs browser-proven projective hit testing (admission's projective witnesses).
+      if (tilted(layer.transform) && this.core?.phase() === "gpu" && !this.renderer().projectiveHits()) {
+        return `Tilted layers require proven projective native hit testing: ${layer.id}`;
+      }
     }
     return undefined;
   }
@@ -886,6 +895,9 @@ export class CanvasRuntime {
     if (!layer) throw new Error(`Unknown Surface: ${id}`);
     if (this.ownership.has(id) || this.transitions.has(id)) throw new Error("Transform is animation-owned; release or cancel first");
     this.matrix(layer, transform);
+    if (tilted(transform) && this.core?.phase() === "gpu" && !this.renderer().projectiveHits()) {
+      throw new Error("Tilt requires proven projective native hit testing on this browser; the layer keeps its transform");
+    }
     this.relinquishedDeclarations.delete(id);
     layer.transform = { ...transform };
     this.checkPolicy();
@@ -1006,7 +1018,7 @@ export class CanvasRuntime {
    */
   async animate(id: string, target: Transform, length: number | { duration: number } = 300) {
     this.assertLive();
-    affine(target);
+    canonical(target);
     const duration = typeof length === "object" ? length.duration : undefined;
     if (duration !== undefined && (!Number.isFinite(duration) || duration <= 0 || duration > 60000)) throw new Error("Motion duration requires (0, 60000] ms");
     // With `{ duration }` progress comes from elapsed time and the loop ends when it reaches 1; the frame count
@@ -1049,13 +1061,13 @@ export class CanvasRuntime {
         previous = now;
         const progress = duration === undefined ? index / frames : Math.min(1, elapsed / duration);
         const next = { ...start };
-        for (const key of ["x", "y", "scaleX", "scaleY", "rotation", "opacity"] as const) {
+        for (const key of ["x", "y", "scaleX", "scaleY", "rotation", "opacity", "tiltX", "tiltY", "perspective"] as const) {
           if (target[key] !== undefined) {
-            const from = start[key] ?? (key === "scaleX" || key === "scaleY" || key === "opacity" ? 1 : 0);
+            const from = start[key] ?? (key === "scaleX" || key === "scaleY" || key === "opacity" ? 1 : key === "perspective" ? DEFAULT_PERSPECTIVE : 0);
             next[key] = from + (target[key]! - from) * progress;
           }
         }
-        affine(next);
+        canonical(next);
         layer.transform = next;
         const policy = this.policy();
         if (policy) { await this.renderer().recover(policy); throw new Error(policy); }
@@ -1288,11 +1300,10 @@ export class CanvasRuntime {
       lease.check();
       if (this.core?.phase() === "dom") {
         const style = getComputedStyle(layer.element);
-        const expected = this.matrix(layer, transform, false);
-        const actual = new DOMMatrix(style.transform === "none" ? undefined : style.transform);
+        const expected = new DOMMatrix(Array.from(this.matrix(layer, transform, false))).toFloat64Array();
+        const actual = new DOMMatrix(style.transform === "none" ? undefined : style.transform).toFloat64Array();
         if (style.transformOrigin !== "0px 0px" || style.translate !== "none" || style.rotate !== "none" || style.scale !== "none"
-          || ![actual.a, actual.b, actual.c, actual.d, actual.e, actual.f].every((value, index) =>
-            Math.abs(value - expected[index]!) <= 1e-4 * Math.max(1, Math.abs(value)))
+          || !actual.every((value, index) => Math.abs(value - expected[index]!) <= 1e-4 * Math.max(1, Math.abs(value)))
           || Math.abs(Number(style.opacity) - transform.opacity!) > 1e-4) {
           throw new Error("Declarative DOM presentation was overridden by authored CSS");
         }
@@ -1434,7 +1445,7 @@ export class CanvasRuntime {
     const live = state.mode === "gpu";
     const layer = this.registry.get(id);
     if (!layer || this.ownership.has(id) || this.transitions.has(id)) throw new Error("Unknown or already animation-owned layer");
-    if (JSON.stringify(affine(layer.transform)) !== JSON.stringify(affine()) || (layer.transform.opacity ?? 1) !== 1) throw new Error("Animation requires neutral controller transform/opacity");
+    if (JSON.stringify(canonical(layer.transform)) !== JSON.stringify(canonical()) || (layer.transform.opacity ?? 1) !== 1) throw new Error("Animation requires neutral controller transform/opacity");
     if (layer.origin && layer.origin !== "top-left") throw new Error("Animation ownership uses the source animation's top-left origin; remove the layer origin first");
     const base = { ...layer.transform };
     // GPU presentation hides the source behind important declarations. Lift them for
@@ -1453,7 +1464,7 @@ export class CanvasRuntime {
         check?.();
         layer.transform = transform;
         if (this.core?.phase() === "dom") {
-          lease.presentation.write("transform", cssMatrix(affine(transform)));
+          lease.presentation.write("transform", cssMatrix(canonical(transform)));
           lease.presentation.write("opacity", String(transform.opacity));
         }
       },

@@ -25,7 +25,7 @@ test("worker shader and binding layout are emitted by the build entry for each b
     assert.equal(program.version, 1);
     assert.equal(program.capacity, capacity);
     assert.equal(program.shader.bindings.length, capacity * 2 + 1);
-    assert.equal(program.shader.bindings.at(-1).uniformByteLength, (4 + capacity * 52) * 4);
+    assert.equal(program.shader.bindings.at(-1).uniformByteLength, (4 + capacity * 56) * 4);
     assert.equal((program.shader.fragmentWGSL.match(/sample\.a \*= 1.0 - 0.65/g) ?? []).length, capacity);
   }
   for (const value of [0, 9, -1, 1.5, NaN, Infinity]) assert.throws(() => workerCompositorProgram(value));
@@ -40,11 +40,11 @@ test("prebuilt programs reject malformed layouts without reading browser globals
   }
 });
 test("worker frames enforce finite uniforms, output/snapshot budgets and distinct slots", () => {
-  const uniforms = new Float32Array(4 + 52); uniforms[0] = 1;
+  const uniforms = new Float32Array(4 + 56); uniforms[0] = 1;
   const frame = { width: 100, height: 100, uniforms, images: [{ slot: 0, width: 100, height: 100, image: { close() {} } }] };
   validateWorkerFrame(frame, 1, 4096);
   for (const change of [{ width: 0 }, { height: 1.5 }, { width: 2000, height: 2000 },
-    { uniforms: [1] }, { uniforms: new Float32Array(4 + 52).fill(NaN) },
+    { uniforms: [1] }, { uniforms: new Float32Array(4 + 56).fill(NaN) },
     { images: [frame.images[0], frame.images[0]] },
     { images: [{ ...frame.images[0], slot: 1 }] },
     { images: [{ ...frame.images[0], image: {} }] }]) {

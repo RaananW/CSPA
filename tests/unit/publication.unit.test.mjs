@@ -32,7 +32,7 @@ test("cached publication requires every logical slot and current native extent",
 
 test("retained pipeline capacity leaves removed lanes empty, not stale pixels", () => {
   const uniforms = compositionUniforms([], 2, 0, 0, 5);
-  assert.equal(uniforms.length, 4 + 5 * 52);
+  assert.equal(uniforms.length, 4 + 5 * 56);
   assert.deepEqual([...uniforms.slice(0, 4)], [2, 0, 0, 0]);
   assert.ok(uniforms.slice(4).every(value => value === 0));
 });
@@ -41,5 +41,5 @@ test("prepared custom functions remain addressable after cached order/removal ch
   const shader = compositionShader(3, [undefined, { wgsl: "return color;" }]);
   assert.match(shader.fragmentWGSL, /fn custom1/);
   assert.equal(shader.fragmentWGSL.match(/sample = clamp\(custom1/g).length, 3);
-  for (const lane of [3, 16, 29]) assert.ok(shader.fragmentWGSL.includes(`state[${lane}].w == 1.0`));
+  for (const lane of [3, 17, 31]) assert.ok(shader.fragmentWGSL.includes(`state[${lane}].w == 1.0`));
 });
