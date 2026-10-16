@@ -20,8 +20,8 @@ A **ring groove with an emissive arc** that runs around it.
 
 | Part | Shape | Height at 50% | Moves |
 | --- | --- | --- | --- |
-| Ring | `groove`, a circle, thickness one eighth of the diameter (fixed rule) | Sunk by `elevation.well` (2) | No |
-| Arc | `mark`, about a quarter of the ring (fixed rule), `emissive` | In the groove, flush with the rim | Rotates around the ring centre |
+| Ring | `ring`, an annulus, thickness one eighth of the diameter (fixed rule) | Sunk by `elevation.well` (2) | No |
+| Arc | The `ring` primitive's arc, about a quarter of the ring (fixed rule), `emissive` | In the groove, flush with the rim | Rotates around the ring centre |
 
 Both parts are inside the `<span>` box, which is square. The arc is lit by itself and casts no shadow.
 
@@ -69,8 +69,8 @@ which are for state changes.
 ## 7. DOM structure and overlay needs
 
 ```html
-<span class="ug-spinner ug-spinner--md" role="status" data-strata-face="groove">
-  <span class="ug-spinner__arc" data-strata-face="mark" aria-hidden="true"></span>
+<span class="ug-spinner ug-spinner--md" role="status" data-strata-face="ring">
+  <span class="ug-spinner__arc" aria-hidden="true"></span>
   <span class="ug-spinner__label">Loading</span>
 </span>
 ```

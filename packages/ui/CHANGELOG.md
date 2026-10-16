@@ -10,3 +10,6 @@ starting point.
   invariants.
 - The token stylesheet (`@underglass/ui/css/tokens.css`): CSS custom properties with depth blending,
   the light vector, light, dark and high-contrast themes, and density.
+- The Tier A component stylesheet (`@underglass/ui/css`, `@underglass/ui/css/components.css`): relief from
+  `data-strata-face` lit by the configured light, materials, states from native pseudo-classes, face mode for
+  the GPU, and forced colours, reduced motion and reduced transparency.

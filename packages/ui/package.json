@@ -28,7 +28,9 @@
       "import": "./dist/tokens/index.js"
     },
     "./tokens.json": "./dist/tokens.json",
-    "./css/tokens.css": "./dist/css/tokens.css"
+    "./css": "./dist/css/strata.css",
+    "./css/tokens.css": "./dist/css/tokens.css",
+    "./css/components.css": "./dist/css/components.css"
   },
   "files": [
     "dist/tokens/*.js",
