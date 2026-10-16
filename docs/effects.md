@@ -112,6 +112,14 @@ exactly its parameters, and `interior: { max }` within 0..0.1.
   (`tests/browser/relief.test.mjs`). Face interiors are guarded as section 2.9 of the model defines. The scene's
   `outset` (at most 128 px per side) grows the drawn rectangle for shadows only, on every side the layer's clip does
   not cut; native hits keep the layer's border box, so the outset never takes a hit.
+- `kind: "objects"` is the same material at the Objects level: a scene in version 2 of the model, with a `camera`
+  (distance and vanishing point) and objects mixed into its back-to-front list (part 2B). Solids (keys, slabs,
+  bezels, wells, rails, marks) are shaded in screen space: their caps keep the captured pixels where they are and
+  their sides fall in the band between cap and base, so they never draw outside their control. Domes (knobs, pucks)
+  are ray-cast in their own colour. An object that would draw outside its control (the taper rule, or a dome leaving
+  its `bounds`) is drawn as its Relief equivalent, and `state().materials[].degraded` lists it with the reason. Its
+  decoded GPU pixels pass `objects-2.json` (`tests/browser/objects.test.mjs`). Objects share the relief binding, so
+  a layer is at either level and nothing else changes: no extra pass, texture or depth buffer.
 - One pass may hold a custom effect and a custom material; a new definition is
   compiled as a successor while the previous frame keeps presenting.
 - Replacement resolves the previous handle as `replaced`. The material survives
