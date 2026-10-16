@@ -242,6 +242,44 @@ test("a Dialog rendered into the root is its own GPU panel over a faded scrim, m
   expect(errors).toEqual([]);
 });
 
+test("on the GPU a Drawer with closeOnScrim closes on a real click outside it, and a Dialog without it stays open", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  await page.evaluate(() => window.strataGpuProbe.openDrawer());
+  await page.waitForFunction(() => window.strataGpuProbe.controller.state().layers.some(layer => layer.id === "gpu-drawer"));
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  const layers = () => page.evaluate(() => ({ mode: window.strataGpuProbe.controller.state().mode, layers: window.strataGpuProbe.controller.state().layers.map(layer => layer.id) }));
+  expect(await layers()).toEqual({ mode: "gpu", layers: ["gpu-panel", expect.stringMatching(/^strata-scrim-/), "gpu-drawer"] });
+  const drawer = await page.locator("#gpu-drawer").boundingBox(), stage = await page.evaluate(() => { const { x, y } = window.strataGpuProbe.root().getBoundingClientRect(); return { x, y }; });
+  // On the end edge of the stage, so its start side is scrim.
+  const outside = [stage.x + 20, stage.y + 20];
+  expect(outside[0]).toBeLessThan(drawer.x);
+  // A click inside the drawer (on its body) keeps it open.
+  await page.mouse.click(drawer.x + drawer.width / 2, drawer.y + drawer.height / 2);
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.dialog()?.id)).toBe("gpu-drawer");
+  // A real click outside it, on the scrim drawn by the GPU, closes it; the layers are let go and GPU stays on.
+  await page.mouse.click(...outside);
+  await page.waitForFunction(() => !window.strataGpuProbe.dialog());
+  expect(await page.evaluate(() => window.strataGpuProbe.closes())).toEqual(["scrim"]);
+  expect(await layers()).toEqual({ mode: "gpu", layers: ["gpu-panel"] });
+  expect(await page.evaluate(() => window.strataGpuProbe.panel().inert)).toBe(false);
+
+  // The Dialog leaves closeOnScrim off: the same click does nothing, and Escape still closes it.
+  await page.locator("#gpu-open").click();
+  await page.waitForFunction(() => document.activeElement?.id === "gpu-dialog-cancel");
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  await page.mouse.click(...outside);
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.dialog()?.id)).toBe("gpu-dialog");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !window.strataGpuProbe.dialog());
+  expect(await page.evaluate(() => window.strataGpuProbe.closes())).toEqual(["scrim", "escape"]);
+  expect(await layers()).toEqual({ mode: "gpu", layers: ["gpu-panel"] });
+  expect(errors).toEqual([]);
+});
+
 test("at the Objects level, the panel's components are objects on core's objects material, and native input still reaches them", async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));

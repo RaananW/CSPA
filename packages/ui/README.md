@@ -234,7 +234,7 @@ import { Button, Dialog, Drawer } from "@underglass/ui/react";
 
 <Dialog open={open} onClose={() => setOpen(false)} title="Discard changes?" description="Your edits will be lost."
   actions={<Button variant="accent" onClick={discard}>Discard</Button>}>…</Dialog>
-<Drawer open={filters} onClose={() => setFilters(false)} side="start" title="Filters">…</Drawer>
+<Drawer open={filters} onClose={() => setFilters(false)} side="start" title="Filters" closeOnScrim>…</Drawer>
 ```
 
 ```html
@@ -251,8 +251,9 @@ await dialog.close();               // reason is "escape", "scrim" or "close"
 
 `showStrataDialog` is the one implementation behind every binding: it makes the rest of the page `inert` (each prior
 value restored exactly), moves focus to `initialFocus`, the `[autofocus]` descendant or the first tabbable element,
-returns it to the opener, closes on Escape (only the topmost of nested dialogs), and runs the panel motion. A scrim click
-closes only with `closeOnScrim`, as a native `<dialog>` does. In plain HTML, `data-strata-open="id"` opens a panel and
+returns it to the opener, closes on Escape (only the topmost of nested dialogs), and runs the panel motion. A click on the
+scrim, outside the panel, closes it only with `closeOnScrim` (a prop in React, Vue and Astro;
+`data-strata-close-on-scrim` in plain HTML), as a native `<dialog>` does; drawers often turn it on. In plain HTML, `data-strata-open="id"` opens a panel and
 `data-strata-close` inside it closes it (`attachStrata`). Anatomy: [Dialog](../../docs/ui-library/components/dialog.md),
 [Drawer](../../docs/ui-library/components/drawer.md).
 

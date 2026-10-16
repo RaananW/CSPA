@@ -86,15 +86,23 @@ Plain HTML and Astro render both elements closed, with the `hidden` attribute:
 
 - **Top-level, rendered into a container**, exactly as the [Dialog](dialog.md#7-dom-structure-and-overlay-needs):
   the section and the scrim before it are direct children of one container (the page body, or the Underglass
-  root where `@underglass/ui/gpu` presents them, in a later change), never inside a layer. React and Vue render
+  root, where `@underglass/ui/gpu` presents the drawer as its own GPU panel), never inside a layer. React and Vue render
   nothing while closed and take a `container` prop.
 - The side is the class `ug-drawer--start`, `--end`, `--top` or `--bottom`.
 - Plain HTML wiring and `showStrataDialog` are as for the Dialog.
+- **Closing on a click outside:** off by default, as for the Dialog. Turn it on with `closeOnScrim` (React, Vue and
+  Astro), `data-strata-close-on-scrim` on the section in plain HTML, or the `closeOnScrim` option of
+  `showStrataDialog`. A click on the scrim, anywhere outside the drawer, then closes it with the reason `"scrim"`;
+  a click inside it does not.
+
+  ```tsx
+  <Drawer open={open} onClose={() => setOpen(false)} title="Filters" closeOnScrim>…</Drawer>
+  ```
 
 ## 8. Keyboard and screen reader
 
 As [Dialog](dialog.md#8-keyboard-and-screen-reader): Tab stays inside through the inert background, Escape
-closes, and focus returns to the opener.
+closes, and focus returns to the opener. With `closeOnScrim`, a click outside the drawer closes it too.
 
 ## 9. CSS presentation
 
@@ -105,8 +113,10 @@ for the Dialog.
 
 ## 10. Tests
 
-- **Plain DOM:** each side lays out on its edge; the Dialog's focus, inert, Escape and reduced-motion checks.
+- **Plain DOM:** each side lays out on its edge; a click outside closes a drawer only with `closeOnScrim`; the
+  Dialog's focus, inert, Escape and reduced-motion checks.
 - **Bindings:** React, Vue and Astro render exactly the markup above (open for React and Vue, `hidden` for
-  Astro).
+  Astro); Astro's `closeOnScrim` renders `data-strata-close-on-scrim`.
 - **Accessibility:** axe in light and dark.
-- **GPU (later):** as for the Dialog.
+- **GPU:** as for the Dialog, and a real click outside a `closeOnScrim` drawer, on the scrim the GPU draws, closes
+  it with GPU on.

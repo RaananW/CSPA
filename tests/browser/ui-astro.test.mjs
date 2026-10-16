@@ -47,6 +47,9 @@ test("Strata Astro components render their anatomy markup and work without JavaS
   await expectContracts(page, expect);
   // A Dialog and a Drawer render closed, with `hidden`.
   await expectClosedOverlayContracts(page, expect);
+  // closeOnScrim renders data-strata-close-on-scrim, only where it is set.
+  await expect(page.locator("#sort-drawer")).toHaveAttribute("data-strata-close-on-scrim", "");
+  await expect(page.locator("section:has(#filters-title)")).not.toHaveAttribute("data-strata-close-on-scrim");
   const main = page.locator("main");
 
   // Fields: label, required suffix, description and error, all server-rendered.
