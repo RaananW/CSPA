@@ -160,6 +160,7 @@ test("panel motion carries a presented panel through depth on the GPU, inert whi
   await page.evaluate(() => window.strataGpuProbe.enter({ tilt: 12 }));
   const entered = await page.evaluate(() => {
     const probe = window.strataGpuProbe, state = probe.controller.state();
+    probe.refresh();
     return { mode: state.mode, inert: probe.panel().inert, motion: probe.panel().getAttribute("data-strata-motion"), transform: state.layers[0].transform,
       height: probe.scene().primitives[0].height };
   });

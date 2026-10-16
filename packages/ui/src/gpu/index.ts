@@ -417,6 +417,9 @@ function bezier(value: string): (t: number) => number {
   const [x1, y1, x2, y2] = match ? match[1]!.split(",").map(Number) as [number, number, number, number] : [0, 0, 1, 1];
   const at = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
   return x => {
+    // The ends are exact, so a motion that has finished leaves its panel exactly at its own height.
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
     // x(t) is monotonic for x1, x2 in [0, 1]: bisect for t, then read y.
     let low = 0, high = 1;
     for (let step = 0; step < 24; step++) { const mid = (low + high) / 2; if (at(mid, x1, x2) < x) low = mid; else high = mid; }
