@@ -297,11 +297,12 @@ for (const binding of bindings) test(`Strata ${binding} surfaces and status comp
   await expect(page.locator("#few")).toHaveText("7");
   // Spinner: a status that announces its label; inside a busy button it is hidden and has no role.
   // (A status takes no name from its content; its content is what the live region announces.)
-  await expect(main.getByRole("status")).toHaveText("Loading results");
+  // (MessageBars elsewhere on the page are statuses too, so the Spinner's is looked for in its panel.)
+  await expect(panel.getByRole("status")).toHaveText("Loading results");
   const saving = page.locator("#saving");
   await expect(saving).toHaveAttribute("aria-busy", "true");
   await expect(saving.locator(".ug-spinner")).not.toHaveAttribute("role");
-  await expect(main.getByRole("status")).toHaveCount(1);
+  await expect(panel.getByRole("status")).toHaveCount(1);
   // ProgressBar: named by its Field label with a value; the indeterminate bar has no value.
   const upload = main.getByRole("progressbar", { name: "Upload" });
   await expect(upload).toHaveAttribute("value", "40");
