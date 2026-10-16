@@ -5,6 +5,10 @@
  * presents, the panels switch to `data-strata-mode="face"`, so CSS paints flat faces and the GPU paints the relief;
  * whenever GPU is off, the CSS relief is back.
  *
+ * Panel motion (`strataEnter`, `strataLeave` from `@underglass/ui/dom`) moves a presented panel on the GPU: core's
+ * `transition` carries it through depth (scale, tilt and opacity, as the CSS motion does) while its scene height
+ * travels from the modal level, so its shadow grows and settles with it.
+ *
  * Everything the scene needs comes from the page as the CSS presentation sees it: geometry from layout (followed through
  * CSS transitions frame by frame), states from
  * `:hover`, `:active`, `:focus-visible` and `:disabled`, and token values from each element's resolved `--strata-*`
@@ -13,13 +17,20 @@
  */
 import { cssVariable, flatten, numeric, strataTokens } from "../tokens/index.ts";
 import type { ScenePrimitive, StrataScene, SceneFace, SceneMaterial } from "../tokens/scene.ts";
+import { panelMotion, type PanelMover } from "../dom/motion.ts";
 
 /** What the helper needs from an Underglass controller (`CanvasController` from `@underglass/core`). */
 export interface StrataGpuController {
   readonly container: HTMLElement;
-  enroll(element: HTMLElement, options: { id: string }): () => void;
+  enroll(element: HTMLElement, options: { id: string; origin?: "center" }): () => void;
   setMaterial(id: string, descriptor: StrataReliefMaterial): { update(scene: StrataScene): void; cancel(): void };
+  transition(id: string, motion: StrataPanelMotion): { finished: Promise<{ status: string; reason: string }>; cancel(): void };
   state(): { mode: string };
+}
+/** A panel motion as core's typed motion: numeric keyframes and timing. */
+export interface StrataPanelMotion {
+  keyframes: { offset: number; opacity?: number; scaleX?: number; scaleY?: number; tiltX?: number; perspective?: number }[];
+  timing: { duration: number; easing: string };
 }
 /** The material descriptor the helper hands to `setMaterial`. */
 export interface StrataReliefMaterial {
@@ -106,8 +117,14 @@ function radiusOf(element: Element, width: number) {
   return value.endsWith("%") ? (amount / 100) * width : Number.isFinite(amount) ? amount : 0;
 }
 
+/** What a caller may override in a panel's scene. */
+export interface StrataSceneOptions {
+  /** The panel's own height, in CSS px, instead of its elevation (panel motion carries it through depth). */
+  height?: number;
+}
+
 /** Builds a panel's scene from its markup, layout, states and resolved tokens. */
-export function strataScene(panel: HTMLElement): StrataScene {
+export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}): StrataScene {
   registerTokens();
   const tokens = reader(panel);
   const level = (element: Element, fallback: string) =>
@@ -139,7 +156,8 @@ export function strataScene(panel: HTMLElement): StrataScene {
     };
   };
   const width = panel.offsetWidth, height = panel.offsetHeight;
-  const primitives: ScenePrimitive[] = [{ face: "raised", rect: [0, 0, width, height], radius: radiusOf(panel, width), height: level(panel, "floating"), material: materialFor(panel, "raised") }];
+  const primitives: ScenePrimitive[] = [{ face: "raised", rect: [0, 0, width, height], radius: radiusOf(panel, width), height: options.height ?? level(panel, "floating"),
+    material: materialFor(panel, "raised") }];
   for (const element of panel.querySelectorAll<HTMLElement>("[data-strata-face]")) {
     if (primitives.length >= 255) break;
     const face = element.getAttribute("data-strata-face") as SceneFace;
@@ -196,6 +214,27 @@ export function strataScene(panel: HTMLElement): StrataScene {
   };
 }
 
+type Movable = HTMLElement & { [panelMotion]?: PanelMover };
+
+/** A resolved CSS time (`.32s`, `320ms`) in milliseconds. */
+function milliseconds(value: string): number {
+  const amount = Number.parseFloat(value);
+  return value.trim().endsWith("ms") ? amount : amount * 1000;
+}
+
+/** A CSS `cubic-bezier()` timing function (or `linear`), as progress over time, for the scene height during motion. */
+function bezier(value: string): (t: number) => number {
+  const match = value.match(/cubic-bezier\(([^)]+)\)/);
+  const [x1, y1, x2, y2] = match ? match[1]!.split(",").map(Number) as [number, number, number, number] : [0, 0, 1, 1];
+  const at = (t: number, a: number, b: number) => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t * t * b + t ** 3;
+  return x => {
+    // x(t) is monotonic for x1, x2 in [0, 1]: bisect for t, then read y.
+    let low = 0, high = 1;
+    for (let step = 0; step < 24; step++) { const mid = (low + high) / 2; if (at(mid, x1, x2) < x) low = mid; else high = mid; }
+    return at((low + high) / 2, y1, y2);
+  };
+}
+
 /**
  * Presents the Strata panels among `controller.container`'s direct children on the GPU, and keeps their scenes in
  * step with layout, states, tokens and the presentation mode. Returns a handle; `detach()` restores everything.
@@ -206,7 +245,8 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
   const root = controller.container;
   // Under forced colours everything is flat (design language section 4): the CSS presentation stays.
   const forced = matchMedia("(forced-colors: active)");
-  const panels = new Map<HTMLElement, { id: string; release: () => void; handle?: ReturnType<StrataGpuController["setMaterial"]>; scene?: string }>();
+  type Motion = { start: number; duration: number; ease: (t: number) => number; from: number; to: number };
+  const panels = new Map<HTMLElement, { id: string; release: () => void; handle?: ReturnType<StrataGpuController["setMaterial"]>; scene?: string; motion?: Motion }>();
   let serial = 0, frame = 0, detached = false;
   const schedule = () => { if (!frame && !detached) frame = requestAnimationFrame(sync); };
   const resize = new ResizeObserver(schedule);
@@ -218,12 +258,18 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
     for (const element of root.children) {
       if (!(element instanceof HTMLElement) || !element.matches(selector) || panels.has(element)) continue;
       const id = element.id || `strata-panel-${++serial}`;
-      try { panels.set(element, { id, release: controller.enroll(element, { id }) }); resize.observe(element); }
-      catch (error) { console.warn(`Strata GPU: ${id} was not enrolled: ${String(error)}`); }
+      try {
+        // Centred, so depth and tilt move the panel about its middle as the CSS motion does.
+        const release = controller.enroll(element, { id, origin: "center" });
+        panels.set(element, { id, release });
+        (element as Movable)[panelMotion] = mover(element);
+        resize.observe(element);
+      } catch (error) { console.warn(`Strata GPU: ${id} was not enrolled: ${String(error)}`); }
     }
     for (const [element, entry] of panels) {
       if (element.parentElement !== root) {
         entry.handle?.cancel(); entry.release(); resize.unobserve(element); element.removeAttribute("data-strata-mode"); panels.delete(element);
+        delete (element as Movable)[panelMotion];
         continue;
       }
       if (!gpu) {
@@ -233,7 +279,9 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
         continue;
       }
       if (element.getAttribute("data-strata-mode") !== "face") element.setAttribute("data-strata-mode", "face");
-      const scene = strataScene(element), key = JSON.stringify(scene);
+      const motion = entry.motion;
+      const scene = strataScene(element, motion ? { height: motion.from + (motion.to - motion.from) * motion.ease(Math.min(1, (performance.now() - motion.start) / motion.duration)) } : {});
+      const key = JSON.stringify(scene);
       if (entry.scene === key) continue;
       try {
         if (entry.handle) entry.handle.update(scene);
@@ -246,7 +294,35 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
     }
     // A CSS transition (a knob sliding, a face settling) moves geometry with no event per frame: follow it until it
     // ends. Endless CSS animations (the spinner) stay in the captured content and need no new scene.
-    if (gpu && root.getAnimations({ subtree: true }).some(animation => animation instanceof CSSTransition && animation.playState === "running")) schedule();
+    if (gpu && (root.getAnimations({ subtree: true }).some(animation => animation instanceof CSSTransition && animation.playState === "running")
+      || [...panels.values()].some(entry => entry.motion))) schedule();
+  }
+
+  /**
+   * A panel's GPU mover: from `elevation.modal` towards the panel's own level over `motion.slow`, as the CSS motion's
+   * `perspective() translateZ() rotateX()` does: the depth becomes a scale of `D / (D − modal)` about the centre, with
+   * the same tilt and fade. The panel's scene height travels the same way. It resolves when core's transition ends;
+   * a motion core cannot start (GPU between states) ends at once, as reduced motion does.
+   */
+  function mover(element: HTMLElement): PanelMover {
+    return async (motion, { tilt }) => {
+      const entry = panels.get(element);
+      if (!entry) return;
+      const tokens = reader(element);
+      const distance = tokens.number("camera.distance", 1600), modal = tokens.number("elevation.modal", 24);
+      const own = tokens.number(`elevation.${element.getAttribute("data-strata-elevation") ?? "floating"}`, tokens.number("elevation.floating", 8));
+      const duration = Math.max(1, milliseconds(tokens.raw("motion.slow")) || 320);
+      const easing = tokens.raw("motion.easing.standard") || "cubic-bezier(0.2, 0, 0, 1)";
+      const depth = distance / Math.max(distance - modal, 1);
+      const far = { opacity: 0, scaleX: depth, scaleY: depth, ...(tilt ? { tiltX: tilt, perspective: distance } : {}) };
+      const keyframes = motion === "enter" ? [{ offset: 0, ...far }, { offset: 1 }] : [{ offset: 0 }, { offset: 1, ...far }];
+      let handle: ReturnType<StrataGpuController["transition"]>;
+      try { handle = controller.transition(entry.id, { keyframes, timing: { duration, easing } }); }
+      catch (error) { console.warn(`Strata GPU: ${entry.id} did not move: ${String(error)}`); return; }
+      entry.motion = { start: performance.now(), duration, ease: bezier(easing), from: motion === "enter" ? modal : own, to: motion === "enter" ? own : modal };
+      schedule();
+      try { await handle.finished; } finally { entry.motion = undefined; schedule(); }
+    };
   }
   const events = ["pointerover", "pointerout", "pointerdown", "pointerup", "focusin", "focusout", "keydown", "keyup", "input", "change", "transitionrun", "transitionend"];
   for (const type of events) root.addEventListener(type, schedule, true);
@@ -266,7 +342,7 @@ export function attachStrataGpu(controller: StrataGpuController, options: Strata
       if (frame) cancelAnimationFrame(frame);
       for (const type of events) root.removeEventListener(type, schedule, true);
       mutation.disconnect(); resize.disconnect(); clearInterval(poll); forced.removeEventListener("change", schedule);
-      for (const [element, entry] of panels) { entry.handle?.cancel(); entry.release(); element.removeAttribute("data-strata-mode"); }
+      for (const [element, entry] of panels) { entry.handle?.cancel(); entry.release(); element.removeAttribute("data-strata-mode"); delete (element as Movable)[panelMotion]; }
       panels.clear();
     },
   };

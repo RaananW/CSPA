@@ -7,6 +7,7 @@
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
 import { attachStrataGpu, type StrataGpu } from "@underglass/ui/gpu";
+import { strataEnter, strataLeave, type PanelMotionOptions } from "@underglass/ui/dom";
 
 const markup = `
   <h2 id="gpu-title" style="margin:0 0 12px;font-size:18px">Account</h2>
@@ -65,10 +66,13 @@ window.strataGpuProbe = {
   scene: () => strata?.scene(panel),
   refresh: () => strata?.refresh(),
   detach: () => { strata?.detach(); strata = undefined; },
+  enter: options => strataEnter(panel, options),
+  leave: options => strataLeave(panel, options),
 };
 declare global {
   interface Window { strataGpuProbe: {
     controller: CanvasController; panel(): HTMLElement; saves(): number;
     scene(): ReturnType<StrataGpu["scene"]>; refresh(): void; detach(): void;
+    enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
   } }
 }
