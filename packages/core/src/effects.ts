@@ -6,6 +6,7 @@
  * geometry; ordinary DOM shows the layer's static original content instead.
  */
 import { validateReliefScene, type ReliefScene } from "./relief.js";
+import { validateStageScene, type StageScene } from "./stage.js";
 
 /** Effect clock: `seconds` is the effect time (0..1e6) and `playing` whether it advances each frame. */
 export interface EffectTime { seconds: number; playing?: boolean }
@@ -183,11 +184,13 @@ export function effectUniforms(values: readonly EffectDescriptor[] = []) {
  * - `objects` is the same material at the Objects level (the model's version 2): a scene whose back-to-front list also
  *   holds objects (keys, slabs, wells, knobs...), seen through its camera. Objects never take hits: one that would
  *   draw outside its control is drawn at the Relief level, and `state().materials` reports it.
+ * - `stage` draws a stage scene (version 3) on a decorative layer: a lit backdrop and particles around the UI.
  */
-export type MaterialDescriptor = CustomMaterial | ReliefMaterial | ObjectsMaterial;
-/** A material whose look is a Strata scene: `relief` (version 1) or `objects` (version 2). */
-export type SceneMaterial = ReliefMaterial | ObjectsMaterial;
-export const isSceneMaterial = (value: MaterialDescriptor | undefined): value is SceneMaterial => value?.kind === "relief" || value?.kind === "objects";
+export type MaterialDescriptor = CustomMaterial | ReliefMaterial | ObjectsMaterial | StageMaterial;
+/** A material whose look is a Strata scene: `relief` (version 1), `objects` (versions 2 and 3) or `stage` (version 3). */
+export type SceneMaterial = ReliefMaterial | ObjectsMaterial | StageMaterial;
+export const isSceneMaterial = (value: MaterialDescriptor | undefined): value is SceneMaterial =>
+  value?.kind === "relief" || value?.kind === "objects" || value?.kind === "stage";
 /** Fields every material declares: it stays in the layer, relights pixels in place, and DOM shows the original. */
 interface MaterialPolicy {
   bounds: "layer";
@@ -208,10 +211,15 @@ export interface ReliefMaterial extends MaterialPolicy {
   kind: "relief";
   scene: ReliefScene;
 }
-/** The built-in objects material: a Strata scene, version 2, with objects (`docs/ui-library/rendering-model.md`, 2B). */
+/** The built-in objects material: a Strata scene, version 2 or 3, with objects (`docs/ui-library/rendering-model.md`, 2B). */
 export interface ObjectsMaterial extends MaterialPolicy {
   kind: "objects";
   scene: ReliefScene;
+}
+/** The built-in stage material: a stage scene, version 3 (`docs/ui-library/rendering-model.md`, 2C), for decorative layers. */
+export interface StageMaterial extends MaterialPolicy {
+  kind: "stage";
+  scene: StageScene;
 }
 /**
  * Handle for a layer's material, returned by `setMaterial`. A material persists across DOM and GPU presentation
@@ -226,7 +234,7 @@ export interface MaterialHandle {
    * Changes the material without recompiling: a custom material's parameters (same schema), or a relief
    * material's whole scene (states, rectangles, primitives added or removed).
    */
-  update(change: Record<string, number> | ReliefScene): void;
+  update(change: Record<string, number> | ReliefScene | StageScene): void;
   cancel(): void;
   dispose(): void;
 }
@@ -238,7 +246,8 @@ export function validateMaterial(value: MaterialDescriptor): MaterialDescriptor 
     throw new Error("Materials require layer bounds, material interaction, identity media and static DOM fallback");
   }
   if (value.kind === "relief") return { ...value, scene: validateReliefScene(value.scene) };
-  if (value.kind === "objects") return { ...value, scene: validateReliefScene(value.scene, 2) };
+  if (value.kind === "objects") return { ...value, scene: validateReliefScene(value.scene, "objects") };
+  if (value.kind === "stage") return { ...value, scene: validateStageScene(value.scene) };
   if (value.kind !== "custom") throw new Error("Unsupported material kind");
   if (!value.parameters || !value.interior) throw new Error("Custom materials require parameters and an interior budget");
   if (!definitions.has(value.definition)) throw new Error("Custom materials must come from defineEffect");
@@ -257,6 +266,7 @@ export function validateMaterial(value: MaterialDescriptor): MaterialDescriptor 
 export function materialUniforms(value: MaterialDescriptor | undefined, slot: number) {
   const result = new Float32Array(8);
   if (!value) return result;
+  if (value.kind === "stage") { result.set([2, 0, 0, 0]); return result; }
   if (isSceneMaterial(value)) { result.set([2, value.scene.interior.max, 0, 0]); return result; }
   const parameters = Object.keys(value.definition.parameters).map(name => value.parameters[name]!);
   result.set([1, Math.min(value.interior.max, MATERIAL_INTERIOR_CEILING), slot, 0, ...parameters, ...Array(4 - parameters.length).fill(0)]);

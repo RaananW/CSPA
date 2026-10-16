@@ -5,6 +5,8 @@
  * the reference implementation in `@underglass/ui/tokens` section by section. Core never depends on Strata: the scene
  * format is the contract, and the conformance suites judge this file.
  *
+ * Stage scenes (part 2C, the `stage` material, `stage.ts`) and environment maps (2C.4) share the binding too.
+ *
  * Objects (part 2B) are entries of the same back-to-front list as relief primitives, in the same binding: solids are
  * shaded in screen space (their caps and sides are screen-locked), domes are ray-cast analytically. Objects never take
  * hits; one that would draw outside its control (2B.6) is packed as its Relief equivalent and reported by
@@ -13,6 +15,8 @@
  * Per-primitive values that do not depend on the pixel (section 2.3: band width, cast height, slope, profile) are
  * derived here on the CPU, so the shader only evaluates what changes per point.
  */
+
+import { STAGE_VEC4S, stageUniforms, stageWGSL, type StageScene } from "./stage.js";
 
 /** Relief primitives one layer may carry (P0.3 budget). */
 export const RELIEF_PRIMITIVES = 256;
@@ -26,8 +30,11 @@ export const RELIEF_MATERIALS = 16;
 const HEADER_VEC4S = 6;
 const MATERIAL_VEC4S = 2;
 const PRIMITIVE_VEC4S = 6;
-/** vec4s in the relief uniform binding: header, material table, primitives. */
-export const RELIEF_VEC4S = HEADER_VEC4S + RELIEF_MATERIALS * MATERIAL_VEC4S + RELIEF_PRIMITIVES * PRIMITIVE_VEC4S;
+/** An environment map's brightness grid (rendering model 2C.4): 32 × 16 values, four to a vec4. */
+const MAP_COLUMNS = 32, MAP_ROWS = 16, MAP_VEC4S = (MAP_COLUMNS * MAP_ROWS) / 4;
+const mapBase = HEADER_VEC4S + RELIEF_MATERIALS * MATERIAL_VEC4S + RELIEF_PRIMITIVES * PRIMITIVE_VEC4S;
+/** vec4s in the relief binding: header, material table, primitives, environment map. A stage scene uses its start. */
+export const RELIEF_VEC4S = Math.max(mapBase + MAP_VEC4S, STAGE_VEC4S);
 
 const faces = ["raised", "well", "groove", "knob", "mark", "ring", "flat"] as const;
 const objects = ["key", "slab", "bezel", "well", "rail", "mark", "knob", "puck"] as const;
@@ -80,9 +87,10 @@ export interface ReliefObject {
  */
 export interface ReliefScene {
   format: "strata-scene";
-  version: 1 | 2;
+  version: 1 | 2 | 3;
   camera?: { distance: number; vanish: [number, number] };
-  environment?: { source: "studio"; strength: number };
+  /** The studio (versions 2 and 3), or a 32 × 16 brightness map (version 3, rendering model 2C.4). */
+  environment?: { source: "studio"; strength: number } | { source: "map"; strength: number; grid: number[] };
   extent: { width: number; height: number };
   outset?: { top: number; right: number; bottom: number; left: number };
   backdrop: string;
@@ -112,20 +120,24 @@ const object = (value: unknown, path: string): Record<string, unknown> => {
 const optional = (value: unknown, path: string, min: number, max: number, fallback: number) => (value === undefined ? fallback : finite(value, path, min, max));
 
 /**
- * Validates a scene for the `relief` material (`version` 1) or the `objects` material (`version` 2) and returns a
- * deep, normalized copy (defaults filled in). Throws on the first problem, naming its path, so an invalid scene changes
- * nothing. Checks what core relies on; the full format is `@underglass/ui/scene.schema.json`.
+ * Validates a scene for the `relief` material (`kind` relief: version 1) or the `objects` material (`kind` objects:
+ * version 2, or 3 with an environment map) and returns a deep, normalized copy (defaults filled in). Throws on the
+ * first problem, naming its path, so an invalid scene changes nothing. Checks what core relies on; the full format is
+ * `@underglass/ui/scene.schema.json`.
  */
-export function validateReliefScene(input: ReliefScene, version: 1 | 2 = 1): ReliefScene {
+export function validateReliefScene(input: ReliefScene, kind: "relief" | "objects" = "relief"): ReliefScene {
   const scene = object(input, "");
-  if (scene.format !== "strata-scene" || scene.version !== version) {
-    throw new Error(version === 1 ? "Relief material requires a version 1 strata-scene" : "Objects material requires a version 2 strata-scene");
+  const version = scene.version as 1 | 2 | 3;
+  if (scene.format !== "strata-scene" || (kind === "relief" ? version !== 1 : version !== 2 && version !== 3)) {
+    throw new Error(kind === "relief" ? "Relief material requires a version 1 strata-scene" : "Objects material requires a version 2 or 3 strata-scene");
   }
-  const camera = version === 2 ? object(scene.camera, "camera") : undefined;
-  if (version === 1 && (scene.camera !== undefined || scene.environment !== undefined)) throw new Error("Relief scene camera and environment are only in version 2");
+  const camera = version !== 1 ? object(scene.camera, "camera") : undefined;
+  if (version === 1 && (scene.camera !== undefined || scene.environment !== undefined)) throw new Error("Relief scene camera and environment are only in versions 2 and 3");
   if (camera && (!Array.isArray(camera.vanish) || camera.vanish.length !== 2)) throw new Error("Relief scene camera.vanish requires [x, y]");
-  const environment = version === 2 && scene.environment !== undefined ? object(scene.environment, "environment") : undefined;
-  if (environment && environment.source !== "studio") throw new Error('Relief scene environment.source requires "studio"');
+  const environment = version !== 1 && scene.environment !== undefined ? object(scene.environment, "environment") : undefined;
+  const map = environment?.source === "map" && version === 3;
+  if (environment && !map && environment.source !== "studio") throw new Error(version === 3 ? 'Relief scene environment.source requires "studio" or "map"' : 'Relief scene environment.source requires "studio"');
+  if (map && (!Array.isArray(environment!.grid) || environment!.grid.length !== MAP_COLUMNS * MAP_ROWS)) throw new Error(`Relief scene environment.grid requires ${MAP_COLUMNS * MAP_ROWS} numbers`);
   const extent = object(scene.extent, "extent"), light = object(scene.light, "light"), bevel = object(scene.bevel, "bevel");
   const state = object(scene.state, "state"), focus = object(scene.focus, "focus");
   if (!profiles.includes(bevel.profile as (typeof profiles)[number])) throw new Error(`Relief scene bevel.profile requires one of ${profiles.join(", ")}`);
@@ -138,7 +150,10 @@ export function validateReliefScene(input: ReliefScene, version: 1 | 2 = 1): Rel
     format: "strata-scene", version,
     ...(camera ? { camera: { distance: finite(camera.distance, "camera.distance", 100, 1e6),
       vanish: (camera.vanish as unknown[]).map((part, index) => finite(part, `camera.vanish[${index}]`, -1e6, 1e6)) as [number, number] },
-      environment: { source: "studio" as const, strength: environment ? finite(environment.strength, "environment.strength", 0, 1) : 0.6 } } : {}),
+      environment: map
+        ? { source: "map" as const, strength: finite(environment!.strength, "environment.strength", 0, 1),
+          grid: (environment!.grid as unknown[]).map((cell, index) => finite(cell, `environment.grid[${index}]`, 0, 4)) }
+        : { source: "studio" as const, strength: environment ? finite(environment.strength, "environment.strength", 0, 1) : 0.6 } } : {}),
     extent: { width: finite(extent.width, "extent.width", 0), height: finite(extent.height, "extent.height", 0) },
     ...(outset ? { outset: { top: finite(outset.top, "outset.top", 0, RELIEF_OUTSET), right: finite(outset.right, "outset.right", 0, RELIEF_OUTSET),
       bottom: finite(outset.bottom, "outset.bottom", 0, RELIEF_OUTSET), left: finite(outset.left, "outset.left", 0, RELIEF_OUTSET) } } : {}),
@@ -163,7 +178,7 @@ export function validateReliefScene(input: ReliefScene, version: 1 | 2 = 1): Rel
     primitives: (scene.primitives as unknown[]).map((value, index): ReliefPrimitive | ReliefObject => {
       const at = `primitives[${index}]`, primitive = object(value, at);
       if ("object" in primitive) {
-        if (version !== 2) throw new Error(`Relief scene ${at}.object requires a version 2 scene (the objects material)`);
+        if (version === 1) throw new Error(`Relief scene ${at}.object requires a version 2 or 3 scene (the objects material)`);
         return validateObject(primitive, at, names);
       }
       if (!faces.includes(primitive.face as (typeof faces)[number])) throw new Error(`Relief scene ${at}.face requires one of ${faces.join(", ")}`);
@@ -266,7 +281,7 @@ function equivalent(entry: ReliefObject): ReliefPrimitive | undefined {
  * why. Empty for version 1 scenes and for scenes whose objects are all safe.
  */
 export function reliefDegraded(scene: ReliefScene): { index: number; object: string; reason: string }[] {
-  if (scene.version !== 2) return [];
+  if (scene.version === 1) return [];
   return scene.primitives.flatMap((entry, index) => {
     if (!isObject(entry)) return [];
     const reason = unsafe(scene, entry);
@@ -275,16 +290,21 @@ export function reliefDegraded(scene: ReliefScene): { index: number; object: str
 }
 
 const rgb = (hex: string) => [1, 3, 5].map(index => Number.parseInt(hex.slice(index, index + 2), 16) / 255);
-const packed = new WeakMap<ReliefScene, Float32Array>();
+const packed = new WeakMap<ReliefScene | StageScene, Float32Array>();
 /**
  * Packs a validated scene into the relief binding: a header (light vector, bevel, shadow, interior budget, state
  * multipliers, focus edge, counts, camera and environment), the material table, and each entry with its derived
  * values: a relief primitive, an object, or an object's Relief equivalent. Cached per scene object, so an unchanged
  * scene is packed once.
  */
-export function reliefUniforms(scene: ReliefScene): Float32Array {
+export function reliefUniforms(scene: ReliefScene | StageScene): Float32Array {
   const cached = packed.get(scene);
   if (cached) return cached;
+  if (scene.format === "strata-stage") {
+    const stage = stageUniforms(scene, RELIEF_VEC4S * 4);
+    packed.set(scene, stage);
+    return stage;
+  }
   const values = new Float32Array(RELIEF_VEC4S * 4);
   const a = (scene.light.azimuth * Math.PI) / 180, e = (scene.light.elevation * Math.PI) / 180;
   const names = Object.keys(scene.materials);
@@ -292,8 +312,10 @@ export function reliefUniforms(scene: ReliefScene): Float32Array {
     scene.bevel.gain, profiles.indexOf(scene.bevel.profile), scene.shadow.strength, scene.interior.max,
     scene.state.hoverHeight, scene.state.pressHeight, scene.state.hoverLift, scene.state.pressSink,
     ...rgb(scene.focus.colour), scene.focus.width,
-    scene.focus.offset, scene.primitives.length, names.length, 0,
+    // vec4 4.w: 0 for the studio, 2 when an environment map is packed after the primitives (1 marks a stage scene).
+    scene.focus.offset, scene.primitives.length, names.length, scene.environment?.source === "map" ? 2 : 0,
     scene.camera?.distance ?? 1600, ...(scene.camera?.vanish ?? [0, 0]), scene.environment?.strength ?? 0], 0);
+  if (scene.environment?.source === "map") values.set(scene.environment.grid, mapBase * 4);
   names.forEach((name, index) => {
     const material = scene.materials[name]!;
     values.set([material.base?.roughness ?? 1, material.base?.metallic ?? 0, material.coat?.strength ?? 0, material.coat?.roughness ?? 0,
@@ -375,6 +397,7 @@ const primitiveBase = HEADER_VEC4S + RELIEF_MATERIALS * MATERIAL_VEC4S;
  */
 export const reliefWGSL = /* wgsl */ `
 @group(0) @binding(3) var<uniform> relief: array<vec4f, ${RELIEF_VEC4S}>;
+${stageWGSL}
 fn reliefBox(p: vec2f, centre: vec2f, half: vec2f, radius: f32) -> f32 {
   let q = abs(p - centre) - half + vec2f(radius);
   return length(max(q, vec2f(0.0))) + min(max(q.x, q.y), 0.0) - radius;
@@ -421,8 +444,24 @@ fn reliefLight(n: vec3f, material: vec4f) -> f32 {
 }
 // 2B.7: the studio environment, relative to a flat face.
 fn reliefStudio(z: f32) -> f32 { return mix(0.18, 0.92, smoothstep(-0.35, 0.65, z)); }
+// 2C.4: an environment map's grid cell, wrapping columns and clamping rows.
+fn reliefMapCell(column: i32, row: i32) -> f32 {
+  let index = u32(clamp(row, 0, ${MAP_ROWS - 1}) * ${MAP_COLUMNS} + ((column % ${MAP_COLUMNS}) + ${MAP_COLUMNS}) % ${MAP_COLUMNS});
+  return relief[${mapBase}u + index / 4u][index % 4u];
+}
+// 2C.4: the map's brightness in direction r, bilinear between cell centres.
+fn reliefMap(r: vec3f) -> f32 {
+  let u = (atan2(r.x, -r.y) / 6.283185307179586 + 0.5) * ${MAP_COLUMNS}.0 - 0.5;
+  let v = clamp(acos(clamp(r.z, -1.0, 1.0)) / 3.141592653589793 * ${MAP_ROWS}.0 - 0.5, 0.0, ${MAP_ROWS - 1}.0);
+  let column = i32(floor(u));
+  let row = i32(floor(v));
+  let f = vec2f(u - floor(u), v - floor(v));
+  return mix(mix(reliefMapCell(column, row), reliefMapCell(column + 1, row), f.x), mix(reliefMapCell(column, row + 1), reliefMapCell(column + 1, row + 1), f.x), f.y);
+}
 fn reliefEnvironment(n: vec3f, material: vec4f) -> f32 {
-  return relief[5].w * (reliefStudio(2.0 * n.z * n.z - 1.0) - reliefStudio(1.0)) * mix(0.04, 1.0, material.y) * (1.0 - material.x);
+  let weight = relief[5].w * mix(0.04, 1.0, material.y) * (1.0 - material.x);
+  if (relief[4].w == 2.0) { return weight * (reliefMap(vec3f(2.0 * n.z * n.xy, 2.0 * n.z * n.z - 1.0)) - reliefMap(vec3f(0.0, 0.0, 1.0))); }
+  return weight * (reliefStudio(2.0 * n.z * n.z - 1.0) - reliefStudio(1.0));
 }
 // 2B.4: a solid's side normal at p, from the screen-locked base and cap points across the band.
 fn reliefSide(p: vec2f, i: u32, d: f32) -> vec3f {
@@ -464,6 +503,8 @@ fn reliefDome(p: vec2f, i: u32) -> vec4f {
   return vec4f(1.0 - smoothstep(-0.5, 0.5, silhouette), normalize(vec3f(hit * s.xy, (z - z0) * s.z)));
 }
 fn reliefShade(p: vec2f, captured: vec4f) -> vec4f {
+  // A stage scene (2C) draws its backdrop and particles; the decorative layer's own content is empty.
+  if (relief[4].w == 1.0) { return stageShade(p); }
   let light = relief[0].xyz;
   let m = relief[1].w;
   let states = relief[2];

@@ -153,13 +153,13 @@ test("core's objects material accepts every Objects conformance scene, packs obj
   }
   const scene = suite.cases.find(entry => entry.name === "switch").scene;
   const broken = (change, pattern) => { const copy = structuredClone(scene); change(copy); assert.throws(() => validateMaterial({ ...objects, scene: copy }), pattern); };
-  broken(copy => { copy.version = 1; }, /version 2 strata-scene/);
+  broken(copy => { copy.version = 1; }, /version 2 or 3 strata-scene/);
   broken(copy => { delete copy.camera; }, /camera/);
   broken(copy => { copy.primitives[2].object = "lever"; }, /primitives\[2\]\.object/);
   broken(copy => { delete copy.primitives[2].colour; }, /primitives\[2\]\.colour/);
   broken(copy => { copy.primitives[1].travel = 2; }, /travel is only for keys and marks/);
   // A relief material refuses objects; an objects material refuses version 1.
-  assert.throws(() => validateMaterial({ ...objects, kind: "relief", scene: { ...scene, version: 1, camera: undefined, environment: undefined } }), /version 2 scene/);
+  assert.throws(() => validateMaterial({ ...objects, kind: "relief", scene: { ...scene, version: 1, camera: undefined, environment: undefined } }), /version 2 or 3 scene/);
   assert.deepEqual([...materialUniforms(validateMaterial({ ...objects, scene }), -1)].slice(0, 2).map(value => Math.round(value * 1e6) / 1e6), [2, 0.04]);
 
   // Packing: the camera and environment in the header; the well a solid (code 7) with its heights; the knob a dome (9).
@@ -178,4 +178,36 @@ test("core's objects material accepts every Objects conformance scene, packs obj
   assert.equal(at(1)[23], 2);
   assert.equal(at(2)[7], 0);
   assert.ok(RELIEF_VEC4S * 16 <= 65536);
+});
+
+// The stage material takes version 3 stage scenes; objects scenes of version 3 may carry an environment map.
+test("core's stage material accepts every stage scene of the Scene suite, and objects pack environment maps", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { STAGE_VEC4S } = await import("../../packages/core/src/stage.ts");
+  const suite = JSON.parse(readFileSync(new URL("../../packages/ui/conformance/scene-3.json", import.meta.url), "utf8"));
+  const policy = { bounds: "layer", interaction: "material", media: "identity", fallback: "static" };
+  for (const entry of suite.cases) {
+    const kind = entry.scene.format === "strata-stage" ? "stage" : "objects";
+    assert.equal(validateMaterial({ ...policy, kind, scene: entry.scene }).kind, kind, entry.name);
+  }
+  const particles = suite.cases.find(entry => entry.name === "particles").scene;
+  const broken = (change, pattern) => { const copy = structuredClone(particles); change(copy); assert.throws(() => validateMaterial({ ...policy, kind: "stage", scene: copy }), pattern); };
+  broken(copy => { copy.version = 2; }, /version 3 strata-stage/);
+  broken(copy => { copy.particles[0].shape = "star"; }, /particles\[0\]\.shape/);
+  broken(copy => { copy.particles = Array.from({ length: 257 }, () => copy.particles[0]); }, /at most 256/);
+  // Packing: the stage flag in vec4 4.w, the count, and particles farthest first (the z = 10 card before z = 40).
+  assert.ok(STAGE_VEC4S <= RELIEF_VEC4S);
+  const stage = reliefUniforms(validateMaterial({ ...policy, kind: "stage", scene: particles }).scene);
+  assert.deepEqual([stage[18], stage[19]], [6, 1]);
+  const z = index => stage[(6 + index * 6) * 4 + 2];
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map(z), [10, 20, 20, 20, 20, 40]);
+  assert.equal(materialUniforms(validateMaterial({ ...policy, kind: "stage", scene: particles }), -1)[0], 2);
+  // An environment map: flag 2 in vec4 4.w, and its grid after the primitives.
+  const mapped = suite.cases.find(entry => entry.name === "environment-map").scene;
+  const values = reliefUniforms(validateReliefScene(mapped, "objects"));
+  assert.equal(values[19], 2);
+  assert.equal(values[(6 + 16 * 2 + 256 * 6) * 4 + 7 * 32], Math.fround(1.2));
+  assert.ok(RELIEF_VEC4S * 16 <= 65536);
+  // A version 2 scene may not name a map.
+  assert.throws(() => validateMaterial({ ...policy, kind: "objects", scene: { ...mapped, version: 2 } }), /environment\.source/);
 });
