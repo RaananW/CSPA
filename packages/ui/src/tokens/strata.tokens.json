@@ -220,7 +220,11 @@
           ],
           "scope": true,
           "min": 0,
-          "max": 1.5
+          "max": 1.5,
+          "themes": {
+            "contrast": 0,
+            "contrast-dark": 0
+          }
         }
       }
     },
@@ -971,7 +975,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#ffffff",
-            "dark": "#181a1f"
+            "dark": "#181a1f",
+            "contrast": "#ffffff",
+            "contrast-dark": "#000000"
           },
           "scope": true
         }
@@ -985,7 +991,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#e9ebef",
-            "dark": "#2c3038"
+            "dark": "#2c3038",
+            "contrast": "#ffffff",
+            "contrast-dark": "#000000"
           },
           "scope": true
         }
@@ -999,7 +1007,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#ffffff",
-            "dark": "#1e2128"
+            "dark": "#1e2128",
+            "contrast": "#ffffff",
+            "contrast-dark": "#000000"
           },
           "scope": true
         }
@@ -1013,7 +1023,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#f7f8fa",
-            "dark": "#3e434e"
+            "dark": "#3e434e",
+            "contrast": "#ffffff",
+            "contrast-dark": "#000000"
           },
           "scope": true
         }
@@ -1027,7 +1039,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#1c1e24",
-            "dark": "#e8eaf0"
+            "dark": "#e8eaf0",
+            "contrast": "#000000",
+            "contrast-dark": "#ffffff"
           },
           "scope": true
         }
@@ -1041,7 +1055,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#5a5e68",
-            "dark": "#a8aeba"
+            "dark": "#a8aeba",
+            "contrast": "#2e3138",
+            "contrast-dark": "#d7dae0"
           },
           "scope": true
         }
@@ -1055,7 +1071,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#2563eb",
-            "dark": "#6091ff"
+            "dark": "#6091ff",
+            "contrast": "#0040c0",
+            "contrast-dark": "#8cb4ff"
           },
           "scope": true
         }
@@ -1069,7 +1087,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#15803d",
-            "dark": "#4ac478"
+            "dark": "#4ac478",
+            "contrast": "#006428",
+            "contrast-dark": "#6edc96"
           },
           "scope": true
         }
@@ -1083,7 +1103,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#b45309",
-            "dark": "#f5a63c"
+            "dark": "#f5a63c",
+            "contrast": "#8a3c00",
+            "contrast-dark": "#ffbe5a"
           },
           "scope": true
         }
@@ -1097,7 +1119,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#c42b2b",
-            "dark": "#ff7878"
+            "dark": "#ff7878",
+            "contrast": "#a81414",
+            "contrast-dark": "#ff9696"
           },
           "scope": true
         }
@@ -1111,7 +1135,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#2563eb",
-            "dark": "#6091ff"
+            "dark": "#6091ff",
+            "contrast": "#0040c0",
+            "contrast-dark": "#8cb4ff"
           },
           "scope": true
         }
@@ -1125,7 +1151,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#cdd1d9",
-            "dark": "#343842"
+            "dark": "#343842",
+            "contrast": "#ffffff",
+            "contrast-dark": "#000000"
           },
           "scope": true
         }
@@ -1139,7 +1167,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#767c88",
-            "dark": "#848b9a"
+            "dark": "#848b9a",
+            "contrast": "#000000",
+            "contrast-dark": "#ffffff"
           },
           "scope": true
         }
@@ -1153,7 +1183,9 @@
         "dev.underglass.strata": {
           "themes": {
             "light": "#fcfcfd",
-            "dark": "#eceef2"
+            "dark": "#eceef2",
+            "contrast": "#ffffff",
+            "contrast-dark": "#000000"
           },
           "scope": true
         }
@@ -1469,6 +1501,26 @@
           "objects",
           "scene"
         ]
+      }
+    }
+  },
+  "$extensions": {
+    "dev.underglass.strata": {
+      "themes": {
+        "light": {
+          "scheme": "light"
+        },
+        "dark": {
+          "scheme": "dark"
+        },
+        "contrast": {
+          "scheme": "light",
+          "contrast": "more"
+        },
+        "contrast-dark": {
+          "scheme": "dark",
+          "contrast": "more"
+        }
       }
     }
   }

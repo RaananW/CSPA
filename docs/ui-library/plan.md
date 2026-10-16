@@ -384,7 +384,7 @@ Per [AGENTS.md](../../AGENTS.md#verifying-a-change):
 
 ```text
 packages/ui/                 @underglass/ui (new package)
-  tokens/                    JSON source of truth
+  src/tokens/                JSON source of truth, token runtime, validation, CSS generator
   src/css/                   T1 stylesheets (generated variables + component CSS)
   src/dom/                   T2 framework-neutral behaviour
   src/react/, src/vue/,      T3 bindings (optional peers)

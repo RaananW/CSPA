@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Strata token stylesheet check</title>
+  <style>
+    body { margin: 20px; font: 14px var(--strata-font-family); background: var(--strata-colour-stage); color: var(--strata-colour-text); }
+    .swatch { display: inline-block; width: 120px; height: 40px; margin: 4px; border-radius: var(--strata-radius-control); }
+    .probe { position: absolute; left: -9999px; }
+  </style>
+</head>
+<body>
+  <p>Diagnostic: the generated <code>@underglass/ui/css/tokens.css</code>. The browser test reads computed values
+    through <code>window.strataTokenCheck</code>: depth blending per scope, the light vector, themes and density.</p>
+  <div id="swatches"></div>
+  <div id="scopes"></div>
+  <script type="module">
+    import "@underglass/ui/css/tokens.css";
+    import { cssVariable, resolve, strataTokens } from "@underglass/ui/tokens";
+
+    const swatches = document.getElementById("swatches");
+    for (const role of ["panel", "field", "secondary", "accent", "success", "warning", "danger", "track", "knob", "edge"]) {
+      const swatch = document.createElement("span");
+      swatch.className = "swatch";
+      swatch.style.background = `var(${cssVariable(`colour.${role}`)})`;
+      swatch.textContent = role;
+      swatches.append(swatch);
+    }
+
+    /**
+     * Evaluates `expression` (CSS using the token variables) inside nested `scopes` (outermost first, each with
+     * `attributes` and an inline `style`), by applying it to a real property: lengths through `width`, numbers
+     * through `width` scaled by 1000 px, and colours through `color`.
+     */
+    function evaluate(expression, { kind = "length", scopes = [] } = {}) {
+      const outer = document.createElement("div");
+      let parent = outer;
+      for (const { attributes = {}, style = "" } of scopes) {
+        const scope = document.createElement("div");
+        for (const [name, value] of Object.entries(attributes)) scope.setAttribute(name, value);
+        scope.style.cssText = style;
+        parent.append(scope);
+        parent = scope;
+      }
+      const probe = document.createElement("div");
+      probe.className = "probe";
+      if (kind === "colour") probe.style.color = expression;
+      else if (kind === "number") probe.style.width = `calc(${expression} * 1000px)`;
+      else probe.style.width = expression;
+      parent.append(probe);
+      document.getElementById("scopes").append(outer);
+      const computed = getComputedStyle(probe);
+      const result = kind === "colour" ? computed.color : kind === "number" ? Number.parseFloat(computed.width) / 1000 : Number.parseFloat(computed.width);
+      outer.remove();
+      return result;
+    }
+
+    window.strataTokenCheck = { evaluate, cssVariable, resolve: options => resolve(strataTokens, options) };
+  </script>
+</body>
+</html>
