@@ -369,3 +369,10 @@ ToggleButton (`pressed` or `defaultPressed` with `onPressedChange`; `v-model:pre
 (`onRemove`; a `remove` listener in Vue) whose remove button is named "Remove {label}". In plain HTML and Astro,
 `attachStrata` toggles filter chips and dispatches `strata-remove` from a chip whose remove button is pressed.
 [Anatomy](../../docs/ui-library/components/chip.md).
+
+## Skeleton
+
+`Skeleton` holds the place of loading content: `<Skeleton lines={3} />`, `<Skeleton shape="circle" />` or
+`<Skeleton shape="rect" width="100%" height={120} />`. Placeholders are flat, shimmer (still under reduced motion) and
+are hidden from assistive technology; put `aria-busy="true"` and a status on the region that is loading.
+[Anatomy](../../docs/ui-library/components/skeleton.md).

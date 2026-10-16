@@ -9,6 +9,7 @@
  *   Accordion sections report and follow their open state; List rows are links, buttons or static;
  *   Table headers sort the rows; a Breadcrumb is a named landmark of links;
  *   Avatars show initials or a picture, named by the name; chips filter, and remove on request;
+ *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -517,5 +518,26 @@ for (const binding of bindings) test(`Strata ${binding} Chip is a tag, a filter 
   await page.keyboard.press("Enter");
   await expect(page.locator("#ada-chip")).toHaveCount(0);
   expect((await page.evaluate(() => window.strataBinding.chips)).removed).toEqual(["ada"]);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Skeleton placeholders are hidden, sized by shape, and shimmer unless motion is reduced`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  // Hidden from the accessibility tree; the region says it is busy.
+  await expect(page.locator("#loading-region")).toHaveAttribute("aria-busy", "true");
+  expect(await page.locator("#loading-region").ariaSnapshot()).toBe("");
+  // A circle is an avatar's size; two text lines, the last one 60% wide.
+  const shapes = await page.evaluate(() => {
+    const circle = document.getElementById("skeleton-circle").getBoundingClientRect(), lines = [...document.querySelectorAll("#skeleton-lines .ug-skeleton")].map(line => line.getBoundingClientRect().width);
+    return { circle: [circle.width, circle.height], ratio: Math.round((lines[1] / lines[0]) * 100) };
+  });
+  expect(shapes).toEqual({ circle: [32, 32], ratio: 60 });
+  // The shimmer runs; under reduced motion it stops.
+  expect(await page.locator("#skeleton-circle").evaluate(element => getComputedStyle(element).animationName)).toBe("ug-skeleton-shimmer");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  expect(await page.locator("#skeleton-circle").evaluate(element => [getComputedStyle(element).animationName, getComputedStyle(element).backgroundImage])).toEqual(["none", "none"]);
   await context.close();
 });

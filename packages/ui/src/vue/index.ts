@@ -15,6 +15,7 @@ export { Accordion, AccordionItem } from "./accordion.ts";
 export { List, ListItem } from "./list.ts";
 export { Avatar } from "./avatar.ts";
 export { Chip } from "./chip.ts";
+export { Skeleton } from "./skeleton.ts";
 export { Breadcrumb } from "./breadcrumb.ts";
 export type { BreadcrumbItem } from "./breadcrumb.ts";
 export { Table } from "./table.ts";
