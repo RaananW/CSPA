@@ -1,0 +1,33 @@
+---
+/**
+ * Dialog (anatomy page `dialog.md`): a modal top-level panel over a scrim, rendered hidden. Give it an `id` and open it
+ * from any element with `data-strata-open="id"`; `data-strata-close` inside it closes it (`attachStrata`). Slots: the
+ * body, and `actions`. Render it as a direct child of the container it should appear in, usually `<body>`.
+ */
+import Behaviour from "./Behaviour.astro";
+import { nextId } from "./field.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  title: string;
+  titleId?: string;
+  descriptionId?: string;
+  description?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { title, titleId, descriptionId: givenDescriptionId, description, size, material, level, class: className, ...rest } = Astro.props;
+const id = titleId ?? nextId("dialog-title");
+const descriptionId = givenDescriptionId ?? nextId("dialog-description");
+---
+<div class="ug-scrim" aria-hidden="true" hidden></div>
+<section class={classes("ug-panel", "ug-dialog", className)} role="dialog" aria-modal="true" aria-labelledby={id} aria-describedby={description !== undefined ? descriptionId : undefined} data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden {...strataAttributes({ size, material, level })} {...rest}>
+  <h2 class="ug-dialog__title" id={id}>{title}</h2>
+  <div class="ug-dialog__body">{description !== undefined && <p class="ug-dialog__description" id={descriptionId}>{description}</p>}<slot /></div>
+  {Astro.slots.has("actions") && <div class="ug-dialog__actions"><slot name="actions" /></div>}
+</section>
+<Behaviour />

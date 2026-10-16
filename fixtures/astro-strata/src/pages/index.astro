@@ -6,7 +6,7 @@
  */
 import "@underglass/ui/css";
 import {
-  Badge, Button, ButtonGroup, Card, Checkbox, Divider, IconButton, Link, Panel, ProgressBar, RadioGroup, Select, Slider, Spinner,
+  Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, IconButton, Link, Panel, ProgressBar, RadioGroup, Select, Slider, Spinner,
   StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/astro";
 
@@ -40,6 +40,8 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     <div data-contract="progress-bar.md"><label for="upload">Upload</label><ProgressBar id="upload" value={40} max={100} /></div>
     <div data-contract="card.md"><Card title="Latency" titleId="card-1-title">…<Fragment slot="footer" /></Card></div>
     <div data-contract="panel.md"><Panel title="Settings" titleId="settings-title" /></div>
+    <div data-contract="dialog.md#2"><Dialog title="Discard changes?" titleId="discard-title" description="Your edits will be lost." descriptionId="discard-description"><Fragment slot="actions"><Button data-strata-close="">Keep editing</Button></Fragment></Dialog></div>
+    <div data-contract="drawer.md#2"><Drawer title="Filters" titleId="filters-title" description="Narrow the list." descriptionId="filters-description"><Fragment slot="actions"><Button data-strata-close="">Done</Button></Fragment></Drawer></div>
     <div data-contract="slider.md"><Slider min="0" max="100" step="1" value="40" aria-label="Volume" /></div>
   </div>
   <main style="display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); padding: 24px">

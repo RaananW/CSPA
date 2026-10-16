@@ -25,5 +25,7 @@ export type { TextAreaProps } from "./TextArea.tsx";
 export { Badge, ButtonGroup, Divider, ProgressBar, Spinner } from "./Display.tsx";
 export type { BadgeProps, ButtonGroupProps, DividerProps, ProgressBarProps, SpinnerProps } from "./Display.tsx";
 export { Card, Panel } from "./Surface.tsx";
+export { Dialog, Drawer } from "./Overlay.tsx";
+export type { DialogCloseReason, DialogProps, DrawerProps } from "./Overlay.tsx";
 export { useStrataGpu } from "./Gpu.tsx";
 export type { CardProps, PanelProps } from "./Surface.tsx";
