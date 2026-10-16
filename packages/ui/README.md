@@ -81,5 +81,27 @@ await strataEnter(panel, { tilt: 8 }); // back in, tilted 8° while moving
 Instant under `prefers-reduced-motion`. In face mode (GPU on) the CSS motion is off; the GPU presentation moves the
 panel.
 
-Next: Tier A components with React, Vue and Astro bindings, then the GPU presentation (`/gpu`), as the
+## React
+
+```tsx
+import "@underglass/ui/css";
+import { Button, Field, StrataProvider, StrataScope, TextField } from "@underglass/ui/react";
+
+<StrataProvider theme={{ colour: { accent: "#0f766e" } }}>
+  <section className="ug-panel" data-strata-face="raised" aria-label="Account">
+    <Field label="Email" help="We only use it for receipts." error={error} required>
+      <TextField type="email" value={email} onChange={event => setEmail(event.target.value)} />
+    </Field>
+    <Button variant="accent" onClick={save}>Save</Button>
+  </section>
+  <StrataScope depth={0.2} density="compact">…</StrataScope>
+</StrataProvider>
+```
+
+The first Tier A batch: `Button`, `IconButton`, `ToggleButton`, `Link`, `Field` and `TextField`. Each renders exactly
+the markup on its [anatomy page](../../docs/ui-library/components/README.md), forwards a ref to its native element,
+and passes `className`, `style` and native attributes through. `size`, `material` and `level` become the Strata
+attributes. React 18.3 and 19 are optional peers.
+
+Next: the rest of Tier A, Vue and Astro bindings, then the GPU presentation (`/gpu`), as the
 [plan](../../docs/ui-library/plan.md) describes.
