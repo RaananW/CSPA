@@ -2,7 +2,7 @@
  * Strata React check page (`ui-react.html`): the Tier A components from `@underglass/ui/react`, in plain React
  * with no Underglass. `#contracts` renders each component exactly as its anatomy page's markup example, so the browser
  * test can compare them; the panels below are live controls the test drives with real input through
- * `window.strataReact`.
+ * `window.strataBinding`.
  */
 import "@underglass/ui/css";
 import { useRef, useState } from "react";
@@ -64,7 +64,7 @@ function App() {
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataReact: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />

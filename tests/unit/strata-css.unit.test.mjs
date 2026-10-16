@@ -40,3 +40,16 @@ test("the stylesheet is layered and honours every user preference", () => {
   assert.match(css, /outline: var\(--strata-focus-width\) solid var\(--strata-colour-accent\)/);
   assert.match(css, /:where\(\[data-strata-mode="face"\]\) \[data-strata-face\]/);
 });
+
+// Strata is standalone-first (design language section 18): the framework-neutral layers import no framework, and
+// each binding imports only its own.
+test("Strata's neutral layers import no UI framework and each binding imports only its own", () => {
+  const sources = directory => readdirSync(new URL(`../../packages/ui/src/${directory}/`, import.meta.url)).map(name => ({ name: `${directory}/${name}`, text: readFileSync(new URL(`../../packages/ui/src/${directory}/${name}`, import.meta.url), "utf8") }));
+  const imports = (text, pattern) => [...text.matchAll(/from "([^"]+)"/g)].map(match => match[1]).filter(name => pattern.test(name));
+  for (const file of [...sources("tokens"), ...sources("dom"), ...sources("shared")]) {
+    if (!file.name.endsWith(".ts")) continue;
+    assert.deepEqual(imports(file.text, /^(react|react-dom|vue)(\/|$)/), [], file.name);
+  }
+  for (const file of sources("react")) assert.deepEqual(imports(file.text, /^vue(\/|$)/), [], file.name);
+  for (const file of sources("vue")) assert.deepEqual(imports(file.text, /^(react|react-dom)(\/|$)/), [], file.name);
+});

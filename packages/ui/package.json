@@ -36,6 +36,10 @@
       "types": "./dist/react/index.d.ts",
       "import": "./dist/react/index.js"
     },
+    "./vue": {
+      "types": "./dist/vue/index.d.ts",
+      "import": "./dist/vue/index.js"
+    },
     "./css": "./dist/css/strata.css",
     "./css/tokens.css": "./dist/css/tokens.css",
     "./css/components.css": "./dist/css/components.css"
@@ -47,6 +51,8 @@
     "dist/dom/*.d.ts",
     "dist/react/*.js",
     "dist/react/*.d.ts",
+    "dist/vue/*.js",
+    "dist/vue/*.d.ts",
     "dist/*.js",
     "dist/tokens.json",
     "dist/css/*.css",
@@ -60,10 +66,14 @@
     "prepack": "npm run build"
   },
   "peerDependencies": {
-    "react": "^18.3.1 || ^19.0.0"
+    "react": "^18.3.1 || ^19.0.0",
+    "vue": "^3.5.0"
   },
   "peerDependenciesMeta": {
     "react": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   },
