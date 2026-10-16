@@ -613,3 +613,17 @@ for (const level of ["relief", "objects"]) test(`chips on the GPU at the ${level
   expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`a MessageBar on the GPU at the ${level} level is a raised slab with its action a key, and a real click reaches it, GPU on`, async ({ page }) => {
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addMessage(); await window.strataGpuProbe.controller.settle(); });
+  const bar = await primitiveOf(page, "#gpu-message"), action = await primitiveOf(page, "#gpu-message-action");
+  expect(bar.object ?? bar.face).toBe(level === "objects" ? "slab" : "raised");
+  expect(action.object ?? action.face).toBe(level === "objects" ? "key" : "raised");
+  // At Objects the action's key stands on the bar's slab.
+  if (level === "objects") expect(action.base).toBeGreaterThan(bar.base ?? 0);
+  const box = await page.locator("#gpu-message-action").boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  expect(await page.evaluate(() => window.strataGpuProbe.upgrades())).toBe(1);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+});

@@ -133,6 +133,10 @@ test("Strata Astro components get their browser behaviour from attachStrata and 
   const removed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-remove", event => list.push(event.target.id)); return list; });
   await page.getByRole("button", { name: "Remove ada@example.com" }).click();
   expect(await removed.jsonValue()).toEqual(["ada-chip"]);
+  // A MessageBar's dismiss button reports strata-dismiss from the bar.
+  const dismissed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-dismiss", event => list.push(event.target.id)); return list; });
+  await page.locator("#astro-message").getByRole("button", { name: "Dismiss" }).click();
+  expect(await dismissed.jsonValue()).toEqual(["astro-message"]);
   // aria-disabled: focusable, and no click reaches the page's listeners or submits the form.
   const blocked = page.locator("#blocked");
   await page.evaluate(() => {

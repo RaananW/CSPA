@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
+  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/vue";
 
@@ -39,6 +39,9 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("table.md#2", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }], sort: { key: "number", direction: "ascending" } })),
   contract("avatar.md", [h(Avatar, { name: "Ada Lovelace" }), h(Avatar, { name: "Grace Hopper", src: "/people/grace.jpg" }), h(Avatar, { name: "Alan Turing", decorative: true })]),
   contract("chip.md", [h(Chip, null, { default: text("Design") }), h(Chip, { defaultPressed: true }, { default: text("Remote") }), h(Chip, { onRemove: () => {} }, { default: text("ada@example.com") })]),
+  contract("message-bar.md", h(MessageBar, { intent: "warning", title: "Storage almost full", onDismiss: () => {} }, {
+    default: text("You have used 95% of your space."), actions: () => h(Button, null, { default: text("Upgrade") }),
+  })),
   contract("skeleton.md", [h(Skeleton, { shape: "circle" }), h(Skeleton, { lines: 3 }), h(Skeleton, { shape: "rect", width: "100%", height: 120 })]),
   contract("breadcrumb.md", h(Breadcrumb, { items: [{ label: "Home", href: "/" }, { label: "Settings", href: "/settings" }, { label: "Profile", href: "/settings/profile" }] })),
   contract("list.md", h(List, { label: "Mailboxes" }, {
@@ -97,6 +100,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
+    const messages = reactive({ upgrades: 0, dismissed: false });
     const chips = reactive({ remote: false, removed: [] as string[] });
     const sort = ref<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
     const choices = reactive({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
@@ -116,6 +120,7 @@ const App = defineComponent({
         get faq() { return { ...toRaw(faq) }; },
         get rows() { return { ...toRaw(rows) }; },
         get sort() { return sort.value; },
+        get messages() { return { ...toRaw(messages) }; },
         get chips() { return { remote: chips.remote, removed: [...chips.removed] }; },
         setSort: (value: { key: string; direction: "ascending" | "descending" } | undefined) => { sort.value = value; },
         setFaq: (value: { delivery: boolean; warranty: boolean }) => { Object.assign(faq, value); },
@@ -231,6 +236,10 @@ const App = defineComponent({
                 h(Chip, { id: "locked-chip", defaultPressed: false, disabled: true }, { default: text("Locked") }),
                 !chips.removed.includes("ada") && h(Chip, { id: "ada-chip", onRemove: () => { chips.removed.push("ada"); } }, { default: text("ada@example.com") }),
               ]),
+              ...(["info", "success", "warning", "danger"] as const).map(intent => h(MessageBar, { key: intent, id: `message-${intent}`, intent }, { default: text(`A message of intent ${intent}.`) })),
+              !messages.dismissed && h(MessageBar, { id: "message-live", intent: "danger", title: "Payment failed", onDismiss: () => { messages.dismissed = true; } }, {
+                default: text("The card was declined."), actions: () => h(Button, { id: "message-retry", onClick: () => { messages.upgrades++; } }, { default: text("Retry") }),
+              }),
               h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
                 h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
