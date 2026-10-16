@@ -1,0 +1,30 @@
+---
+/**
+ * Table (anatomy page `table.md`): a native `<table>` on one raised slab, from `columns` and `rows`. Astro renders
+ * the rows as given and `sort` as the headers' `aria-sort`, with no sort buttons: sorting needs script.
+ */
+import { ariaSort, type TableColumn, type TableRow, type TableSort } from "../shared/table.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  caption: string;
+  columns: TableColumn[];
+  rows: TableRow[];
+  /** The order the rows are in, shown as `aria-sort`. */
+  sort?: TableSort;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { caption, columns, rows, sort, size, material, level, class: className, ...rest } = Astro.props;
+---
+<div class={classes("ug-table", className)} data-strata-face="raised" {...strataAttributes({ size, material, level })} {...rest}>
+  <table class="ug-table__table">
+    <caption class="ug-table__caption">{caption}</caption>
+    <thead><tr>{columns.map(column => <th class={classes("ug-table__header", column.numeric && "ug-table__header--numeric")} scope="col" aria-sort={ariaSort(sort, column.key)}>{column.header}</th>)}</tr></thead>
+    <tbody>{rows.map(row => <tr class="ug-table__row">{columns.map(column => <td class={classes("ug-table__cell", column.numeric && "ug-table__cell--numeric")}>{row[column.key]}</td>)}</tr>)}</tbody>
+  </table>
+</div>

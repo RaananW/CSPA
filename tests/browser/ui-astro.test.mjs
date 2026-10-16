@@ -12,7 +12,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalScript, expectClosedOverlayContracts, expectContracts } from "../helpers/strata-contract.mjs";
+import { canonicalScript, expectClosedOverlayContracts, expectContracts, overlayContracts } from "../helpers/strata-contract.mjs";
 
 const root = fileURLToPath(new URL("../../fixtures/astro-strata/", import.meta.url));
 const dist = new URL("../../fixtures/astro-strata/dist/", import.meta.url);
@@ -44,7 +44,8 @@ async function open(browser, options = {}) {
 
 test("Strata Astro components render their anatomy markup and work without JavaScript", async ({ browser }) => {
   const { context, page } = await open(browser, { javaScriptEnabled: false });
-  await expectContracts(page, expect);
+  // Astro renders no sort buttons: its Table matches the static example (table.md#2) only.
+  await expectContracts(page, expect, { skip: [...overlayContracts, "table.md"] });
   // A Dialog and a Drawer render closed, with `hidden`.
   await expectClosedOverlayContracts(page, expect);
   // closeOnScrim renders data-strata-close-on-scrim, only where it is set.

@@ -13,5 +13,7 @@ export { StrataProvider, StrataScope } from "./provider.ts";
 export { Tab, TabList, TabPanel, Tabs } from "./tabs.ts";
 export { Accordion, AccordionItem } from "./accordion.ts";
 export { List, ListItem } from "./list.ts";
+export { Table } from "./table.ts";
+export type { SortDirection, TableColumn, TableRow, TableSort } from "../shared/table.ts";
 export { useStrataGpu } from "./gpu.ts";
 export type { FieldControl } from "./shared.ts";

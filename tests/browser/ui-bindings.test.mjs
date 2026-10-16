@@ -7,6 +7,7 @@
  * - real pointer and keyboard input on every control, with Field state, refs and attribute passthrough;
  * - roles, names and values of the surfaces and status components; Tabs follow their value and take the arrow keys;
  *   Accordion sections report and follow their open state; List rows are links, buttons or static;
+ *   Table headers sort the rows;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -400,5 +401,46 @@ for (const binding of bindings) test(`Strata ${binding} List rows are links, but
   await expect(page.locator("#locked-row .ug-list__action")).toBeDisabled();
   expect(await page.evaluate(() => window.strataBinding.rows.locked)).toBe(0);
   expect(await page.locator("#storage-row").evaluate(row => row.querySelectorAll("a, button, [tabindex]").length)).toBe(0);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Table sorts its rows from its header buttons, and follows a controlled order`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const table = page.getByRole("table", { name: "Payments" });
+  const column = index => table.locator("tbody tr").evaluateAll((rows, at) => rows.map(row => row.children[at].textContent), index);
+  const sorted = () => table.locator("th").evaluateAll(headers => headers.map(header => header.getAttribute("aria-sort")));
+  // Unsorted: the rows in the order given, no aria-sort.
+  expect(await column(0)).toEqual(["1003", "1001", "1002"]);
+  expect(await sorted()).toEqual([null, null, null]);
+  // A click sorts ascending; a second click reverses it.
+  await table.getByRole("button", { name: "Number" }).click();
+  expect(await column(0)).toEqual(["1001", "1002", "1003"]);
+  expect(await sorted()).toEqual(["ascending", null, null]);
+  await table.getByRole("button", { name: "Number" }).click();
+  expect(await column(0)).toEqual(["1003", "1002", "1001"]);
+  expect(await sorted()).toEqual(["descending", null, null]);
+  // The keyboard: Enter and Space on another column's button sort by it, by value for a numeric column.
+  await table.getByRole("button", { name: "Amount" }).focus();
+  await page.keyboard.press("Enter");
+  expect(await column(2)).toEqual(["42", "87.5", "120"]);
+  expect(await sorted()).toEqual([null, null, "ascending"]);
+  await page.keyboard.press("Space");
+  expect(await column(2)).toEqual(["120", "87.5", "42"]);
+  await table.getByRole("button", { name: "Customer" }).click();
+  expect(await column(1)).toEqual(["Ada Lovelace", "Alan Turing", "Grace Hopper"]);
+  // Cells are associated with their column headers; the table is named by its caption.
+  await expect(table.getByRole("columnheader", { name: "Customer" })).toHaveAttribute("scope", "col");
+  await expect(table.getByRole("cell", { name: "Ada Lovelace" })).toBeVisible();
+  // Controlled: a click reports the next order (onSortChange, v-model:sort) and the table shows the rows as given.
+  const controlled = page.getByRole("table", { name: "Controlled" });
+  await controlled.getByRole("button", { name: "Amount" }).click();
+  expect(await page.evaluate(() => window.strataBinding.sort)).toEqual({ key: "amount", direction: "ascending" });
+  expect(await controlled.locator("th").evaluateAll(headers => headers.map(header => header.getAttribute("aria-sort")))).toEqual([null, null, "ascending"]);
+  expect(await controlled.locator("tbody tr td:first-child").allTextContents()).toEqual(["1003", "1001", "1002"]);
+  await page.evaluate(() => window.strataBinding.setSort({ key: "number", direction: "descending" }));
+  await expect(controlled.locator("th").first()).toHaveAttribute("aria-sort", "descending");
   await context.close();
 });

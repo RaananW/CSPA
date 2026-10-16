@@ -711,6 +711,80 @@
   :where(.ug-list__secondary, .ug-list__end) { font-size: var(--strata-font-size-small); }
   :where(.ug-list__end) { flex: none; }
 
+  /* ---- Table ---- */
+
+  /* A native table on one raised slab: hairlines between rows, a stronger line under the header row. */
+  :where(.ug-table) {
+    --_finish: var(--strata-finish-role-control);
+    display: block;
+    box-sizing: border-box;
+    padding: var(--strata-space-2);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+  }
+  :where(.ug-table__table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-body);
+    line-height: var(--strata-font-line-height-body);
+  }
+  :where(.ug-table__caption) {
+    padding: var(--strata-space-2) var(--strata-space-4) var(--strata-space-3);
+    font-weight: var(--strata-font-weight-strong);
+    text-align: start;
+  }
+  :where(.ug-table__header, .ug-table__cell) {
+    box-sizing: border-box;
+    height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
+    padding: var(--strata-space-2) var(--strata-space-4);
+    text-align: start;
+    vertical-align: middle;
+  }
+  :where(.ug-table__header) {
+    border-bottom: 2px solid var(--strata-colour-edge);
+    font-size: var(--strata-font-size-small);
+    font-weight: var(--strata-font-weight-strong);
+    white-space: nowrap;
+  }
+  :where(.ug-table__header--numeric, .ug-table__cell--numeric) { text-align: end; font-variant-numeric: tabular-nums; }
+  :where(.ug-table__row + .ug-table__row) > :where(.ug-table__cell) { border-top: 1px solid color-mix(in srgb, var(--strata-colour-edge) 50%, transparent); }
+  :where(.ug-table__row):hover > :where(.ug-table__cell) { background-color: color-mix(in srgb, var(--strata-colour-text) 4%, transparent); }
+  /* A sortable header: its button fills the cell; the sorted column shows an arrow after the label. */
+  :where(.ug-table__header):has(> .ug-table__sort) { padding: 0; }
+  :where(.ug-table__sort) {
+    display: flex;
+    align-items: center;
+    gap: var(--strata-space-2);
+    box-sizing: border-box;
+    width: 100%;
+    min-height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
+    margin: 0;
+    padding: var(--strata-space-2) var(--strata-space-4);
+    border: 0;
+    border-radius: var(--strata-radius-small);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  :where(.ug-table__header--numeric) > :where(.ug-table__sort) { justify-content: flex-end; }
+  :where(.ug-table__sort):is(:hover, [data-strata-preview~="hover"]) { background-color: color-mix(in srgb, var(--strata-colour-text) 6%, transparent); }
+  :where(.ug-table__sort):is(:active, [data-strata-preview~="active"]) { background-color: color-mix(in srgb, var(--strata-colour-text) 10%, transparent); }
+  :where(.ug-table__sort):is(:focus-visible, [data-strata-preview~="focus"]) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: calc(-1 * var(--strata-focus-width));
+  }
+  :where(.ug-table__header[aria-sort="ascending"], .ug-table__header[aria-sort="descending"]) > :where(.ug-table__sort)::after {
+    content: "";
+    border-inline: 4px solid transparent;
+    border-bottom: 5px solid currentColor;
+  }
+  :where(.ug-table__header[aria-sort="descending"]) > :where(.ug-table__sort)::after { border-bottom: 0; border-top: 5px solid currentColor; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -925,6 +999,9 @@
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-accordion__item) { border: 1px solid CanvasText; }
     :where(.ug-list) { border: 1px solid CanvasText; }
+    :where(.ug-table) { border: 1px solid CanvasText; }
+    :where(.ug-table__header) { border-bottom-color: CanvasText; }
+    :where(.ug-table__row + .ug-table__row) > :where(.ug-table__cell) { border-top-color: CanvasText; }
     :where(.ug-list__item + .ug-list__item)::before { border-top-color: CanvasText; }
     :where(.ug-list__action[aria-current]:not([aria-current="false"])) { forced-color-adjust: none; box-shadow: inset 3px 0 0 Highlight; background: Canvas; color: CanvasText; }
     :where(.ug-accordion__chevron) { border-color: ButtonText; }

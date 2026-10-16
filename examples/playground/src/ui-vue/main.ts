@@ -8,7 +8,7 @@ import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
   Accordion, AccordionItem, Badge, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, Panel, ProgressBar, Radio, RadioGroup, Select, Slider,
-  Spinner, StrataProvider, StrataScope, Switch, Tab, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
+  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/vue";
 
 const close = () => h("svg", { viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" }, [h("path", { d: "M4 4l8 8M12 4l-8 8" })]);
@@ -35,6 +35,8 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
     default: () => [h(Radio, { value: "free" }, { default: text("Free") }), h(Radio, { value: "pro" }, { default: text("Pro") })],
   })),
   contract("switch.md", h(Switch, { name: "wifi" }, { default: text("Wi-Fi") })),
+  contract("table.md", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }, { number: "1002", customer: "Grace Hopper", amount: "87.50" }], defaultSort: { key: "number", direction: "ascending" } })),
+  contract("table.md#2", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }], sort: { key: "number", direction: "ascending" } })),
   contract("list.md", h(List, { label: "Mailboxes" }, {
     default: () => [
       h(ListItem, { href: "/inbox", current: "page", primary: "Inbox", secondary: "12 unread", end: "Now" }, { start: () => [] }),
@@ -91,6 +93,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
+    const sort = ref<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
     const choices = reactive({ terms: false, mixed: true, wifi: true, plan: "", size: "m", volume: 40, notes: "" });
     const buttonRef = ref<{ $el: HTMLElement } | null>(null), inputRef = ref<{ input: HTMLInputElement } | null>(null), wrappedRef = ref<{ input: HTMLInputElement } | null>(null);
     const count = (key: keyof typeof clicks) => () => { clicks[key]++; };
@@ -107,6 +110,8 @@ const App = defineComponent({
         setTab: (value: string) => { tab.value = value; },
         get faq() { return { ...toRaw(faq) }; },
         get rows() { return { ...toRaw(rows) }; },
+        get sort() { return sort.value; },
+        setSort: (value: { key: string; direction: "ascending" | "descending" } | undefined) => { sort.value = value; },
         setFaq: (value: { delivery: boolean; warranty: boolean }) => { Object.assign(faq, value); },
       },
     });
@@ -203,6 +208,10 @@ const App = defineComponent({
                   h(TabPanel, { value: "two" }, { default: text("Second.") }),
                 ],
               }),
+            ]),
+            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Tables" }, [
+              h(Table, { id: "live-table", caption: "Payments", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true, sortable: true }], rows: [{ number: 1003, customer: "Alan Turing", amount: 42 }, { number: 1001, customer: "Ada Lovelace", amount: 120 }, { number: 1002, customer: "Grace Hopper", amount: 87.5 }] }),
+              h(Table, { id: "controlled-table", caption: "Controlled", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true, sortable: true }], rows: [{ number: 1003, customer: "Alan Turing", amount: 42 }, { number: 1001, customer: "Ada Lovelace", amount: 120 }, { number: 1002, customer: "Grace Hopper", amount: 87.5 }], sort: sort.value, "onUpdate:sort": (value: { key: string; direction: "ascending" | "descending" }) => { sort.value = value; } }),
             ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Lists" }, [
               h(List, { label: "Folders", id: "live-list" }, {
