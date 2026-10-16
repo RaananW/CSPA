@@ -404,6 +404,11 @@ and `state.pressSink`.
 
 - **Panel motion:** panels enter and leave through depth (from `elevation.modal` towards their
   level, optionally with tilt). Interactive content stays inert during such transition effects.
+  - **CSS presentation:** `strataEnter(panel, { tilt })` and `strataLeave(panel)` from `@underglass/ui/dom` set
+    `data-strata-motion` and `inert` and resolve when the motion ends, over `motion.slow`, with the tilt clamped to
+    `camera.tiltMax`. A panel that has left stays invisible and inert until it enters again.
+  - **Face mode (GPU on):** the CSS motion is off, because an enrolled panel's boundary never carries a CSS transform;
+    the GPU presentation moves the panel (Phase 4).
 - **Invariant, reduced motion:** under `prefers-reduced-motion: reduce`, states change instantly,
   with no travel, tilt, parallax or particles. A theme cannot turn this off.
 
@@ -640,6 +645,7 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-16: review of the specimen: lower relief (`shadow.strength` 0.24 at 50%, panels at 8), a switch knob
   that keeps its colour (ringed in `on-accent` when on), a tinted face for toggle buttons that are on, and a 2 px
   `edge` outline on raised faces in the high-contrast themes (`outline.width`).
+- 2026-10-16: panel motion helpers for the CSS presentation (section 12).
 - 2026-10-16: the theme runtime API (section 15): `createStrataTheme`, `applyStrataTheme`, `strataScope`, and the
   `strata.theme` cascade layer.
 - 2026-10-16: component sizes (`size.*`, `data-strata-size`, section 13); checkbox, radio and switch default to 20 px.

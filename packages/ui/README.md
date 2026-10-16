@@ -69,5 +69,17 @@ const json = theme.toJSON();
 - **Scope colours:** colour overrides in a scope need the scope's `theme`, so their contrast can be checked. The
   derived on- and -text colours are set with them.
 
+## Panel motion
+
+```ts
+import { strataEnter, strataLeave } from "@underglass/ui/dom";
+
+await strataLeave(panel);           // out through depth; inert meanwhile, invisible afterwards
+await strataEnter(panel, { tilt: 8 }); // back in, tilted 8° while moving
+```
+
+Instant under `prefers-reduced-motion`. In face mode (GPU on) the CSS motion is off; the GPU presentation moves the
+panel.
+
 Next: Tier A components with React, Vue and Astro bindings, then the GPU presentation (`/gpu`), as the
 [plan](../../docs/ui-library/plan.md) describes.

@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="icon" href="data:,"><title>Strata theme runtime check</title>
+  <link rel="icon" href="data:,"><title>Strata runtime check</title>
   <style>
     body { margin: 20px; font: 14px var(--strata-font-family); background: var(--strata-colour-stage); color: var(--strata-colour-text); }
     .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 360px)); gap: 24px; }
   </style>
 </head>
 <body>
-  <p>Diagnostic: <code>applyStrataTheme</code> and <code>strataScope</code> from <code>@underglass/ui/dom</code> on a live page.
+  <p>Diagnostic: <code>applyStrataTheme</code>, <code>strataScope</code>, <code>strataEnter</code> and <code>strataLeave</code> from
+    <code>@underglass/ui/dom</code> on a live page.
     The browser test drives them through <code>window.strataThemeCheck</code>.</p>
   <div class="grid">
     <section class="ug-panel" data-strata-face="raised" aria-label="Application">
@@ -22,9 +23,12 @@
         <label class="ug-checkbox"><input class="ug-checkbox__input" data-strata-face="well" type="checkbox" id="scope-check"><span class="ug-checkbox__mark" data-strata-face="mark" aria-hidden="true"></span><span class="ug-checkbox__label">Option</span></label>
       </section>
     </div>
+    <section class="ug-panel" data-strata-face="raised" aria-label="Moving" id="motion-panel">
+      <button type="button" class="ug-button" data-strata-face="raised" id="motion-button">Inside</button>
+    </section>
   </div>
   <script type="module">
-    import { applyStrataTheme, strataScope } from "@underglass/ui/dom";
+    import { applyStrataTheme, strataEnter, strataLeave, strataScope } from "@underglass/ui/dom";
     import { createStrataTheme } from "@underglass/ui/tokens";
 
     // The theme sheet is applied before the stylesheet loads: the layer order must still put the theme above the
@@ -42,6 +46,17 @@
       attributes: () => Object.fromEntries([...document.getElementById("scope").attributes].map(({ name, value }) => [name, value])),
       style,
       variable: (id, name) => style(id, name),
+      // Starts a motion and reports the panel while it runs; resolves with the time it took.
+      motion: async (kind, options) => {
+        const panel = document.getElementById("motion-panel"), start = performance.now();
+        const done = (kind === "enter" ? strataEnter : strataLeave)(panel, options);
+        const during = { inert: panel.inert, motion: panel.dataset.strataMotion, tilt: panel.style.getPropertyValue("--strata-panel-tilt"), animations: panel.getAnimations().filter(animation => animation.animationName?.startsWith("ug-panel-")).length };
+        await new Promise(resolve => setTimeout(resolve, 120));
+        const mid = { opacity: Number(getComputedStyle(panel).opacity), transform: getComputedStyle(panel).transform };
+        await done;
+        return { during, mid, ms: performance.now() - start, after: { inert: panel.inert, motion: panel.dataset.strataMotion ?? null, opacity: Number(getComputedStyle(panel).opacity), transform: getComputedStyle(panel).transform, style: panel.getAttribute("style") } };
+      },
+      mode: value => { if (value) document.documentElement.dataset.strataMode = value; else delete document.documentElement.dataset.strataMode; },
     };
   </script>
 </body>

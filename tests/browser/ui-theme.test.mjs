@@ -71,3 +71,46 @@ test("Strata themes apply, update and scope live", async ({ browser }) => {
   expect(await background("scope-button")).toBe("rgb(37, 99, 235)");
   await context.close();
 });
+
+test("Strata panels enter and leave through depth, inert while moving", async ({ browser }) => {
+  for (const reducedMotion of ["no-preference", "reduce"]) {
+    const context = await browser.newContext({ viewport: { width: 900, height: 600 }, reducedMotion });
+    const page = await context.newPage();
+    await page.goto("/ui-theme.html");
+    await page.waitForFunction(() => window.strataThemeCheck);
+    const motion = (kind, options = {}) => page.evaluate(([k, o]) => window.strataThemeCheck.motion(k, o), [kind, options]);
+
+    const leave = await motion("leave", { tilt: 80 });
+    expect(leave.during).toMatchObject({ inert: true, motion: "leave" });
+    // The tilt is clamped to camera.tiltMax (25°).
+    expect(leave.during.tilt).toBe("25deg");
+    expect(leave.after).toMatchObject({ inert: true, motion: "leave", opacity: 0 });
+    if (reducedMotion === "reduce") {
+      // Instant: no animation, no transform.
+      expect(leave.during.animations).toBe(0);
+      expect(leave.mid.transform).toBe("none");
+    } else {
+      // Mid-flight the panel is partly faded and moved in depth; the motion lasts motion.slow (320 ms).
+      expect(leave.mid.opacity).toBeGreaterThan(0);
+      expect(leave.mid.opacity).toBeLessThan(1);
+      expect(leave.mid.transform).not.toBe("none");
+      expect(leave.ms).toBeGreaterThan(250);
+    }
+
+    const enter = await motion("enter");
+    expect(enter.during).toMatchObject({ inert: true, motion: "enter" });
+    expect(enter.after).toMatchObject({ inert: false, motion: null, opacity: 1, transform: "none", style: null });
+    if (reducedMotion === "reduce") expect(enter.during.animations).toBe(0);
+    // Real input reaches the control again.
+    await page.locator("#motion-button").click();
+    await expect(page.locator("#motion-button")).toBeFocused();
+
+    // Face mode (GPU on): no CSS motion on the panel boundary; leaving is instant.
+    await page.evaluate(() => window.strataThemeCheck.mode("face"));
+    const face = await motion("leave");
+    expect(face.during.animations).toBe(0);
+    expect(face.mid.transform).toBe("none");
+    expect(face.after.opacity).toBe(0);
+    await context.close();
+  }
+});

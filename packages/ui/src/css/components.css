@@ -599,6 +599,23 @@
   :where([data-strata-material="metal"]) { --_finish: var(--strata-finish-metal); }
   :where([data-strata-material="emissive"]) { --_finish: var(--strata-finish-emissive); }
 
+  /* ---- Panel motion: enter and leave through depth (section 12), CSS presentation only ---- */
+
+  :where(.ug-panel, .ug-card)[data-strata-motion] {
+    --_tilt: var(--strata-panel-tilt, 0deg);
+    transform-origin: 50% 50%;
+  }
+  :where(.ug-panel, .ug-card)[data-strata-motion="enter"] { animation: ug-panel-enter var(--strata-motion-slow) var(--strata-motion-easing-standard) both; }
+  /* A panel that has left stays invisible (instantly so under reduced motion and in face mode). */
+  :where(.ug-panel, .ug-card)[data-strata-motion="leave"] { opacity: 0; animation: ug-panel-leave var(--strata-motion-slow) var(--strata-motion-easing-standard) both; }
+  @keyframes ug-panel-enter {
+    from { opacity: 0; transform: perspective(var(--strata-camera-distance)) translateZ(var(--strata-elevation-modal)) rotateX(var(--_tilt)); }
+  }
+  @keyframes ug-panel-leave {
+    from { opacity: 1; transform: none; }
+    to { opacity: 0; transform: perspective(var(--strata-camera-distance)) translateZ(var(--strata-elevation-modal)) rotateX(var(--_tilt)); }
+  }
+
   @keyframes ug-progress-sweep { from { background-position: -40% 0; } to { background-position: 140% 0; } }
   @keyframes ug-spinner-turn { to { rotate: 1turn; } }
 
@@ -609,12 +626,15 @@
     box-shadow: none;
     filter: none;
   }
+  /* Under the GPU, an enrolled panel's boundary never carries a CSS transform: the GPU presentation moves it. */
+  :where([data-strata-mode="face"]) :is(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
 
   /* ---- Preferences ---- */
 
   @media (prefers-reduced-motion: reduce) {
     :where([data-strata-face], .ug-checkbox__mark, .ug-radio__dot, .ug-switch__knob, .ug-switch__input) { transition: none; }
     :where(.ug-spinner__arc) { animation: none; }
+    :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-progress:indeterminate) {
       animation: none;
