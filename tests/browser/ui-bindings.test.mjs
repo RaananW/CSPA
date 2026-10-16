@@ -11,6 +11,7 @@
  *   Avatars show initials or a picture, named by the name; chips filter, and remove on request;
  *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion; MessageBars announce by intent;
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
+ *   an AppBar is the banner with its controls;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -634,5 +635,28 @@ for (const binding of bindings) test(`Strata ${binding} Toolbar is one tab stop,
   await page.keyboard.press("Shift+Tab");
   expect(await focused()).toBe("tool-wrap");
   await expect(toolbar).toHaveAttribute("aria-label", "Editing");
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} AppBar is the banner landmark, with its controls at its ends and a title that truncates`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const bar = page.getByRole("banner");
+  await expect(bar).toHaveCount(1);
+  await expect(bar).toHaveAttribute("id", "live-app-bar");
+  await expect(bar.locator(".ug-app-bar__title")).toHaveText("Strata check");
+  await bar.getByRole("button", { name: "Sign in" }).click();
+  expect(await page.evaluate(() => window.strataBinding.appBar)).toBe(1);
+  // The start control comes first and the end control last; the title takes the space between and does not wrap.
+  const layout = await bar.evaluate(element => {
+    const start = element.querySelector(".ug-app-bar__start").getBoundingClientRect(), title = element.querySelector(".ug-app-bar__title"),
+      end = element.querySelector(".ug-app-bar__end").getBoundingClientRect();
+    title.textContent = "A very long title ".repeat(20);
+    const box = title.getBoundingClientRect();
+    return { order: start.right <= box.left && box.right <= end.left, oneLine: box.height < 40, truncated: title.scrollWidth > title.clientWidth };
+  });
+  expect(layout).toEqual({ order: true, oneLine: true, truncated: true });
   await context.close();
 });

@@ -6,6 +6,7 @@
  * components load.
  */
 export { default as Accordion } from "./Accordion.astro";
+export { default as AppBar } from "./AppBar.astro";
 export { default as AccordionItem } from "./AccordionItem.astro";
 export { default as Avatar } from "./Avatar.astro";
 export { default as Badge } from "./Badge.astro";

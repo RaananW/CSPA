@@ -28,6 +28,8 @@ export { Skeleton } from "./Skeleton.tsx";
 export { MessageBar } from "./MessageBar.tsx";
 export { Pagination } from "./Pagination.tsx";
 export { Toolbar } from "./Toolbar.tsx";
+export { AppBar } from "./AppBar.tsx";
+export type { AppBarProps } from "./AppBar.tsx";
 export type { ToolbarProps } from "./Toolbar.tsx";
 export type { PaginationProps } from "./Pagination.tsx";
 export type { MessageBarProps, MessageIntent } from "./MessageBar.tsx";
