@@ -355,3 +355,9 @@ page (`aria-current="page"`). The separators are drawn by CSS and are not read.
 ```
 
 [Anatomy](../../docs/ui-library/components/breadcrumb.md).
+
+## Avatar
+
+`Avatar` is a raised coin with initials or a picture: `<Avatar name="Ada Lovelace" />` shows "AL" and is read as
+"Ada Lovelace"; `src` shows a picture whose `alt` is the name; `decorative` hides it, for an avatar beside the
+name in text. It is 1.6 × the indicator size across (`size`). [Anatomy](../../docs/ui-library/components/avatar.md).

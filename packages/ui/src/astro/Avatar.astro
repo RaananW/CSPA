@@ -1,0 +1,25 @@
+---
+/**
+ * Avatar (anatomy page `avatar.md`): a raised coin with initials (`role="img"`, named by `name`) or a picture whose
+ * `alt` is the name. `decorative` hides it, for an avatar beside the name in text.
+ */
+import { avatarInitials } from "../shared/avatar.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  name: string;
+  src?: string;
+  decorative?: boolean;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { name, src, decorative, size, material, level, class: className, ...rest } = Astro.props;
+const own = src !== undefined || decorative ? {} : { role: "img", "aria-label": name };
+---
+<span class={classes("ug-avatar", className)} data-strata-face="raised" {...own} aria-hidden={decorative ? "true" : undefined} {...strataAttributes({ size, material, level })} {...rest}>{src !== undefined
+  ? <img class="ug-avatar__image" src={src} alt={decorative ? "" : name} />
+  : <span class="ug-avatar__initials" aria-hidden={decorative ? undefined : "true"}>{avatarInitials(name)}</span>}</span>

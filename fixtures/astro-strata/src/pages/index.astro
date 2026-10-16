@@ -6,7 +6,7 @@
  */
 import "@underglass/ui/css";
 import {
-  Accordion, AccordionItem, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, IconButton, Link, List, ListItem, Panel, ProgressBar, RadioGroup, Select, Slider, Spinner, Table, Tabs,
+  Accordion, AccordionItem, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Dialog, Divider, Drawer, IconButton, Link, List, ListItem, Panel, ProgressBar, RadioGroup, Select, Slider, Spinner, Table, Tabs,
   StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton,
 } from "@underglass/ui/astro";
 
@@ -32,6 +32,7 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     <div data-contract="checkbox.md"><Checkbox name="news">Send me the newsletter</Checkbox></div>
     <div data-contract="radio.md"><RadioGroup legend="Plan" name="plan" value="free" help="You can change it later." error="choose a plan." options={[{ value: "free", label: "Free" }, { value: "pro", label: "Pro" }]} /></div>
     <div data-contract="table.md#2"><Table caption="Invoices" columns={[{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }]} rows={[{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }]} sort={{ key: "number", direction: "ascending" }} /></div>
+    <div data-contract="avatar.md"><Avatar name="Ada Lovelace" /><Avatar name="Grace Hopper" src="/people/grace.jpg" /><Avatar name="Alan Turing" decorative /></div>
     <div data-contract="breadcrumb.md"><Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Settings", href: "/settings" }, { label: "Profile", href: "/settings/profile" }]} /></div>
     <div data-contract="list.md"><List label="Mailboxes"><ListItem href="/inbox" current="page" primary="Inbox" secondary="12 unread" end="Now"><Fragment slot="start"></Fragment></ListItem><ListItem primary="Archive" button /><ListItem primary="Storage" secondary="4.2 GB of 15 GB used" /></List></div>
     <div data-contract="accordion.md"><Accordion><AccordionItem title="Shipping" name="faq" open><p>Orders ship within two days.</p></AccordionItem><AccordionItem title="Returns" name="faq"><p>Return any item within 30 days.</p></AccordionItem></Accordion></div>

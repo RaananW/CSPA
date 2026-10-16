@@ -8,7 +8,7 @@
  * objects with an `.hdr` environment. `strataGpuProbe.openDrawer()` opens a Drawer on the end edge that closes on a click
  * outside it (`closeOnScrim`); the Dialog does not. `strataGpuProbe.addTabs()` adds plain-markup Tabs to the panel, wired by
  * `attachStrata`, `strataGpuProbe.addAccordion()` a native `<details>` Accordion, `strataGpuProbe.addList()` a List, and
- * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts.
+ * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts, and `strataGpuProbe.addAvatar()` an Avatar.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -108,6 +108,8 @@ function sortTable() {
   body.append(...rows);
 }
 let archived = 0;
+/** An Avatar in plain markup (`avatar.md`), added to the panel by `strataGpuProbe.addAvatar()`. */
+const avatarMarkup = `<p style="margin:12px 0 0"><span class="ug-avatar" data-strata-face="raised" role="img" aria-label="Ada Lovelace" id="gpu-avatar"><span class="ug-avatar__initials" aria-hidden="true">AL</span></span></p>`;
 let saves = 0;
 // Declared before mounting: the runtime may report status while it mounts.
 let strata: StrataGpu | undefined;
@@ -156,6 +158,7 @@ window.strataGpuProbe = {
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
+  addAvatar: () => { panel.insertAdjacentHTML("beforeend", avatarMarkup); strata?.refresh(); },
   addTable: () => { panel.insertAdjacentHTML("beforeend", tableMarkup); panel.querySelector("#gpu-table-amount")!.addEventListener("click", sortTable); strata?.refresh(); },
   addList: () => { panel.insertAdjacentHTML("beforeend", listMarkup); panel.querySelector("#gpu-list-archive")!.addEventListener("click", () => { archived++; }); strata?.refresh(); },
   archived: () => archived,
@@ -170,6 +173,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void;
   } }
 }

@@ -811,6 +811,31 @@
   :where(.ug-breadcrumb__link) { display: inline-flex; align-items: center; min-height: var(--strata-target-min); }
   :where(.ug-breadcrumb__link[aria-current="page"]) { color: var(--strata-colour-text); font-weight: var(--strata-font-weight-strong); text-decoration: none; }
 
+  /* ---- Avatar ---- */
+
+  /* A raised coin with initials or a picture. */
+  :where(.ug-avatar) {
+    --_finish: var(--strata-finish-role-control);
+    --_avatar: calc(var(--strata-indicator) * 1.6);
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    box-sizing: border-box;
+    width: var(--_avatar);
+    height: var(--_avatar);
+    overflow: hidden;
+    border-radius: 50%;
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    font-size: calc(var(--_avatar) * 0.4);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: 1;
+    vertical-align: middle;
+  }
+  :where(.ug-avatar__initials) { user-select: none; }
+  :where(.ug-avatar__image) { display: block; width: 100%; height: 100%; object-fit: cover; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1025,6 +1050,7 @@
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-accordion__item) { border: 1px solid CanvasText; }
     :where(.ug-list) { border: 1px solid CanvasText; }
+    :where(.ug-avatar) { border: 1px solid CanvasText; }
     :where(.ug-breadcrumb__item + .ug-breadcrumb__item)::before { border-color: CanvasText; }
     :where(.ug-breadcrumb__link[aria-current="page"]) { color: CanvasText; }
     :where(.ug-table) { border: 1px solid CanvasText; }

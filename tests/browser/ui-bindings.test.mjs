@@ -8,6 +8,7 @@
  * - roles, names and values of the surfaces and status components; Tabs follow their value and take the arrow keys;
  *   Accordion sections report and follow their open state; List rows are links, buttons or static;
  *   Table headers sort the rows; a Breadcrumb is a named landmark of links;
+ *   Avatars show initials or a picture, named by the name;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -463,5 +464,29 @@ for (const binding of bindings) test(`Strata ${binding} Breadcrumb is a named la
   expect((await nav.getByRole("link", { name: "Home" }).boundingBox()).height).toBeGreaterThanOrEqual(24);
   await nav.getByRole("link", { name: "Reports" }).click();
   await expect(page).toHaveURL(/#reports$/);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Avatar shows initials named by the name, sizes with the size, and hides when decorative`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  // Initials: the first letters of the first and last words; the name is what is read.
+  await expect(page.locator("#avatar-small")).toHaveText("AL");
+  await expect(page.locator("#avatar-medium")).toHaveText("P");
+  await expect(page.locator("#avatar-large")).toHaveText("GH");
+  await expect(page.locator("#avatar-small")).toHaveRole("img");
+  await expect(page.locator("#avatar-small")).toHaveAccessibleName("Ada Lovelace");
+  await expect(page.getByRole("img", { name: "Plato" })).toHaveCount(1);
+  // Decorative: not in the accessibility tree; the name beside it is read once.
+  await expect(page.locator("#avatar-decorative")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.getByRole("img", { name: "Alan Turing" })).toHaveCount(0);
+  // Round coins, 1.6 × the indicator: 25.6, 32 and 38.4 px across.
+  const sizes = await page.evaluate(() => ["small", "medium", "large"].map(size => {
+    const element = document.getElementById(`avatar-${size}`), box = element.getBoundingClientRect();
+    return [Math.round(box.width * 10) / 10, Math.round(box.height * 10) / 10, getComputedStyle(element).borderRadius];
+  }));
+  expect(sizes).toEqual([[25.6, 25.6, "50%"], [32, 32, "50%"], [38.4, 38.4, "50%"]]);
   await context.close();
 });

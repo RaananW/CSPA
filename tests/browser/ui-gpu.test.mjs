@@ -580,3 +580,13 @@ for (const level of ["relief", "objects"]) test(`a Table on the GPU at the ${lev
   expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`an Avatar on the GPU at the ${level} level is one round raised coin, GPU on`, async ({ page }) => {
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addAvatar(); await window.strataGpuProbe.controller.settle(); });
+  const coin = await primitiveOf(page, "#gpu-avatar");
+  expect(coin.object ?? coin.face).toBe(level === "objects" ? "slab" : "raised");
+  expect(coin.rect[2]).toBe(32);
+  expect(coin.radius).toBe(16);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+});
