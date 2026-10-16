@@ -7,7 +7,7 @@
  * `?level=scene` adds the Scene level (`strataGpuProbe.burst()` bursts confetti from Save), and `?environment=url` lights
  * objects with an `.hdr` environment. `strataGpuProbe.openDrawer()` opens a Drawer on the end edge that closes on a click
  * outside it (`closeOnScrim`); the Dialog does not. `strataGpuProbe.addTabs()` adds plain-markup Tabs to the panel, wired by
- * `attachStrata`, and `strataGpuProbe.addAccordion()` a native `<details>` Accordion.
+ * `attachStrata`, `strataGpuProbe.addAccordion()` a native `<details>` Accordion, and `strataGpuProbe.addList()` a List.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -90,6 +90,12 @@ const accordionMarkup = `<div class="ug-accordion" id="gpu-accordion" style="mar
   <details class="ug-accordion__item" data-strata-face="raised" name="gpu-faq" id="gpu-shipping"><summary class="ug-accordion__header"><span class="ug-accordion__title">Shipping</span><span class="ug-accordion__chevron" aria-hidden="true"></span></summary><div class="ug-accordion__body"><p>Orders ship within two days.</p></div></details>
   <details class="ug-accordion__item" data-strata-face="raised" name="gpu-faq" id="gpu-returns"><summary class="ug-accordion__header"><span class="ug-accordion__title">Returns</span><span class="ug-accordion__chevron" aria-hidden="true"></span></summary><div class="ug-accordion__body"><p>Return any item within 30 days.</p></div></details>
 </div>`;
+/** A List in plain markup (`list.md`), added to the panel by `strataGpuProbe.addList()`; its button row counts presses. */
+const listMarkup = `<ul class="ug-list" role="list" data-strata-face="raised" aria-label="Folders" id="gpu-list" style="margin-top:12px">
+  <li class="ug-list__item"><button class="ug-list__action" type="button" id="gpu-list-archive"><span class="ug-list__text"><span class="ug-list__primary">Archive</span><span class="ug-list__secondary">Older than a year</span></span></button></li>
+  <li class="ug-list__item"><span class="ug-list__text"><span class="ug-list__primary">Storage</span></span><span class="ug-list__end">4.2 GB</span></li>
+</ul>`;
+let archived = 0;
 let saves = 0;
 // Declared before mounting: the runtime may report status while it mounts.
 let strata: StrataGpu | undefined;
@@ -138,6 +144,8 @@ window.strataGpuProbe = {
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
+  addList: () => { panel.insertAdjacentHTML("beforeend", listMarkup); panel.querySelector("#gpu-list-archive")!.addEventListener("click", () => { archived++; }); strata?.refresh(); },
+  archived: () => archived,
   addAccordion: () => { panel.insertAdjacentHTML("beforeend", accordionMarkup); strata?.refresh(); },
   addTabs: () => { panel.insertAdjacentHTML("beforeend", tabsMarkup); attachStrata(panel); strata?.refresh(); },
   leave: options => strataLeave(panel, options),
@@ -149,6 +157,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number;
   } }
 }

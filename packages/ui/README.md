@@ -307,3 +307,22 @@ import { Accordion, AccordionItem } from "@underglass/ui/react";
 - **Exclusive:** `exclusive` generates a shared `name`; or give your own `name`. In Astro, put the same `name` on each
   `AccordionItem`.
 - [Anatomy](../../docs/ui-library/components/accordion.md).
+
+## List
+
+`List` is a native `<ul role="list">` on one raised slab, with rows separated by hairlines. A row is static, a link or
+a button; an actionable row's link or button fills the row, so the whole row is the target.
+
+```tsx
+import { List, ListItem } from "@underglass/ui/react";
+
+<List label="Mailboxes">
+  <ListItem href="/inbox" current="page" start={<InboxIcon />} primary="Inbox" secondary="12 unread" end="Now" />
+  <ListItem primary="Archive" onClick={archive} />
+  <ListItem primary="Storage" secondary="4.2 GB of 15 GB used" />
+</List>
+```
+
+- A row with `href` is a link (`current` sets `aria-current`); with `onClick` (React), a click listener or `button`
+  (Vue, Astro) it is a button (`disabled` disables it); otherwise it is static.
+- `start` is decorative (`aria-hidden`); `end` is read. [Anatomy](../../docs/ui-library/components/list.md).

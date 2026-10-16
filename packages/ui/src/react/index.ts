@@ -31,5 +31,7 @@ export { useStrataGpu } from "./Gpu.tsx";
 export type { CardProps, PanelProps } from "./Surface.tsx";
 export { Tab, TabList, TabPanel, Tabs } from "./Tabs.tsx";
 export { Accordion, AccordionItem } from "./Accordion.tsx";
+export { List, ListItem } from "./List.tsx";
+export type { ListItemProps, ListProps } from "./List.tsx";
 export type { AccordionItemProps, AccordionProps } from "./Accordion.tsx";
 export type { TabListProps, TabPanelProps, TabProps, TabsProps } from "./Tabs.tsx";

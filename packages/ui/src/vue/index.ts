@@ -12,5 +12,6 @@ export { Field, Select, Slider, TextArea, TextField } from "./fields.ts";
 export { StrataProvider, StrataScope } from "./provider.ts";
 export { Tab, TabList, TabPanel, Tabs } from "./tabs.ts";
 export { Accordion, AccordionItem } from "./accordion.ts";
+export { List, ListItem } from "./list.ts";
 export { useStrataGpu } from "./gpu.ts";
 export type { FieldControl } from "./shared.ts";

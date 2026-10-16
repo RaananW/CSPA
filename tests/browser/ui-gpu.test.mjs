@@ -573,3 +573,21 @@ for (const level of ["relief", "objects"]) test(`an Accordion on the GPU at the 
   expect(darkest).toBeLessThan(120);
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`a List on the GPU at the ${level} level is one raised slab, and a real click on a row reaches it, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  const before = await page.evaluate(() => window.strataGpuProbe.scene().primitives.length);
+  await page.evaluate(async () => { window.strataGpuProbe.addList(); await window.strataGpuProbe.controller.settle(); });
+  const list = await primitiveOf(page, "#gpu-list");
+  expect(list && (list.object ?? list.face)).toBe(level === "objects" ? "slab" : "raised");
+  // The rows add nothing to the scene: only the slab is new.
+  expect(await page.evaluate(() => window.strataGpuProbe.scene().primitives.length)).toBe(before + 1);
+  const row = await page.locator("#gpu-list-archive").boundingBox();
+  await page.mouse.click(row.x + row.width - 8, row.y + row.height / 2);
+  expect(await page.evaluate(() => window.strataGpuProbe.archived())).toBe(1);
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});

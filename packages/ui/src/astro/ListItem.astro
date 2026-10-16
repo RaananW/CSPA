@@ -1,0 +1,30 @@
+---
+/**
+ * ListItem (anatomy page `list.md`): a static row, a link row (`href`) or a button row (`button`). Slots: `start` (a
+ * decorative icon) and `end`, beside `primary` and `secondary`.
+ */
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  primary: string;
+  secondary?: string;
+  end?: string;
+  href?: string;
+  button?: boolean;
+  current?: "page" | "step" | "location" | "date" | "time" | "true";
+  disabled?: boolean;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { primary, secondary, end, href, button, current, disabled, class: className, ...rest } = Astro.props;
+const hasStart = Astro.slots.has("start"), hasEnd = Astro.slots.has("end") || end !== undefined;
+const Action = href !== undefined ? "a" : button ? "button" : null;
+---
+<li class={classes("ug-list__item", className)} {...rest}>{Action === "a" ? (
+  <a class="ug-list__action" href={href} aria-current={current}>{hasStart && <span class="ug-list__start" aria-hidden="true"><slot name="start" /></span>}<span class="ug-list__text"><span class="ug-list__primary">{primary}</span>{secondary !== undefined && <span class="ug-list__secondary">{secondary}</span>}</span>{hasEnd && <span class="ug-list__end"><slot name="end">{end}</slot></span>}</a>
+) : Action === "button" ? (
+  <button class="ug-list__action" type="button" disabled={disabled}>{hasStart && <span class="ug-list__start" aria-hidden="true"><slot name="start" /></span>}<span class="ug-list__text"><span class="ug-list__primary">{primary}</span>{secondary !== undefined && <span class="ug-list__secondary">{secondary}</span>}</span>{hasEnd && <span class="ug-list__end"><slot name="end">{end}</slot></span>}</button>
+) : (
+  <Fragment>{hasStart && <span class="ug-list__start" aria-hidden="true"><slot name="start" /></span>}<span class="ug-list__text"><span class="ug-list__primary">{primary}</span>{secondary !== undefined && <span class="ug-list__secondary">{secondary}</span>}</span>{hasEnd && <span class="ug-list__end"><slot name="end">{end}</slot></span>}</Fragment>
+)}</li>

@@ -6,7 +6,7 @@
  *   as canonical DOM (tags, attributes, class sets and text);
  * - real pointer and keyboard input on every control, with Field state, refs and attribute passthrough;
  * - roles, names and values of the surfaces and status components; Tabs follow their value and take the arrow keys;
- *   Accordion sections report and follow their open state;
+ *   Accordion sections report and follow their open state; List rows are links, buttons or static;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -370,5 +370,35 @@ for (const binding of bindings) test(`Strata ${binding} Accordion reports and fo
   expect(names[0]).toMatch(/^accordion-/);
   expect(names[1]).toBe(names[0]);
   expect(names[2]).toBeNull();
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} List rows are links, buttons or static, and the whole row is the target`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const list = page.getByRole("list", { name: "Folders" });
+  await expect(list.getByRole("listitem")).toHaveCount(4);
+  // A link row: named by its content, current, and followed by a click.
+  const inbox = list.getByRole("link", { name: "Inbox 12 unread Now" });
+  await expect(inbox).toHaveAttribute("aria-current", "page");
+  await inbox.click();
+  await expect(page).toHaveURL(/#inbox$/);
+  // A button row fills the row: a click at its far end presses it, and so do Enter and Space.
+  const archive = page.locator("#archive-row .ug-list__action");
+  const row = await page.locator("#archive-row").boundingBox(), action = await archive.boundingBox();
+  expect(Math.abs(row.width - action.width)).toBeLessThanOrEqual(1);
+  expect(action.height).toBeGreaterThanOrEqual(24);
+  await page.mouse.click(action.x + action.width - 4, action.y + action.height / 2);
+  await archive.focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Space");
+  await expect.poll(() => page.evaluate(() => window.strataBinding.rows)).toEqual({ archive: 3, locked: 0 });
+  // A disabled button row does nothing; a static row is not focusable.
+  await page.locator("#locked-row .ug-list__action").click({ force: true });
+  await expect(page.locator("#locked-row .ug-list__action")).toBeDisabled();
+  expect(await page.evaluate(() => window.strataBinding.rows.locked)).toBe(0);
+  expect(await page.locator("#storage-row").evaluate(row => row.querySelectorAll("a, button, [tabindex]").length)).toBe(0);
   await context.close();
 });
