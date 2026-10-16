@@ -42,6 +42,7 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     <div data-contract="panel.md"><Panel title="Settings" titleId="settings-title" /></div>
     <div data-contract="dialog.md#2"><Dialog title="Discard changes?" titleId="discard-title" description="Your edits will be lost." descriptionId="discard-description"><Fragment slot="actions"><Button data-strata-close="">Keep editing</Button></Fragment></Dialog></div>
     <div data-contract="drawer.md#2"><Drawer title="Filters" titleId="filters-title" description="Narrow the list." descriptionId="filters-description"><Fragment slot="actions"><Button data-strata-close="">Done</Button></Fragment></Drawer></div>
+    <Drawer title="Sort" titleId="sort-title" side="start" closeOnScrim id="sort-drawer"><Fragment slot="actions"><Button data-strata-close="">Done</Button></Fragment></Drawer>
     <div data-contract="slider.md"><Slider min="0" max="100" step="1" value="40" aria-label="Volume" /></div>
   </div>
   <main style="display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); padding: 24px">

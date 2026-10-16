@@ -108,8 +108,8 @@ Plain HTML and Astro render both elements closed, with the `hidden` attribute:
 - `description` (React and Vue; a paragraph in plain HTML) is the first child of the body and is the
   `aria-describedby` target. `actions` is optional.
 - **Plain HTML:** `data-strata-open="{id}"` on any element opens the panel with that id, and `data-strata-close`
-  inside an open panel closes it (`attachStrata`). `data-strata-close-on-scrim` on the panel makes a scrim click
-  close it.
+  inside an open panel closes it (`attachStrata`). `data-strata-close-on-scrim` on the panel (the `closeOnScrim`
+  prop in React, Vue and Astro) makes a scrim click close it.
 - **Script:** `showStrataDialog(panel, { onClose, initialFocus, returnFocus, closeOnScrim })` returns
   `{ close() }`. `onClose(reason)` receives `"escape"`, `"scrim"` or `"close"`; without it the dialog closes
   itself. React and Vue call it from `open`.

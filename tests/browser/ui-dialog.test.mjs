@@ -5,7 +5,7 @@
  *   the scrim does not reach it; Escape or a close button closes and focus returns to the opener; an element that was
  *   inert before stays inert;
  * - nested dialogs: Escape closes only the top one, and closing it restores the one below;
- * - the scrim closes only with `closeOnScrim`; `onClose` receives the reason;
+ * - the scrim closes only with `closeOnScrim`; `onClose` receives the reason; a Drawer with it closes on a click outside it;
  * - each Drawer side lays out on its edge;
  * - axe finds no violations with a Dialog and a Drawer open, in light and dark;
  * - the accessibility snapshot of the open Dialog equals that of a native `<dialog>` opened with `showModal()`;
@@ -150,6 +150,33 @@ test("the scrim closes a Dialog only with closeOnScrim, and onClose receives the
   await expect(api).toBeHidden();
   expect(await page.evaluate(() => window.dialogCheck.reasons)).toEqual(["scrim", "escape"]);
   await expect(page.locator("#open-api")).toBeFocused();
+  await context.close();
+});
+
+test("a Drawer closes on a click outside it only with closeOnScrim", async ({ browser }) => {
+  const { context, page } = await open(browser);
+  const viewport = await page.evaluate(() => ({ width: document.documentElement.clientWidth, height: document.documentElement.clientHeight }));
+  // The start drawer leaves it off: a click on the scrim beside it does nothing, and Escape still closes it.
+  await page.locator("#open-start").click();
+  await expect(page.locator("#drawer-start")).toBeVisible();
+  await settled(page);
+  await page.mouse.click(viewport.width - 8, viewport.height / 2);
+  await settled(page);
+  await expect(page.locator("#drawer-start")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#drawer-start")).toBeHidden();
+  // The end drawer has data-strata-close-on-scrim: a click inside it keeps it open, a click outside it closes it, and
+  // focus returns to the opener.
+  await page.locator("#open-end").click();
+  const drawer = page.locator("#drawer-end");
+  await expect(drawer).toBeVisible();
+  await settled(page);
+  const box = await drawer.boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(drawer).toBeVisible();
+  await page.mouse.click(8, viewport.height / 2);
+  await expect(drawer).toBeHidden();
+  await expect(page.locator("#open-end")).toBeFocused();
   await context.close();
 });
 

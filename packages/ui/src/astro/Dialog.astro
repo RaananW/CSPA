@@ -16,16 +16,18 @@ interface Props {
   size?: StrataSize;
   material?: string;
   level?: StrataLevel;
+  /** A click on the scrim, outside the panel, closes it (`data-strata-close-on-scrim`). Off by default. */
+  closeOnScrim?: boolean;
   class?: string;
   [attribute: string]: unknown;
 }
 
-const { title, titleId, descriptionId: givenDescriptionId, description, size, material, level, class: className, ...rest } = Astro.props;
+const { title, titleId, descriptionId: givenDescriptionId, description, size, material, level, closeOnScrim, class: className, ...rest } = Astro.props;
 const id = titleId ?? nextId("dialog-title");
 const descriptionId = givenDescriptionId ?? nextId("dialog-description");
 ---
 <div class="ug-scrim" aria-hidden="true" hidden></div>
-<section class={classes("ug-panel", "ug-dialog", className)} role="dialog" aria-modal="true" aria-labelledby={id} aria-describedby={description !== undefined ? descriptionId : undefined} data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden {...strataAttributes({ size, material, level })} {...rest}>
+<section class={classes("ug-panel", "ug-dialog", className)} role="dialog" aria-modal="true" aria-labelledby={id} aria-describedby={description !== undefined ? descriptionId : undefined} data-strata-face="raised" data-strata-elevation="modal" tabindex="-1" hidden {...strataAttributes({ size, material, level })} data-strata-close-on-scrim={closeOnScrim ? "" : undefined} {...rest}>
   <h2 class="ug-dialog__title" id={id}>{title}</h2>
   <div class="ug-dialog__body">{description !== undefined && <p class="ug-dialog__description" id={descriptionId}>{description}</p>}<slot /></div>
   {Astro.slots.has("actions") && <div class="ug-dialog__actions"><slot name="actions" /></div>}

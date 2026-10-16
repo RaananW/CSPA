@@ -5,7 +5,8 @@
  * (no `attachStrataGpu`), `?level=objects` presents the components as objects, and `?adjust=budget,down,up,window` turns
  * the adjust policy on (frame budget in ms, then frame counts); `strataGpuProbe.load(ms)` makes each frame that slow.
  * `?level=scene` adds the Scene level (`strataGpuProbe.burst()` bursts confetti from Save), and `?environment=url` lights
- * objects with an `.hdr` environment.
+ * objects with an `.hdr` environment. `strataGpuProbe.openDrawer()` opens a Drawer on the end edge that closes on a click
+ * outside it (`closeOnScrim`); the Dialog does not.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -41,23 +42,28 @@ let root!: HTMLElement;
 let dialog: { panel: HTMLElement; handle: DialogHandle } | undefined;
 const closes: string[] = [];
 /**
- * Opens a Strata Dialog as a top-level panel of the Underglass root, as the React and Vue bindings do with `container`:
- * its scrim and panel are added as root children, so `attachStrataGpu` presents the dialog as its own GPU panel.
+ * Opens a Strata Dialog (or a Drawer on the end edge) as a top-level panel of the Underglass root, as the React and Vue
+ * bindings do with `container`: its scrim and panel are added as root children, so `attachStrataGpu` presents it as its
+ * own GPU panel. The Drawer closes on a click outside it (`closeOnScrim`).
  */
-function openDialog() {
+function openDialog(kind: "dialog" | "drawer" = "dialog") {
   const scrim = document.createElement("div");
   scrim.className = "ug-scrim";
   scrim.setAttribute("aria-hidden", "true");
   const section = document.createElement("section");
-  section.className = "ug-panel ug-dialog";
-  section.id = "gpu-dialog";
+  section.className = kind === "dialog" ? "ug-panel ug-dialog" : "ug-panel ug-drawer ug-drawer--end";
+  section.id = `gpu-${kind}`;
   Object.assign(section, { tabIndex: -1 });
-  for (const [name, value] of [["role", "dialog"], ["aria-modal", "true"], ["aria-labelledby", "gpu-dialog-title"], ["data-strata-face", "raised"], ["data-strata-elevation", "modal"]]) section.setAttribute(name, value);
-  section.innerHTML = `<h2 class="ug-dialog__title" id="gpu-dialog-title">Delete the account?</h2>
+  for (const [name, value] of [["role", "dialog"], ["aria-modal", "true"], ["aria-labelledby", `gpu-${kind}-title`], ["data-strata-face", "raised"], ["data-strata-elevation", "modal"]]) section.setAttribute(name, value);
+  section.innerHTML = kind === "dialog" ? `<h2 class="ug-dialog__title" id="gpu-dialog-title">Delete the account?</h2>
     <div class="ug-dialog__body"><p style="margin:0">This cannot be undone.</p></div>
     <div class="ug-dialog__actions">
       <button type="button" class="ug-button" data-strata-face="raised" id="gpu-dialog-cancel"><span class="ug-button__label">Cancel</span></button>
       <button type="button" class="ug-button ug-button--accent" data-strata-face="raised" id="gpu-dialog-delete"><span class="ug-button__label">Delete</span></button>
+    </div>` : `<h2 class="ug-drawer__title" id="gpu-drawer-title">Filters</h2>
+    <div class="ug-drawer__body"><p style="margin:0">A click outside the drawer closes it.</p></div>
+    <div class="ug-drawer__actions">
+      <button type="button" class="ug-button" data-strata-face="raised" id="gpu-drawer-done"><span class="ug-button__label">Done</span></button>
     </div>`;
   root.append(scrim, section);
   const close = async (reason: string) => {
@@ -66,9 +72,8 @@ function openDialog() {
     scrim.remove(); section.remove();
     dialog = undefined;
   };
-  const handle = showStrataDialog(section, { onClose: reason => void close(reason) });
-  section.querySelector("#gpu-dialog-cancel")!.addEventListener("click", () => void close("cancel"));
-  section.querySelector("#gpu-dialog-delete")!.addEventListener("click", () => void close("delete"));
+  const handle = showStrataDialog(section, { onClose: reason => void close(reason), closeOnScrim: kind === "drawer" });
+  for (const button of section.querySelectorAll("button")) button.addEventListener("click", () => void close(button.id.replace(`gpu-${kind}-`, "")));
   dialog = { panel: section, handle };
 }
 let saves = 0;
@@ -89,7 +94,7 @@ const controller: CanvasController = mountApplicationModule({
   panel.innerHTML = markup;
   container.append(panel);
   root = container;
-  panel.querySelector("#gpu-open")!.addEventListener("click", openDialog);
+  panel.querySelector("#gpu-open")!.addEventListener("click", () => openDialog());
   panel.querySelector("#gpu-save")!.addEventListener("click", () => { saves++; panel.querySelector("#gpu-count")!.textContent = `Saved ${saves} times`; });
   return () => container.replaceChildren();
 } });
@@ -118,7 +123,7 @@ window.strataGpuProbe = {
   root: () => root,
   load: ms => { const start = !load && ms > 0; load = ms; if (start) requestAnimationFrame(busy); },
   enter: options => strataEnter(panel, options),
-  dialog: () => dialog?.panel, closes: () => [...closes],
+  dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
   leave: options => strataLeave(panel, options),
 };
 declare global {
@@ -128,6 +133,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[];
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void;
   } }
 }
