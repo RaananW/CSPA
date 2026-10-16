@@ -6,8 +6,9 @@
  * with the suite's expected colour within its tolerance. It also proves that GPU stays on, that scene changes (states)
  * update pixels without recompiling, and that native hits still reach the layer's own elements.
  *
- * Samples outside the layer's box (shadows in the outset) wait for the outset (Phase 4 step 3). Samples where the
- * capture is transparent are skipped too, because they show the page behind the layer rather than the backdrop.
+ * Samples in the shadow outset are compared too: the page behind the frame is white, the backdrop of every light
+ * case. Samples where the page shows through and the case's backdrop is not white, or where the capture is
+ * transparent inside the box, are skipped, because they show the page rather than the backdrop.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
 import { mkdir, writeFile, readFile } from "node:fs/promises";
@@ -50,7 +51,8 @@ test("the relief material conforms to the Strata Rendering Model on decoded GPU 
     for (const sample of entry.samples) {
       const [x, y] = sample.at;
       const inside = x >= 0 && y >= 0 && x <= entry.scene.extent.width && y <= entry.scene.extent.height;
-      if (!inside || !opaque(entry.capture, x, y)) { report.push({ case: entry.name, at: sample.at, skipped: inside ? "transparent capture" : "outset (step 3)" }); continue; }
+      const showsPage = inside ? !opaque(entry.capture, x, y) : entry.scene.backdrop.toLowerCase() !== "#ffffff";
+      if (showsPage) { report.push({ case: entry.name, at: sample.at, skipped: "the page shows through" }); continue; }
       const actual = pixel(origin.x + Math.floor(x), origin.y + Math.floor(y)), expected = hex(sample.expect);
       const deviation = Math.max(...actual.map((value, index) => Math.abs(value - expected[index])));
       report.push({ case: entry.name, at: sample.at, note: sample.note, expected: sample.expect, actual, deviation });
@@ -60,7 +62,7 @@ test("the relief material conforms to the Strata Rendering Model on decoded GPU 
   await writeFile(`${evidence}/conformance.json`, JSON.stringify({ tolerance: suite.tolerance, compared, report }, null, 2));
   const failures = report.filter(row => row.deviation > suite.tolerance);
   expect(failures, JSON.stringify(failures, null, 1)).toEqual([]);
-  expect(compared).toBeGreaterThan(40);
+  expect(compared).toBe(suite.cases.reduce((total, entry) => total + entry.samples.length, 0));
   expect(errors).toEqual([]);
 });
 
@@ -90,6 +92,12 @@ test("relief scenes update without recompiling, GPU stays on and native hits rea
     return document.elementFromPoint(frame.x + origin.x + 56, frame.y + origin.y + 32)?.closest("#case")?.id;
   }, { origin });
   expect(hit).toBe("case");
+  // The outset draws shadows only: a point in it never hits the layer.
+  const outsetHit = await page.evaluate(({ origin }) => {
+    const frame = document.querySelector("#frame").getBoundingClientRect(), layer = document.querySelector("#case").getBoundingClientRect();
+    return document.elementFromPoint(frame.x + origin.x + 56, layer.bottom + 6)?.closest("#case")?.id ?? null;
+  }, { origin });
+  expect(outsetHit).toBeNull();
   const state = await page.evaluate(() => window.conformanceProbe.state());
   expect(state.mode).toBe("gpu");
   expect(state.materials).toEqual([{ id: "case", kind: "relief", primitives: 2, interior: { max: 0.04 } }]);

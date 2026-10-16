@@ -144,6 +144,12 @@ materials.
 
 ### 3. Shadow outset
 
+Implemented: the relief scene's `outset` grows the pass's drawn rectangle (`drawRectangle` in
+`composition.ts`), only on sides the layer's clip does not cut, and is capped at 128 px per side. Outset pixels
+hold no captured content, so they show shadows and focus edges only. A pixel half on the layer's edge keeps both
+its content and the shadow beyond it. The native `canvasClip` is unchanged. All 64 conformance samples now
+compare on GPU pixels, outset included.
+
 - **Drawing:** a layer may declare `outset: { top, right, bottom, left }`. The vertex triangle and the shader's draw
   rectangle grow by it. Pixels in the outset are shadow-only: analytic, from the primitives and the panel's own box,
   with no texture sample.

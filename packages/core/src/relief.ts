@@ -11,6 +11,11 @@
 
 /** Relief primitives one layer may carry (P0.3 budget). */
 export const RELIEF_PRIMITIVES = 256;
+/**
+ * The largest shadow outset per side, in CSS px. It covers the tallest elevation in the design language (a modal at
+ * 100% depth casts about 70 px) and bounds the extra pixels a layer may shade.
+ */
+export const RELIEF_OUTSET = 128;
 /** Distinct materials one relief scene may name. */
 export const RELIEF_MATERIALS = 16;
 const HEADER_VEC4S = 5;
@@ -43,8 +48,9 @@ export interface ReliefPrimitive {
   ring?: { thickness: number; start: number; sweep: number; colour: string };
 }
 /**
- * A Strata scene, version 1: the input of the `relief` material. Core draws it over the layer's own box;
- * `extent` and `backdrop` are informational here (the layer pass composites over what is beneath it).
+ * A Strata scene, version 1: the input of the `relief` material. Core draws it over the layer's own box grown by
+ * `outset` (shadows only; hits stay on the box); `extent` and `backdrop` are informational here (the layer pass
+ * composites over what is beneath it).
  */
 export interface ReliefScene {
   format: "strata-scene";
@@ -95,7 +101,8 @@ export function validateReliefScene(input: ReliefScene): ReliefScene {
   return {
     format: "strata-scene", version: 1,
     extent: { width: finite(extent.width, "extent.width", 0), height: finite(extent.height, "extent.height", 0) },
-    ...(outset ? { outset: { top: finite(outset.top, "outset.top", 0), right: finite(outset.right, "outset.right", 0), bottom: finite(outset.bottom, "outset.bottom", 0), left: finite(outset.left, "outset.left", 0) } } : {}),
+    ...(outset ? { outset: { top: finite(outset.top, "outset.top", 0, RELIEF_OUTSET), right: finite(outset.right, "outset.right", 0, RELIEF_OUTSET),
+      bottom: finite(outset.bottom, "outset.bottom", 0, RELIEF_OUTSET), left: finite(outset.left, "outset.left", 0, RELIEF_OUTSET) } } : {}),
     backdrop: colour(scene.backdrop, "backdrop"),
     light: { azimuth: finite(light.azimuth, "light.azimuth", 0, 360), elevation: finite(light.elevation, "light.elevation", 1, 90) },
     bevel: { width: finite(bevel.width, "bevel.width", 0), gain: finite(bevel.gain, "bevel.gain", 0), profile: bevel.profile as (typeof profiles)[number] },

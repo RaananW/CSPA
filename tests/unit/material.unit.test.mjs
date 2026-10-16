@@ -17,7 +17,7 @@ const sourceImports = registerHooks({
   },
 });
 const { defineEffect, validateMaterial, materialUniforms, MATERIAL_INTERIOR_CEILING } = await import("../../packages/core/src/effects.ts");
-const { layerShader, passShaders } = await import("../../packages/core/src/composition.ts");
+const { layerShader, passShaders, drawRectangle } = await import("../../packages/core/src/composition.ts");
 const { reliefUniforms, validateReliefScene, RELIEF_VEC4S } = await import("../../packages/core/src/relief.ts");
 const { LAYER_PASS_FLOATS } = await import("../../packages/core/src/compiled.ts");
 sourceImports.deregister();
@@ -122,7 +122,21 @@ test("the relief binding packs derived values per primitive, and relief passes a
   const shader = layerShader(undefined, undefined, "relief");
   assert.deepEqual(shader.bindings.at(-1), { binding: 3, kind: "uniform", uniformByteLength: RELIEF_VEC4S * 16, visibility: 2 });
   assert.match(shader.fragmentWGSL, /fn reliefShade\(p: vec2f, captured: vec4f\) -> vec4f/);
-  assert.match(shader.fragmentWGSL, /if \(state\[14\]\.x == 2\.0\) \{ sample = reliefShade\(local, sample\); \}/);
+  assert.match(shader.fragmentWGSL, /if \(state\[14\]\.x == 2\.0\) \{ sample = reliefShade\(local, vec4f\(sample\.rgb, sample\.a \* coverage \/ drawCoverage\)\); \}/);
+  // The drawn rectangle (block vec4 12) extends coverage into the shadow outset, and the pass emits with it.
+  assert.match(shader.fragmentWGSL, /let draw = state\[15\];/);
+  assert.match(shader.fragmentWGSL, /\* compiledOpacity \* drawCoverage\);/);
+  assert.doesNotMatch(layerShader().fragmentWGSL, /let draw = /);
   assert.equal(passShaders(undefined, "relief"), passShaders(undefined, "relief"));
   assert.deepEqual(passShaders(undefined, "relief"), { effect: undefined, material: undefined, relief: true });
+});
+
+test("a relief outset grows the drawn rectangle only on sides the clip does not cut", () => {
+  const extent = { width: 200, height: 120 }, outset = { top: 10, right: 20, bottom: 30, left: 40 };
+  // Unclipped: every side grows; hits keep the clip.
+  assert.deepEqual(drawRectangle({ x: 0, y: 0, width: 200, height: 120 }, extent, outset), { x0: -40, y0: -10, x1: 220, y1: 150 });
+  // Without an outset (any non-relief layer) the rectangle is the clipped box, exactly as before.
+  assert.deepEqual(drawRectangle({ x: 0, y: 0, width: 200, height: 120 }, extent), { x0: 0, y0: 0, x1: 200, y1: 120 });
+  // A viewport cutting the left and bottom sides: those stay cut, the others grow.
+  assert.deepEqual(drawRectangle({ x: 30, y: -5, width: 400, height: 90 }, extent, outset), { x0: 30, y0: -10, x1: 220, y1: 85 });
 });

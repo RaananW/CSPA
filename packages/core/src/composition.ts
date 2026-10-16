@@ -57,6 +57,21 @@ export function passShaders(effect?: ApplicationEffect, material?: ApplicationEf
   return shaders;
 }
 
+/**
+ * The rectangle a layer pass draws, in layer-local CSS px: the clipped layer box, grown by a relief material's
+ * shadow outset on every side the clip does not cut, so shadows never spill out of a viewport that clips the layer.
+ */
+export function drawRectangle(clip: { x: number; y: number; width: number; height: number }, extent: { width: number; height: number },
+  outset?: { top: number; right: number; bottom: number; left: number }) {
+  const low = { x: Math.max(0, clip.x), y: Math.max(0, clip.y) };
+  const high = { x: Math.min(extent.width, clip.x + clip.width), y: Math.min(extent.height, clip.y + clip.height) };
+  return {
+    x0: outset && low.x <= 0 ? -outset.left : low.x, y0: outset && low.y <= 0 ? -outset.top : low.y,
+    x1: outset && high.x >= extent.width ? extent.width + outset.right : high.x,
+    y1: outset && high.y >= extent.height ? extent.height + outset.bottom : high.y,
+  };
+}
+
 /** Writes one layer's 13-vec4 uniform block at `offset` and returns its canvas-space matrix and clip. */
 function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeLayer, shift: number, customIndex: number, compiled: boolean,
   materialIndex = -1) {
@@ -86,8 +101,12 @@ function writeLayerBlock(values: Float32Array, offset: number, layer: CompositeL
   const clip = layer.clip?.(new DOMMatrix().translate(shift, 0).multiply(layer.matrix())) ?? { x: 0, y: 0, width: content.width, height: content.height };
   values.set([clip.x, clip.y, clip.width, clip.height], offset + 40);
   // vec4 11-12: the material, applied before the effect chain.
-  values.set(materialUniforms(layer.material?.(), materialIndex), offset + 44);
-  return { matrix, clip, motion };
+  const material = layer.material?.();
+  values.set(materialUniforms(material, materialIndex), offset + 44);
+  // Relief passes read the drawn rectangle from vec4 12; hits keep using the clip alone.
+  const draw = drawRectangle(clip, layer.extent, material?.kind === "relief" ? material.scene.outset : undefined);
+  if (material?.kind === "relief") values.set([draw.x0, draw.y0, draw.x1, draw.y1], offset + 48);
+  return { matrix, clip, motion, draw };
 }
 
 /**
@@ -138,7 +157,15 @@ function layerBody(index: number, base: number, playback: number | undefined, cu
       let footprint = max(vec2f(length(vec2f(dpdx(local.x), dpdy(local.x))), length(vec2f(dpdx(local.y), dpdy(local.y)))), vec2f(1e-6));
       let inside = min(local - low, high - local) / footprint;
       let coverage = clamp(min(inside.x, inside.y) + 0.5, 0.0, 1.0);
-      if (coverage > 0.0) {
+      // A relief material also draws its shadow outset: drawCoverage covers the grown rectangle, and the captured
+      // alpha is scaled so that layer pixels keep their coverage while outset pixels hold no content.
+      var drawCoverage = coverage;
+      ${relief ? `if (state[${base + 11}].x == 2.0) {
+        let draw = state[${base + 12}];
+        let inDraw = min(local - draw.xy, draw.zw - local) / footprint;
+        drawCoverage = max(coverage, clamp(min(inDraw.x, inDraw.y) + 0.5, 0.0, 1.0));
+      }` : ""}
+      if (drawCoverage > 0.0) {
         let wave = state[${base + 3}];
         var redAt = warp(local, extent, wave.x, wave.y);
         var greenAt = redAt;
@@ -176,7 +203,7 @@ function layerBody(index: number, base: number, playback: number | undefined, cu
           sample = vec4f(min(sample.rgb * factor, vec3f(1.0)), sample.a);
         }` : ""}
         ${relief ? `// The built-in relief material (Strata Rendering Model), shading the scene in the relief binding.
-        if (state[${base + 11}].x == 2.0) { sample = reliefShade(local, sample); }` : ""}
+        if (state[${base + 11}].x == 2.0) { sample = reliefShade(local, vec4f(sample.rgb, sample.a * coverage / drawCoverage)); }` : ""}
         for (var operation = 0u; operation < 3u; operation++) {
           let control = state[${base + 4}u + operation * 2u];
           let parameters = state[${base + 5}u + operation * 2u];
@@ -192,7 +219,7 @@ function layerBody(index: number, base: number, playback: number | undefined, cu
         ${decorativeAnimation ? `if (state[${base + 2}].w == 1.0) {
           sample.a *= 1.0 - 0.65 * (1.0 - abs(2.0 * fract(state[0].z / 2.0) - 1.0));
         }` : ""}
-        ${emit(`sample.a * state[${base + 2}].z * compiledOpacity * coverage`)}
+        ${emit(`sample.a * state[${base + 2}].z * compiledOpacity * drawCoverage`)}
       }
     }\n`;
 }
@@ -331,12 +358,12 @@ export function layerUniforms(layer: CompositeLayer, dpr: number, frame: { width
   const definition = layer.effects?.().find(value => value.kind === "custom")?.definition;
   const assigned = layer.material?.();
   const material = assigned?.kind === "custom" ? assigned.definition : undefined;
-  const { matrix, clip, motion } = writeLayerBlock(values, LAYER_HEADER, layer, shift, shaders?.effect && definition === shaders.effect ? 0 : -1, compiled,
+  const { matrix, motion, draw } = writeLayerBlock(values, LAYER_HEADER, layer, shift, shaders?.effect && definition === shaders.effect ? 0 : -1, compiled,
     shaders?.material && material === shaders.material ? 0 : -1);
   if (compiled) values.set([motion ? motion.index + 1 : 0, motion?.phase ?? 0, 0, 0], LAYER_HEADER + BLOCK);
   // Compiled motion moves the layer inside the shader, so it may cover the whole frame.
-  const corners = motion ? [] : [[clip.x, clip.y], [clip.x + clip.width, clip.y], [clip.x, clip.y + clip.height], [clip.x + clip.width, clip.y + clip.height]]
-    .map(([x, y]) => matrix.transformPoint({ x: Math.min(Math.max(x!, 0), layer.extent.width), y: Math.min(Math.max(y!, 0), layer.extent.height) }));
+  const corners = motion ? [] : [[draw.x0, draw.y0], [draw.x1, draw.y0], [draw.x0, draw.y1], [draw.x1, draw.y1]]
+    .map(([x, y]) => matrix.transformPoint({ x: x!, y: y! }));
   // Pixels of padding so antialiased edges are not cut off by the bounding triangle.
   const pad = 2;
   const bounds = motion ? [0, 0, frame.width, frame.height] : [
