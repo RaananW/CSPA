@@ -23,7 +23,7 @@ const { validateMaterial } = await import("../../packages/core/src/effects.ts");
 sourceImports.deregister();
 const {
   validateInstrumentScene, profileGeometry, partMatrix, poseAt, transform, containmentFrontier, checkContainment, boxMargin, cameraDistance,
-  drift, partCaster, partKinds, instrumentStructure, instrumentLayout, sameGeometry, instrumentFaceScene, similarity, roundedBoxDistance, posedVertices,
+  drift, partCaster, partKinds, instrumentStructure, boundsInside, instrumentLayout, sameGeometry, instrumentFaceScene, similarity, roundedBoxDistance, posedVertices,
 } = instrument;
 
 const knobProfile = (radius, height) => ({ type: "lathe", segments: 48,
@@ -281,4 +281,49 @@ test("the layer's matrix must be a similarity", () => {
   assert.equal(similarity({ a: 1, b: 0, c: 0.2, d: 1, e: 0, f: 0, is2D: true }), undefined, "shear");
   assert.equal(similarity({ a: -1, b: 0, c: 0, d: 1, e: 0, f: 0, is2D: true }), undefined, "a mirror");
   assert.equal(similarity({ a: 1, b: 0, c: 0, d: 0.94, e: 0, f: 0, is2D: false }), undefined, "a tilt");
+});
+
+test("containment follows the layer's similarity, sunk parts, rounded bounds and the camera plane", () => {
+  const profiles = { cap: knobProfile(18, 14.8) };
+  const margin = boxMargin(14.8);
+  // The rule's box near the stage corner passes; the same layer rotated by 90° about the stage centre and scaled 1.5×
+  // keeps it inside (the box scales with the layer, drift is measured on the canvas).
+  const corner = knobAt(1 + 18 + margin, 1 + 18 + margin, 14.8, margin);
+  const frontier = containmentFrontier(corner, profiles);
+  const turned = { matrix: { a: 0, b: 1, c: -1, d: 0, e: 960 + 540, f: 540 - 960, scale: 1 }, vanish: [960, 540], distance: 2400 };
+  assert.equal(checkContainment(corner, profiles, frontier, turned).contained, true, "rotated about the vanishing point");
+  const scaled = { matrix: { a: 1.5, b: 0, c: 0, d: 1.5, e: 960 - 1.5 * 960, f: 540 - 1.5 * 540, scale: 1.5 }, vanish: [960, 540], distance: 2400 };
+  const scaledResult = checkContainment(corner, profiles, frontier, scaled);
+  assert.equal(scaledResult.contained, false, "scaled 1.5× about the centre, the corner knob lands past the canvas corner and its drift grows");
+  // A sunk part drifts towards the vanishing point (by r·|h|/(D − h)); its frontier is kept apart from raised parts.
+  const sunk = { ...corner, parts: [{ ...corner.parts[0], at: [corner.parts[0].at[0], corner.parts[0].at[1], -15] }] };
+  const sunkFrontier = containmentFrontier(sunk, profiles);
+  assert.ok(sunkFrontier.parts[0].some(pair => pair.height < 0), "below-face heights keep their own frontier");
+  assert.equal(checkContainment(sunk, profiles, sunkFrontier, placement()).contained, true);
+  // Rounded bounds: a square cap fits a square box but not a fully round one of the same size.
+  const square = { cap: { type: "prism", width: 30, length: 30, radius: 0, height: 2 } };
+  const boxed = { id: "s", rect: [945, 525, 30, 30], bounds: { rect: [940, 520, 40, 40], radius: 0 }, t: 0, parts: [{ kind: "cap", profile: "cap", at: [960, 540, 0], material: "m" }] };
+  assert.equal(checkContainment(boxed, square, containmentFrontier(boxed, square), placement()).contained, true);
+  const roundBox = { ...boxed, bounds: { rect: [940, 520, 40, 40], radius: 20 } };
+  const round = checkContainment(roundBox, square, containmentFrontier(roundBox, square), placement());
+  assert.equal(round.contained, false, "the square's corners leave a round bounds");
+  assert.ok(round.overshoot > 0);
+  // A part at or past the camera plane can never be contained.
+  const tall = { cap: { type: "prism", width: 2, length: 2, radius: 0, height: 2400 } };
+  const pole = { id: "p", rect: [950, 530, 20, 20], bounds: { rect: [950, 530, 20, 20], radius: 0 }, t: 0, parts: [{ kind: "pivot", profile: "cap", at: [960, 540, 0], material: "m" }] };
+  const behind = checkContainment(pole, tall, containmentFrontier(pole, tall), placement());
+  assert.equal(behind.contained, false);
+  assert.equal(behind.inset, -Infinity);
+});
+
+test("an object's bounds must lie inside its layer's box", () => {
+  const value = validateInstrumentScene(scene());
+  assert.equal(boundsInside(value.objects[0], value.extent), true);
+  assert.equal(boundsInside({ ...value.objects[0], bounds: { rect: [380, 20, 40, 40], radius: 0 } }, value.extent), false, "past the right edge");
+  assert.equal(boundsInside({ ...value.objects[0], bounds: { rect: [-1, 20, 40, 40], radius: 0 } }, value.extent), false, "past the left edge");
+  // The light and the environment are part of the structure: a change rebuilds the scene.
+  const relit = validateInstrumentScene(scene({ light: { azimuth: 200, elevation: 41 } }));
+  assert.notEqual(instrumentStructure(relit), instrumentStructure(value));
+  const brighter = validateInstrumentScene(scene({ environment: { source: "studio", strength: 0.4 } }));
+  assert.notEqual(instrumentStructure(brighter), instrumentStructure(value));
 });
