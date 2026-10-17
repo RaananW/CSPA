@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Instrument probe: interaction</title>
+  <style>
+    body { margin: 24px; background: #ffffff; color: #111111; font: 16px system-ui; }
+    [hidden] { display: none !important; }
+    #frame { position: relative; width: 640px; height: 420px; }
+    #output, #ordinary { position: absolute; inset: 0; width: 100%; height: 100%; }
+    #output { pointer-events: none; }
+    #status { white-space: pre-wrap; font-size: 12px; }
+
+    /* Throwaway look: the question is behaviour, not appearance. */
+    .pk-row { display: flex; gap: 48px; align-items: flex-start; }
+    .pk-name { display: block; margin: 0 0 6px; font-weight: 600; }
+    .pk-knob, .pk-fader { display: block; }
+    .pk-dial { position: relative; display: block; width: 120px; height: 120px; --pk-angle: 0deg; }
+    .pk-ring { position: absolute; inset: 0; border-radius: 50%; border: 6px solid #6b7280; box-sizing: border-box; pointer-events: none; }
+    .pk-cap { position: absolute; left: 28px; top: 28px; width: 64px; height: 64px; border-radius: 50%; box-sizing: border-box;
+      background: #e5e7eb; border: 2px solid #374151; pointer-events: none; }
+    /* The cap stays still, so the Relief knob face keeps its 64 px box; the pointer turns inside it. */
+    .pk-pointer { position: absolute; inset: 0; transform: rotate(var(--pk-angle)); }
+    .pk-pointer::after { content: ""; position: absolute; left: 50%; top: 2px; width: 3px; height: 22px; margin-left: -1.5px; background: #111111; }
+    .pk-pointer[data-detented] { transition: transform 140ms cubic-bezier(0.3, 1.6, 0.5, 1); }
+    @media (prefers-reduced-motion: reduce) { .pk-pointer[data-detented] { transition: none; } }
+    /* The input covers the whole dial, transparent: the cap and the ring are drawn under it and take no pointer events. */
+    .pk-knob__input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; opacity: 0; cursor: ns-resize; appearance: none; background: transparent; }
+    .pk-dial:has(.pk-knob__input:focus-visible) .pk-ring { border-color: #2563eb; }
+    .pk-slot { display: block; }
+    .pk-fader__input { writing-mode: vertical-lr; direction: rtl; width: 48px; height: 200px; margin: 0; }
+    .pk-read { margin: 12px 0 0; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Instrument probe I0.7: interaction</h1>
+  <p>A Knob and a Fader as native range inputs in a Strata panel. <button id="enable" type="button">GPU</button>
+    <button id="disable" type="button">CSS</button></p>
+  <div id="frame"><canvas id="output" hidden></canvas><div id="ordinary"></div><div id="overlay"></div></div>
+  <pre id="status" role="status"></pre>
+  <script type="module" src="/src/ui-probes/interaction.ts"></script>
+</body>
+</html>
