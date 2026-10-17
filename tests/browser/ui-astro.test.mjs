@@ -133,6 +133,17 @@ test("Strata Astro components get their browser behaviour from attachStrata and 
   const removed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-remove", event => list.push(event.target.id)); return list; });
   await page.getByRole("button", { name: "Remove ada@example.com" }).click();
   expect(await removed.jsonValue()).toEqual(["ada-chip"]);
+  // A TreeView runs from its markup: Right opens an item, Enter selects it, and both are reported from the item.
+  const treeEvents = await page.evaluateHandle(() => { const list = []; for (const type of ["strata-expand", "strata-select"]) document.addEventListener(type, event => list.push(`${type}:${event.target.dataset.strataValue}`)); return list; });
+  const src = page.locator("#astro-tree [data-strata-value='src']");
+  await src.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(src).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#astro-tree [data-strata-value='src/app.ts']")).toHaveAttribute("aria-selected", "true");
+  expect(await page.locator("#astro-tree [role='treeitem'][tabindex='0']").count()).toBe(1);
+  expect(await treeEvents.jsonValue()).toEqual(["strata-expand:src", "strata-select:src/app.ts"]);
   // A MessageBar's dismiss button reports strata-dismiss from the bar.
   const dismissed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-dismiss", event => list.push(event.target.id)); return list; });
   await page.locator("#astro-message").getByRole("button", { name: "Dismiss" }).click();

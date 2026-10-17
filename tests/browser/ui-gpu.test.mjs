@@ -753,3 +753,27 @@ test("a toast over a GPU-presented panel leaves the panel on the GPU", async ({ 
   expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`a TreeView on the GPU at the ${level} level: one raised slab with flat rows, opened by real keys and selected by a real click, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addTree(); await window.strataGpuProbe.controller.settle(); });
+  const slab = await primitiveOf(page, "#gpu-tree");
+  expect(slab.object ?? slab.face).toBe(level === "objects" ? "slab" : "raised");
+  expect(await primitiveOf(page, "#gpu-tree-readme")).toBeNull();
+  // Real keys: Right opens src, and its file shows.
+  await page.locator("#gpu-tree [data-strata-value='src']").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#gpu-tree [data-strata-value='src']")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#gpu-tree [data-strata-value='src/index.ts']")).toBeVisible();
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  // The slab grew with the open group, on the GPU.
+  expect((await primitiveOf(page, "#gpu-tree")).rect[3]).toBeGreaterThan(slab.rect[3]);
+  // A real click through the GPU selects README.
+  const readme = await page.locator("#gpu-tree-readme").boundingBox();
+  await page.mouse.click(readme.x + readme.width / 2, readme.y + readme.height / 2);
+  await expect(page.locator("#gpu-tree [data-strata-value='readme']")).toHaveAttribute("aria-selected", "true");
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});

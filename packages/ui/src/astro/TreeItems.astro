@@ -1,0 +1,24 @@
+---
+/** The items of a TreeView (anatomy page `tree-view.md`), one level, rendering the next level inside each parent. */
+import type { StrataTreeTextNode } from "../shared/tree.ts";
+
+interface Props {
+  nodes: readonly StrataTreeTextNode[];
+  expanded: readonly string[];
+  selected?: string;
+  /** The item that holds the tab stop. */
+  stop?: string;
+}
+
+const { nodes, expanded, selected, stop } = Astro.props;
+---
+{nodes.map(node => {
+  const parent = !!node.children?.length;
+  return (
+    <li class="ug-tree__item" role="treeitem" data-strata-value={node.value} aria-expanded={parent ? String(expanded.includes(node.value)) : undefined}
+      aria-selected={String(node.value === selected)} tabindex={node.value === stop ? "0" : "-1"}>
+      <span class="ug-tree__row">{parent && <span class="ug-tree__toggle" aria-hidden="true"></span>}<span class="ug-tree__label">{node.label}</span></span>
+      {parent && <ul class="ug-tree__group" role="group"><Astro.self nodes={node.children!} expanded={expanded} selected={selected} stop={stop} /></ul>}
+    </li>
+  );
+})}

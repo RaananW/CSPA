@@ -1129,6 +1129,65 @@
   }
   @starting-style { :where(.ug-toast) { translate: 0 8px; opacity: 0; } }
 
+  /* ---- TreeView ---- */
+
+  /* One raised slab with flat rows; a closed item's group is hidden from aria-expanded. */
+  :where(.ug-tree) {
+    --_finish: var(--strata-finish-role-control);
+    display: block;
+    box-sizing: border-box;
+    margin: 0;
+    padding: var(--strata-space-1);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    list-style: none;
+  }
+  :where(.ug-tree__group) { margin: 0; padding: 0; padding-inline-start: var(--strata-space-5); list-style: none; }
+  :where(.ug-tree__item[aria-expanded="false"]) > :where(.ug-tree__group) { display: none; }
+  :where(.ug-tree__item) { outline: none; }
+  :where(.ug-tree__row) {
+    display: flex;
+    align-items: center;
+    gap: var(--strata-space-1);
+    box-sizing: border-box;
+    min-height: 32px;
+    padding-inline: var(--strata-space-2);
+    border-radius: var(--strata-radius-small);
+    cursor: default;
+    user-select: none;
+  }
+  /* A leaf's row starts where its siblings' labels do, past the toggle. */
+  :where(.ug-tree__item:not([aria-expanded])) > :where(.ug-tree__row) { padding-inline-start: calc(var(--strata-space-2) + 16px + var(--strata-space-1)); }
+  :where(.ug-tree__row:hover) { background-color: color-mix(in srgb, var(--strata-colour-text) 6%, transparent); }
+  /* The selected row: tinted, a strip along its start edge, and strong. */
+  :where(.ug-tree__item[aria-selected="true"]) > :where(.ug-tree__row) {
+    padding-inline-start: calc(var(--strata-space-2) - 3px);
+    border-inline-start: 3px solid var(--strata-colour-accent);
+    background-color: color-mix(in srgb, var(--strata-colour-accent) 16%, var(--strata-colour-secondary));
+    font-weight: var(--strata-font-weight-strong);
+  }
+  :where(.ug-tree__item[aria-selected="true"]:not([aria-expanded])) > :where(.ug-tree__row) { padding-inline-start: calc(var(--strata-space-2) + 16px + var(--strata-space-1) - 3px); }
+  :where(.ug-tree__item:focus-visible) > :where(.ug-tree__row) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: calc(-1 * var(--strata-focus-width));
+  }
+  /* The toggle: a chevron pointing along the text when closed, and down when open. */
+  :where(.ug-tree__toggle) { display: inline-grid; flex: none; place-items: center; width: 16px; height: 16px; cursor: pointer; }
+  :where(.ug-tree__toggle)::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    rotate: -45deg;
+    transition: rotate var(--strata-motion-fast) var(--strata-motion-easing-standard);
+  }
+  :where(.ug-tree:dir(rtl)) :where(.ug-tree__toggle)::before { rotate: 135deg; }
+  :where(.ug-tree__item[aria-expanded="true"]) > :where(.ug-tree__row) > :where(.ug-tree__toggle)::before { rotate: 45deg; }
+  :where(.ug-tree__label) { min-width: 0; overflow-wrap: anywhere; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1304,6 +1363,7 @@
   @media (prefers-reduced-motion: reduce) {
     :where([data-strata-face], .ug-checkbox__mark, .ug-radio__dot, .ug-switch__knob, .ug-switch__input, .ug-accordion__chevron) { transition: none; }
     :where(.ug-spinner__arc) { animation: none; }
+    :where(.ug-tree__toggle)::before { transition: none; }
     :where(.ug-scrim) { transition: none; }
     :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
@@ -1330,6 +1390,8 @@
     :where(.ug-scrim) { forced-color-adjust: none; }
     :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group, .ug-toolbar) { border: 1px solid ButtonBorder; }
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-tree) { border: 1px solid CanvasText; }
+    :where(.ug-tree__item[aria-selected="true"]) > :where(.ug-tree__row) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
     :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }

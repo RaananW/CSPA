@@ -13,6 +13,7 @@
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  *   toasts appear in the status region and go after their time, which hovering stops;
+ *   a TreeView moves, opens, closes and selects by the tree pattern's keys and by clicks, with one tab stop;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -395,6 +396,8 @@ for (const binding of bindings) test(`Strata ${binding} List rows are links, but
   await expect(page).toHaveURL(/#inbox$/);
   // A button row fills the row: a click at its far end presses it, and so do Enter and Space.
   const archive = page.locator("#archive-row .ug-list__action");
+  // A coordinate click does not scroll: the list may be below the fold.
+  await archive.scrollIntoViewIfNeeded();
   const row = await page.locator("#archive-row").boundingBox(), action = await archive.boundingBox();
   expect(Math.abs(row.width - action.width)).toBeLessThanOrEqual(1);
   expect(action.height).toBeGreaterThanOrEqual(24);
@@ -732,5 +735,58 @@ for (const binding of bindings) test(`Strata ${binding} toasts appear in the sta
   await expect(toasts).toHaveCount(3);
   await toasts.first().getByRole("button", { name: "Dismiss" }).click();
   await expect(toasts).toHaveCount(2);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} TreeView moves, opens, closes and selects by the tree pattern's keys and by clicks, with one tab stop`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const tree = page.getByRole("tree", { name: "Project" });
+  await tree.scrollIntoViewIfNeeded();
+  const item = name => tree.getByRole("treeitem", { name, exact: true });
+  const focused = () => page.evaluate(() => document.activeElement?.querySelector(":scope > .ug-tree__row .ug-tree__label")?.textContent);
+  const stops = () => tree.locator("[role='treeitem'][tabindex='0']").count();
+  // One tab stop, on the first item while nothing is selected; closed groups are hidden.
+  expect(await stops()).toBe(1);
+  await expect(item("src")).toHaveAttribute("tabindex", "0");
+  await expect(item("app.ts")).toBeHidden();
+  await expect(item("guide.md")).toBeVisible();
+  await item("src").focus();
+  // Right opens a closed parent, then moves to its first child; Down moves on.
+  await page.keyboard.press("ArrowRight");
+  await expect(item("src")).toHaveAttribute("aria-expanded", "true");
+  expect(await page.evaluate(() => window.strataBinding.tree.expanded)).toEqual(["docs", "src"]);
+  await page.keyboard.press("ArrowRight");
+  expect(await focused()).toBe("app.ts");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  expect(await focused()).toBe("button.ts");
+  // Left on a leaf moves to its parent, and on an open parent closes it.
+  await page.keyboard.press("ArrowLeft");
+  expect(await focused()).toBe("ui");
+  await page.keyboard.press("ArrowLeft");
+  await expect(item("ui")).toHaveAttribute("aria-expanded", "false");
+  await expect(item("button.ts")).toBeHidden();
+  // Home and End; Enter selects, and the tab stop follows focus.
+  await page.keyboard.press("End");
+  expect(await focused()).toBe("README.md");
+  await page.keyboard.press("Home");
+  expect(await focused()).toBe("src");
+  await page.keyboard.press("Enter");
+  await expect(item("src")).toHaveAttribute("aria-selected", "true");
+  expect(await page.evaluate(() => window.strataBinding.tree.selected)).toBe("src");
+  expect(await stops()).toBe(1);
+  // A click on a row selects it; a click on a toggle closes or opens its item.
+  await tree.locator("[data-strata-value='docs/guide.md'] > .ug-tree__row").click();
+  await expect(item("guide.md")).toHaveAttribute("aria-selected", "true");
+  await expect(item("src")).toHaveAttribute("aria-selected", "false");
+  await tree.locator("[data-strata-value='docs'] > .ug-tree__row .ug-tree__toggle").click();
+  await expect(item("docs")).toHaveAttribute("aria-expanded", "false");
+  await expect(item("guide.md")).toBeHidden();
+  // Each row is a 24 px target at least.
+  expect((await tree.locator("[data-strata-value='src'] > .ug-tree__row").boundingBox()).height).toBeGreaterThanOrEqual(24);
   await context.close();
 });

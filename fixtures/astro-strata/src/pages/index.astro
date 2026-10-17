@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import {
   Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, RadioGroup, Select, Skeleton, Slider, Spinner, Table, Tabs,
-  StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton, Toolbar, Tooltip,
+  StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView,
 } from "@underglass/ui/astro";
 
 const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
@@ -33,6 +33,7 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     <div data-contract="radio.md"><RadioGroup legend="Plan" name="plan" value="free" help="You can change it later." error="choose a plan." options={[{ value: "free", label: "Free" }, { value: "pro", label: "Pro" }]} /></div>
     <div data-contract="table.md#2"><Table caption="Invoices" columns={[{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }]} rows={[{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }]} sort={{ key: "number", direction: "ascending" }} /></div>
     <div data-contract="avatar.md"><Avatar name="Ada Lovelace" /><Avatar name="Grace Hopper" src="/people/grace.jpg" /><Avatar name="Alan Turing" decorative /></div>
+    <div data-contract="tree-view.md"><TreeView label="Files" items={[{ value: "src", label: "src", children: [{ value: "src/index.ts", label: "index.ts" }] }, { value: "readme", label: "README.md" }]} expanded={["src"]} selected="src/index.ts" /></div>
     <div data-contract="chip.md"><Chip label="Design" /><Chip label="Remote" pressed /><Chip label="ada@example.com" removable /></div>
     <div data-contract="message-bar.md"><MessageBar intent="warning" title="Storage almost full" dismissible>You have used 95% of your space.<Fragment slot="actions"><Button>Upgrade</Button></Fragment></MessageBar></div>
     <div data-contract="app-bar.md"><AppBar title="Underglass"><Fragment slot="start"><IconButton label="Menu" /></Fragment><Fragment slot="end"><Button>Sign in</Button></Fragment></AppBar></div>
@@ -75,6 +76,9 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     </section>
     <section class="ug-panel" data-strata-face="raised" aria-label="Messages">
       <MessageBar intent="warning" id="astro-message" dismissible>Check your address.</MessageBar>
+    </section>
+    <section class="ug-panel" data-strata-face="raised" aria-label="Trees">
+      <TreeView id="astro-tree" label="Project" items={[{ value: "src", label: "src", children: [{ value: "src/app.ts", label: "app.ts" }, { value: "src/ui", label: "ui", children: [{ value: "src/ui/button.ts", label: "button.ts" }] }] }, { value: "docs", label: "docs", children: [{ value: "docs/guide.md", label: "guide.md" }] }, { value: "readme", label: "README.md" }]} expanded={["docs"]} />
     </section>
     <section class="ug-panel" data-strata-face="raised" aria-label="Chips">
       <p style="display: flex; gap: 8px; margin: 0"><Chip label="Remote" pressed={false} id="remote-chip" /><Chip label="ada@example.com" removable id="ada-chip" /></p>

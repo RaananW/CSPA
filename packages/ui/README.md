@@ -448,3 +448,16 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
+
+## TreeView
+
+A hierarchy to browse and pick from, by the WAI-ARIA Tree View pattern: one tab stop, the arrow keys, Home and End to
+move, open and close, and Enter, Space or a click to select. Items are data:
+
+```tsx
+<TreeView label="Files" items={[{ value: "src", label: "src", children: [{ value: "src/index.ts", label: "index.ts" }] }]}
+  expanded={open} onExpandedChange={setOpen} selected={file} onSelect={setFile} />
+```
+
+Vue uses `v-model:expanded` and `v-model:selected`. In plain HTML and Astro, `attachStrata` runs it from the markup and
+reports `strata-expand` and `strata-select` from the item. [Anatomy](../../docs/ui-library/components/tree-view.md).
