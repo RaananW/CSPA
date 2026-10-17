@@ -448,3 +448,15 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
+
+## Stepper
+
+Where the user is in a task of ordered steps, as an `<ol>` whose current step carries `aria-current="step"`; complete
+steps say so in a visually hidden " (completed)" (`completedLabel`). It shows progress only: the task's own buttons
+move `current`.
+
+```tsx
+<Stepper label="Checkout progress" steps={["Cart", "Shipping", "Payment"]} current={1} />
+```
+
+`orientation="vertical"` stacks the steps. [Anatomy](../../docs/ui-library/components/stepper.md).

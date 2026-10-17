@@ -753,3 +753,19 @@ test("a toast over a GPU-presented panel leaves the panel on the GPU", async ({ 
   expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`a Stepper on the GPU at the ${level} level: raised markers up to the current step, flat ones after, groove lines, following its state, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addStepper(); await window.strataGpuProbe.controller.settle(); });
+  const raised = level === "objects" ? "slab" : "raised";
+  const markers = () => Promise.all([0, 1, 2].map(async index => { const entry = await primitiveOf(page, `#gpu-marker-${index}`); return entry && (entry.object ?? entry.face); }));
+  expect(await markers()).toEqual([raised, raised, "flat"]);
+  for (const index of [1, 2]) expect((await primitiveOf(page, `#gpu-line-${index}`))?.face).toBe("groove");
+  // The binding moves to the last step: its marker stands up, on the GPU.
+  await page.evaluate(async () => { window.strataGpuProbe.stepTo(2); await window.strataGpuProbe.controller.settle(); });
+  expect(await markers()).toEqual([raised, raised, raised]);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});

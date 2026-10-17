@@ -13,6 +13,7 @@
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  *   toasts appear in the status region and go after their time, which hovering stops;
+ *   a Stepper marks the current step and the complete ones, follows its state, and stacks when vertical;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -732,5 +733,31 @@ for (const binding of bindings) test(`Strata ${binding} toasts appear in the sta
   await expect(toasts).toHaveCount(3);
   await toasts.first().getByRole("button", { name: "Dismiss" }).click();
   await expect(toasts).toHaveCount(2);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Stepper marks the current step and the complete ones, follows its state, and stacks when vertical`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const stepper = page.getByRole("list", { name: "Checkout progress" }).last();
+  const steps = stepper.getByRole("listitem");
+  const read = () => steps.evaluateAll(items => items.map(item => `${item.getAttribute("aria-current") ?? "-"}:${item.textContent}:${item.querySelector(".ug-stepper__marker").getAttribute("data-strata-face")}`));
+  expect(await read()).toEqual(["-:1Cart (completed):raised", "step:2Shipping:raised", "-:3Payment:flat", "-:4Review:flat"]);
+  await page.locator("#stepper-next").click();
+  expect(await read()).toEqual(["-:1Cart (completed):raised", "-:2Shipping (completed):raised", "step:3Payment:raised", "-:4Review:flat"]);
+  await page.locator("#stepper-back").click();
+  await page.locator("#stepper-back").click();
+  expect(await read()).toEqual(["step:1Cart:raised", "-:2Shipping:flat", "-:3Payment:flat", "-:4Review:flat"]);
+  // Complete markers are filled with the accent; markers to come are not.
+  await page.locator("#stepper-next").click();
+  const fills = await steps.evaluateAll(items => items.map(item => getComputedStyle(item.querySelector(".ug-stepper__marker")).backgroundColor));
+  expect(fills[0]).not.toBe(fills[2]);
+  expect(fills[2]).toBe(fills[3]);
+  // The vertical form stacks its markers in one column.
+  const markers = await page.locator("#vertical-stepper .ug-stepper__marker").evaluateAll(spans => spans.map(span => span.getBoundingClientRect().toJSON()));
+  expect(new Set(markers.map(box => Math.round(box.x))).size).toBe(1);
+  expect(markers[1].y).toBeGreaterThan(markers[0].y);
   await context.close();
 });

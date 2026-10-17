@@ -1129,6 +1129,88 @@
   }
   @starting-style { :where(.ug-toast) { translate: 0 8px; opacity: 0; } }
 
+  /* ---- Stepper ---- */
+
+  /* Coins on a groove. A step's state is its place relative to aria-current="step": before it, complete. */
+  :where(.ug-stepper) {
+    --_marker: calc(var(--strata-indicator) + 8px);
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-small);
+  }
+  :where(.ug-stepper__step) {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--strata-space-2);
+    min-width: 0;
+    text-align: center;
+  }
+  :where(.ug-stepper__marker) {
+    position: relative;
+    z-index: 1;
+    display: inline-grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: var(--_marker);
+    height: var(--_marker);
+    border-radius: 50%;
+    background-color: var(--strata-colour-track);
+    /* The text colour: muted text on the track is under 4.5:1. */
+    color: var(--strata-colour-text);
+    font-weight: var(--strata-font-weight-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  :where(.ug-stepper__step:has(~ .ug-stepper__step[aria-current="step"])) > :where(.ug-stepper__marker) {
+    background-color: var(--strata-colour-accent);
+    color: var(--strata-colour-on-accent);
+  }
+  :where(.ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__marker) {
+    border: 2px solid var(--strata-colour-accent);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+  }
+  :where(.ug-stepper__label) { overflow-wrap: anywhere; }
+  :where(.ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__label) { font-weight: var(--strata-font-weight-strong); }
+  :where(.ug-stepper__step[aria-current="step"] ~ .ug-stepper__step) > :where(.ug-stepper__label) { color: var(--strata-colour-muted); }
+  :where(.ug-stepper__status) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* The line runs from the previous marker's centre to this one's, behind both. */
+  :where(.ug-stepper__line) {
+    position: absolute;
+    top: calc(var(--_marker) / 2 - 2px);
+    right: calc(50% + var(--_marker) / 2);
+    left: calc(-50% + var(--_marker) / 2);
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--strata-colour-track);
+  }
+  :where(.ug-stepper__step:has(~ .ug-stepper__step[aria-current="step"]), .ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__line) {
+    background-color: var(--strata-colour-accent);
+  }
+  :where(.ug-stepper--vertical) { flex-direction: column; }
+  :where(.ug-stepper--vertical) > :where(.ug-stepper__step) {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: flex-start;
+    min-height: calc(var(--_marker) + var(--strata-space-6));
+    text-align: start;
+  }
+  :where(.ug-stepper--vertical) > :where(.ug-stepper__step) > :where(.ug-stepper__label) { padding-top: calc((var(--_marker) - 1lh) / 2); }
+  :where(.ug-stepper--vertical) > :where(.ug-stepper__step) > :where(.ug-stepper__line) {
+    /* Steps are a marker and space.6 high: the line fills the space.6 above this marker, up to the previous one. */
+    top: calc(-1 * var(--strata-space-6));
+    right: auto;
+    left: calc(var(--_marker) / 2 - 2px);
+    width: 4px;
+    height: var(--strata-space-6);
+  }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1330,6 +1412,10 @@
     :where(.ug-scrim) { forced-color-adjust: none; }
     :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group, .ug-toolbar) { border: 1px solid ButtonBorder; }
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-stepper__marker) { border: 1px solid CanvasText; }
+    :where(.ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__marker) { border: 2px solid CanvasText; }
+    :where(.ug-stepper__step:has(~ .ug-stepper__step[aria-current="step"])) > :where(.ug-stepper__marker, .ug-stepper__line),
+    :where(.ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__line) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
     :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }

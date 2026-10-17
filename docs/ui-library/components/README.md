@@ -108,3 +108,9 @@ light and depth, reduced motion, keyboard input and reflow.
 | [Toolbar](toolbar.md) | `<div role="toolbar">` | Keys on one plinth, one tab stop |
 | [Table](table.md) | `<table>` with `<caption>` and sortable headers | One raised slab; rows are flat |
 | [Tabs](tabs.md) | `<button role="tab">` in a `role="tablist"` | Flat tabs over a rail groove; the selected tab's indicator is a mark in it |
+
+## Tier C
+
+| Component | Native element | Object |
+| --- | --- | --- |
+| [Stepper](stepper.md) | An `<ol>` with `aria-current="step"` | Coins on a groove; steps to come are flat |

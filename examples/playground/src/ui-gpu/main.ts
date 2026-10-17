@@ -11,7 +11,8 @@
  * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts, `strataGpuProbe.addAvatar()` an Avatar, and
  * `strataGpuProbe.addChips()` a tag and a filter chip, `strataGpuProbe.addMessage()` a MessageBar with an action, and
  * `strataGpuProbe.addPagination()` three page keys, `strataGpuProbe.addToolbar()` a Toolbar of toggle buttons, 
- * `strataGpuProbe.addAppBar()` an AppBar, and `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root.
+ * `strataGpuProbe.addAppBar()` an AppBar, `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root, and
+ * `strataGpuProbe.addStepper()` a Stepper of three steps, which `strataGpuProbe.stepTo(index)` moves as a binding would.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -127,6 +128,17 @@ const paginationMarkup = `<nav class="ug-pagination" aria-label="Pagination" id=
 /** A MessageBar in plain markup (`message-bar.md`), added by `strataGpuProbe.addMessage()`; its action counts presses. */
 const messageMarkup = `<div class="ug-message-bar ug-message-bar--warning" data-strata-face="raised" role="alert" id="gpu-message" style="margin-top:12px"><span class="ug-message-bar__icon" aria-hidden="true"></span><div class="ug-message-bar__content"><p class="ug-message-bar__body">Storage almost full.</p></div><div class="ug-message-bar__actions"><button class="ug-button" data-strata-face="raised" type="button" id="gpu-message-action"><span class="ug-button__label">Upgrade</span></button></div></div>`;
 let upgrades = 0;
+/** A Stepper in plain markup (`stepper.md`), added by `strataGpuProbe.addStepper()`, at its second step. */
+const stepperMarkup = `<ol class="ug-stepper" aria-label="Checkout progress" style="margin-top:12px">${["Cart", "Shipping", "Payment"].map((label, index) =>
+  `<li class="ug-stepper__step"${index === 1 ? ' aria-current="step"' : ""}>${index ? `<span class="ug-stepper__line" data-strata-face="groove" aria-hidden="true" id="gpu-line-${index}"></span>` : ""}<span class="ug-stepper__marker" data-strata-face="${index <= 1 ? "raised" : "flat"}" aria-hidden="true" id="gpu-marker-${index}">${index + 1}</span><span class="ug-stepper__label">${label}</span></li>`).join("")}</ol>`;
+/** Moves the Stepper's current step and its markers' faces, as a binding re-renders them. */
+function stepTo(current: number) {
+  panel.querySelectorAll(".ug-stepper__step").forEach((step, index) => {
+    step.toggleAttribute("aria-current", index === current);
+    if (index === current) step.setAttribute("aria-current", "step");
+    step.querySelector(".ug-stepper__marker")!.setAttribute("data-strata-face", index <= current ? "raised" : "flat");
+  });
+}
 /** Chips in plain markup (`chip.md`), added by `strataGpuProbe.addChips()`: a tag and a filter chip. */
 const chipsMarkup = `<p style="margin:12px 0 0;display:flex;gap:8px"><span class="ug-chip" data-strata-face="raised" id="gpu-tag"><span class="ug-chip__label">Design</span></span><button class="ug-chip" data-strata-face="raised" type="button" aria-pressed="false" id="gpu-filter"><span class="ug-chip__label">Remote</span></button></p>`;
 /** An Avatar in plain markup (`avatar.md`), added to the panel by `strataGpuProbe.addAvatar()`. */
@@ -180,6 +192,8 @@ window.strataGpuProbe = {
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
   addTooltip,
+  addStepper: () => { panel.insertAdjacentHTML("beforeend", stepperMarkup); strata?.refresh(); },
+  stepTo,
   toast: () => { showStrataToast({ message: "Saved.", intent: "success", duration: Infinity }); },
   addAppBar: () => { panel.insertAdjacentHTML("beforeend", appBarMarkup); panel.querySelector("#gpu-sign-in")!.addEventListener("click", () => { signIns++; }); strata?.refresh(); },
   signIns: () => signIns,
@@ -210,6 +224,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; toast(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addStepper(): void; stepTo(index: number): void; toast(): void;
   } }
 }

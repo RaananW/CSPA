@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Stepper,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast,
 } from "@underglass/ui/vue";
 
@@ -38,6 +38,7 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("table.md", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }, { number: "1002", customer: "Grace Hopper", amount: "87.50" }], defaultSort: { key: "number", direction: "ascending" } })),
   contract("table.md#2", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }], sort: { key: "number", direction: "ascending" } })),
   contract("avatar.md", [h(Avatar, { name: "Ada Lovelace" }), h(Avatar, { name: "Grace Hopper", src: "/people/grace.jpg" }), h(Avatar, { name: "Alan Turing", decorative: true })]),
+  contract("stepper.md", [h(Stepper, { label: "Checkout progress", steps: ["Cart", "Shipping", "Payment"], current: 1 })]),
   contract("chip.md", [h(Chip, null, { default: text("Design") }), h(Chip, { defaultPressed: true }, { default: text("Remote") }), h(Chip, { onRemove: () => {} }, { default: text("ada@example.com") })]),
   contract("message-bar.md", h(MessageBar, { intent: "warning", title: "Storage almost full", onDismiss: () => {} }, {
     default: text("You have used 95% of your space."), actions: () => h(Button, null, { default: text("Upgrade") }),
@@ -108,7 +109,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
-    const page = ref(1), appBar = ref(0), toasts = ref(0);
+    const page = ref(1), appBar = ref(0), toasts = ref(0), step = ref(1);
     const messages = reactive({ upgrades: 0, dismissed: false });
     const chips = reactive({ remote: false, removed: [] as string[] });
     const sort = ref<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -270,6 +271,12 @@ const App = defineComponent({
                 ],
               }),
               h(Pagination, { id: "live-pagination", page: page.value, count: 12, "onUpdate:page": (value: number) => { page.value = value; } }),
+              h(Stepper, { id: "live-stepper", label: "Checkout progress", steps: ["Cart", "Shipping", "Payment", "Review"], current: step.value }),
+              h("p", { style: { display: "flex", gap: "12px", margin: "0" } }, [
+                h(Button, { id: "stepper-back", onClick: () => { step.value = Math.max(0, step.value - 1); } }, { default: text("Back") }),
+                h(Button, { id: "stepper-next", onClick: () => { step.value = Math.min(3, step.value + 1); } }, { default: text("Next") }),
+              ]),
+              h(Stepper, { id: "vertical-stepper", label: "Setup", orientation: "vertical", steps: ["Account", "Team", "Billing"], current: 1 }),
               h(Breadcrumb, { id: "live-breadcrumb", items: [{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }] }),
             ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Lists" }, [
