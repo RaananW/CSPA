@@ -300,6 +300,67 @@ for (const dpr of [1, 2]) test(`instrument material: GPU-presented parts, contai
     await stillGpu(call, "over budget");
     await call("budget", null);
 
+    // More objects of existing kinds update in place: no rebuild, no object at Relief.
+    const buildsBefore = (await call("instrument")).compile.builds;
+    await call("copies", 3);
+    instrument = await call("instrument");
+    report.copies = { builds: instrument.compile.builds - buildsBefore, lower: instrument.layers.find(layer => layer.id === "lower") };
+    expect(report.copies.builds, "three more knobs need no rebuild").toBe(0);
+    expect(report.copies.lower.status).toBe("ready");
+    expect(report.copies.lower.steppedDown).toEqual([]);
+    await call("copies", 0);
+
+    // Bounds past the layer's box: the object is drawn at Relief and nothing reaches past the panel's edge.
+    const lowerBox = panels.lower;
+    const beside = { x: lowerBox.x + lowerBox.width, y: lowerBox.y, width: viewport.width - (lowerBox.x + lowerBox.width), height: lowerBox.height };
+    const inBox = await shot(page);
+    await call("outside", true);
+    const outsideShot = await shot(page, `${directory}/outside-dpr${dpr}.png`);
+    const outsideDegraded = (await call("materials")).find(material => material.id === "lower").degraded;
+    report.outside = { degraded: outsideDegraded, beside: changedIn(inBox, outsideShot, beside, dpr) };
+    expect(outsideDegraded).toEqual([{ object: "outside", reason: "containment", detail: "its bounds leave the layer's box" }]);
+    expect(report.outside.beside.compared).toBeGreaterThan(0);
+    expect(report.outside.beside.changed, "nothing is drawn past the layer's box").toBe(0);
+    await call("outside", false);
+    await stillGpu(call, "after bounds past the layer");
+
+    // A new light rebuilds the scenes: the parts are relit, not only the face.
+    const lit = await shot(page);
+    const builds = (await call("instrument")).compile.builds;
+    await call("relight", 200);
+    const relit = await shot(page, `${directory}/relit-dpr${dpr}.png`);
+    instrument = await call("instrument");
+    const knobs = controls.filter(control => control.layer === "lower" && control.kind === "knob" && rounded({ x: control.x, y: control.y }, panels.upper) > control.width * 2);
+    report.relight = { builds: instrument.compile.builds - builds, statuses: instrument.layers.map(layer => layer.status),
+      knobPixels: knobs.reduce((total, control) => total + changedIn(lit, relit, control, dpr).changed, 0) };
+    expect(report.relight.builds, "each layer is rebuilt with the new light").toBe(3);
+    expect(report.relight.statuses).toEqual(["ready", "ready", "ready"]);
+    expect(report.relight.knobPixels, "the knobs' parts are relit").toBeGreaterThan(1000);
+    await call("relight", 323);
+
+    // Lifecycle: scenes and retirements return to their counts after a rebuild, a cancel, disable and re-enable.
+    const resources = async () => {
+      await page.waitForFunction(async () => ((await window.instrumentCore.ready).instrument()?.resources.retiring ?? 0) === 0, null, { timeout: 15000 });
+      return (await call("instrument"))?.resources ?? null;
+    };
+    report.lifecycle = { afterRebuild: await resources() };
+    expect(report.lifecycle.afterRebuild).toMatchObject({ scenes: 3, retiring: 0 });
+    await call("cancel", "upper");
+    report.lifecycle.afterCancel = await resources();
+    expect(report.lifecycle.afterCancel).toMatchObject({ scenes: 2, retiring: 0 });
+    await call("restore", "upper");
+    report.lifecycle.afterRestore = await resources();
+    expect(report.lifecycle.afterRestore).toMatchObject({ scenes: 3, retiring: 0 });
+    report.lifecycle.disabled = await call("disable");
+    expect(report.lifecycle.disabled.mode).toBe("dom");
+    expect(await call("instrument"), "disable releases every scene with the engine").toBeNull();
+    report.lifecycle.enabled = await call("enable");
+    expect(report.lifecycle.enabled.mode).toBe("gpu");
+    report.lifecycle.afterEnable = await resources();
+    expect(report.lifecycle.afterEnable).toMatchObject({ scenes: 3, retiring: 0 });
+    instrument = await call("instrument");
+    expect(instrument.layers.map(layer => layer.status)).toEqual(["ready", "ready", "ready"]);
+
     // Density 250: poses only for 300 frames.
     report.density = await call("setDensity", 250);
     await stillGpu(call, "250 controls");
@@ -362,4 +423,33 @@ test("instrument material: the start reaches GPU with every scene built, 10 time
     } finally { await context.close(); }
   }
   await writeFile(`${directory}/starts.json`, JSON.stringify(runs, null, 2));
+  // The race path ran: a successor composition started while a mesh build held the compile gate.
+  expect(runs.reduce((sum, run) => sum + run.compile.deferredDeadlines, 0), "successor deadlines deferred by a build").toBeGreaterThanOrEqual(1);
+});
+
+test("instrument material: a build that hangs times out, its layer steps down, and a racing successor still publishes", async ({ browser }) => {
+  test.setTimeout(300000);
+  // `?hang=1`: core's internal test hook never lets the lower panel's first build finish; `?race=1`: a relief layer joins
+  // right after enable, while that build holds the compile gate.
+  const { context, page, call, errors } = await open(browser, 1, "?hang=1&race=1");
+  try {
+    const boot = await call("boot");
+    await page.waitForFunction(async () => (await window.instrumentCore.ready).instrument()?.layers.find(layer => layer.id === "lower")?.status === "failed", null, { timeout: 30000 });
+    await call("settle");
+    const instrument = await call("instrument"), counts = await call("counts"), state = await call("state");
+    const lower = instrument.layers.find(layer => layer.id === "lower");
+    const report = { boot, compile: instrument.compile, statuses: instrument.layers.map(layer => [layer.id, layer.status]), lower: { status: lower.status, steppedDown: lower.steppedDown.slice(0, 1) },
+      layers: state.layers.map(layer => layer.id), mode: counts.mode, reason: counts.reason };
+    await writeFile(`${directory}/hang.json`, JSON.stringify(report, null, 2));
+    expect(counts.mode, counts.reason).toBe("gpu");
+    expect(counts.reason).toMatch(healthy);
+    expect(lower.steppedDown[0]).toMatchObject({ reason: "compile" });
+    expect(lower.steppedDown[0].detail).toContain("timed out after 10000 ms");
+    expect(instrument.compile.timeouts).toBe(1);
+    expect(instrument.layers.filter(layer => layer.id !== "lower").map(layer => layer.status)).toEqual(["ready", "ready"]);
+    expect(state.layers.map(layer => layer.id), "the racing layer was published").toContain("extra");
+    expect(instrument.compile.deferredDeadlines, "the successor waited for the hung build").toBeGreaterThanOrEqual(1);
+    expect(instrument.compile.deferredMs, "but no longer than the build deadline").toBeLessThan(11000);
+    expect(errors.filter(error => !error.includes("is drawn at the Relief level"))).toEqual([]);
+  } finally { await context.close(); }
 });

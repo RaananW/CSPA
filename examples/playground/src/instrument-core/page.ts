@@ -125,8 +125,14 @@ function layout(count: number) {
 }
 
 const hosts = createCanvasHosts(frame);
-const controller: CanvasController = mountApplicationModule({ ...hosts, budgets: { layers: 8, pixels: 4_000_000 },
-  onStatusChange: value => { status.dataset.core = `${value.mode}: ${value.reason}`; } }, { mount({ container, enroll }) {
+// `?hang=1`: core's internal test hook (not public API) holds the lower panel's first scene build forever, so the build
+// deadline steps that layer down while a successor composition (`?race=1`) waits at most for that deadline.
+let hung = false;
+const instrumentTestHook = params.get("hang") === "1"
+  ? { beforeBuild: (id: string) => (id === "lower" && !hung ? (hung = true, new Promise<void>(() => {})) : undefined) } : undefined;
+const runtimeOptions = { ...hosts, budgets: { layers: 8, pixels: 4_000_000 }, instrumentTestHook,
+  onStatusChange: (value: { mode: string; reason: string }) => { status.dataset.core = `${value.mode}: ${value.reason}`; } };
+const controller: CanvasController = mountApplicationModule(runtimeOptions, { mount({ container, enroll }) {
   lower = document.createElement("section");
   upper = document.createElement("section");
   viewport = document.createElement("div");
@@ -146,9 +152,24 @@ const controller: CanvasController = mountApplicationModule({ ...hosts, budgets:
 const scenes = new Map<string, InstrumentScene>();
 const handles = new Map<string, MaterialHandle>();
 let budgetParts: number | undefined;
+// Scene changes for the review's cases: the light's azimuth, an object whose bounds leave the lower panel, and extra
+// objects (copies of the lower panel's first knob) that need no new kind.
+const extras = { azimuth: 323, outside: false, copies: 0 };
 const sceneOf = (panel: HTMLElement) => {
   const base = panelScene(panel, theme, stage(), pressed, { overshoot: overshoot && panel === lower ? lower.querySelector<HTMLElement>("[data-part=knob]")?.id : undefined,
     casters: options.casters, objects: options.meshes && !faceOnly.has(panel.id) });
+  base.light = { ...base.light, azimuth: extras.azimuth };
+  if (panel === lower && base.objects.length) {
+    const knob = base.objects.find(object => object.id.includes("-knob-"))!;
+    for (let index = 0; index < extras.copies; index++) base.objects.push({ ...knob, id: `${knob.id}-copy-${index}` });
+    if (extras.outside) {
+      // The same knob moved so its box reaches 40 px past the panel's right edge.
+      const [, y, w, h] = knob.rect, dx = panel.offsetWidth - w + 40 - knob.rect[0];
+      const rect: [number, number, number, number] = [panel.offsetWidth - w + 40, y, w, h];
+      base.objects.push({ ...knob, id: "outside", rect, bounds: { rect, radius: w / 2 }, relief: { ...knob.relief!, rect: [panel.offsetWidth - w - 4, y, w, h] },
+        parts: knob.parts.map(part => ({ ...part, at: [part.at[0] + dx, part.at[1], part.at[2]] as [number, number, number] })) });
+    }
+  }
   return budgetParts !== undefined && panel === upper ? budgetScene(base, budgetParts) : base;
 };
 /** Rebuilds a panel's scene from the DOM and hands it to core (`setMaterial` once, then `update`). */
@@ -318,6 +339,14 @@ const api = {
   async theme(name: Theme["name"]) { theme = themes[name]; document.body.dataset.theme = name; refreshAll(); await settle(); },
   async budget(parts: number | null) { budgetParts = parts ?? undefined; refresh(upper); await settle(); return state().instrument; },
   async relabel(id: string, text: string) { document.getElementById(id)!.querySelector(".ic-label")!.textContent = text; await settle(); },
+  async relight(azimuth: number) { extras.azimuth = azimuth; refreshAll(); await settle(); },
+  async outside(on: boolean) { extras.outside = on; refresh(lower); await settle(); },
+  async copies(count: number) { extras.copies = count; refresh(lower); await settle(); },
+  /** Ends a panel's material (`cancel`), or sets it again. */
+  async cancel(id: string) { handles.get(id)?.cancel(); handles.delete(id); await settle(); },
+  async restore(id: string) { refresh(panels().find(panel => panel.id === id)!); await settle(); },
+  async disable() { await controller.disable(); return counts(); },
+  async enable() { await controller.enable(); await settle(); return counts(); },
   async press(id: string, down: boolean) {
     const element = document.getElementById(id)!;
     if (down) pressed.add(element); else pressed.delete(element);
