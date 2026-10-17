@@ -28,5 +28,6 @@ Start here if you are using Underglass or writing components for it.
 - [Change notes](changes/README.md): the notes written before Changesets, kept as history.
 - [GPU browser tests in CI](ci-gpu-runner.md): the self-hosted GPU runner.
 - [3D UI library plan](ui-library/plan.md): proposal for a component library with its own 3D design language.
+- [Instrument level plan](ui-library/instrument.md): proposed 3D-first hardware components (knobs, faders, switches, lamps) as a fourth Strata level.
 - [Strata design language](ui-library/design-language.md): the spec and [tokens](../packages/ui/src/tokens/strata.tokens.json) of the 3D UI library.
 - [Archive](archive/): the phase-by-phase engineering history, measurements and verification records.
