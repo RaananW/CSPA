@@ -1716,7 +1716,8 @@ export class CanvasRuntime {
   }
   /** Renderer state extended with runtime diagnostics: environment, admission, layers, resource ledgers and owners. */
   state() {
-    return { ...this.renderer().state(), environment: { ...this.environment }, registryRevision: this.revision,
+    const renderer = this.renderer().state();
+    return { ...renderer, environment: { ...this.environment }, registryRevision: this.revision,
       admission: { policy: this.options.admissionPolicy ?? "explicit", intent: this.admissionIntent,
         pending: this.readmissionPending, attempts: this.automaticAttempts, reason: this.admissionReason },
       layers: this.ordered().map(layer => ({ id: layer.id, width: layer.element.offsetWidth, height: layer.element.offsetHeight,
@@ -1732,6 +1733,11 @@ export class CanvasRuntime {
       }),
       materials: [...this.materials].map(([id, { value }]) => value.kind === "stage"
         ? { id, kind: value.kind, particles: value.scene.particles.length, backdrop: value.scene.backdrop !== undefined }
+        : value.kind === "instrument"
+        // Objects drawn at the Relief level, and why (containment, budget, compile, pending...), as the renderer last drew them.
+        ? { id, kind: value.kind, primitives: value.scene.primitives.length, objects: value.scene.objects.length,
+          parts: value.scene.objects.reduce((sum, object) => sum + object.parts.length, 0), interior: { ...value.scene.interior },
+          degraded: renderer.instrument?.layers.find(layer => layer.id === id)?.steppedDown ?? [] }
         : isSceneMaterial(value)
         ? { id, kind: value.kind, primitives: value.scene.primitives.length, interior: { ...value.scene.interior },
           ...(value.kind === "objects" ? { degraded: reliefDegraded(value.scene) } : {}) }
