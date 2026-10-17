@@ -45,5 +45,7 @@ export type {
   Box, FaceFactor, GlassSample, InstrumentCaster, InstrumentEmitter, InstrumentObject, InstrumentPart, InstrumentPoint, InstrumentPose, InstrumentProfile,
   InstrumentRecipe, InstrumentScene, Matrix, ObjectContainment, PartHit, PartKind, PartMesh, PartShadingOptions, PartTerms, StudioTokens, TravelVertex, Vec2, Vec3,
 } from "./instrument.ts";
+export { applyVariant, buildInstrumentConformance, instrumentCases, instrumentExpectations, instrumentScales, instrumentTolerance } from "./instrument-conformance.ts";
+export type { ExactSample, InstrumentCase, InstrumentCheck, InstrumentSuite, InstrumentVariant, RatioSample, SampledSeed, ScaledColour } from "./instrument-conformance.ts";
 export { applyCharacter, characterNames, characterOf, defaultCharacter, instrumentSettings, isProvisional } from "./character.ts";
 export type { AppliedCharacter, CharacterInfo, InstrumentSettings, StrataCharacter } from "./character.ts";
