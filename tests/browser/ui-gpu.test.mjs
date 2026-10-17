@@ -753,3 +753,22 @@ test("a toast over a GPU-presented panel leaves the panel on the GPU", async ({ 
   expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`a SegmentedControl on the GPU at the ${level} level: keys, the selected one held down, moved by a real click, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addSegmented(); await window.strataGpuProbe.controller.settle(); });
+  const key = level === "objects" ? "key" : "raised";
+  const keys = () => Promise.all(["day", "week", "month"].map(async value => { const entry = await primitiveOf(page, `#gpu-segment-${value}`); return `${entry.object ?? entry.face}:${entry.state.pressed}`; }));
+  expect(await keys()).toEqual([`${key}:false`, `${key}:true`, `${key}:false`]);
+  // A real click on Month's key reaches its radio through the GPU; that key is now the one held down.
+  const month = await page.locator("#gpu-segment-month").boundingBox();
+  await page.mouse.click(month.x + month.width / 2, month.y + month.height / 2);
+  await page.mouse.move(5, 5);
+  expect(await page.evaluate(() => document.querySelector("input[name='gpu-view']:checked").value)).toBe("month");
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await keys()).toEqual([`${key}:false`, `${key}:false`, `${key}:true`]);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});
