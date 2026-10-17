@@ -1589,6 +1589,22 @@
   :where(.ug-carousel:dir(rtl)) :where(.ug-carousel__previous) > :where(.ug-icon-button__icon:empty)::before { rotate: -135deg; }
   :where(.ug-carousel:dir(rtl)) :where(.ug-carousel__next) > :where(.ug-icon-button__icon:empty)::before { rotate: 45deg; }
 
+  /* ---- Combobox ---- */
+
+  /* A TextField with the browser's suggestion list: a chevron printed on the face at the end. The browser's own list
+     button sits over it, transparent, so a click on the chevron opens the list. */
+  :where(.ug-combobox) {
+    --_chevron: var(--strata-colour-muted);
+    background-image:
+      linear-gradient(45deg, transparent 50%, var(--_chevron) 50%),
+      linear-gradient(135deg, var(--_chevron) 50%, transparent 50%);
+    background-position: right calc(var(--strata-space-4) + 8px) center, right calc(var(--strata-space-4) + 3px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+  :where(.ug-combobox:dir(rtl)) { background-position: left calc(var(--strata-space-4) + 3px) center, left calc(var(--strata-space-4) + 8px) center; }
+  :where(.ug-combobox)::-webkit-calendar-picker-indicator { display: block; width: 16px; height: 16px; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1812,6 +1828,8 @@
     :where(.ug-carousel__key) { border: 1px solid ButtonBorder; }
     :where(.ug-carousel__key[aria-current="true"]) { forced-color-adjust: none; background-color: Highlight; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
+    /* The printed chevron goes with the background image; the browser's own list button shows instead. */
+    :where(.ug-combobox)::-webkit-calendar-picker-indicator { opacity: 1; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
     :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }
     :where(.ug-switch__input:checked) { background-color: Highlight; }

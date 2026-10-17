@@ -449,6 +449,18 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
 
+## Combobox
+
+A TextField with suggestions: a native `<input list>` and its `<datalist>`, so the browser filters and shows the list
+and any other text may still be typed. Use a Select when only the listed values are allowed.
+
+```tsx
+<Field label="Fruit"><Combobox options={["Apple", "Apricot", { value: "Banana", label: "Yellow" }]} value={fruit} onChange={event => setFruit(event.target.value)} /></Field>
+```
+
+Vue uses `v-model`; Astro takes `options` and the Field props. The list is the browser's own, never drawn by the GPU.
+[Anatomy](../../docs/ui-library/components/combobox.md).
+
 ## Carousel
 
 A few items shown one at a time, by the WAI-ARIA Carousel pattern without rotation: Previous and Next (wrapping), a

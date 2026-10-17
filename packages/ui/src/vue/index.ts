@@ -9,6 +9,8 @@ export { Checkbox, Radio, RadioGroup, Switch } from "./choices.ts";
 export { Badge, Card, Divider, Panel, ProgressBar, Spinner } from "./display.ts";
 export { Dialog, Drawer } from "./overlays.ts";
 export { Field, Select, Slider, TextArea, TextField } from "./fields.ts";
+export { Combobox } from "./combobox.ts";
+export type { ComboboxOption } from "./combobox.ts";
 export { StrataProvider, StrataScope } from "./provider.ts";
 export { Tab, TabList, TabPanel, Tabs } from "./tabs.ts";
 export { Accordion, AccordionItem } from "./accordion.ts";
