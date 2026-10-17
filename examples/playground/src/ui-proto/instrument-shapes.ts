@@ -28,7 +28,7 @@ export function prism(profile: readonly (readonly [y: number, h: number])[], wid
     for (const [px, py, ph] of [[-x, y0, h0], [x, y0, h0], [x, y1, h1], [-x, y1, h1]] as const) {
       data.positions.push(px, py, -ph); data.normals.push(0, normalY, -normalH); data.uvs.push(px > 0 ? 1 : 0, (py + 1) / 2);
     }
-    data.indices.push(start, start + 2, start + 1, start, start + 3, start + 2);
+    data.indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
   }
   for (const side of [-1, 1]) {
     const centre = data.positions.length / 3;

@@ -27,9 +27,16 @@ export function cssVariables(tokens: ResolvedTokens, stage: Rgb, pageText: Rgb):
   const cap = materials[tokens.materials.cap], skirt = materials[tokens.materials.skirt], plate = materials[tokens.materials.plate];
   const { knob, fader, slide, rocker, bat, wall, button } = tokens;
   // Spun (circular brushed) tops show a bow-tie highlight along the light axis; smooth ones a soft gloss spot.
-  const capTop = cap.brush > 0
+  // Glass cannot refract in CSS: the cap is a pale lens over the plate colour, with the hub ring drawn magnified, a
+  // key highlight and a darker rim (the recipe's stand-in for I1's capture refraction).
+  const plateInk = triple(plate.plate.ink), plateBase = triple(plate.plate.base);
+  const capTop = cap.glass
+    ? `radial-gradient(circle at 36% 30%, rgb(255 255 255 / 0.9) 0 2.5px, rgb(255 255 255 / 0) 7px), radial-gradient(circle, rgb(${plateBase}) 0 62%, rgb(${triple(mix(plate.plate.base, [10, 20, 22], 0.45))}) 88%, rgb(255 255 255 / 0.85) 97%, rgb(${triple(mix(plate.plate.base, [10, 20, 22], 0.6))}) 100%)`
+    : cap.brush > 0
     ? `repeating-radial-gradient(circle, rgb(255 255 255 / 0.05) 0 0.6px, rgb(0 0 0 / 0.05) 0.6px 1.4px), conic-gradient(from 323deg, rgb(${triple(mix(cap.css.base, cap.css.light, 0.55))}), rgb(${triple(cap.css.base)}) 45deg, rgb(${triple(mix(cap.css.base, cap.css.shade, 0.35))}) 90deg, rgb(${triple(cap.css.base)}) 135deg, rgb(${triple(mix(cap.css.base, cap.css.light, 0.45))}) 180deg, rgb(${triple(cap.css.base)}) 225deg, rgb(${triple(mix(cap.css.base, cap.css.shade, 0.35))}) 270deg, rgb(${triple(cap.css.base)}) 315deg, rgb(${triple(mix(cap.css.base, cap.css.light, 0.55))}))`
     : `radial-gradient(circle at 34% 26%, rgb(255 255 255 / ${(0.32 * cap.css.gloss).toFixed(3)}), rgb(255 255 255 / 0) 46%), linear-gradient(160deg, rgb(${triple(mix(cap.css.base, cap.css.light, 0.25))}), rgb(${triple(cap.css.base)}) 50%, rgb(${triple(mix(cap.css.base, cap.css.shade, 0.4))}))`;
+  // A knob's glass cap also shows the printed hub ring under it, magnified (the push button's does not).
+  const knobTop = cap.glass ? `radial-gradient(circle, transparent 0 ${(knob.hub * 1.45 - 1.4).toFixed(1)}px, rgb(${plateInk}) ${(knob.hub * 1.45 - 1.2).toFixed(1)}px ${(knob.hub * 1.45 + 1.1).toFixed(1)}px, transparent ${(knob.hub * 1.45 + 1.3).toFixed(1)}px), ${capTop}` : capTop;
   const capSide = `repeating-linear-gradient(90deg, rgb(255 255 255 / ${(0.05 * cap.brush).toFixed(3)}) 0 1px, rgb(0 0 0 / ${(0.04 * cap.brush).toFixed(3)}) 1px 2.5px), linear-gradient(180deg, rgb(${triple(mix(cap.css.base, cap.css.light, 0.6))}), rgb(${triple(cap.css.base)}) 35%, rgb(${triple(cap.css.base)}) 70%, rgb(${triple(mix(cap.css.base, cap.css.shade, 0.6))}))`;
   // The faceplate: brushed hairlines in three periods (so they never read as stripes) and a soft sheen.
   const g = plate.plate.grain;
@@ -44,8 +51,8 @@ export function cssVariables(tokens: ResolvedTokens, stage: Rgb, pageText: Rgb):
     "--ip-plate-grain": grain, "--ip-plate-sheen": dark ? "0.05" : "0.07", "--ip-cut-light": dark ? "0.08" : "0.5",
     "--ip-ink": triple(plate.plate.ink), "--ip-muted": triple(plate.plate.muted), "--ip-slot": dark ? "4 4 6" : "18 19 22",
     "--ip-accent": triple(tokens.accent), "--ip-ring-off": "0.35",
-    "--ip-cap": triple(cap.css.base), "--ip-cap-light": triple(cap.css.light), "--ip-cap-shade": triple(cap.css.shade), "--ip-cap-ink": triple(cap.ink),
-    "--ip-cap-top": capTop, "--ip-cap-side": capSide,
+    "--ip-cap": triple(cap.css.base), "--ip-cap-light": triple(cap.css.light), "--ip-cap-shade": triple(cap.css.shade), "--ip-cap-ink": triple(cap.glass ? plate.plate.ink : cap.ink),
+    "--ip-cap-top": capTop, "--ip-knob-top": knobTop, "--ip-cap-side": capSide,
     "--ip-skirt": triple(skirt.css.base), "--ip-skirt-light": triple(skirt.css.light), "--ip-skirt-shade": triple(skirt.css.shade),
     "--ip-chamfer": `${knob.chamfer}px`,
     "--ip-sh-panel": shadow(8 * tokens.depthScale), "--ip-sh-skirt": shadow(knob.skirtHeight + knob.capHeight * 0.4),
