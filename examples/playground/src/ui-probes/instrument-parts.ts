@@ -181,3 +181,78 @@ export function turnX(data: PartData, angle: number, pivotHeight: number, pivotY
   }
   return { ...data, positions, normals };
 }
+
+/** One profile point of a smooth lathe: radius and height above the face, with the outward normal in the (r, h) plane. */
+export type SmoothProfilePoint = readonly [radius: number, height: number, normalR: number, normalH: number];
+
+/**
+ * A lathe around the z axis from `profile` (outermost point first) with a normal per profile point, shared by the
+ * bands on either side of it, so the surface is smooth across the profile as well as around the axis (domes, lenses,
+ * filleted caps). UVs: u around the axis, v along the profile, so a tangent frame from them runs around the part.
+ */
+export function revolveSmooth(profile: readonly SmoothProfilePoint[], segments = 64): PartData {
+  const data = empty();
+  for (let index = 0; index < profile.length; index++) {
+    const [r, h, nr, nh] = profile[index]!;
+    for (let step = 0; step <= segments; step++) {
+      const angle = (step / segments) * Math.PI * 2, cos = Math.cos(angle), sin = Math.sin(angle);
+      data.positions.push(r * cos, r * sin, -h);
+      data.normals.push(...normalise(nr * cos, nr * sin, -nh));
+      data.uvs.push(step / segments, index / Math.max(1, profile.length - 1));
+    }
+  }
+  for (let index = 0; index + 1 < profile.length; index++) for (let step = 0; step < segments; step++) {
+    const a = index * (segments + 1) + step, b = a + segments + 1;
+    data.indices.push(a, a + 1, b, b, a + 1, b + 1);
+  }
+  return data;
+}
+
+/**
+ * Points of a superellipse dome `|r / radius|^p + |h / height|^p = 1` standing on `base`, from its rim to its apex, with
+ * analytic normals: `p = 2` is an ellipse (a lens), larger `p` gives steeper sides and a flatter top (a chrome button).
+ */
+export function superellipseProfile(radius: number, height: number, p: number, steps = 24, base = 0): SmoothProfilePoint[] {
+  const points: SmoothProfilePoint[] = [];
+  for (let index = 0; index <= steps; index++) {
+    // Parameterised by angle so the samples crowd where the curvature is: |cos|^(2/p), |sin|^(2/p).
+    const t = (index / steps) * (Math.PI / 2), c = Math.cos(t), s = Math.sin(t);
+    const r = radius * Math.pow(c, 2 / p), h = height * Math.pow(s, 2 / p);
+    // Gradient of the implicit function: (p / radius) (r / radius)^(p − 1), (p / height) (h / height)^(p − 1).
+    const nr = Math.pow(Math.max(r / radius, 0), p - 1) / radius, nh = Math.pow(Math.max(h / height, 0), p - 1) / height;
+    points.push([r, base + h, index === steps ? 0 : nr, index === 0 ? 0 : nh || 1e-6]);
+  }
+  return points;
+}
+
+/**
+ * A rounded-rectangle frame (a bezel): the outer side rises from the control's box (`width` by `height`, radius `radius`)
+ * to `rise`, tapered in by `taper`; a flat top band runs inwards to a window chamfer that drops by `chamfer` px of
+ * inset to the window opening, `border` px inside the box, at `floor` above the face. UVs on the top band map x and y
+ * across the frame's box, so a tangent frame from them runs along x (linear brushing).
+ */
+export function frame(width: number, height: number, radius: number, rise: number, taper: number, border: number, chamfer: number, floor = 0): PartData {
+  const data = empty();
+  const rings = [
+    { inset: 0, h: 0 }, { inset: taper, h: rise }, { inset: border - chamfer, h: rise }, { inset: border, h: floor },
+  ].map(({ inset, h }) => ({ h, ...outline(width - 2 * inset, height - 2 * inset, Math.max(0.5, radius - inset)) }));
+  const count = rings[0]!.points.length;
+  // Three bands, each with its own vertices: outer side, top, window chamfer.
+  for (let band = 0; band < 3; band++) {
+    const lower = rings[band]!, upper = rings[band + 1]!, start = data.positions.length / 3;
+    for (let index = 0; index < count; index++) {
+      const [x0, y0] = lower.points[index]!, [x1, y1] = upper.points[index]!, [nx, ny] = lower.normals[index]!;
+      const dh = upper.h - lower.h, dr = Math.hypot(x1 - x0, y1 - y0);
+      // Outer side faces out and up; the top faces the viewer; the chamfer faces the window and up.
+      const normal = band === 1 ? normalise(0, 0, -1) : normalise(nx * dh, ny * dh, -dr);
+      data.positions.push(x0, y0, -lower.h, x1, y1, -upper.h);
+      data.normals.push(...normal, ...normal);
+      data.uvs.push(x0 / width + 0.5, 0.5 - y0 / height, x1 / width + 0.5, 0.5 - y1 / height);
+    }
+    for (let index = 0; index < count; index++) {
+      const next = (index + 1) % count, a = start + index * 2, b = a + 1, c = start + next * 2, d = c + 1;
+      data.indices.push(a, c, b, b, c, d);
+    }
+  }
+  return data;
+}
