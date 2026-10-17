@@ -265,7 +265,7 @@ const App = defineComponent({
                 h(Avatar, { id: "avatar-large", name: "  grace   brewster hopper ", size: "large" }),
                 h("span", null, [h(Avatar, { id: "avatar-decorative", name: "Alan Turing", decorative: true, size: "small" }), " Alan Turing"]),
               ]),
-              h("p", { style: { display: "flex", gap: "8px", alignItems: "center", margin: "0" } }, [
+              h("p", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", margin: "0" } }, [
                 h(Chip, { id: "tag-chip" }, { default: text("Design") }),
                 h(Chip, { id: "remote-chip", pressed: chips.remote, "onUpdate:pressed": (value: boolean) => { chips.remote = value; } }, { default: text("Remote") }),
                 h(Chip, { id: "locked-chip", defaultPressed: false, disabled: true }, { default: text("Locked") }),

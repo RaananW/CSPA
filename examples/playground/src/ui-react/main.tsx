@@ -280,7 +280,7 @@ function App() {
             <Avatar id="avatar-small" name="Ada Lovelace" size="small" /><Avatar id="avatar-medium" name="Plato" /><Avatar id="avatar-large" name="  grace   brewster hopper " size="large" />
             <span><Avatar id="avatar-decorative" name="Alan Turing" decorative size="small" /> Alan Turing</span>
           </p>
-          <p style={{ display: "flex", gap: 8, alignItems: "center", margin: 0 }}>
+          <p style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", margin: 0 }}>
             <Chip id="tag-chip">Design</Chip>
             <Chip id="remote-chip" pressed={chips.remote} onPressedChange={remote => setChips(current => ({ ...current, remote }))}>Remote</Chip>
             <Chip id="locked-chip" defaultPressed={false} disabled>Locked</Chip>

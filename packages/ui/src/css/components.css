@@ -850,6 +850,7 @@
     gap: var(--strata-space-1);
     box-sizing: border-box;
     min-height: max(calc(var(--strata-indicator) + 8px), var(--strata-target-min));
+    max-width: 100%;
     margin: 0;
     padding: 0 var(--strata-space-3);
     border: var(--strata-outline-width) solid var(--strata-colour-edge);
@@ -882,7 +883,8 @@
     border-bottom: 2px solid currentColor;
     rotate: 45deg;
   }
-  :where(.ug-chip__label) { min-width: 0; }
+  /* A chip never grows past its container: a long label is cut with an ellipsis (line-height keeps descenders in). */
+  :where(.ug-chip__label) { min-width: 0; overflow: hidden; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
   :where(.ug-chip:has(> .ug-chip__remove)) { padding-inline-end: 2px; }
   :where(.ug-chip__remove) {
     position: relative;
@@ -1003,8 +1005,8 @@
 
   /* ---- Pagination ---- */
 
-  /* A row of small keys; the current page is held down and filled. */
-  :where(.ug-pagination__list) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--strata-space-1); margin: 0; padding: 0; list-style: none; }
+  /* A row of small keys, far enough apart that their shadows do not touch; the current page is held down and filled. */
+  :where(.ug-pagination__list) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--strata-space-3); margin: 0; padding: 0; list-style: none; }
   :where(.ug-pagination__item) { display: inline-flex; }
   :where(.ug-pagination__link) {
     --_finish: var(--strata-finish-role-control);
