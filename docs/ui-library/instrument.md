@@ -66,7 +66,7 @@ and adds:
 | Geometry | Eight analytic kinds (key, slab, bezel, well, rail, mark, knob, puck), evaluated in the layer's pass | **Parametric meshes** with real profiles (a knurled cap with a chamfer and a skirt, a fader cap with a grip, a lever on a pivot, a rocker plate), in a mesh pass per layer |
 | Moving parts | Travel and slide, along the screen plane | **Rotation, tilt and throw:** knobs turn, levers swing, rockers tip, needles sweep |
 | Materials | The Strata recipe, lit analytically with a studio term | The same recipe on real PBR (Babylon Lite): clear coat, **anisotropic brushed metal**, transmission that **refracts the captured page**, iridescence, sheen |
-| Light | The one key light; emissive materials glow but light nothing | The key light, plus **emitters**: lamps and LEDs that light nearby faces and objects, with glow that spills past a panel's edge |
+| Light | The one key light; emissive materials glow but light nothing | The key light, plus **emitters**: lamps and LEDs that light nearby faces and objects, with glow that spills past a panel's edge; optionally the **pointer** as a light the visitor carries (also available at Objects and Relief) |
 | Shadows | Analytic, on the face | Analytic on the face, plus object-on-object shadows where parts overlap |
 | Motion | Easing tokens | Easing, plus **springs and detents** (a knob clicks through 11 positions, a lever snaps over centre) |
 | Feedback | None | Optional synthesised sound and haptics |
@@ -228,6 +228,32 @@ at the lens's position, a small height above the face, with a colour from its ro
 - **Preferences:** `prefers-reduced-motion` stops blinking and pulsing; `prefers-contrast: more` turns emitters
   into flat colour on the lens only; `forced-colors` flattens everything, as today.
 
+### The pointer as a light
+
+An application may make the pointer an **emitter the visitor carries**: `pointerLight: { enabled, strength,
+radius, height, colour }`, off by default. It is not a second key light. The key light keeps its direction and its
+shadows; the pointer light is additive, like a lamp, and the one-light invariant holds unchanged.
+
+- **What it does:** a soft pool of light on the faceplate around the pointer, and a highlight that travels across
+  every metal, coated and glass part as the pointer passes. Glossy knobs catch it on their skirts; brushed metal
+  shows its streak turn with the pointer. Over the gaps between panels it draws in the shadow outset, so the light
+  crosses from one panel to the next without a seam.
+- **Where it works:** at the Instrument level as a clustered light, and at the **Objects and Relief levels** through
+  the same analytic emitter term, so it is the one Instrument feature that reaches down to every GPU level. In CSS
+  it is a `radial-gradient` overlay positioned from two custom properties, with the strength capped so no text
+  under it changes beyond `interior.max`.
+- **How it moves:** the GPU helper tracks `pointermove` on the stage, converts the pointer to stage px once per
+  frame, and writes the emitter's position into every layer scene within reach. Scene data changes are uniform
+  updates: no recapture, no relayout, no change to hit geometry. The light fades out over `motion.fast` when the
+  pointer leaves the stage and fades in when it returns.
+- **Guard rails:** the contrast guard applies as to any emitter, so text the pointer crosses is capped at
+  `interior.max`. The light exists only on devices with a fine pointer (`pointer: fine`); it is off under
+  `prefers-contrast: more` and `forced-colors`; `prefers-reduced-motion` keeps it (nothing in the UI moves) but
+  removes the fade. It never carries meaning: hover, focus and selection stay as they are.
+- **Why not a key light that follows the pointer:** moving the key light would move every shadow on the page
+  with the mouse, so the "one consistent light is the signature of the language" rule would break, text contrast
+  would change from frame to frame, and the CSS fallback could not follow.
+
 ## Rendering: decisions
 
 | # | Decision | Recommendation | Alternative |
@@ -243,6 +269,7 @@ at the lens's position, a small height above the face, with a colour from its ro
 | 9 | **Without GPU.** | **CSS skeuomorphic from the tokens:** conic and radial gradients for caps and lenses, layered `box-shadow` from the shadow formula, CSS 3D transforms for levers and rockers, with a parity budget looser than Relief's. | Pre-rendered sprite strips. Realistic, but assets per material and no live configuration. |
 | 10 | **Anti-aliasing and the post chain.** | **TAA on the mesh pass** (`createTaaPostProcessTask`; SMAA where TAA ghosts on turning parts), then contact shadows, then bloom, all on the mesh pass **before** it is composited over the captured face, so captured text is never filtered. | No post chain; rely on resolution. Bevel and skirt edges alias on every screen. |
 | 11 | **Motion engine.** | **CPU springs and detents** in Strata (seeded, fixed-step, testable), sampled into core keyframes; Lite's animation manager (`createPropertyAnimationClip`, blending) drives the poses on the GPU side. **Havok hinge constraints** (`createPhysicsConstraint`) are the `playful` character's option for bat snap and jog-wheel inertia, since Havok is a WASM download. | Havok for everything. Real, but a download before the first click and a nondeterministic step. |
+| 12 | **The pointer light.** | **An emitter the visitor carries** ([above](#the-pointer-as-a-light)): additive, no shadows, guarded like any emitter, available at Relief, Objects and Instrument, opt-in. | A key light that follows the pointer. Every shadow would swing with the mouse, breaking the one-light signature and the contrast guard. |
 
 ### Core work (additive)
 
@@ -253,8 +280,9 @@ Each item is its own PR with GPU tests, in order:
    parts, captured screen-locked caps, analytic face shadows and the containment check with its diagnostic and
    step-down. A mesh budget (provisionally 256 objects and 2,048 parts per layer, settled by I0.1) measured with
    Lite's per-task GPU timings (`getRenderTaskGpuTimings`), which the adjust policy reads too.
-2. **Emitters** as clustered lights in the `instrument` material and as the analytic term in `objects`, with
-   protected rects and the outset glow.
+2. **Emitters** as clustered lights in the `instrument` material and as the analytic term in the `objects` and
+   `relief` materials, with protected rects and the outset glow. The pointer light is an emitter whose position
+   the helper rewrites each frame, so this step carries it with no extra core surface.
 3. **Shadows and post chain:** contact shadows, the per-layer PCF map from the key light masked to parts, TAA and
    bloom on the mesh pass.
 4. **Reflections and glass over the capture:** the layer's capture as a local environment probe, and transmission
@@ -300,7 +328,7 @@ build. The probes share pages with the Phase I1 prototypes.
 | --- | --- | --- |
 | I0.1 Mesh pass | Can a Lite mesh pass per layer run inside the shared engine next to the relief passes, keep painter's order across panels and hold 60 fps with 250 controls (about 1,500 parts) at 1920×1080, DPR 1 and 2? | GPU stays active; a panel over a panel hides its objects; frame time under 16 ms on the GPU runner and the dev laptop; state animation (50 meters, 20 knobs turning) causes zero captures over 300 frames. The mesh and part budgets are chosen. |
 | I0.2 Moving parts and hits | Do levers, rockers and fader caps stay inside their control's box through their whole travel, and do native hits land on the control at every pose? | 0 drawn pixels outside `bounds` at the extreme poses; `elementFromPoint` and real pointer input hit the native input everywhere on the control; headless and headful. |
-| I0.3 Emitters | Can a lit lamp light the captured face, nearby objects and the outset without breaking the guard or hits? | Decoded pixels show the light pool on the face and past the panel edge; contrast samples beside a label stay above AA on both themes; hits unchanged; cost per emitter measured, 16 per layer within budget. |
+| I0.3 Emitters | Can a lit lamp light the captured face, nearby objects and the outset without breaking the guard or hits? And can the pointer light move across panels at 60 fps? | Decoded pixels show the light pool on the face and past the panel edge; contrast samples beside a label stay above AA on both themes; hits unchanged; cost per emitter measured, the per-layer budget chosen. The pointer light crossing three panels over 300 frames causes zero captures and zero hit-geometry updates, at Relief, Objects and Instrument. |
 | I0.4 Materials over the capture | Do brushed metal, clear coat and glass transmission read as such over captured content, and does text under display glass keep its contrast? | Visual sign-off on the prototype screenshots; decoded contrast of display text above AA; GPU active through typing into the display. |
 | I0.5 Object-on-object shadow | Does a per-layer PCF map give a clean lever-on-plate shadow without touching the face? | Shadow pixels on the plate, none on the face outside the analytic footprint; cost measured. |
 | I0.6 CSS parity | How close can CSS knobs, faders and switches get to the GPU look from the same tokens? | A perceptual difference budget per component state, looser than Relief's, recorded. |
@@ -370,8 +398,10 @@ Everything in the [Strata plan's accessibility section](plan.md#accessibility) a
 - **Motion and flashing:** blink and pulse tempos stay under three flashes per second (2.3.1); reduced motion makes
   poses instant and stops blinking; springs and detent animation are off.
 - **Sound** is never the only feedback, is off by default, and starts only after a user gesture.
-- **Contrast on lit faces** includes emitter light in the worst case; display text under glass is measured through
-  the glass.
+- **Contrast on lit faces** includes emitter light in the worst case, with the pointer light directly over the
+  text; display text under glass is measured through the glass.
+- **The pointer light carries no meaning** and changes no state; keyboard and touch users lose nothing when it is
+  absent.
 - **Forced colours:** every object flattens to the system-colour 2D control, as the rest of Strata does.
 - **Screen readers:** the manual pass gains a script per new component (knob with units, detented selector, meter
   values, lamp state), recorded in [open issues](../open-issues.md) until performed.
