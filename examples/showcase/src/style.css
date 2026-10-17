@@ -639,4 +639,7 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 .strata-group { display: flex; flex-direction: column; align-items: flex-start; gap: var(--strata-gap-control); }
 .strata-group h4 { margin: 0; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; opacity: .75; }
 .strata-group > p { margin: 0; }
-.strata-group > .ug-field { align-self: stretch; }
+.strata-group > :is(.ug-field, .ug-stepper) { align-self: stretch; }
+/* The Structure tab: the rail and the tree side by side. */
+.strata-columns > .strata-structure { flex-direction: row; align-items: flex-start; }
+.strata-structure > .ug-tree { flex: 1; }

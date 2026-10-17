@@ -586,6 +586,18 @@ try {
       await strata.mouse.click(...saveCentre);
       await strata.locator("#strata-saves").filter({ hasText: "Saved 1 time" }).waitFor();
       await strataMode("after save");
+      // The Structure tab (Tier C): a real click on Drafts in the NavigationRail lands on the original link and moves the
+      // current destination.
+      await strata.getByRole("tab", { name: "Structure", exact: true }).click();
+      await strataSettle();
+      const drafts = strata.getByRole("link", { name: "Drafts", exact: true });
+      const draftsBox = await drafts.boundingBox();
+      assert.ok(draftsBox);
+      await strata.mouse.click(draftsBox.x + draftsBox.width / 2, draftsBox.y + draftsBox.height / 2);
+      assert.equal(await drafts.getAttribute("aria-current"), "page");
+      await strataMode("structure");
+      await strata.getByRole("tab", { name: "Actions", exact: true }).click();
+      await strataSettle();
       // The Objects level: the panel takes a version 2 scene, and the presented pixels change.
       const strataOutput = strata.locator(".stage .output");
       let strataRelief;
