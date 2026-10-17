@@ -114,11 +114,17 @@ const harness = await startInstrument({
   frame, light: { azimuth: tokens.light.azimuth, elevation: tokens.light.elevation }, envelopes, budgets: { layers: 8, pixels: 8_000_000 },
   onStatus: message => { status.dataset.core = message; strata?.refresh(); },
   mount(root) {
-    root.append(makePanel("instrument"), makePanel("objects"));
+    // The stage behind the panels: a plain layer in the theme's stage colour (core's own background is white).
+    const stage = document.createElement("div");
+    stage.id = "ip-stage";
+    stage.setAttribute("aria-hidden", "true");
+    Object.assign(stage.style, { position: "absolute", inset: "0", background: "var(--ip-stage)" });
+    root.append(stage, makePanel("instrument"), makePanel("objects"));
     cssStage.append(makePanel("css"));
     render();
-    // The harness enrolls the Instrument panel; the Objects copy is enrolled by `attachStrataGpu` below.
-    return [panels.instrument];
+    // The harness enrolls the stage and the Instrument panel, in paint order; the Objects copy is enrolled by
+    // `attachStrataGpu` below.
+    return [stage, panels.instrument];
   },
   build: layer => meshes.build(layer),
 }).catch(error => {

@@ -147,6 +147,8 @@ export function createInstrumentMeshes(current: () => ResolvedTokens) {
 
   /** The panel's part kinds for the current tokens; runs on every harness rebuild. */
   async function build(layer: InstrumentLayer) {
+    // Layers without controls (the stage) have no parts.
+    if (!layer.element.querySelector("[data-ip]")) return;
     const t = current();
     controls.clear(); tilts.length = 0; glows.length = 0;
     currentLayer = layer;
