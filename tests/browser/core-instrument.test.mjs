@@ -38,14 +38,17 @@ const inside = (point, box) => point.x >= box.x && point.y >= box.y && point.x <
 async function open(browser, dpr, query = "") {
   const context = await browser.newContext({ viewport, deviceScaleFactor: dpr });
   const page = await context.newPage();
-  const errors = [];
+  const errors = [], warnings = [];
   page.on("pageerror", error => errors.push(String(error)));
-  page.on("console", message => { if (message.type() === "error") errors.push(`console: ${message.text()}`); });
+  page.on("console", message => {
+    if (message.type() === "error") errors.push(`console: ${message.text()}`);
+    if (message.type() === "warning") warnings.push(message.text());
+  });
   await page.goto(`/instrument-core.html${query}`);
   await page.waitForFunction(() => window.instrumentCore, null, { timeout: 60000 });
   await page.addStyleTag({ content: "#status { display: none !important; }" });
   const call = (name, ...args) => page.evaluate(async ({ name, args }) => (await window.instrumentCore.ready)[name](...args), { name, args });
-  return { context, page, errors, call };
+  return { context, page, errors, warnings, call };
 }
 /** A decoded screenshot of the viewport. */
 async function shot(page, path) {
@@ -424,14 +427,14 @@ test("instrument material: the start reaches GPU with every scene built, 10 time
   }
   await writeFile(`${directory}/starts.json`, JSON.stringify(runs, null, 2));
   // The race path ran: a successor composition started while a mesh build held the compile gate.
-  expect(runs.reduce((sum, run) => sum + run.compile.deferredDeadlines, 0), "successor deadlines deferred by a build").toBeGreaterThanOrEqual(1);
+  for (const run of runs) expect(run.compile.deferredDeadlines, `run ${run.run}: its successor deadline was deferred by a build`).toBeGreaterThanOrEqual(1);
 });
 
 test("instrument material: a build that hangs times out, its layer steps down, and a racing successor still publishes", async ({ browser }) => {
   test.setTimeout(300000);
   // `?hang=1`: core's internal test hook never lets the lower panel's first build finish; `?race=1`: a relief layer joins
   // right after enable, while that build holds the compile gate. The successor waits at most 3 s for it.
-  const { context, page, call, errors } = await open(browser, 1, "?hang=1&race=1");
+  const { context, page, call, errors, warnings } = await open(browser, 1, "?hang=1&race=1");
   try {
     const boot = await call("boot");
     await page.waitForFunction(async () => (await window.instrumentCore.ready).instrument()?.layers.find(layer => layer.id === "lower")?.status === "failed", null, { timeout: 30000 });
@@ -455,5 +458,6 @@ test("instrument material: a build that hangs times out, its layer steps down, a
     expect(instrument.compile.deferredMs, "for the 3 s ceiling, not the 10 s build deadline").toBeGreaterThan(2900);
     expect(instrument.compile.deferredMs).toBeLessThan(3500);
     expect(errors.filter(error => !error.includes("is drawn at the Relief level"))).toEqual([]);
+    expect(warnings.some(warning => warning.includes("stopped waiting for an instrument scene build after 3000 ms")), "the ceiling, not the gate, released the successor").toBe(true);
   } finally { await context.close(); }
 });
