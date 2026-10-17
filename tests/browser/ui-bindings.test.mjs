@@ -533,6 +533,15 @@ for (const binding of bindings) test(`Strata ${binding} Chip is a tag, a filter 
     return result;
   });
   expect(narrow).toEqual({ inside: true, cut: true, ellipsis: "ellipsis" });
+  // A button is never squeezed below its label: in a row too narrow for it, the row overflows instead.
+  const squeezed = await page.locator("#notify").evaluate(button => {
+    const row = button.parentElement, width = button.getBoundingClientRect().width;
+    row.style.flexWrap = "nowrap"; row.style.width = "120px";
+    const result = { kept: Math.abs(button.getBoundingClientRect().width - width) < 0.5, fits: button.scrollWidth <= button.clientWidth };
+    row.style.flexWrap = row.style.width = "";
+    return result;
+  });
+  expect(squeezed).toEqual({ kept: true, fits: true });
   // A disabled filter chip does nothing.
   await page.locator("#locked-chip").click({ force: true });
   await expect(page.locator("#locked-chip")).toHaveAttribute("aria-pressed", "false");

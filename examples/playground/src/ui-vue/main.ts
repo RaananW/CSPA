@@ -217,7 +217,7 @@ const App = defineComponent({
               default: () => [
                 h(Card, { title: "Latency", id: "latency-card" }, { default: text("p95 is 41 ms."), footer: () => h(Button, { id: "details" }, { default: text("Details") }) }),
                 h(Divider, { id: "rule" }),
-                h("div", { style: { display: "flex", gap: "12px", alignItems: "center" } }, [
+                h("div", { style: { display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" } }, [
                   h(ButtonGroup, { label: "View", orientation: "vertical", id: "view-group" }, { default: () => [h(Button, null, { default: text("List") }), h(Button, null, { default: text("Grid") })] }),
                   h(Divider, { orientation: "vertical", id: "vertical-rule" }),
                   h(Badge, { id: "inbox", variant: "accent", count: 120 }),
@@ -260,7 +260,7 @@ const App = defineComponent({
               h(Table, { id: "controlled-table", caption: "Controlled", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true, sortable: true }], rows: [{ number: 1003, customer: "Alan Turing", amount: 42 }, { number: 1001, customer: "Ada Lovelace", amount: 120 }, { number: 1002, customer: "Grace Hopper", amount: 87.5 }], sort: sort.value, "onUpdate:sort": (value: { key: string; direction: "ascending" | "descending" }) => { sort.value = value; } }),
             ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Navigation" }, [
-              h("p", { style: { display: "flex", gap: "12px", alignItems: "center", margin: "0" } }, [
+              h("p", { style: { display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center", margin: "0" } }, [
                 h(Avatar, { id: "avatar-small", name: "Ada Lovelace", size: "small" }), h(Avatar, { id: "avatar-medium", name: "Plato" }),
                 h(Avatar, { id: "avatar-large", name: "  grace   brewster hopper ", size: "large" }),
                 h("span", null, [h(Avatar, { id: "avatar-decorative", name: "Alan Turing", decorative: true, size: "small" }), " Alan Turing"]),
@@ -278,7 +278,7 @@ const App = defineComponent({
               h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
                 h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
-              h("p", { style: { margin: "0", display: "flex", gap: "12px" } }, [h(Menu, { id: "live-menu", label: "Actions", items: [{ label: "Rename", onSelect: () => { chosen.push("Rename"); } }, { label: "Duplicate", onSelect: () => { chosen.push("Duplicate"); } }, "separator", { label: "Archive", onSelect: () => { chosen.push("Archive"); } }, { label: "Delete", disabled: true, onSelect: () => { chosen.push("Delete"); } }] }, { trigger: () => h(Button, { id: "menu-open" }, { default: text("Actions") }) }), h(Popover, { id: "live-popover", title: "Filters", onToggle: (open: boolean) => { popover.open = open; } }, {
+              h("p", { style: { margin: "0", display: "flex", flexWrap: "wrap", gap: "12px" } }, [h(Menu, { id: "live-menu", label: "Actions", items: [{ label: "Rename", onSelect: () => { chosen.push("Rename"); } }, { label: "Duplicate", onSelect: () => { chosen.push("Duplicate"); } }, "separator", { label: "Archive", onSelect: () => { chosen.push("Archive"); } }, { label: "Delete", disabled: true, onSelect: () => { chosen.push("Delete"); } }] }, { trigger: () => h(Button, { id: "menu-open" }, { default: text("Actions") }) }), h(Popover, { id: "live-popover", title: "Filters", onToggle: (open: boolean) => { popover.open = open; } }, {
                 trigger: () => h(Button, { id: "popover-open" }, { default: text("Filters") }),
                 default: () => [h(Checkbox, { id: "popover-only" }, { default: text("Open only") }), h(Button, { id: "popover-apply", onClick: () => { popover.applied++; } }, { default: text("Apply") })],
               }), h(Button, { id: "notify", onClick: () => toast({ message: "Message sent.", intent: "success", duration: 1500,
@@ -295,12 +295,12 @@ const App = defineComponent({
                 h(SegmentedControl, { id: "live-segmented", label: "Range", name: "range", modelValue: range.value, "onUpdate:modelValue": (value: string) => { range.value = value; },
                   options: [{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }, { value: "year", label: "Year" }] }),
               ]),
-              h("form", { id: "score-form", onSubmit: (event: Event) => event.preventDefault(), style: { display: "flex", gap: "16px", alignItems: "end" } }, [
+              h("form", { id: "score-form", onSubmit: (event: Event) => event.preventDefault(), style: { display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "end" } }, [
                 h(Rating, { id: "live-rating", label: "Quality", name: "quality", modelValue: score.value, "onUpdate:modelValue": (value: number) => { score.value = value; } }),
                 h(RatingDisplay, { id: "live-rating-display", value: score.value }),
               ]),
               h(Stepper, { id: "live-stepper", label: "Checkout progress", steps: ["Cart", "Shipping", "Payment", "Review"], current: step.value }),
-              h("p", { style: { display: "flex", gap: "12px", margin: "0" } }, [
+              h("p", { style: { display: "flex", flexWrap: "wrap", gap: "12px", margin: "0" } }, [
                 h(Button, { id: "stepper-back", onClick: () => { step.value = Math.max(0, step.value - 1); } }, { default: text("Back") }),
                 h(Button, { id: "stepper-next", onClick: () => { step.value = Math.min(3, step.value + 1); } }, { default: text("Next") }),
               ]),
