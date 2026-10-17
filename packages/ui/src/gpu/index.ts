@@ -18,6 +18,9 @@
  * `transition` carries it through depth (scale, tilt and opacity, as the CSS motion does) while its scene height
  * travels from the modal level, so its shadow grows and settles with it.
  *
+ * A Knob's skirt and cap are raised faces (slabs at the Objects level, the cap on the skirt) in the `knob` material,
+ * with its input's hover and disabled state; its turning pointer is captured content on the cap.
+ *
  * Everything the scene needs comes from the page as the CSS presentation sees it: geometry from layout (followed through
  * CSS transitions frame by frame), states from
  * `:hover`, `:active`, `:focus-visible` and `:disabled`, and token values from each element's resolved `--strata-*`
@@ -138,6 +141,8 @@ const interactive = "input, button, select, textarea, a[href], [tabindex]";
 /** Material roles by face, for elements that name no material (design language section 4). */
 function roleOf(face: SceneFace, element: Element, panel: Element): string {
   if (element === panel || element.matches(".ug-card")) return "panel";
+  // A knob's skirt and cap are raised faces in the knob's material.
+  if (element.matches(".ug-knob__skirt, .ug-knob__cap")) return "knob";
   if (face === "raised") return element.matches(".ug-button--accent, .ug-button--primary") ? "buttonPrimary" : "control";
   return ({ well: "field", groove: "rail", knob: "knob", mark: "indicator", ring: "field", flat: "control" } as Record<string, string>)[face] ?? "control";
 }
@@ -250,7 +255,10 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
     return material(named && panel.contains(named) ? named.getAttribute("data-strata-material")! : tokens.raw(`material.roles.${roleOf(face, element, panel)}`) || "matte");
   };
   const states = (element: Element) => {
-    const control = element.matches(interactive) ? element : element.closest("label")?.querySelector("input, select, textarea") ?? element;
+    // A knob's skirt and cap are its input's object: they take its hover, press and disabled state. Its focus ring is
+    // the CSS outline round the skirt (captured content), so the GPU adds no focus edge of its own.
+    const knob = element.closest(".ug-knob__dial")?.querySelector(".ug-knob__input");
+    const control = element.matches(interactive) ? element : knob ?? element.closest("label")?.querySelector("input, select, textarea") ?? element;
     const target = control.closest("label") ?? control;
     const preview = `${element.getAttribute("data-strata-preview") ?? ""} ${control.getAttribute("data-strata-preview") ?? ""}`.split(/\s+/);
     // Only a control takes hover and press: a card, a plinth or any other surface under the pointer stays where it is.
@@ -260,7 +268,7 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
       // A toggle that is on, the current page of a Pagination, or a SegmentedControl's selected key holds its key down (design language section 6: it
       // latches at its travel).
       pressed: (isControl && control.matches(":active, [aria-pressed='true'], [aria-current]:not([aria-current='false']), .ug-segmented__input:checked")) || preview.includes("active"),
-      focus: control.matches(":focus-visible") || preview.includes("focus"),
+      focus: !knob && (control.matches(":focus-visible") || preview.includes("focus")),
       disabled: control.matches(":disabled, [aria-disabled='true']"),
     };
   };
