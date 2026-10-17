@@ -45,3 +45,5 @@ export type {
   Box, FaceFactor, GlassSample, InstrumentCaster, InstrumentEmitter, InstrumentObject, InstrumentPart, InstrumentPoint, InstrumentPose, InstrumentProfile,
   InstrumentRecipe, InstrumentScene, Matrix, ObjectContainment, PartHit, PartKind, PartMesh, PartShadingOptions, PartTerms, StudioTokens, TravelVertex, Vec2, Vec3,
 } from "./instrument.ts";
+export { applyCharacter, characterNames, characterOf, defaultCharacter, instrumentSettings, isProvisional } from "./character.ts";
+export type { AppliedCharacter, CharacterInfo, InstrumentSettings, StrataCharacter } from "./character.ts";
