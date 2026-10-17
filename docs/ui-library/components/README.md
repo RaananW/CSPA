@@ -124,3 +124,11 @@ light and depth, reduced motion, keyboard input and reflow.
 | [Menu](menu.md) | `<div popover role="menu">` of `menuitem` buttons, opened by a menu button | A floating slab with flat rows |
 | [Combobox](combobox.md) | `<input list>` with a `<datalist>`; the browser's own list | A TextField well with a printed chevron |
 | [DatePicker](date-picker.md) | `<input type="date">`; the browser's own calendar | A TextField well with a printed calendar |
+
+## Instrument
+
+The [Instrument level](../instrument.md)'s components: hardware objects over native controls, at every presentation.
+
+| Component | Native element | Object |
+| --- | --- | --- |
+| [Fader](fader.md) | `<input type="range">`, vertical (`writing-mode: vertical-lr`) or horizontal, its thumb the carriage | A slot in the faceplate with a capped carriage, a scale printed beside it |
