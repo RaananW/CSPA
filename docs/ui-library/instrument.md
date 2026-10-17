@@ -5,8 +5,9 @@
 default look.
 
 **Progress (2026-10-17):** Phase I0 (all eight probes) and the Phase I1 prototype page are done, reported in
-the [Phase I0 report](instrument-phase0.md) (Canary 158.0.8110.0). The look sign-off on
-the prototype is pending with the owner.
+the [Phase I0 report](instrument-phase0.md) (Canary 158.0.8110.0). The prototype's
+[second iteration](instrument-phase0.md#i1-prototype-second-iteration) answers the owner's review of the first
+(environment lighting, real glass, round knobs, crisper hardware); the look sign-off on it is pending with the owner.
 
 **Upstream check (2026-10-17):**
 
@@ -512,17 +513,25 @@ Phase I0 settled some of these; the [report](instrument-phase0.md#decisions-take
 - The sound set's three parameters per sound.
 - The showpiece page.
 
-What the look iteration still has to decide, on the prototype page:
+The look iteration, on the prototype page. The [second iteration](instrument-phase0.md#i1-prototype-second-iteration)
+took the owner's review of the first:
 
-- The materials and studio: carry I0.4's studio, material values and capture refraction into the prototype (its glass
-  cap reads as a smoked dome, and flat brushed tops are too bright).
-- Chamfer width (about 2 px instead of 1.4), the bat lever's size, and visible paddle and push-button travel head-on.
-- The guard's feather or near-text cap, since strong pools leave protected text boxes visibly greyer (I0.3).
-- Object-on-object shadows (I0.5 settled the technique): the map's darkness (0–0.15 to approach the face shadow) and
-  the softness change where a sharp mapped streak meets the softer face shadow at a plate's edge.
-- The post chain's look (I0.8 settled the technique): the emitter bloom's halo on the light theme (faint there), and
-  the reflection probe's metal caps, which reflect the light faceplate almost white and erase the knob pointer.
-- The panel's unused space and the Objects panel's clipped drop shadow at 100% depth.
+- ~~The materials and studio: carry I0.4's studio, material values and capture refraction into the prototype.~~ Done:
+  I0.4's studio rotated to the key light, a capture probe per layer, brushed metal with the grain map, and glass as a
+  capture-refraction shader with its reflection built in (rim +25.9 levels, hub magnified ×1.46, display text exact).
+- ~~Chamfer width, the bat lever's size, visible paddle and push-button travel.~~ Done: 2 px polished chamfers, a
+  40 px lever thrown ±40° with a 5.6 px ball, lit flags and a crowned wall paddle, 4 px button travel with a lit ring.
+  `slide` stays the default.
+- ~~The guard's feather or near-text cap.~~ Proposed: the pointer light lights the face at 0.3 of its strength with a
+  10 px feather (the parts take all of it); lamps are still to be judged at I0.3's strength.
+- ~~Object-on-object shadows.~~ In: analytic plus the PCF map at darkness 0.1. The softness change at a plate's edge
+  is still to be judged on the screenshots.
+- ~~The post chain's look.~~ In: SMAA, emitter bloom (the REC ring and lit flags) and the clipped composite; the probe
+  no longer whitens the caps (I0.4's studio and box reach).
+- ~~The panel's unused space.~~ The display window fills it. The Objects panel's drop shadow at 100% depth is still
+  clipped by the frame.
+- Still open: the sign-off itself, and the second iteration's own list of what still looks wrong (glass on flat
+  blocks, the wall paddle's near-white "on", the push button's head-on travel, a subtle pointer light on dark).
 
 ## Pull request sequence
 

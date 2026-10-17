@@ -1,6 +1,8 @@
 # The Strata Rendering Model
 
-**Version 3 (Scene), which includes versions 2 (Objects) and 1 (Relief).** Status: normative. This document defines how Strata looks, independently of any engine,
+**Version 4 (Instrument), which includes versions 3 (Scene), 2 (Objects) and 1 (Relief).** Status: versions 1 to 3
+are normative; version 4 (part 2D) is a draft for review (2026-10-17) and becomes normative when its reference
+implementation and `instrument-4.json` land. This document defines how Strata looks, independently of any engine,
 shading language or graphics API. Underglass's GPU presentation is one implementation of it; any other renderer that
 passes the [conformance suite](#4-conformance) is another.
 
@@ -35,7 +37,7 @@ edge, the backdrop and ring arcs.
 
 | Field | Meaning | Token source |
 | --- | --- | --- |
-| `format`, `version` | `"strata-scene"`, `1`, `2` or `3` (3: an environment map, 2C.4) | |
+| `format`, `version` | `"strata-scene"`, `1`, `2`, `3` or `4` (3: an environment map, 2C.4; 4: Instrument layers, emitters and protected text, 2D) | |
 | `camera` | Version 2, required there: `{ distance, vanish }`, the camera objects are seen through (2B.1) | `camera.distance`, the stage |
 | `environment` | Version 2: `{ source: "studio", strength }`, default strength 0.6 (2B.7) | |
 | `extent` | `{ width, height }`: the layer's border box | the element |
@@ -578,6 +580,410 @@ Loading and downsampling an image into the grid is not part of the model.
 A stage scene's colour at a point starts as its backdrop (opaque) or as nothing, and each particle in order goes over
 it with straight-alpha "over". Conformance renders stage scenes over white.
 
+## 2D. Instrument (version 4)
+
+Version 4 adds the Instrument level ([design language](design-language.md) sections 3, 4, 6, 7 and 16): each control
+is built from parametric parts, posed by native state, lit by the key light, an environment and **emitters**, shadowed
+on the face and on other parts, and passed through a post chain before it meets the captured face. Version 4 also
+adds emitters and protected text rects to scenes of every level. The
+[Instrument plan](instrument.md#rendering-decisions) (decisions 2, 3, 4 and 10) and the
+[Phase I0 report](instrument-phase0.md) explain the choices; this part states the rules.
+
+Version 4 is **geometric and sampled**, not colour-exact everywhere:
+
+- **Exact colour** (tolerance 3, as in version 1) wherever the model owns the colour: the face and its relief, the
+  shadows parts cast on it, emitter light on it and the guard (2D.4), captured caps (2D.8) and flat glass over text
+  (2D.6).
+- **Exact geometry** (2D.9): containment over the whole travel, captured caps, protected text unchanged by every stage,
+  the clip, and no change to hit geometry.
+- **Sampled** (2D.10): the lit colour of parts at named points within a wider tolerance, and the presence of material
+  layers whose colour the model does not fix.
+
+Part 2 applies unchanged to an Instrument layer's relief primitives. Version 2 objects (2B) must not appear in an
+Instrument scene: a layer has one renderer (design language section 16).
+
+**Motion is not in the model.** A scene is one moment: native state gives each object a position `t` on its travel,
+and Strata's springs (design language section 12) produce a new `t` each frame.
+
+### 2D.1 The scene format
+
+A version 4 scene has `version: 4` and may add these fields:
+
+| Field | In | Meaning |
+| --- | --- | --- |
+| `kind` | any scene | `"relief"` (the default: parts 2 to 2C) or `"instrument"` |
+| `emitters` | any scene | At most 64 point lights (2D.4) |
+| `protected` | any scene | At most 64 rects `[x, y, width, height]`, the layer's text runs, or `"extent"` to protect the whole extent; with `feather`, default 4 px (2D.4) |
+| `camera` | `instrument`, required | `{ distance, vanish }` as in 2B.1, with `distance` by the camera rule (2D.3) |
+| `light` | `instrument` | Adds `intensity` (default 1.6) and `ambient` (default 0: the studio is the fill): the key light's strength and the diffuse-only fill (2D.5) |
+| `environment` | `instrument`, required | `{ source: "studio", strength, studio, page }` (2D.5); `"none"` is invalid |
+| `materials` | `instrument` | Adds `base.colour`, `base.direct` and the layers `reflectance`, `glass`, `dispersion`, `brush`, `grain` and `subsurface` (2D.5) |
+| `profiles` | `instrument` | Part shapes by name (2D.2) |
+| `objects` | `instrument` | At most 256 Instrument objects (2D.2), with at most 2,048 parts in all |
+| `shadow` | `instrument` | Adds `map: { size, bias, darkness }` (2D.7) |
+| `post` | `instrument` | `{ smaa, bloom, taa, contact, ssgi }`, booleans, default `true`, `true`, `false`, `false`, `false` (2D.8) |
+
+A version 1 to 3 scene shades the same under version 4, and a version 4 `relief` scene with no `emitters` shades as
+its version 3 equivalent.
+
+### 2D.2 Parts, profiles and poses
+
+Coordinates are layer px, x to the right, y down and z towards the viewer, as in part 2 and 2B.1.
+
+**Instrument objects** (`objects`), one per control:
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Unique in the scene; diagnostics name it |
+| `rect` | The base: the native control's border box |
+| `bounds` | `{ rect, radius }`: the rounded box that must contain every drawn pixel (2D.9). Default `rect`, radius 0. |
+| `t` | The position along the travel, 0–1, default 0: one value for all of the object's moving parts |
+| `parts` | Its parts, below |
+| `relief` | The Relief primitive drawn instead if the object fails containment (2D.9) |
+
+**Parts** (`objects[].parts`):
+
+| Field | Meaning |
+| --- | --- |
+| `kind` | A part name from the design language's vocabulary ([section 6](design-language.md#instrument-objects)), or `custom` |
+| `profile` | A key of `profiles` |
+| `at` | `[x, y, z]`: where the profile's origin stands, `z` the height of the surface below it |
+| `pose` | Moving parts only: `{ from, to }`, the poses at the two stops |
+| `material` | A key of `materials` |
+| `captured` | Default `false`: a cap that carries the layer's capture (2D.8) |
+| `glass` | Glass parts only: `"lens"` (lenses and glass caps) or `"window"` (2D.6) |
+| `stand` | Lenses only, optional: `{ radius, colour }`, the polished disc the lens stands on (a knob's skirt), centred on the part at the height of its `at` (2D.6) |
+| `finish` | `true` for the finish zones (2.6) on a captured cap; `{ band, horizon }` (default 0.3, 0.25) for a window's (2D.6) |
+| `caster` | `{ rect, radius, height }`, or `null`: what it casts on the face at the object's `t` (2D.7) |
+| `emitter` | An index into `emitters`: the part is that emitter's lens |
+| `state` | `{ hover, pressed, focus, disabled }`, for captured caps (2B.2) |
+| `anchors` | `custom` parts only: `{ base, pivot, cap, pointer, axis }`, in the part's own units |
+
+**Profiles** (`profiles`) are shapes in part-local px, with the origin at the centre of the part's base:
+
+| Type | Parameters | Builds |
+| --- | --- | --- |
+| `lathe` | `points: [[r, z, nr, nz], …]`, `segments` | A profile revolved about the part's z axis, with the given normals: caps, skirts, collars, chamfers, nuts, bushings, lenses |
+| `prism` | `width`, `length`, `radius`, `height`, `taper`, `chamfer` | A rounded rectangle raised to `height`, its top inset by `taper`, with a `chamfer` at the top edge: carriages, plates, paddles, bezels, caps |
+| `extrude` | `outline: [[x, z], …]`, `width` | A side outline extruded across `width`: rocker paddles, levers |
+| `mesh` | `positions`, `normals`, `indices`, optional `uvs` | Explicit triangles: custom parts, and any shape the others cannot make |
+
+A profile resolves to triangles through the reference builders (section 3), and **the triangles are the part**. A
+renderer draws those triangles, or a refinement whose vertices lie on them, never a finer tessellation of the ideal
+surface, which would bulge past the triangles that containment checked.
+
+**Poses.** A pose is `{ travel, slide, turn, tilt, axis, pivot }`, each default 0:
+
+- `travel`: px along the face normal (negative sinks);
+- `slide`: `[dx, dy]`, px in the face plane;
+- `turn`: degrees about the face normal, clockwise as seen;
+- `tilt`: degrees about the in-plane axis at `axis` degrees clockwise from +x; a positive tilt raises the side at
+  `axis + 90°`;
+- `pivot`: `[x, y, z]`, part-local: the point `turn` and `tilt` are about.
+
+A moving part takes the pose `mix(from, to, t)` field by field (`axis` and `pivot` are the same at both stops). Its
+placement is the rigid transform
+
+```text
+M = T(at) · T(slide.x, slide.y, travel) · T(pivot) · R(axis, tilt) · R(z, turn) · T(−pivot)
+```
+
+with no scale and no shear. `t` is in 0–1, so a pose never passes a stop.
+
+**Custom parts** are first fitted onto the built-in part's anchors by one uniform scale and a rigid placement
+(`fitCustomPart`); everything else in this part then applies to the fitted triangles.
+
+### 2D.3 Camera and projection
+
+The camera and projection are those of 2B.1: a point `X` appears at `V + (X.xy − V) · D / (D − X.z)`.
+
+- **Drift.** A point at height `h` and distance `r` from `V` moves outward by `drift = r · h / (D − h)`.
+- **The camera rule.** `camera.distance` is at least
+
+  ```text
+  max(2400, max over parts of r · h / (inset − 0.5) + h)
+  ```
+
+  where `r` is the stage's half-diagonal, and `h` and `inset` belong to the part's **binding vertex**: over the whole
+  travel, the vertex whose orthographic position comes closest to the edge of `bounds`, at height `h` and `inset` px
+  inside it. The rule keeps every vertex at least 0.5 px inside `bounds` on the screen, which 2D.9 relies on.
+- **No screen-locking by placement.** Screen-locking (2B.1) is never built into a part's placement. Captured caps read
+  the capture at their own pixel instead (2D.8), and every other part keeps its taper.
+
+### 2D.4 Emitters, the face pool and the guard
+
+**Emitters** (`emitters`):
+
+| Field | Meaning |
+| --- | --- |
+| `position` | `[x, y, z]`, layer px; `z` is the height above the face |
+| `colour` | `[r, g, b]`, each 0–1 |
+| `strength` | `I`, at least 0 |
+| `face` | 0–1, default 1: the share of `I` that lights the face; parts take all of it (the pointer light's is 0.3) |
+| `radius` | `R`, greater than 0, px |
+| `reach` | `"outset"` (default: the extent and the outset) or `"layer"` (the layer's own content only: the pointer light) |
+
+**The emitter term** at a point `X` with unit normal `n`, per channel:
+
+```text
+d = position − X
+E = I · colour · max(n · d / ‖d‖, 0) / (π · ‖d‖²) · clamp(1 − (‖d‖² / R²)², 0, 1)²
+```
+
+On the face, `X = (x, y, 0)` and `n = (0, 0, 1)`. `Eᶠ(p)` is the sum of the terms of every emitter at `p`, each with
+`I` multiplied by its `face`; a `"layer"` emitter's term is multiplied by the captured alpha `a(p)`, so it lights the
+layer's own content and nothing beneath it.
+
+**Part shadows on the face.** `Sₚ(p)` is the maximum, over the parts with a `caster`, of 2.8's `Sᵢ` for the caster's
+rounded box and height (2D.7).
+
+**The face factor.** Both multiply the layer's result, per channel:
+
+```text
+Φ₀ = (1 − Sₚ) · (1 + Eᶠ)
+Φᵍ = clamp(Φ₀, (1 − m) / k, (1 + m) / k)          k as in 2.9, or 1 where w = 0
+Φ  = mix(Φᵍ, Φ₀, smoothstep(0, feather, q))
+```
+
+`q` is the distance from `p` to the nearest protected rect: 0 inside one, and 0 everywhere when `protected` is
+`"extent"`. Inside a protected rect the face therefore changes by at most `m` in all (its relief, the shadows of parts
+and emitter light together), so the contrast invariant holds under emitters.
+
+**Where it applies:** at every point of the extent and the outset, after 2.11 (the focus edge included):
+
+```text
+out = clamp(out · Φ, 0, 1)
+```
+
+A renderer that draws over content other than the backdrop multiplies that content too: in the outset, `Φ` lights and
+shadows whatever lies beneath the layer. Conformance renders over the backdrop.
+
+**Parts** take the same emitters in their shading (2D.5), with their own normals.
+
+### 2D.5 Materials and the environment
+
+**Material layers** in an Instrument scene, each optional:
+
+| Layer | Parameters (default) | In the model |
+| --- | --- | --- |
+| `base` | `colour` (`#ffffff`), `roughness` (1), `metallic` (0), `direct` (1) | Shaded |
+| `coat` | `strength` (0), `roughness` (0), `ior` (1.5) | Shaded |
+| `reflectance` | `f0` (1), `tint` (`#ffffff`) | Shaded: the dielectric `F0` |
+| `emissive` | `strength` (0), `colour` (`#ffffff`) | Added, unlit |
+| `glass` | `ior` (1.5), `tint` (`[0.84, 0.93, 0.9]`, 0–1 per channel), `absorption` (0.03 per px of path), `reflection` (1.5) | 2D.6 |
+| `dispersion` | `strength` (0) | 2D.6 |
+| `brush`, `grain`, `sheen`, `iridescence`, `subsurface` | As in the design language | Presence only (2D.10) |
+
+**The reference shading of a part.** Unlike the face (2.1), parts are shaded in linear light, as PBR engines do, and
+encoded to sRGB at the end. With `lin` the sRGB decoding, `X` the point, `n` its interpolated normal, `C = (V.x, V.y,
+D)` the camera and `v = normalize(C − X)`:
+
+```text
+ρ    = lin(base.colour)
+F0   = mix(0.04 · f0 · lin(tint), ρ, metallic)
+α    = max(roughness², 0.002)
+f(ω) = (1 − F) · (1 − metallic) · ρ / π  +  ndf · vis · F          for a direction ω
+         h   = normalize(v + ω),  F = F0 + (1 − F0) · (1 − v · h)⁵
+         ndf = α² / (π · ((n · h)² · (α² − 1) + 1)²)
+         vis = 0.5 / ((n · ω) · √((n · v)² · (1 − α²) + α²) + (n · v) · √((n · ω)² · (1 − α²) + α²))
+key  = intensity · direct · σ · π · f(L) · max(n · L, 0)
+lamp = Σ over emitters of π · f(lₑ) · E                            lₑ towards the emitter, E from 2D.4 at (X, n)
+fill = ambient · (1 − metallic) · ρ · (0.5 + 0.5 · n.z)
+env  = environment.strength · ∫ studio(ω) · f(ω) · max(n · ω, 0) dω
+out  = enc(clamp(key + lamp + fill + env + emissive.strength · lin(emissive.colour), 0, 1))
+```
+
+- **Coat:** with `F꜀` the Schlick term for `F0 = ((ior − 1)/(ior + 1))²` and `ndf꜀`, `vis꜀` at `α = coat.roughness²`,
+  `f(ω)` becomes `f(ω) · (1 − coat · F꜀(n · v)) + coat · ndf꜀ · vis꜀ · F꜀`.
+- **The map:** `σ` is 1 where the shadow map (2D.7) does not shadow `X`, and `map.darkness` where it does.
+- **The fill** is 0 unless the scene sets `light.ambient` (2D.1): the studio is the fill.
+- **The integral** is evaluated by deterministic quadrature, fine enough that doubling it changes no channel by a
+  level. Page reflections are not part of the reference shading (2D.10 checks them by presence).
+- **The clamp:** the output is clamped to 0–1 before encoding, as Lite's PBR does; there is no tone mapping.
+
+**The studio.** With `L` the light direction (2.1), `ℓ = √(L.x² + L.z²)`, `up(ω) = −ω.y` (the screen's up) and
+`∠(a, b) = acos(clamp(a · b, −1, 1))`:
+
+```text
+toKey   = L                                           the softbox, at the key light
+toFill  = (−0.937 · L.x / ℓ, 0.35, −0.937 · L.z / ℓ)   across the vertical from the key, below the horizon
+toFront = (L.x / ℓ, 0, L.z / ℓ)                       on the key's side, at the horizon
+room(ω)   = floor + (ceiling − floor) · smoothstep(−0.35, 0.65, up(ω))
+studio(ω) = (room(ω)
+             + key   · smoothstep(keyRadius + 0.1, keyRadius, ∠(ω, toKey))
+             + 0.5 · fill · smoothstep(0.85, 0.55, ∠(ω, toFill))
+             + front · smoothstep(1.3, 0.9, ∠(ω, toFront))
+             + strip · smoothstep(0.16, 0.2, up(ω)) · smoothstep(0.38, 0.34, up(ω)))
+            · (0.97, 0.99, 1)
+```
+
+`studio` holds `floor`, `ceiling`, `key`, `keyRadius`, `fill`, `front` and `strip` (design language section 4). The
+function is defined in world directions, so it already lies at the key light: an engine that loads it as an image
+rotates the image about the screen's vertical to match.
+
+**The page.** `page: { enabled, size, height }` (default `true`, 512, 300): a cube seen from `height` px in front of the
+extent's centre, in which a direction that meets the face plane inside the extent at `Q` sees `lin(c(Q))` where
+`a(Q) > 0`, and any other direction sees `studio`. Its filtering is not part of the model.
+
+### 2D.6 Glass
+
+A glass part draws the capture through itself, with its reflection in the same computation, in linear light. With
+`d = normalize(X − C)` (from the camera), `n` the glass normal turned towards the viewer, `z` the height of `X`,
+`c(q)` the captured colour at layer point `q` (read exactly at the texel when `q` is a texel centre, bilinearly
+otherwise), GLSL's `refract` and `reflect`, and one index per channel, `ior − Δ`, `ior` and `ior + Δ` for red, green
+and blue, with the spread `Δ = 0.1 · dispersion.strength`:
+
+```text
+F0      = ((ior − 1) / (ior + 1))²
+Fr(n)   = F0 + (1 − F0) · (1 − (−d · n))⁵
+absorb(ℓ) = exp(−(1 − glass.tint) · glass.absorption · ℓ)          per channel, ℓ px of path inside the glass
+```
+
+**Reflection.** The radiance `R(X, r)` along the reflected ray `r = reflect(d, n)`:
+
+```text
+R = studio(r)                                              if r.z ≥ 0 (away from the face)
+R = lin(stand.colour) · studio((r.x, r.y, −r.z))           if the ray meets the stand: G = X + r · (z − b) / (−r.z)
+                                                           lies within stand.radius of the part's centre
+R = lin(c(X.xy + r.xy · z / (−r.z)))                       otherwise: the face where the ray lands
+```
+
+`b` is the height of the part's `at` (the surface it stands on), and `stand` is the part's (2D.2); without one, the
+second case does not apply. The studio is evaluated from its definition (2D.5), not from a prefiltered image.
+
+**A lens** (`glass: "lens"`: lenses and glass caps) is a plano-convex lens whose flat bottom lies at `b`. Per channel,
+with that channel's index `η`:
+
+```text
+t₁ = refract(d, n, 1 / η)                         into the glass
+ℓ  = (z − b) / max(−t₁.z, 10⁻³)                   the path to the bottom
+Q  = X + ℓ · t₁
+t₂ = refract(t₁, (0, 0, 1), η)                    out through the bottom; zero beyond the critical angle
+T  = lin(c(Q.xy + t₂.xy · b / max(−t₂.z, 10⁻³)))   where it lands on the face
+```
+
+Where the green channel's `t₂` is zero (total internal reflection), the light stays in the glass: `T = (0.015, 0.015,
+0.018)` for all three channels and `ℓ = 0`, so the rim shows the dark interior without a per-channel sparkle.
+Otherwise `T` takes each channel from its own index, and `ℓ` is the green channel's. Then:
+
+```text
+out = enc((1 − Fr(n)) · T · absorb(ℓ) + Fr(n) · environment.strength · glass.reflection · R(X, r))
+```
+
+**A window** (`glass: "window"`):
+
+```text
+s(n, η) = refract(d, n, η).xy · z / max(−refract(d, n, η).z, 0.15)      where the refracted ray meets z = 0
+δ(η)    = s(n, η) − s((0, 0, 1), η)                                      0 wherever the glass is flat
+T       = (c(p + δ(1 / (ior − Δ))).r, c(p + δ(1 / ior)).g, c(p + δ(1 / (ior + Δ))).b)
+F′      = max(Fr(n) − Fr((0, 0, 1)), 0)
+col     = mix(lin(T) · absorb(12 · (1 − n.z)), environment.strength · glass.reflection · R(X, r), F′)
+```
+
+A tilted bevel is seen through more glass: 12 px is the nominal path through a pane's bevel. If the window sets
+`finish`, its top finish zone is drawn on the glass, with `v` the distance from the window's top and `u` the distance
+from its edge on the key light's side (the left when `L.x < 0`), each as a fraction of the window's height and width:
+
+```text
+band    = finish.band · smoothstep(0.03, 0.06, v) · (1 − smoothstep(0.06, 0.26, v)) · (1.25 − 0.6 · u)
+horizon = finish.horizon · (smoothstep(0.25, 0.27, v) − smoothstep(0.28, 0.31, v))
+col     = col · (1 − horizon) + (0.86, 0.9, 0.95) · band
+out     = enc(col)
+```
+
+- **A window's flat region is exact:** there `δ = 0`, `F′ = 0` and the path is 0, so outside the finish zone the
+  pixel is `c(p)`.
+- **Text under a window is exact:** inside the scene's protected rects grown by 2 px, a window's pixel is `c(p)`,
+  whatever else applies (2D.9).
+- **The reflection is traced, not filtered:** the face and the stand are found by intersecting the reflected ray, so a
+  renderer whose custom shaders cannot sample a cube still draws it. The page cube (2D.5) is not used for glass.
+
+### 2D.7 Shadows
+
+- **On the face:** each part's `caster` is a rounded box (`rect`, `radius`) at `height` above the face, and casts 2.8's
+  `Sᵢ`. The reference resolves it from the part at the object's `t` (`partCaster`): the rounded box bounding the
+  part's orthographic footprint, at the part's mean height; a ball is a disc at its centre's height. `Sₚ` (2D.4) takes
+  the maximum over parts and multiplies the layer's result, so part shadows and the layer's own relief shadows (2.8)
+  combine by product, not maximum: they are drawn in different passes.
+- **On parts: the map.** Every part casts into and receives from one shadow map of the key light per layer: an
+  orthographic depth map along `−L`, `map.size`² texels, with its depth range fitted to the bounds of the layer's
+  parts, compared with `map.bias` (world px) and filtered by percentage-closer filtering. A part point in shadow keeps
+  `map.darkness` of its key term (`σ`, 2D.5). The face never receives from the map.
+- **Defaults:** `size` 4,096, `bias` 1.95 px, `darkness` 0.1 (design language section 7).
+- **Contact shadows and bounced light** are post options (2D.8). The model does not fix their colour; 2D.9 still
+  applies with them on.
+
+### 2D.8 Compositing and the post chain
+
+An Instrument layer is drawn in this order:
+
+1. **The layer:** part 2 for its primitives and capture, giving `out` (2.11).
+2. **The face factor:** `out = clamp(out · Φ, 0, 1)` over the extent and the outset (2D.4).
+3. **The parts** into a target of their own, cleared transparent, with a depth buffer of the layer's parts only:
+   premultiplied colour, with alpha the coverage. Captured caps are not drawn here.
+4. **The chain** on that target, each stage only when its `post` flag is set, in this order: TAA, contact shadows,
+   SSGI, SMAA, bloom. Bloom's source is an emitter target that holds only the lenses of lit emitters.
+5. **The clipped composite.** With `M(p)` 1 where the pixel's centre lies inside some object's `bounds` and 0
+   elsewhere:
+
+   ```text
+   out = parts.rgb · M + out · (1 − parts.a · M) + max(bloom − parts.rgb, 0) · M
+   ```
+
+6. **Captured caps,** last. At each pixel a captured cap covers, its colour is a version 2 solid's cap at that pixel
+   (2B.4: the captured colour with its interior factor and finish zones, guarded by 2.9), with the part's `state` and
+   material. No stage of step 4 reaches it, and neither emitters nor part shadows light it.
+
+With every `post` flag off, the parts may be drawn straight over `out` (steps 3 and 5 without the target): the result
+is the same, since every part lies inside its bounds (2D.9).
+
+### 2D.9 Geometric guarantees
+
+These are exact, and a renderer keeps them in every configuration, post options included.
+
+1. **Containment over the whole travel.** For every object and every `t` in 0–1, each pixel a part draws has its
+   centre inside `bounds`. The reference decides it (`objectContained`): at `t = k / n` for `k = 0 … n`, with
+   `n ≥ 32` and large enough that every vertex's projected path between consecutive steps strays less than 0.5 px from
+   the straight segment between them, every vertex of every part projects at least 0.5 px inside `bounds`. A rounded
+   box is convex and a triangle projects to the triangle of its projected vertices, so every drawn pixel then lies
+   inside at every `t`.
+2. **Step-down.** An object that fails 1 is not drawn as parts: its `relief` primitive is drawn in its place in the
+   layer's list (part 2), and the renderer reports the object.
+3. **Captured caps** are exact (2D.8, step 6) at every `t`, within the version 1 tolerance.
+4. **Protected text is unchanged by every stage:** inside protected rects, wherever no part is drawn, the result is
+   step 2's `out`, whatever the `post` flags.
+5. **The clip:** outside every object's `bounds`, neither the parts nor the chain change a pixel; the result is step
+   2's `out`.
+6. **The map never reaches the face:** face pixels are the same with the map on and off.
+7. **Flat glass over text is exact:** a window's pixels inside protected rects grown by 2 px are the captured colour
+   `c(p)`.
+8. **No hits, no recapture.** Instrument scenes take no hits. A renderer applies changes of `t`, of emitters (the
+   pointer light included) and of `post` as scene data: none recaptures the layer or changes its hit geometry.
+   Underglass's browser tests check this with counters; a suite of scenes cannot.
+
+### 2D.10 Sampled guarantees
+
+The colour of a part also depends on choices the model leaves to the engine: how the environment is prefiltered, how
+normals are interpolated, how the shadow map is filtered. Version 4 therefore checks parts at named points within a
+tolerance, and checks the layers it does not shade by their presence.
+
+- **Lit colour.** At each sampled point, every channel is within **12** (0–255) of the reference shading (2D.5).
+  - **Where points go:** at least 3 px from any silhouette, facet edge, shadow-map edge, protected rect or bloom halo,
+    where the reference colour changes by at most 4 levels per px; on parts whose materials use only `base`, `coat`,
+    `reflectance` and `emissive`, with `page` off. A case places each material's points where the materials it compares
+    differ by at least 24 levels in some channel, so a wrong material fails.
+  - **Why 12:** 3, the version 1 tolerance for 8-bit encoding; plus 8, for 2 px of shading position (interpolated
+    normals and tessellation) at the 4 levels per px the placement allows; plus 1, for prefiltered rather than
+    integrated environment light at those smooth points. It is provisional until the suite is first run against Lite
+    (Phase I2). A point Lite misses moves or changes material; raising the tolerance is a change of version 4, recorded
+    in the change log.
+- **Presence.** For `brush`, `grain`, `sheen`, `iridescence`, `subsurface`, `dispersion`, page reflections, a lens's
+  reflection, emitter light on parts and the shadow map, a case renders the feature on and off. At least the case's
+  share of the part's pixels changes by at least its number of levels, and nothing changes outside the object's
+  `bounds` or inside protected rects.
+- **Mapped shadow.** A part point the map shadows is darker with the map on than off, at most 0.95 of its lit value
+  in every channel; a lit part point changes by at most 3.
+
 ## 3. The reference implementation
 
 `@underglass/ui/tokens` exports the model as plain TypeScript, with no GPU and no DOM
@@ -595,12 +1001,30 @@ the oracle: written to be read next to this document, not to be fast. Its commen
 | `resolveObject`, `objectDistance`, `sideNormal`, `domeHit`, `objectDrawable`, `reliefEquivalent`, `environmentTerm` | The Objects part (2B), in [`objects.ts`](../../packages/ui/src/tokens/objects.ts) |
 | `shadeStage`, `backdropColour`, `particleAt`, `particleOrder`, `environmentSample`, `validateStageScene` | The Scene part (2C), in [`stage.ts`](../../packages/ui/src/tokens/stage.ts) |
 
+**Version 4** adds `instrument.ts` to `@underglass/ui/tokens`. Its exports are named here and land with the reference
+implementation, before core's Instrument work:
+
+| Export | Purpose |
+| --- | --- |
+| `validateScene(scene)` | Extended to version 4: the fields and limits of 2D.1 |
+| `profileMesh(profile)` | A profile's triangles (2D.2): `lathe`, `prism`, `extrude` and `mesh` |
+| `poseAt(part, t)`, `poseMatrix(part, pose)`, `fitCustomPart(part, builtIn)` | Poses, placements and custom parts (2D.2) |
+| `drift(camera, point)`, `bindingVertex(object, camera)`, `cameraDistance(stage, objects)` | Drift and the camera rule (2D.3) |
+| `travelFootprint(object)`, `boxForTravel(object)` | The design language's box rule, for validating forms |
+| `objectContained(object, camera)` | Containment over the whole travel, with the binding vertex and the closest approach (2D.9) |
+| `emitterTerm(emitter, point, normal)`, `partCaster(part, t)`, `faceFactor(scene, x, y)` | Emitters, part shadows on the face and the guarded face factor `Φ` (2D.4, 2D.7) |
+| `studioRadiance(direction, studio, light)`, `studioHdr(studio, light, width)` | The studio (2D.5), and the same function as an equirectangular HDR image for engines that load one |
+| `shadePart(scene, part, point, normal)` | The reference shading of a part, for sampled expectations (2D.5) |
+| `glassSample(scene, captured, part, x, y)` | Glass (2D.6) |
+| `shadeInstrument(scene, captured, x, y)` | The exactly defined colour at a point (the face with `Φ`, captured caps, flat glass), or none where only sampling applies |
+| `instrumentSettings(tokens, { depth, theme, character })` | An Instrument scene's settings from a token source and a character |
+
 **Where the standard and the reference implementation disagree:** the standard is authoritative. Fix the
 implementation, regenerate the suite, and record the change in the [change log](#change-log).
 
 ## 4. Conformance
 
-There are two suites, exported from `@underglass/ui/conformance/`:
+There are four suites, exported from `@underglass/ui/conformance/`:
 
 - [`relief-1.json`](../../packages/ui/conformance/relief-1.json): version 1, Relief.
 - [`objects-2.json`](../../packages/ui/conformance/objects-2.json): version 2, Objects. A renderer conforms to version
@@ -608,6 +1032,8 @@ There are two suites, exported from `@underglass/ui/conformance/`:
 - [`scene-3.json`](../../packages/ui/conformance/scene-3.json): version 3, Scene: backdrops, particles and an
   environment map. A renderer conforms to version 3 when it passes all three. Stage scenes have no capture and are
   rendered over white.
+- `instrument-4.json` (to come with the version 4 reference implementation): version 4, Instrument. A renderer
+  conforms to version 4 when it passes all four ([below](#the-instrument-suite)).
 
 **What a case holds:**
 
@@ -665,10 +1091,52 @@ renderer anti-aliases the capture.
 - **Out-of-date suite:** the same test fails while the committed suite differs from what the reference
   implementation produces.
 
+### The Instrument suite
+
+`instrument-4.json` holds cases in the same form, each with more kinds of check than an expected colour, because
+version 4 is geometric and sampled (2D):
+
+| Check | What a case gives | How a renderer passes |
+| --- | --- | --- |
+| `exact` | Points with an expected colour | Within 3 on every channel, as in version 1: the face with `Φ`, captured caps, flat glass |
+| `sampled` | Points with the reference shading's colour (2D.5) | Within 12 on every channel (2D.10) |
+| `contained` | Objects and the `t` values to render (at least 0, 0.5 and 1) | Every pixel that changes with the parts on against off has its centre inside the object's `bounds` |
+| `unchanged` | Rects (protected text, captured caps) and the scene variants to compare | Pixels identical in every variant: `post` flags on and off, the map on and off |
+| `presence` | A feature, a region, a share of pixels and a number of levels | The feature on against off changes at least that share by at least that much in the region, and nothing outside the object's `bounds` or inside protected rects |
+| `ratio` | Shadowed points and the map variant | At most 0.95 of the lit value with the map on |
+| `relief` | Objects that fail containment | Drawn as their `relief` primitive, and reported |
+
+- **Variants:** a case may list patches of its scene (another `t`, a `post` flag, a layer or the map off) that the
+  renderer also renders. Every case is rendered at device scales 1 and 2, since the probes saw differences between
+  them.
+- **The cases cover:**
+  - a knob at three turns, continuous and detented, with its pointer and skirt sampled;
+  - a fader's carriage at both stops and mid-travel;
+  - the `slide`, `rocker`, `bat` and `wall` switches at both stops and mid-travel, with a bat whose ball binds at
+    mid-travel;
+  - push buttons, held and latched, with captured labels;
+  - a lamp beside a label, on and off: the face pool, the outset past the panel's edge and the guard;
+  - an LED, and the pointer light over text;
+  - a display window with text under flat glass and its finish band, and a lens on a polished stand over a printed
+    target (refraction, magnification, the dark rim, dispersion, the stand's reflection);
+  - the `metal`, `polished`, `lacquer`, `gold`, `gunmetal` and `chrome` presets at sampled points;
+  - a lever's shadow on its plate, and a 2 px plate's shadow;
+  - the shadows of parts on the face;
+  - the post chain on and off, and the clip;
+  - a custom part outside its bounds, drawn as its Relief primitive;
+  - the dark theme, and another light direction.
+- **Where expectations come from:** the reference implementation (`buildInstrumentConformance`, run by the same
+  `npm run build:conformance`). Hand checks in the unit test cover the face pool at a point, the guard's limit, flat
+  glass returning the capture texel, a binding vertex's projection, and the studio's softbox lying at `L`.
+- **The sampled tolerance** is checked against Lite when core's Instrument material first runs the suite (2D.10).
+
 **Underglass and CSS:**
 
-- **Underglass's GPU presentation must conform.** Phase 4 step 2 runs this suite against decoded GPU pixels.
-- **The CSS presentation is a declared approximation.** It is bound by the P0.6 parity budget, not by this suite.
+- **Underglass's GPU presentation must conform.** Phase 4 step 2 runs this suite against decoded GPU pixels. For
+  version 4, core's Instrument work (Phase I2 of the [Instrument plan](instrument.md)) runs `instrument-4.json` the
+  same way.
+- **The CSS presentation is a declared approximation.** It is bound by the P0.6 parity budget, not by this suite. At
+  the Instrument level it is bound by the per-component budgets of [I0.6](instrument-phase0.md#i06-css-parity).
 
 ## 5. Scope and versions
 
@@ -676,14 +1144,43 @@ renderer anti-aliases the capture.
 - **Version 2 adds the Objects level** (part 2B): solids and domes, the camera, the studio environment and hit
   safety. A version 1 scene, or a version 2 scene with no objects, shades the same under both.
 - **Version 3 adds the Scene level** (part 2C): stage scenes with a backdrop and particles, and environment maps.
-- **Reserved:** `light.intensity`, `light.ambient` and `light.colour` (one white light, as in version 1), the inner
-  shadow of wells, and particle shadows.
+- **Version 4 adds the Instrument level** (part 2D): parts and poses, containment over the whole travel, emitters and
+  protected text at every level, the studio as radiance, glass over the capture, shadows of parts, the post chain's
+  order and clip, and sampled guarantees. `light.intensity` and `light.ambient` are used in Instrument scenes.
+- **Reserved:** `light.colour` (one white light, as in version 1), `light.intensity` and `light.ambient` outside
+  Instrument scenes, the inner shadow of wells, and particle shadows.
+- **Not in version 4:** shadows cast by emitters; emitter light on captured caps; a specular term for the pointer
+  light on Relief and Objects bevels; the colour of the TAA, contact-shadow and SSGI options (only 2D.9 binds them);
+  page reflections in the reference shading; HDR bloom (Lite's PBR output is clamped).
 - **Reserved in version 1:** the `sheen`, `iridescence` and `transmission` layers, `coat.ior`, the depth of sunk faces
   (their inner shadow), and glyph-shaped marks. A check mark is presented as captured, with no primitive.
 - **Versioning:** a change that alters any expected colour is a new version of the model, with a new suite file. A
   renderer states which versions it conforms to.
 
 ## Change log
+
+- 2026-10-17: version 4, draft, from the second iteration of the
+  [I1 prototype](instrument-phase0.md#i1-prototype):
+  - **Glass (2D.6)** is computed in linear light with its reflection traced: a ray towards the face meets the part's
+    polished `stand` or the face, a ray away from it sees the studio. A lens refracts in at its surface and out at its
+    flat bottom (total internal reflection gives a dark rim) instead of being shifted against a flat pane; light is
+    absorbed along its path (`glass.tint`, `glass.absorption`) instead of a rim tint (`tintStrength`); glass
+    reflections take `glass.reflection` (1.5); a window's finish band is defined (`finish: { band, horizon }`), and its
+    text is exact over its protected rects grown by 2 px.
+  - **Emitters (2D.4)** gain `face`, the share of their strength that lights the face (the pointer light's is 0.3).
+  - **The fill (2D.1, 2D.5)** defaults to 0 in Instrument scenes: the studio is the fill.
+
+- 2026-10-17: version 4 (Instrument), draft: part 2D, from the [Instrument plan](instrument.md) and the
+  [Phase I0 report](instrument-phase0.md). The scene format gains `kind`, emitters and protected rects at every level,
+  and Instrument objects with parts, profiles and poses; the model gains the camera rule, the emitter term and the
+  guarded face factor, the reference shading of parts and the studio as radiance, glass over the capture, shadows of
+  parts on the face and on parts, the post chain's order and clip, geometric guarantees and sampled guarantees with a
+  provisional tolerance of 12. The reference implementation (`instrument.ts`, section 3) and `instrument-4.json`
+  (section 4) are specified, not yet written. Two rules are tighter than the probes:
+  - **The guard limits the whole face change** inside protected rects (relief, part shadows and emitter light
+    together, 2D.4); the I0.3 probe capped emitter light alone, and text moved up to 0.44 levels beyond `m`.
+  - **An object that fails containment is drawn as its Relief primitive,** not as an Objects object, since an
+    Instrument layer has one renderer (2D.9).
 
 - 2026-10-17: narrow bands (2.4). A band narrower than `bevel.width` scales the slope by `bᵢ / bevel.width`, so thin
   grooves (dividers, tab rails) are shallow instead of near-black on the GPU. This changes the expected colours of

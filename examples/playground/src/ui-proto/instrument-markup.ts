@@ -16,6 +16,8 @@ export type Level = "instrument" | "objects" | "css";
 /** Native control states, shared by the three copies. */
 export interface ControlState { volume: number; input: number; level: number; mute: boolean; power: boolean; phono: boolean; lights: boolean; rec: boolean }
 export const initialState: ControlState = { volume: 62, input: 4, level: 72, mute: false, power: true, phono: false, lights: true, rec: false };
+/** The display window's readout of the shared state (a native `<output>`, printed under the glass). */
+export const displayText = (state: ControlState) => `VOL ${(state.volume / 10).toFixed(1)}  IN ${String(state.input).padStart(2, "0")}  LVL ${Math.round(state.level)}%`;
 
 const fmt = (value: number) => Number(value.toFixed(2));
 /** Ticks and numerals of a knob's printed scale: `count` major positions, `minor` ticks between neighbours. */
@@ -42,6 +44,7 @@ export function panelMarkup(level: Level, tokens: ResolvedTokens, state: Control
   const knobMarkup = (name: string, legend: string, k: typeof knob, max: number, step: number, value: number, numerals: string[] | undefined, minor: number) => `
     <div class="ip-control ip-knob" data-control="${name}">
       <div class="ip-box ip-dial" style="width:${k.box}px;height:${k.box}px;--ip-v:${value / max}">
+        <span class="ip-hub" aria-hidden="true" style="width:${2 * k.hub}px;height:${2 * k.hub}px"></span>
         <span class="ip-scale" aria-hidden="true">${scale(k.size, k.box, numerals?.length ?? max + 1, minor, numerals, k.sweep)}</span>
         <span class="ip-deco ip-skirt" aria-hidden="true" style="width:${k.size}px;height:${k.size}px"${face("raised")}><span class="ip-deco ip-cap" style="width:${k.cap}px;height:${k.cap}px"${face("raised", ' data-strata-elevation="floating"')}><span class="ip-pointer"></span></span></span>
         <input class="ip-native" type="range" id="${id(name)}" data-ip="${name === "volume" ? "knob" : "small"}" min="0" max="${max}" step="${step}" value="${value}" aria-valuetext="${name === "volume" ? `${fmt(value / 10)} of 10` : `Position ${value}`}">
@@ -101,8 +104,14 @@ export function panelMarkup(level: Level, tokens: ResolvedTokens, state: Control
           </div>
           <span class="ip-print ip-legend">Record arm</span>
         </div>
-        <p class="ip-print ip-note">Labels are printed on the faceplate; the cap carries only a pointer.</p>
+        <div class="ip-control ip-readout" data-control="display">
+          <div class="ip-box" style="width:${tokens.display.box[0]}px;height:${tokens.display.box[1]}px">
+            <output class="ip-display" id="${id("display")}" data-ip="display" for="${id("volume")} ${id("input")} ${id("level")}" aria-label="Readout"><span class="ip-display-text">${displayText(state)}</span></output>
+          </div>
+          <span class="ip-print ip-legend">Readout</span>
+        </div>
       </div>
+      <p class="ip-print ip-note">Labels are printed on the faceplate; the cap carries only a pointer. The readout sits under glass.</p>
     </div>
     ${faderMarkup}
   </div>`;

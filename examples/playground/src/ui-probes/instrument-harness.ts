@@ -30,7 +30,7 @@
 import {
   addTask, addToScene, captureScreenshot, createRenderTarget, createRenderTask, createDirectionalLight, createFreeCamera, createHemisphericLight, createSceneContext,
   createShaderMaterial, disposeScene, enableShaderMaterialInstanceWorld, getRenderTaskGpuTimings, isGpuTimingSupported,
-  registerScene, setGpuTimingEnabled, setRenderTaskGpuTimingEnabled, setShaderTexture, setShaderUniform, setThinInstances,
+  registerScene, registerSceneWithShadowSupport, setGpuTimingEnabled, setRenderTaskGpuTimingEnabled, setShaderTexture, setShaderUniform, setThinInstances,
   flushThinInstances, vec3, waitForGpuIdle,
   type DirectionalLight, type EngineContext, type FreeCamera, type Material, type Mesh, type RenderingContext, type SceneContext,
   type Screenshot, type ShaderMaterial,
@@ -77,6 +77,8 @@ export interface InstrumentHarnessOptions {
   minDistance?: number;
   budgets?: { layers: number; pixels: number };
   onStatus?(message: string): void;
+  /** Registers each layer scene with Lite's shadow support (a scene that renders a shadow map), after its captures are bound. */
+  shadowSupport?: boolean;
 }
 export interface FrameStats { frames: number; mean: number; p50: number; p95: number; max: number }
 
@@ -246,7 +248,7 @@ export async function startInstrument(options: InstrumentHarnessOptions) {
         if (!texture) throw new Error(`No capture presented for layer ${entry.id}`);
         for (const capture of entry.captures) { setShaderTexture(capture.material, "capture", texture as never); capture.bound = texture; }
       }
-      for (const entry of next.values()) await registerScene(entry.scene);
+      for (const entry of next.values()) await (options.shadowSupport ? registerSceneWithShadowSupport : registerScene)(entry.scene);
       const previous = layers;
       layers = next;
       draw();

@@ -22,7 +22,7 @@
     #css-stage { position: absolute; left: 1074px; top: 148px; width: 500px; height: 724px; }
 
     /* ---- The chassis panel (all presentations): a machined faceplate with printed text. ---- */
-    .ip-panel { position: absolute; top: 12px; width: 500px; height: 548px; box-sizing: border-box; margin: 0; padding: 20px 22px; border-radius: 10px;
+    .ip-panel { position: absolute; top: 12px; width: 500px; height: 590px; box-sizing: border-box; margin: 0; padding: 20px 22px; border-radius: 10px;
       color: rgb(var(--ip-ink)); font: 13px/1.25 system-ui, sans-serif;
       background: var(--ip-plate-grain), linear-gradient(180deg, rgb(255 255 255 / var(--ip-plate-sheen)), rgb(255 255 255 / 0) 38%, rgb(0 0 0 / var(--ip-plate-sheen)) 100%), rgb(var(--ip-plate)); }
     .ip-head { margin: 0 0 6px; }
@@ -33,7 +33,7 @@
     .ip-numeral, .ip-db { position: absolute; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; color: rgb(var(--ip-muted)); white-space: nowrap; }
     .ip-numeral { width: 22px; height: 14px; line-height: 14px; text-align: center; }
     .ip-db { right: 11px; height: 14px; line-height: 14px; }
-    .ip-note { max-width: 190px; margin: 0; font-size: 11px; color: rgb(var(--ip-muted)); }
+    .ip-note { max-width: 380px; margin: 18px 0 0; font-size: 11px; color: rgb(var(--ip-muted)); }
     .ip-tick { position: absolute; width: 1.2px; background: rgb(var(--ip-muted)); transform-origin: 0 0; }
     .ip-tick--major { width: 1.6px; background: rgb(var(--ip-ink)); }
     .ip-tick--fader { right: 0; width: 7px; height: 1.2px; transform: translateY(-50%); }
@@ -42,7 +42,8 @@
     .ip-row { display: flex; align-items: flex-end; }
     .ip-row--knobs { gap: 6px; }
     .ip-row--switches { gap: 22px; margin-top: 26px; }
-    .ip-row--buttons { gap: 24px; align-items: center; margin-top: 30px; }
+    .ip-row--buttons { gap: 28px; align-items: flex-start; margin-top: 26px; }
+    .ip-readout { gap: 6px; }
     .ip-control { display: flex; flex-direction: column; align-items: center; }
     .ip-knob .ip-legend { margin-top: -6px; }
     .ip-switch { gap: 3px; }
@@ -58,6 +59,13 @@
     .ip-slot { position: absolute; left: 50%; top: 50%; width: 5px; transform: translate(-50%, -50%); border-radius: 3px; background: rgb(var(--ip-slot));
       box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.55), 0 1px 0 rgb(255 255 255 / var(--ip-cut-light)); }
     .ip-slot--slide { width: 50px; height: 8px; border-radius: 4px; }
+    /* A printed hub ring under each knob's cap, on whole pixels (seen, magnified, through a glass cap). */
+    .ip-hub { position: absolute; left: calc(50% - 7px); top: calc(50% - 7px); box-sizing: border-box; border-radius: 50%; border: 1.6px solid rgb(var(--ip-ink)); }
+    /* The display window: a backlit readout (the native <output>), its window inside a 7 px bezel band. */
+    .ip-display { position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 8px;
+      border: 7px solid rgb(var(--ip-skirt-shade)); background: linear-gradient(180deg, rgb(9 13 16), rgb(16 24 28));
+      box-shadow: inset 0 0 0 1px rgb(150 176 190 / 0.55), inset 0 3px 8px rgb(0 0 0 / 0.7); }
+    .ip-display-text { font: 600 13px/16px ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: 0.02em; white-space: pre; color: rgb(178 232 255); }
 
     /* The native controls: transparent, on top, covering their objects' whole travel; focus is printed around them. */
     .ip-native { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; box-sizing: border-box; margin: 0; padding: 0; border: 0;
@@ -72,7 +80,7 @@
     .ip-switch--bat .ip-native { border-radius: 8px; }
     .ip-switch--wall .ip-native { border-radius: 6px; }
     .ip-button { border-radius: 50%; color: rgb(var(--ip-cap-ink)); font: 600 11px/1 system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
-    .ip-cap-face { position: absolute; left: 8px; top: 8px; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    .ip-cap-face { position: absolute; left: calc(50% - 20px); top: calc(50% - 20px); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
       background: var(--ip-cap-top); }
 
     /* Decoration geometry, shared by the Objects and CSS presentations. */
@@ -109,9 +117,10 @@
     /* ---- CSS: the skeuomorphic rendering from the same tokens (gradients, the shadow formula, 3D transforms). ---- */
     .ip-css { box-shadow: var(--ip-sh-panel), inset 1px 1px 0 rgb(255 255 255 / var(--ip-cut-light)), inset -1px -1px 0 rgb(0 0 0 / 0.18); }
     .ip-css .ip-objects-only { visibility: hidden; }
-    .ip-css .ip-skirt { background: conic-gradient(from 323deg, rgb(var(--ip-skirt-light)), rgb(var(--ip-skirt)) 90deg, rgb(var(--ip-skirt-shade)) 180deg, rgb(var(--ip-skirt)) 270deg, rgb(var(--ip-skirt-light))); box-shadow: var(--ip-sh-skirt); }
+    /* The skirt is a turned flange: its upper half catches the studio's strip (bright), its lower half the floor. */
+    .ip-css .ip-skirt { background: linear-gradient(180deg, rgb(var(--ip-skirt-light)) 0 44%, rgb(var(--ip-skirt)) 50%, rgb(var(--ip-skirt-shade)) 100%); box-shadow: var(--ip-sh-skirt); }
     .ip-css .ip-cap { border: var(--ip-chamfer) solid transparent;
-      background: var(--ip-cap-top) padding-box, conic-gradient(from 323deg, rgb(var(--ip-cap-light)), rgb(var(--ip-cap)) 90deg, rgb(var(--ip-cap-shade)) 180deg, rgb(var(--ip-cap)) 270deg, rgb(var(--ip-cap-light))) border-box;
+      background: var(--ip-knob-top) padding-box, conic-gradient(from 323deg, rgb(var(--ip-cap-light)), rgb(var(--ip-cap)) 90deg, rgb(var(--ip-cap-shade)) 180deg, rgb(var(--ip-cap)) 270deg, rgb(var(--ip-cap-light))) border-box;
       box-shadow: var(--ip-sh-cap); }
     .ip-css .ip-carriage { background: var(--ip-cap-side); box-shadow: var(--ip-sh-carriage), inset 0 1px 0 rgb(var(--ip-cap-light)), inset 0 -1px 0 rgb(var(--ip-cap-shade)); }
     .ip-css .ip-slider { position: absolute; left: 6px; top: 4px; width: 24px; height: 20px; border-radius: 3px; background: var(--ip-cap-side);
@@ -131,6 +140,10 @@
     .ip-css .ip-lever { position: absolute; left: 50%; bottom: 50%; width: 5px; height: var(--ip-lever); margin-left: -2.5px; border-radius: 3px 3px 2px 2px; transform-origin: 50% 100%;
       background: linear-gradient(90deg, rgb(var(--ip-cap-shade)), rgb(var(--ip-cap-light)) 35%, rgb(var(--ip-cap)) 65%, rgb(var(--ip-cap-shade))); box-shadow: var(--ip-sh-lever);
       transform: rotate(180deg); transition: transform 90ms cubic-bezier(0.3, 1.5, 0.5, 1); }
+    /* The accent flags: on the rocker's On end and the wall paddle's top, lit when on. */
+    .ip-css .ip-bezel .ip-paddle::after, .ip-css .ip-wallplate .ip-paddle::after { content: ""; position: absolute; left: 50%; top: 4px; width: 18px; height: 8px; margin-left: -9px; border-radius: 1px; background: rgb(var(--ip-accent) / 0.25); }
+    .ip-css .ip-wallplate .ip-paddle::after { top: 7px; width: 12px; height: 4px; margin-left: -6px; border-radius: 2px; }
+    .ip-css .ip-box:has(.ip-native:checked) .ip-paddle::after { background: rgb(var(--ip-accent)); box-shadow: 0 0 6px rgb(var(--ip-accent) / 0.6); }
     .ip-css .ip-lever::after { content: ""; position: absolute; left: 50%; top: -3px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%;
       background: radial-gradient(circle at 35% 30%, rgb(var(--ip-cap-light)), rgb(var(--ip-cap)) 55%, rgb(var(--ip-cap-shade))); }
     .ip-css .ip-box:has(.ip-native:checked) .ip-lever { transform: rotate(0deg); }
@@ -139,6 +152,9 @@
     .ip-css .ip-wallplate .ip-paddle { width: 30px; height: 54px; margin: -27px 0 0 -15px; border-radius: 3px; transform: rotateX(var(--ip-wall-off));
       background: linear-gradient(180deg, rgb(var(--ip-cap-light)), rgb(var(--ip-cap)) 30%, rgb(var(--ip-cap)) 70%, rgb(var(--ip-cap-shade))); box-shadow: var(--ip-sh-wallpaddle); }
     .ip-css .ip-box:has(.ip-native:checked) .ip-wallplate .ip-paddle { transform: rotateX(var(--ip-wall-on)); }
+    .ip-css .ip-display { border-color: rgb(var(--ip-skirt)); box-shadow: var(--ip-sh-bezel), inset 0 0 0 1px rgb(150 176 190 / 0.55), inset 0 3px 8px rgb(0 0 0 / 0.7); }
+    .ip-css .ip-display::after { content: ""; position: absolute; inset: 0; border-radius: 2px; pointer-events: none;
+      background: linear-gradient(180deg, transparent 3%, rgb(220 230 242 / 0.16) 9%, rgb(220 230 242 / 0.16) 20%, transparent 26%, rgb(0 0 0 / 0.2) 27.5%, transparent 31%); }
     .ip-css .ip-cap-face { box-shadow: var(--ip-sh-button), inset 0 0 0 1.2px rgb(var(--ip-cap-light) / 0.6); transition: transform 80ms ease-out, box-shadow 80ms ease-out; }
     .ip-css .ip-button:active .ip-cap-face { transform: scale(0.97); box-shadow: var(--ip-sh-button-pressed); }
     .ip-css .ip-box:has(.ip-button[aria-pressed="true"]) .ip-ring { box-shadow: 0 0 10px rgb(var(--ip-accent) / 0.55); }
@@ -162,6 +178,7 @@
       <label>Plate <select id="t-plate" name="plateMaterial"></select></label>
       <label>Light <input id="t-light" name="light" type="range" min="0.5" max="3" step="0.05"><output></output></label>
       <label>Reflections <input id="t-reflections" name="reflections" type="range" min="0" max="2" step="0.05"><output></output></label>
+      <label>Pointer light <input id="t-pointer" name="pointer" type="checkbox"></label>
       <label>Theme <select id="t-theme" name="theme"><option value="light">Light</option><option value="dark">Dark</option></select></label>
       <button id="t-reset" type="button">Reset</button>
     </form>
