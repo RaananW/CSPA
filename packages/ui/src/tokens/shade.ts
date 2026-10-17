@@ -70,6 +70,8 @@ interface Resolved extends MaterialValues {
   band: number;
   /** +1 for raised faces, −1 for sunk ones. */
   slope: number;
+  /** How steep the bevel is: `band / bevel.width` for a band narrower than the bevel, else 1 (section 2.4). */
+  steep: number;
   /** Height after the state multipliers, for casters; 0 otherwise. */
   height: number;
   profile: BevelProfile;
@@ -95,6 +97,7 @@ function resolvePrimitive(scene: StrataScene, primitive: ScenePrimitive): Resolv
   return {
     face: primitive.face, cx: x + halfWidth, cy: y + halfHeight, halfWidth, halfHeight, radius, band,
     slope: sunk(primitive.face) ? -1 : 1,
+    steep: primitive.face === "knob" || band <= 0 || scene.bevel.width <= 0 ? 1 : Math.min(1, band / scene.bevel.width),
     height: caster ? primitive.height * stateHeight(scene, state) : 0,
     profile: primitive.face === "knob" ? "quarter-round" : scene.bevel.profile,
     lit, ...material, primitive,
@@ -289,7 +292,7 @@ export function shadingTerms(scene: StrataScene, x: number, y: number): ShadingT
       // A knob is all bevel (a dome); it has no interior.
       if (s < 1 || shape.face === "knob") {
         // 2.5 Bevel light: a normal from the profile, Lambert relative to a flat face, a specular lobe and a coat.
-        const [gx, gy] = outward(shape, x, y), theta = profileAngle(shape.profile, s);
+        const [gx, gy] = outward(shape, x, y), theta = profileAngle(shape.profile, s) * shape.steep;
         const n = [gx * shape.slope * Math.sin(theta), gy * shape.slope * Math.sin(theta), Math.cos(theta)] as const;
         shade += bevelLight(scene, n, shape) * cover;
       } else {
