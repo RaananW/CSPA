@@ -302,7 +302,22 @@ async function ready(page, query = "") {
   await page.waitForFunction(() => window.strataKnobProbe && window.strataKnobProbe.controller.state().mode === "gpu", null, { timeout: 30000 });
   await page.waitForFunction(() => window.strataKnobProbe.scene() !== undefined);
   await page.evaluate(() => window.strataKnobProbe.controller.settle());
+  await built(page);
 }
+/** At the Instrument level: every instrument layer built (not pending), so its parts are drawn. */
+const built = page => page.waitForFunction(() => {
+  const instrument = window.strataKnobProbe.instrument();
+  return !instrument || (!instrument.compile.building && instrument.layers.every(layer => layer.status !== "pending"));
+}, null, { timeout: 30000 });
+/** At the Instrument level: every knob's spring at rest on its value. */
+const rest = page => page.waitForFunction(() => {
+  const probe = window.strataKnobProbe;
+  probe.refresh();
+  return (probe.scene()?.objects ?? []).filter(object => object.id !== "knob-reset").every(object => {
+    const input = document.getElementById(object.id);
+    return Math.abs(object.t - (input.value - input.min) / (input.max - input.min)) < 1e-6;
+  });
+});
 const mode = page => page.evaluate(() => window.strataKnobProbe.controller.state().mode);
 /** The `#frame` decoded, after the scene and the GPU have caught up; `at(x, y)` in frame CSS px. */
 async function frame(page, name) {
@@ -311,6 +326,9 @@ async function frame(page, name) {
     await new Promise(resolve => setTimeout(resolve, 200));
     window.strataKnobProbe.refresh(); await window.strataKnobProbe.controller.settle();
   });
+  await rest(page);
+  await built(page);
+  await page.evaluate(async () => { for (let index = 0; index < 3; index++) await new Promise(requestAnimationFrame); await window.strataKnobProbe.controller.settle(); });
   await mkdir(evidence, { recursive: true });
   return PNG.sync.read(await page.locator("#frame").screenshot({ path: `${evidence}/${name}.png` }));
 }
@@ -358,9 +376,9 @@ for (const level of ["relief", "objects"]) test(`on the GPU at the ${level} leve
       input: scene.primitives.some(p => p.face === "groove"), count: scene.primitives.length };
   });
   if (level === "relief") {
-    expect(kinds).toMatchObject({ version: 1, material: "relief", skirt: { face: "raised", material: "satin" }, cap: { face: "raised", material: "satin" }, input: false, count: 5 });
+    expect(kinds).toMatchObject({ version: 1, material: "relief", skirt: { face: "raised", material: "satin" }, cap: { face: "raised", material: "satin" }, input: false, count: 6 });
   } else {
-    expect(kinds).toMatchObject({ version: 2, material: "objects", skirt: { object: "slab", material: "satin" }, cap: { object: "slab", material: "satin" }, input: false, count: 5 });
+    expect(kinds).toMatchObject({ version: 2, material: "objects", skirt: { object: "slab", material: "satin" }, cap: { object: "slab", material: "satin" }, input: false, count: 6 });
     // The cap stands on the skirt's top.
     expect(kinds.cap.base).toBe(kinds.skirt.base + kinds.skirt.height);
   }
@@ -444,4 +462,148 @@ test("the accessibility snapshot is the same in DOM and GPU modes, and axe passe
   expect(await mode(page)).toBe("gpu");
   const { violations } = await new AxeBuilder({ page }).include("#knob-panel").withTags(tags).analyze();
   expect(summary(violations), "axe on the GPU page").toEqual([]);
+});
+
+// ---- The Instrument level: core's instrument material, the knob as parts ----
+
+for (const dpr of [1, 2]) test(`at the Instrument level (DPR ${dpr}) the knob is drawn as parts that stay in its box, turn with its value without captures, and take native hits`, async ({ browser }) => {
+  test.setTimeout(120000);
+  const context = await browser.newContext({ viewport: { width: 900, height: 750 }, deviceScaleFactor: dpr });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, "?level=instrument");
+  const layer = () => page.evaluate(() => window.strataKnobProbe.instrument().layers[0]);
+  const healthy = async label => {
+    expect(await mode(page), `${label}: GPU stays on`).toBe("gpu");
+    const state = await layer();
+    expect(state.status, `${label}: the layer is drawn as parts`).toBe("ready");
+    expect(state.steppedDown, `${label}: nothing is stepped down to Relief`).toEqual([]);
+  };
+  // The scene: the face (the panel; the printed scale is captured content), the two knobs and the Reset key as parts.
+  const scene = await page.evaluate(() => {
+    const probe = window.strataKnobProbe, scene = probe.scene(), panel = probe.panel().getBoundingClientRect();
+    const box = id => { const rect = document.getElementById(id).getBoundingClientRect(); return [rect.left - panel.left, rect.top - panel.top, rect.width, rect.height]; };
+    return { version: scene.version, kind: scene.kind, material: probe.controller.state().materials[0]?.kind, primitives: scene.primitives.map(entry => entry.face),
+      objects: scene.objects.map(object => ({ id: object.id, parts: object.parts.map(part => `${part.kind}:${part.material}`), close: object.bounds.rect.every((value, index) => Math.abs(value - box(object.id)[index]) < 0.01) })),
+      pointer: scene.objects[0].parts[3].pose, t: scene.objects.map(object => object.t), camera: scene.camera.distance };
+  });
+  expect(scene).toMatchObject({ version: 4, kind: "instrument", material: "instrument", primitives: ["raised"], camera: 2400 });
+  expect(scene.objects).toEqual([
+    { id: "volume", parts: ["skirt:knobSkirt", "cap:knobCap", "chamfer:knobChamfer", "pointer:knobInk"], close: true },
+    { id: "gain", parts: ["skirt:knobSkirt", "cap:knobCap", "chamfer:knobChamfer", "pointer:knobInk"], close: true },
+    { id: "knob-reset", parts: [expect.stringMatching(/^plinth:key /), "cap:keyCap"], close: true },
+  ]);
+  expect(scene.pointer).toEqual({ from: { turn: -225 }, to: { turn: 45 } });
+  expect(scene.t).toEqual([0.62, 0.5, 0]);
+  await healthy("start");
+
+  // Containment: the knobs' parts and their face shadows change pixels only inside their dials, against the same page
+  // with the dials hidden (legends kept); native hits on every changed pixel find the knob's input.
+  const dials = [await inFrame(page, "#volume-knob .ug-knob__dial"), await inFrame(page, "#gain-knob .ug-knob__dial")];
+  const on = await frame(page, `instrument-dpr${dpr}-on`);
+  await page.evaluate(() => { for (const dial of document.querySelectorAll(".ug-knob__dial")) dial.style.visibility = "hidden"; });
+  const off = await frame(page, `instrument-dpr${dpr}-off`);
+  await page.evaluate(() => { for (const dial of document.querySelectorAll(".ug-knob__dial")) dial.style.visibility = ""; });
+  await frame(page, `instrument-dpr${dpr}-back`);
+  const parts = difference(on, off, dials);
+  expect(parts.inside, "the knobs' parts are drawn").toBeGreaterThan(2000 * dpr * dpr);
+  expect(parts.outside, `no part pixel outside a dial (${JSON.stringify(parts.outsideSamples)})`).toBe(0);
+  const ratio = on.width / 640, points = [];
+  for (let y = 0; y < on.height; y += 2) for (let x = 0; x < on.width; x += 2) {
+    const index = (y * on.width + x) * 4;
+    if (Math.abs(on.data[index] - off.data[index]) + Math.abs(on.data[index + 1] - off.data[index + 1]) + Math.abs(on.data[index + 2] - off.data[index + 2]) >= 6) points.push([(x + 0.5) / ratio, (y + 0.5) / ratio]);
+  }
+  const hitsOnParts = await page.evaluate(points => {
+    const frame = document.getElementById("frame").getBoundingClientRect();
+    let total = 0, mismatches = 0;
+    for (const [x, y] of points) {
+      const hit = document.elementFromPoint(frame.left + x, frame.top + y);
+      total++;
+      if (!hit?.matches(".ug-knob__input")) mismatches++;
+    }
+    return { total, mismatches };
+  }, points);
+  expect(hitsOnParts.mismatches, "native hits on part pixels").toBe(0);
+  console.log(`instrument DPR ${dpr}: ${parts.inside} part px inside the dials, ${parts.outside} outside; ${hitsOnParts.total} hits on part pixels, ${hitsOnParts.mismatches} mismatches`);
+  for (const id of ["volume", "gain"]) expect((await hits(page, id, dpr === 2 ? 21 : 11)).misses, `${id}: grid hits`).toEqual([]);
+  await healthy("containment");
+
+  // Real input turns the pointer: fresh pixels inside the dial, none outside, GPU on and nothing stepped down.
+  const allowed = [...dials, await inFrame(page, "#knob-read")];
+  let before = await frame(page, `instrument-dpr${dpr}-start`);
+  const steps = [
+    ["ring click on 3", async () => page.mouse.click(...await numeral(page, "volume", "3")), 30],
+    ["drag up 40 px", async () => { const v = await dial(page, "volume"); await drag(page, [v.cx, v.cy], -40); }, 50],
+    ["cap tap", async () => { const v = await dial(page, "volume"); await page.mouse.click(v.cx, v.cy + 12); }, 49],
+    ["End key", async () => { await page.locator("#volume").focus(); await page.keyboard.press("End"); }, 100],
+    ["wheel notch", async () => { const v = await dial(page, "volume"); await page.mouse.move(v.cx, v.cy); await page.mouse.wheel(0, 100); }, 99],
+    ["double-click reset", async () => { const v = await dial(page, "volume"); await page.mouse.dblclick(v.cx + v.r + 12, v.cy); }, 62],
+  ];
+  for (const [name, act, expected] of steps) {
+    await act();
+    expect(await value(page, "volume"), name).toBe(expected);
+    const after = await frame(page, `instrument-dpr${dpr}-${expected}`);
+    const changed = difference(before, after, allowed);
+    expect(changed.inside, `${name}: the pointer turned`).toBeGreaterThan(20);
+    expect(changed.outside, `${name}: nothing changes outside the dial (${JSON.stringify(changed.outsideSamples)})`).toBe(0);
+    console.log(`instrument DPR ${dpr}: ${name} → ${expected}: ${changed.inside} px changed in the dial, ${changed.outside} outside`);
+    await healthy(name);
+    before = after;
+  }
+  // The Reset key is a key of parts: a real hit on its box reaches the button, and a real click resets both knobs.
+  await page.mouse.click(...await numeral(page, "gain", "12"));
+  const reset = await page.locator("#knob-reset").boundingBox();
+  expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("button")?.id, centre(reset))).toBe("knob-reset");
+  await page.mouse.click(...centre(reset));
+  expect([await value(page, "volume"), await value(page, "gain")]).toEqual([62, 0]);
+  await rest(page);
+  await healthy("reset key");
+
+  // 300 frames of turning: a native change every 15 frames, the spring turning in between. Core captures each native
+  // change (in its frame or the next); the turning frames between them add no capture, upload or hit-geometry update.
+  await page.evaluate(() => { document.getElementById("knob-read").style.visibility = "hidden"; });
+  await rest(page);
+  const turning = await page.evaluate(async () => {
+    const probe = window.strataKnobProbe, input = document.getElementById("volume"), frame = () => new Promise(requestAnimationFrame);
+    for (let index = 0; index < 5; index++) await frame();
+    const start = probe.counts();
+    let previous = start, extra = 0, moved = 0, changes = 0, t = probe.scene().objects[0].t;
+    for (let index = 0; index < 300; index++) {
+      if (index % 15 === 0) { input.value = String(index % 30 === 0 ? 95 : 5); input.dispatchEvent(new Event("input", { bubbles: true })); changes++; }
+      await frame();
+      const now = probe.counts(), next = probe.scene().objects[0].t;
+      if (index % 15 > 1) extra += now.captures - previous.captures;
+      if (next !== t) moved++;
+      t = next; previous = now;
+    }
+    const end = probe.counts();
+    return { changes, moved, extra, captures: end.captures - start.captures, uploads: end.uploads - start.uploads, geometryUpdates: end.geometryUpdates - start.geometryUpdates, mode: end.mode };
+  });
+  console.log(`instrument DPR ${dpr}: 300 frames, ${turning.changes} native changes, ${turning.moved} frames turning, ${turning.captures} captures (${turning.extra} in turning frames), ${turning.uploads} uploads, ${turning.geometryUpdates} hit-geometry updates`);
+  expect(turning.mode).toBe("gpu");
+  expect(turning.moved, "the pointer turns on most frames").toBeGreaterThan(200);
+  expect(turning.extra, "turning frames cause no capture").toBe(0);
+  expect(turning.captures).toBeLessThanOrEqual(turning.changes);
+  expect(turning.geometryUpdates).toBe(0);
+  await healthy("turning");
+  expect(errors).toEqual([]);
+  await context.close();
+});
+
+test("at the Instrument level under reduced motion the pointer turns at once, and the accessibility snapshot matches the DOM", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 900, height: 750 }, reducedMotion: "reduce" });
+  const page = await context.newPage();
+  await page.goto("/ui-knob.html?dom");
+  await page.waitForFunction(() => window.strataKnobProbe);
+  const act = async () => { await page.locator("#volume").focus(); await page.keyboard.press("ArrowUp"); await page.locator("#gain").focus(); await page.keyboard.press("ArrowDown"); };
+  await act();
+  const dom = await page.locator("#knob-panel").ariaSnapshot();
+  await ready(page, "?level=instrument");
+  await act();
+  expect(await page.locator("#knob-panel").ariaSnapshot()).toBe(dom);
+  // The first scene after the change already has the value's place: no spring under reduced motion.
+  expect(await page.evaluate(() => { const probe = window.strataKnobProbe; probe.refresh(); return probe.scene().objects.map(object => object.t); })).toEqual([0.63, 0.25, 0]);
+  expect(await mode(page)).toBe("gpu");
+  await context.close();
 });

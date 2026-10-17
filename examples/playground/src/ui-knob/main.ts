@@ -3,11 +3,12 @@
  * the plain-DOM behaviour (`attachStrata` from `@underglass/ui/dom`), in a Strata panel that is a direct child of an
  * Underglass root, presented on the GPU by `attachStrataGpu`. `window.strataKnobProbe` is the hook for
  * `tests/browser/ui-knob.test.mjs`.
- * - `?dom` starts in the CSS presentation; `?level=objects` presents the panel at the Objects level.
+ * - `?dom` starts in the CSS presentation; `?level=objects` presents the panel at the Objects level, and
+ *   `?level=instrument` at the Instrument level (core's `instrument` material: the knobs and the Reset key as parts).
  * - `?plain` puts the panel in the page's flow with no Underglass at all, as a plain HTML page uses it (the mobile and
  *   preference checks).
- * Two knobs: Volume (0–100, step 1, printed 0 to 10, "%") and Gain (−12 to 12 dB in five detents). Every `input` and
- * `change` event is recorded.
+ * Two knobs, Volume (0–100, step 1, printed 0 to 10, "%") and Gain (−12 to 12 dB in five detents), and a Reset button
+ * that returns both to their defaults. Every `input` and `change` event is recorded.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -37,7 +38,8 @@ const markup = `
     ${knob({ id: "volume", label: "Volume", min: 0, max: 100, step: 1, value: 62, unit: "%", marks: Array.from({ length: 11 }, (_, index) => [index * 10, String(index)]) })}
     ${knob({ id: "gain", label: "Gain", min: -12, max: 12, step: 6, value: 0, unit: " dB", detented: true, marks: [-12, -6, 0, 6, 12].map(value => [value, minus(value)]) })}
   </form>
-  <p class="read" id="knob-read">Volume 62%, gain 0 dB</p>`;
+  <p class="read" id="knob-read">Volume 62%, gain 0 dB</p>
+  <button type="button" class="ug-button" data-strata-face="raised" id="knob-reset"><span class="ug-button__label">Reset</span></button>`;
 
 const events: { id: string; type: string; value: string }[] = [];
 let panel!: HTMLElement;
@@ -57,6 +59,13 @@ function build(): HTMLElement {
     const input = event.target as HTMLInputElement;
     events.push({ id: input.id, type, value: input.value });
     read.textContent = `Volume ${section.querySelector<HTMLInputElement>("#volume")!.getAttribute("aria-valuetext")}, gain ${section.querySelector<HTMLInputElement>("#gain")!.getAttribute("aria-valuetext")}`;
+  });
+  section.querySelector("#knob-reset")!.addEventListener("click", () => {
+    for (const input of section.querySelectorAll<HTMLInputElement>(".ug-knob__input")) {
+      input.value = input.getAttribute("data-strata-default") ?? input.defaultValue;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
   });
   return section;
 }
@@ -80,7 +89,8 @@ if (params.has("plain")) {
     return () => container.replaceChildren();
   } });
   attachStrata();
-  strata = attachStrataGpu(controller, { level: params.get("level") === "objects" ? "objects" : undefined });
+  const level = params.get("level");
+  strata = attachStrataGpu(controller, { level: level === "objects" || level === "instrument" ? level : undefined });
   host("enable").addEventListener("click", () => void controller!.enable());
   host("disable").addEventListener("click", () => void controller!.disable());
   if (!params.has("dom")) void controller.enable().then(() => strata?.refresh());
@@ -89,10 +99,14 @@ if (params.has("plain")) {
 window.strataKnobProbe = {
   controller, panel: () => panel, scene: () => strata?.scene(panel), refresh: () => strata?.refresh(),
   events: () => [...events], clearEvents: () => { events.length = 0; },
+  instrument: () => (controller?.state() as unknown as { instrument: unknown } | undefined)?.instrument,
+  counts: () => { const state = controller?.state() as unknown as { mode: string; metrics: { captures: number; uploads: number; geometryUpdates: number } } | undefined;
+    return state ? { mode: state.mode, captures: state.metrics.captures, uploads: state.metrics.uploads, geometryUpdates: state.metrics.geometryUpdates } : undefined; },
 };
 declare global {
   interface Window { strataKnobProbe: {
     controller: CanvasController | undefined; panel(): HTMLElement; scene(): ReturnType<StrataGpu["scene"]>; refresh(): void;
     events(): { id: string; type: string; value: string }[]; clearEvents(): void;
+    instrument(): unknown; counts(): { mode: string; captures: number; uploads: number; geometryUpdates: number } | undefined;
   } }
 }

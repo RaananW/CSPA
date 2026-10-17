@@ -1,11 +1,23 @@
 /**
  * The Knob's value and angle maths, marks and markup data (`packages/ui/src/shared/knob.ts`, anatomy page `knob.md`),
- * and the Instrument stub's numbers (`packages/ui/src/gpu/instrument-knob.ts`, design language section 6).
+ * and the Knob's Instrument object (`packages/ui/src/gpu/instrument.ts`, design language section 6), checked with core's
+ * own validator and containment check (`packages/core/src/instrument.ts`).
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { knobAngle, knobDetentStep, knobDrag, knobFraction, knobMarks, knobModel, knobNotch, knobNumber, knobRegion, knobStyle, knobValueAtAngle, knobValueText } from "../../packages/ui/src/shared/knob.ts";
-import { knobInstrumentParts } from "../../packages/ui/src/gpu/instrument-knob.ts";
+import { registerHooks } from "node:module";
+import { advanceSpring, boxMargin, depthScale, keyObject, knobObject, knobParts, knobSprings, premiumMaterials } from "../../packages/ui/src/gpu/instrument.ts";
+
+// Core's sources import siblings as `./x.js`, which only exist as `.ts` in the source tree.
+const sourceImports = registerHooks({
+  resolve(specifier, context, next) {
+    if (context.parentURL?.includes("/core/src/") && specifier.startsWith("./") && specifier.endsWith(".js")) return next(specifier.replace(/\.js$/, ".ts"), context);
+    return next(specifier, context);
+  },
+});
+const { validateInstrumentScene, containmentFrontier, checkContainment, poseAt } = await import("../../packages/core/src/instrument.ts");
+sourceImports.deregister();
 
 const volume = { min: 0, max: 100, step: 0.1 };
 
@@ -102,17 +114,80 @@ test("the markup data: the root's and each mark's style, the detent step and ari
   assert.equal(knobModel({ value: 62, unit: "%", format: value => `Volume ${value / 10} of 10` }).valueText, "Volume 6.2 of 10");
 });
 
-test("the Instrument stub: the premium knob's parts from the object table, and the cap's turn", () => {
-  const parts = knobInstrumentParts(0.62);
-  assert.equal(parts.box, 140);
-  assert.deepEqual(parts.skirt, { diameter: 64, height: 2.5, edgeBreak: 0.8, topSlope: 7.5 });
-  assert.deepEqual(parts.cap, { diameter: 51, height: 16, crown: 1.2, chamfer: 2 });
-  assert.deepEqual(parts.pointer, { width: 2.2, from: 0.28, to: 0.86 });
-  assert.deepEqual(parts.scale, { ticks: 37, numerals: 52 });
-  assert.ok(Math.abs(parts.turn - 32.4) < 1e-9);
-  // Heights scale with depth; widths do not. The turn stays within the sweep.
-  const deep = knobInstrumentParts(2, { depthScale: 1.6 });
-  assert.equal(deep.cap.height, 25.6);
-  assert.equal(deep.cap.diameter, 51);
-  assert.equal(deep.turn, 135);
+/** A version 4 scene around `objects`, as the GPU helper writes it. */
+function sceneOf(objects, profiles, materials) {
+  return { format: "strata-scene", version: 4, kind: "instrument", camera: { distance: 2400, vanish: [960, 540] }, environment: { source: "studio", strength: 1 },
+    extent: { width: 400, height: 300 }, backdrop: "#ffffff", light: { azimuth: 323, elevation: 41, intensity: 1.6 }, bevel: { width: 6, gain: 0.55, profile: "quarter-round" },
+    shadow: { strength: 0.24 }, interior: { max: 0.04 }, state: { hoverHeight: 1.6, pressHeight: 0.25, hoverLift: 0.04, pressSink: 0.06 },
+    focus: { colour: "#2563eb", width: 3, offset: 0.5 }, materials: { matte: { base: { roughness: 0.6 } }, ...materials },
+    primitives: [{ face: "raised", rect: [0, 0, 400, 300], radius: 12, height: 8, material: "matte" }], profiles, objects };
+}
+const registry = () => { const profiles = {}; return { profiles, profile: (name, shape) => { const key = `${name}:${JSON.stringify(shape)}`; profiles[key] ??= shape; return key; } }; };
+const knob = (profile, options = {}) => knobObject({ id: "volume", box: [20, 20, 140, 140], skirt: 64, cap: 52, t: 0.62, sweep: 270, scale: 1,
+  state: { hover: false, disabled: false }, relief: { height: 3, material: "knobCap" }, ...options }, profile);
+
+test("the knob's parts follow the Instrument object table, and heights scale with depth", () => {
+  assert.deepEqual(knobParts(64, 52), { skirt: { radius: 32, height: 2.5, edgeBreak: 0.8, slope: 7.5 }, cap: { radius: 26, height: 16, crown: 1.2, chamfer: 2 },
+    pointer: { width: 2.2, from: 0.28, to: 0.86 } });
+  assert.equal(depthScale(0), 0.6);
+  assert.equal(depthScale(0.5), 1);
+  assert.ok(Math.abs(depthScale(1) - 1.6) < 1e-12);
+  assert.equal(knobParts(64, 52, 1.6).cap.height, 25.6);
+  // The box rule's margin at the reference stage for the tallest point (2.5 + 16 + 1.2).
+  assert.equal(boxMargin(19.7, { width: 1920, height: 1080 }), 11);
+});
+
+test("the knob is a valid Instrument object: skirt, cap, chamfer and an engraved pointer turning through the sweep", () => {
+  const { profiles, profile } = registry();
+  const object = knob(profile);
+  assert.deepEqual(object.parts.map(part => `${part.kind}:${part.material}`), ["skirt:knobSkirt", "cap:knobCap", "chamfer:knobChamfer", "pointer:knobInk"]);
+  assert.deepEqual(object.bounds, { rect: [20, 20, 140, 140], radius: 0 });
+  assert.deepEqual(object.parts[3].pose, { from: { turn: -225 }, to: { turn: 45 } });
+  // The pointer points up at the middle of the sweep, and to the sweep's ends at its stops.
+  assert.equal(poseAt(object.parts[3], 0.5).turn, -90);
+  assert.equal(poseAt(object.parts[3], 0).turn, -225);
+  // The skirt's top is a 7.5° cone; the cap's top a crown 1.2 high at the centre.
+  const skirt = profiles[object.parts[0].profile], cap = profiles[object.parts[1].profile];
+  assert.ok(Math.abs(Math.atan2(skirt.points.at(-1)[2], skirt.points.at(-1)[3]) * 180 / Math.PI - 7.5) < 0.1);
+  assert.equal(cap.points.at(-1)[1], 17.2);
+  const scene = validateInstrumentScene(sceneOf([object], profiles, Object.fromEntries(["knobCap", "knobSkirt", "knobChamfer", "knobInk"].map(name => [name, premiumMaterials[name]]))));
+  assert.equal(scene.objects[0].t, 0.62);
+});
+
+test("every vertex of the knob stays 0.5 px inside its box over the whole travel, in a corner of the reference stage, at every depth", () => {
+  for (const scale of [0.6, 1, 1.6]) {
+    const { profiles, profile } = registry();
+    const object = knob(profile, { scale, box: [0, 0, 140, 140] });
+    const frontier = containmentFrontier(object, profiles);
+    // The layer in the stage's top-left corner, the vanishing point at the centre of 1920 × 1080: the worst drift.
+    const result = checkContainment(object, profiles, frontier, { matrix: { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, scale: 1 }, vanish: [960, 540], distance: 2400 });
+    assert.ok(result.contained, `depth scale ${scale}: inset ${result.inset}`);
+  }
+});
+
+test("a button is a key of a body and a captured cap inside its margin; too small a button stays Relief", () => {
+  const { profiles, profile } = registry();
+  const stage = { width: 640, height: 420 };
+  const key = keyObject({ id: "reset", box: [20, 200, 80, 34], radius: 6, material: "key #f8f9fb", height: 5, travel: 2.5, pressed: true,
+    state: { hover: false, pressed: true, disabled: false }, stage, relief: { height: 3, material: "keyCap" } }, profile);
+  assert.deepEqual(key.parts.map(part => `${part.kind}:${part.material}:${!!part.captured}`), ["plinth:key #f8f9fb:false", "cap:keyCap:true"]);
+  assert.equal(key.t, 1);
+  validateInstrumentScene(sceneOf([key], profiles, { "key #f8f9fb": { base: { colour: "#f8f9fb", roughness: 0.45 } }, keyCap: premiumMaterials.keyCap }));
+  assert.equal(keyObject({ id: "tiny", box: [0, 0, 10, 10], radius: 2, material: "m", height: 5, travel: 2.5, pressed: false,
+    state: { hover: false, pressed: false, disabled: false }, stage, relief: { height: 3, material: "keyCap" } }, profile), undefined);
+});
+
+test("a knob's spring settles on its value in fixed steps, never past a stop", () => {
+  const spring = { t: 0.2, v: 0, time: 0 };
+  let now = 0, frames = 0;
+  while (!advanceSpring(spring, 1, (now += 16), knobSprings.knob) && frames < 200) { frames++; assert.ok(spring.t <= 1); }
+  assert.equal(spring.t, 1);
+  assert.ok(frames > 5 && frames < 60, `frames ${frames}`);
+  // The detent spring overshoots between the stops, never past them.
+  const detent = { t: 0, v: 0, time: 0 };
+  let peak = 0;
+  now = 0;
+  for (let frame = 0; frame < 60; frame++) { advanceSpring(detent, 0.5, (now += 16), knobSprings.detent); peak = Math.max(peak, detent.t); }
+  assert.ok(peak > 0.5 && peak < 1, `peak ${peak}`);
+  assert.equal(detent.t, 0.5);
 });
