@@ -304,6 +304,20 @@ Materials (`interaction: "material"`) may sit on live controls because they only
 relight pixels in place. Essential native geometry stays affine and unchanged by
 effects and materials.
 
+The material kinds are `custom`, `relief` (Rendering Model version 1), `objects`
+(version 2, analytic objects in the same pass), `stage` (version 3, decorative) and
+`instrument` (version 4, [design note](ui-library/instrument-phase2.md)). The
+`instrument` kind is the only one with a pass of its own: `instrument.ts` validates
+the scene and does the geometry (profiles, poses, containment over the travel) with
+no GPU, and `instrument-pass.ts` keeps one Babylon Lite scene per instrument layer on
+the shared engine, which `renderer.ts` places right after that layer's pass (a
+documented, guarded reorder of `getRenderingContexts`) and updates inside its own
+`draw()`. The meshes are decoration over the captured layer: they never take hits,
+capture and native geometry are unchanged, the layer's face is still its relief pass,
+and an object that cannot be drawn as meshes is drawn there at the Relief level, with
+GPU on. Scene builds are sequenced with successor compositions so neither spends the
+other's compile deadline.
+
 ## Explicit mount boundary
 
 The caller provides empty, distinct, connected, same-document sibling hosts:

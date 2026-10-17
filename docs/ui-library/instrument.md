@@ -302,7 +302,7 @@ shadows; the pointer light is additive, like a lamp, and the one-light invariant
 
 Each item is its own PR with GPU tests, in order:
 
-1. **`instrument` material kind:** `setMaterial(id, { kind: "instrument", scene })`, a mesh pass per layer with a
+1. **Done** ([design note](instrument-phase2.md)). **`instrument` material kind:** `setMaterial(id, { kind: "instrument", scene })`, a mesh pass per layer with a
    depth buffer, thin instances with GPU culling (`enableThinInstanceGpuCulling`) and LOD partners for small
    parts, captured screen-locked caps, analytic face shadows and the containment check with its diagnostic and
    step-down. A mesh budget (provisionally 256 objects and 2,048 parts per layer, settled by I0.1) measured with

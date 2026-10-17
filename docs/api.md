@@ -548,6 +548,43 @@ the native paint wait; readback plus comparison is measured separately;
 upload/frame timing is synchronous public CPU work, not completion/GPU
 execution. `phase` separates admission work from content work.
 See [measurement definitions and raw evidence](archive/measurements.md).
+With an `instrument` material, `instrumentGpuMs` samples (`layerId`, `phase: "content"`) carry the GPU time of one
+layer's mesh pass in one frame, from Babylon Lite's per-task timings when the device has timestamp queries.
+
+### The instrument material
+
+`setMaterial(id, { kind: "instrument", scene, bounds: "layer", interaction: "material", media: "identity", fallback:
+"static" })` draws the Instrument level ([design note](ui-library/instrument-phase2.md), Rendering Model part 2D).
+The scene is a version 4 `strata-scene` with `kind: "instrument"`:
+
+| Field | Contract |
+| --- | --- |
+| `extent`, `outset`, `backdrop`, `light`, `bevel`, `shadow.strength`, `interior`, `state`, `focus`, `primitives` | The face, shaded by core's relief pass as version 1; `light` adds `intensity` (1.6) and `ambient` (0: the studio is the fill) |
+| `camera` | Required: `distance` (`D`, at least 100) and `vanish`; the vanishing point is drawn at the canvas centre |
+| `environment` | Required: `{ source: "studio", strength (0..3), studio? }`, the studio generated in code and turned to the key light |
+| `materials` | At most 16 recipes: `base` (`colour`, `roughness`, `metallic`, `direct`), `coat`, `reflectance` (dielectric F0 only), `emissive` (`strength`, `colour`), `sheen`, `iridescence`, `brush` with a hairline `grain`; `glass`, `dispersion`, `subsurface` validated, not drawn yet |
+| `profiles` | At most 64 shapes by name: `lathe` (`points: [[r, z, nr, nz], …]`, `segments`), `prism` (`width`, `length`, `radius`, `height`, `taper`, `chamfer`), `extrude` (`outline: [[x, z], …]`, `width`) |
+| `objects` | At most 256 (with `primitives`, 256 in all): `{ id, rect, bounds: { rect, radius }, t (clamped to 0..1), parts, relief }`. A part is `{ kind, profile, at, pose: { from, to }, material, captured, caster, state }`; a pose mixes `travel`, `slide`, `turn` and `tilt` about a fixed `axis` and `pivot`; only parts that travel may be `captured` |
+| `emitters`, `protected`, `feather`, `shadow.map`, `post` | Validated and kept, not drawn yet (core work items 2 and 3) |
+
+- **Drawing.** Each instrument layer has a Lite scene on the shared engine, drawn right after the layer's pass:
+  analytic face shadows of the parts, then the parts (thin-instanced per kind, GPU-culled) and the captured caps, with
+  their own depth buffer, the layer's clip and its opacity. `handle.update(scene)` with new `t`, states or layout
+  writes instances in the same frame, with no capture, upload or hit-geometry change. New profiles, materials or part
+  kinds rebuild the scene; meanwhile the layer draws its objects at the Relief level.
+- **Containment.** Every vertex of every part, over the whole travel, must project at least 0.5 px inside `bounds`. An
+  object that does not is drawn as its `relief` primitive (default: a raised box over its bounds).
+- **Budgets.** 2,048 parts per layer and 6,000 per stage; above either, the layer is drawn at the Relief level. More
+  than 16 part kinds per layer is reported; more than 64 steps the layer down. The format accepts up to 8,192 parts.
+- **Diagnostics.** `state().instrument` lists each layer's `status` (`ready`, `pending`, `stepped-down`, `failed`),
+  objects, parts, drawn parts, kinds, `steppedDown` entries (`{ object, reason, part?, inset?, overshoot?, detail? }`,
+  reasons `containment`, `budget`, `compile`, `pending`, `transform`, `order-unavailable`), warnings and GPU time
+  (`lastMs`, `p50Ms`, `p95Ms`); the stage's parts; the timing status; and the compile counters (builds, failures,
+  deferred successor deadlines). `state().materials` lists `{ kind: "instrument", objects, parts, interior, degraded }`.
+- **Never DOM for an instrument reason.** Containment, budgets, build failures and slow builds (10 s) step objects
+  down to Relief with GPU on. A GPU error (validation scope, device loss) still recovers to ordinary DOM.
+- **Limits:** a layer whose matrix is not a similarity (shear, non-uniform scale, a tilt) draws its objects at Relief;
+  between 0 and 1, layer opacity blends each part over the faded face rather than the layer as one group.
 
 ## Supported boundary, budgets and failure
 

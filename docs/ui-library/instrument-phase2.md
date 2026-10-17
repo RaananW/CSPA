@@ -1,8 +1,9 @@
 # Instrument Phase I2, core work item 1: the `instrument` material
 
 **Status:** design note for [core work item 1](instrument.md#core-work-additive) of the Instrument plan, written
-before the code (2026-10-17). It follows [`phase4-objects.md`](phase4-objects.md) in form. Each decision has a
-recommendation and an alternative; the [decisions table](#decisions) collects them.
+before the code (2026-10-17), then implemented in the same PR ([results](#results-canary-15808110-windows-11-rtx-3080)). It
+follows [`phase4-objects.md`](phase4-objects.md) in form. Each decision has a recommendation and an alternative; the
+[decisions table](#decisions) collects them.
 
 **Upstream check (2026-10-17):**
 
@@ -136,7 +137,9 @@ captured caps after it ([I0.8](instrument-phase0.md#i08-post-chain-and-reflectio
   and every part there fails the depth test.
 - **Opacity.** 1 draws the parts; 0 draws none; in between, the parts take the opacity as Lite's material alpha, so
   each part blends over the faded face. That is the closest a direct pass can get: exact group opacity needs the
-  offscreen target and composite of item 3, which multiply the whole mesh layer at once.
+  offscreen target and composite of item 3, which multiply the whole mesh layer at once. Each PBR kind has a blended
+  twin (the same instances, an `alphaBlend` material) built with the scene and shown only at fractional opacity:
+  Lite rebuilds a swapped material's renderable asynchronously and did not draw it in an explicit task.
 
 ## Containment and the step-down
 
@@ -237,7 +240,7 @@ Radiance image generated in code once per engine and light, loaded into each lay
 | 4 | Recipes to Lite PBR | `base` → base colour (linear), metallic, roughness, `directIntensity`; `environment.strength` → `environmentIntensity`; `coat` → `setPbrClearCoat`; `reflectance` → `setPbrMetallicReflectance` (dielectric F0 only, I0.4); `emissive` → `setPbrEmissive`; `sheen`, `iridescence` → their setters; `brush` → `setPbrAnisotropy` with a generated hairline `grain` normal map | Per-layer custom shading: would re-specify Lite's PBR |
 | 5 | Face shadows | A quad per object with up to 8 casters from a storage buffer, darkest wins (I0.5 (a)) | Casters in the relief binding: 256 entries cannot hold 2,048 parts, and the binding is shared with the conformance-tested shader |
 | 6 | Clip | Fragment discard for shader materials, a depth clip mask before the PBR parts | Camera viewports: scissor exactly, but Lite would also change the projection |
-| 7 | Opacity | 1 and 0 exact; between, material alpha per part | Hide the parts below 1 (a pop) |
+| 7 | Opacity | 1 and 0 exact; between, material alpha per part, through a blended twin per kind built with the scene | Hide the parts below 1 (a pop); swap materials at run time (built asynchronously, not drawn in an explicit task) |
 | 8 | Containment | A frontier bound per object (constant time per frame), the exact projection only near the limit | The exact projection every frame (vertices × steps × objects) |
 | 9 | Budgets at the limit | Step-down with a diagnostic, never a validation error for counts the adjust policy measures | Refuse the scene |
 | 10 | Diagnostics | `state().instrument` and `state().materials[].degraded`, plus `instrumentGpuMs` samples | A new event channel |
@@ -247,9 +250,47 @@ Radiance image generated in code once per engine and light, loaded into each lay
 ## Verification
 
 - Unit: `tests/unit/instrument.unit.test.mjs` (validation, profile geometry, pose clamping, containment including the
-  stage-corner drift case and I0.2's box rule).
+  stage-corner drift case, a binding at mid-travel and I0.2's box rule).
 - Browser: `tests/browser/core-instrument.test.mjs` on
-  [`instrument-core.html`](../../examples/playground/instrument-core.html), DPR 1 and 2, headless, and a headful
-  Canary window.
+  [`instrument-core.html`](../../examples/playground/instrument-core.html), DPR 1 and 2, headless, and again in a
+  headful Canary window (`--headed`, viewport emulated at 1920 × 1080).
 - Regression: the relief, objects and stage material suites, `ui-gpu`, the I0.1 hook suite, animation and the
   framework contract.
+
+## Results (Canary 158.0.8110.0, Windows 11, RTX 3080)
+
+Three panels at 1920 × 1080 (60 controls: knobs, faders, keys with captured caps, switches; 185 parts, 11 kinds per
+layer), one panel clipped by a viewport. Headless and headful gave the same pixel numbers.
+
+| Check | DPR 1 | DPR 2 |
+| --- | --- | --- |
+| Part pixels (on against face only) / outside their control, a covering panel or the clip | 413,778 / 0 | 1,647,363 / 0 |
+| Closest drawn pixel to a box edge (px, negative inside) | −2.40 | −2.39 |
+| Crossed lower knob under the upper panel: covered / uncovered px | 0 / 6,310 | 0 / 25,218 |
+| Clipped knob: past the viewport / inside | 0 / 1,582 | 0 / 6,329 |
+| Native hits on part pixels: mismatches | 0 of 4,010 | 0 of 4,001 |
+| Captured labels against core's plain pass (14 keys): mismatched texels | 0 of 26,046 | 0 of 107,516 |
+| Opacity 0: part px against the face only | 0 of 296,462 | 0 of 1,185,848 |
+| After a layer move: px outside / hit mismatches | 0 / 0 | 0 / 0 |
+| 300 frames of poses (30 moving): captures, uploads, geometry updates | 0, 0, 0 | 0, 0, 0 |
+| 250 controls (717 parts), 300 frames of poses (125 moving): captures, uploads, geometry updates | 0, 0, 0 | 0, 0, 0 |
+| Core frame work p50 / p95, 250 controls (ms, CPU) | 3.8 / 5.8 | 3.1 / 5.6 |
+| GPU per layer p50 / p95, 250 controls (ms): lower 616 parts, upper 84, clipped 17 | 1.56 / 2.56, 0.74 / 1.25, 0.66 / 0.69 | 1.54 / 2.12, 0.68 / 0.70, 0.71 / 0.72 |
+| Overshooting pointer (`?overshoot=1`) | Stepped down: `containment`, `pointer`, inset −11.44 px, overshoot 11.44; 0 px outside | The same |
+| Budget | 2,048 parts drawn; 2,049 stepped down (`budget`), GPU on | The same |
+
+**Starts:** 10 of 10 starts reached GPU with all three scenes built (alternating DPR 1 and 2) while a successor
+composition joined during the builds (`?race=1`): each deferred one successor deadline, by 414–632 ms headless
+(505–662 headful); ready in 0.88–1.23 s headless, 1.08–1.33 s headful. No build timed out or failed. Each scene builds
+in about 17–86 ms; its first frame finishes on the GPU about 20–35 ms later.
+
+**Lite 1.33 behaviour found while building it** (each fixed in core, recorded for the Lite requests):
+
+- Opaque draws are recorded in a render bundle: `mesh.visible` writes do not reach it, `setMeshVisible` does.
+- A `ShaderMaterial` with a `blend` is transparent unless `needAlphaBlending: false` is set, which the clip mask needs to
+  draw before the parts.
+- A material assigned after registration is rebuilt asynchronously and was not drawn by an explicit render task, hence
+  the blended twins.
+- Shader materials bind their textures when the scene registers: a captured cap's capture must be bound before
+  `registerScene` (error 486 otherwise).
+- `registerScene` appends and is asynchronous; there is still no ordered insert (decision 1).
