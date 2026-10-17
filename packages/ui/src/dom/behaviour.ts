@@ -13,6 +13,7 @@
  * - Tooltips: `attachStrataTooltips` shows and hides every `.ug-tooltip` named by a trigger's `aria-describedby`;
  * - Popovers: `attachStrataPopovers` places a `.ug-popover` opened from inside an Underglass layer with script;
  * - Trees: `attachStrataTrees` runs every `.ug-tree` from its markup (keys, clicks, `strata-expand` and `strata-select`);
+ * - Faders: `attachStrataFaders` gives every `.ug-fader` its carriage, wheel, mark and reset behaviour (anatomy page `fader.md`);
  * - Carousels: `attachStrataCarousels` runs every `.ug-carousel`'s buttons and reports `strata-slide`;
  * - Menus: `attachStrataMenus` runs the Menu Button pattern's keys, and reports `strata-select` from a chosen item;
  * - Toolbars: the first time focus enters one, its controls get a roving tabindex (one tab stop), and the arrow keys,
@@ -27,6 +28,7 @@ import { rovingStrataToolbar, strataToolbarTarget } from "./toolbar.ts";
 import { attachStrataTooltips } from "./tooltip.ts";
 import { attachStrataPopovers } from "./popover.ts";
 import { attachStrataTrees } from "./tree.ts";
+import { attachStrataFaders } from "./fader.ts";
 import { attachStrataCarousels } from "./carousel.ts";
 import { attachStrataMenus } from "./menu.ts";
 
@@ -61,6 +63,7 @@ export function attachStrata(root: Document | HTMLElement = document): () => voi
   attachStrataTooltips(root instanceof Document ? root : root.ownerDocument);
   attachStrataPopovers(root instanceof Document ? root : root.ownerDocument);
   attachStrataTrees(root instanceof Document ? root : root.ownerDocument);
+  attachStrataFaders(root instanceof Document ? root : root.ownerDocument);
   attachStrataCarousels(root instanceof Document ? root : root.ownerDocument);
   attachStrataMenus(root instanceof Document ? root : root.ownerDocument);
   const existing = attached.get(root);
