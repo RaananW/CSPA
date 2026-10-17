@@ -672,6 +672,11 @@ A profile resolves to triangles through the reference builders (section 3), and 
 renderer draws those triangles, or a refinement whose vertices lie on them, never a finer tessellation of the ideal
 surface, which would bulge past the triangles that containment checked.
 
+**Normals and winding.** A part is shaded with its vertex normals, which point out of the part (2D.5); its winding
+never decides its light. Every triangle is wound the same way against those normals: in layer axes,
+`(b − a) × (c − a)` points against the outward normal. A renderer that culls back faces, or flips their normals (double-sided shading),
+relies on that: a triangle wound the other way is shaded as if it faced inward.
+
 **Poses.** A pose is `{ travel, slide, turn, tilt, axis, pivot }`, each default 0:
 
 - `travel`: px along the face normal (negative sinks);
