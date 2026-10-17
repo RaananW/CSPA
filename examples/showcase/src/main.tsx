@@ -70,9 +70,12 @@ function App() {
       if (event.persisted) { setDisposed(true); setMode("disposed"); setBusy(false); setDiagnostic("Restored a retired page. Reload to start a fresh session."); }
     };
     // Mount outside this effect's React commit: the adapter flushes its own root synchronously.
+    // The captured-pixel budget is raised from 2M to 4M CSS px for the Strata gallery: at its Scene level with a dialog
+    // open, the stage holds three full-stage layers (the backdrop, Strata's lit backdrop and the dialog's scrim) and two
+    // panels, about 3.1M px with their shadows.
     queueMicrotask(() => {
       if (cancelled) return;
-      app = mountCanvasApp({ outputCanvas, ordinaryHost, overlayHost,
+      app = mountCanvasApp({ outputCanvas, ordinaryHost, overlayHost, budgets: { layers: 32, pixels: 4_000_000 },
         onStatusChange(status) { setDiagnostic(status.reason); setMode(status.mode); } }, <Demo id={route(location.hash)} onReady={ready} />);
       controller.current = app;
       // Handle for inspecting the running example from the console.

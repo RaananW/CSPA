@@ -103,6 +103,12 @@ try {
   await command([vite, "build"], library, "library-build");
   await command([tsc, "-p", "tsconfig.json"], library, "library-declarations");
   await publish(library, "@underglass/react");
+  // The Strata gallery (`#/strata`) uses `@underglass/ui`: its JavaScript, declarations and stylesheets.
+  const ui = join(tree, "packages/ui");
+  await command([vite, "build"], ui, "ui-build");
+  await command([tsc, "-p", "tsconfig.json"], ui, "ui-declarations");
+  await command(["scripts/build-css.mjs"], ui, "ui-css");
+  await publish(ui, "@underglass/ui");
   await command([tsc, "--noEmit"], site, "showcase-types");
   await command([vite, "build"], site, "showcase-project-build");
   await command([join(tree, "scripts/check-showcase-assets.mjs")], site, "showcase-output-guard");
@@ -540,6 +546,100 @@ try {
       await mobile.waitForTimeout(300);
       await mobile.screenshot({ path: join(run, `${lane}-mobile-studio.png`) });
       await mobileContext.close();
+      // Strata gallery, opened directly: its components render in the runtime's first, synchronous render, so
+      // `useStrataGpu` must attach after the mount returns. Real keys and clicks drive the original controls.
+      const strataContext = await browser.newContext({ viewport: { width: 1280, height: 1100 }, deviceScaleFactor: 1 });
+      const strata = await strataContext.newPage();
+      strata.on("pageerror", error => errors.push(String(error)));
+      await strata.goto(`${url}#/strata`);
+      await strata.waitForFunction(() => window.showcase && window.strataShowcase);
+      await strata.locator(".stage").scrollIntoViewIfNeeded();
+      const strataMode = async label => {
+        const current = await strata.evaluate(() => window.showcase.state());
+        assert.equal(current.mode, lane === "native" ? "gpu" : "dom", `strata ${label}: ${current.reason}`);
+        return current;
+      };
+      const strataSettle = async () => { await strata.evaluate(() => window.showcase.controller.settle()); await strata.waitForTimeout(250); };
+      if (lane === "native") {
+        await strata.getByRole("button", { name: "Enable experimental GPU", exact: true }).click();
+        await strata.waitForFunction(() => !window.showcase.state().initializing && window.showcase.state().mode !== "admitting");
+      }
+      record.strata = { initial: await strataMode("opened") };
+      // On the GPU both panels are in face mode with a Relief scene; in ordinary DOM CSS keeps the relief.
+      await strata.waitForFunction(native => [...document.querySelectorAll("#strata-bar, #strata-gallery")]
+        .every(panel => (panel.getAttribute("data-strata-mode") === "face") === native), lane === "native");
+      if (lane === "native") assert.equal(await strata.evaluate(() => window.strataShowcase.scene(document.getElementById("strata-gallery"))?.version), 1);
+      // Tabs follow the arrow keys; the Inputs tab's field validates as it is typed in.
+      await strata.getByRole("tab", { name: "Actions", exact: true }).focus();
+      await strata.keyboard.press("ArrowRight");
+      assert.equal(await strata.getByRole("tab", { name: "Inputs", exact: true }).getAttribute("aria-selected"), "true");
+      await strata.getByText("Error: enter an address like name@example.com.").waitFor();
+      await strata.locator("#strata-email").fill("ada@example.com");
+      await strata.getByText("Error: enter an address like name@example.com.").waitFor({ state: "detached" });
+      // A real click at Save's centre lands on the original button.
+      await strata.getByRole("tab", { name: "Actions", exact: true }).click();
+      await strataSettle();
+      const strataSave = await strata.locator("#strata-save").boundingBox();
+      assert.ok(strataSave);
+      const saveCentre = [strataSave.x + strataSave.width / 2, strataSave.y + strataSave.height / 2];
+      assert.equal(await strata.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("button")?.id, saveCentre), "strata-save");
+      await strata.mouse.click(...saveCentre);
+      await strata.locator("#strata-saves").filter({ hasText: "Saved 1 time" }).waitFor();
+      await strataMode("after save");
+      // The Objects level: the panel takes a version 2 scene, and the presented pixels change.
+      const strataOutput = strata.locator(".stage .output");
+      let strataRelief;
+      if (lane === "native") strataRelief = PNG.sync.read(await strataOutput.screenshot({ path: join(run, "native-strata-relief.png") }));
+      await strata.getByRole("button", { name: "Objects", exact: true }).click();
+      assert.equal(await strata.evaluate(() => window.showcase.controller.container.getAttribute("data-strata-level")), "objects");
+      await strataSettle();
+      if (lane === "native") {
+        await strata.waitForFunction(() => window.strataShowcase.scene(document.getElementById("strata-gallery"))?.version === 2);
+        const strataObjects = PNG.sync.read(await strataOutput.screenshot({ path: join(run, "native-strata-objects.png") }));
+        let changed = 0;
+        for (let offset = 0; offset < strataObjects.data.length; offset += 4) {
+          if (strataRelief.data.subarray(offset, offset + 4).some((value, index) => value !== strataObjects.data[offset + index])) changed++;
+        }
+        assert.ok(changed > 1000, `Objects level changed presented pixels: ${changed}`);
+        record.strata.changedObjectsPixels = changed;
+      }
+      await strataMode("objects");
+      // The Scene level adds Strata's lit backdrop, and Celebrate bursts confetti over the UI. With the dialog below, this is
+      // the most the gallery captures (the showcase raises the pixel budget for it).
+      await strata.getByRole("button", { name: "Scene", exact: true }).click();
+      if (lane === "native") {
+        await strata.waitForFunction(() => window.showcase.state().layers.some(layer => layer.id === "strata-backdrop"));
+        await strata.getByRole("button", { name: "Celebrate", exact: true }).click();
+        await strata.waitForFunction(() => window.showcase.state().layers.some(layer => layer.id === "strata-particles"));
+      }
+      record.strata.scene = await strataMode("scene");
+      // The Dialog renders into the root as a panel of its own; Escape closes it and focus returns.
+      await strata.getByRole("tab", { name: "Feedback", exact: true }).click();
+      const openDialog = strata.getByRole("button", { name: "Open dialog", exact: true });
+      await openDialog.click();
+      const strataDialog = strata.getByRole("dialog", { name: "Discard changes?" });
+      await strataDialog.waitFor();
+      assert.equal(await strata.evaluate(() => document.getElementById("strata-dialog").parentElement === window.showcase.controller.container), true);
+      if (lane === "native") await strata.waitForFunction(() => document.getElementById("strata-dialog").getAttribute("data-strata-mode") === "face");
+      record.strata.dialog = await strataMode("dialog open");
+      await strata.keyboard.press("Escape");
+      await strataDialog.waitFor({ state: "detached" });
+      assert.equal(await openDialog.evaluate(node => node === document.activeElement), true);
+      // The Drawer closes on a click outside it.
+      await strata.getByRole("button", { name: "Open drawer", exact: true }).click();
+      const strataDrawer = strata.getByRole("dialog", { name: "Filters" });
+      await strataDrawer.waitFor();
+      await strataSettle();
+      const stageBox = await strata.locator(".stage").boundingBox();
+      await strata.mouse.click(stageBox.x + 120, stageBox.y + 400);
+      await strataDrawer.waitFor({ state: "detached" });
+      // A toast lives in the top layer, outside the stage, and leaves the panels on the GPU.
+      await strata.getByRole("button", { name: "Show a toast", exact: true }).click();
+      await strata.locator(".ug-toast").filter({ hasText: "Message sent." }).waitFor();
+      assert.equal(await strata.evaluate(() => !document.querySelector(".stage").contains(document.querySelector(".ug-toast-region"))), true);
+      record.strata.final = await strataMode("after overlays");
+      if (lane === "native") await strataOutput.screenshot({ path: join(run, "native-strata-feedback.png") });
+      await strataContext.close();
       // With `navigator.gpu` hidden, enabling GPU must fall back to DOM with a GPU reason and keep the user's input.
       if (lane === "dom") {
         const unsupported = await browser.newContext({ viewport: { width: 1280, height: 1100 } });

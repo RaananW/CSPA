@@ -119,6 +119,19 @@ export const examples = [
       ],
       css: "Animate transform and opacity with CSS whenever you can: the browser composites them, often off the main thread, with no capture. Reach for Underglass when the effect needs per-pixel work CSS doesn't have, or when many elements change only in how they look.",
     } },
+  { id: "strata", number: "09", title: "Strata components", category: "Design system",
+    summary: "Every Strata component, from buttons to tables, dialogs and toasts, in one design language that CSS draws flat and the GPU lights in 3D.",
+    detail: "Switch tabs to see each group, then pick a level and a theme in the bar. The components are @underglass/ui's React bindings: ordinary DOM with the Strata stylesheet, presented on the GPU by useStrataGpu when GPU mode is on.",
+    accent: "strata", tags: ["Components", "Relief", "Objects"],
+    gpu: {
+      headline: "Depth that is lit, not painted on.",
+      points: [
+        "Relief: one shader lights every raised face, bevel and well from the same light and casts each control's shadow onto its panel, from the tokens CSS reads too.",
+        "Objects: buttons become keys that travel into their bezels when pressed, checkboxes, radios and switches wells with a lit mark, dot or knob standing in them, and sliders a metal rail with a puck. The original controls still take every click and key.",
+        "Scene: a lit backdrop behind the panels, panels that settle with a spring, and confetti from Celebrate that falls over the UI without catching a click.",
+      ],
+      css: "Strata's CSS presentation is the honest baseline, and close to Relief: gradients, inset and drop shadows from the same light tokens. It is what you see without Underglass, with forced colours or with GPU off. CSS can't shade a face per pixel, draw a key that travels into a bezel with a contact shadow, or light controls from an environment.",
+    } },
 ] as const satisfies readonly { id: string; gpu: GPUReason; [key: string]: unknown }[];
 
 /** The id of one catalog example, such as `"layers"` or `"pond"`. */

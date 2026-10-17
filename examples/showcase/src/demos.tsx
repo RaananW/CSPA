@@ -18,10 +18,11 @@ import { NotificationStack } from "./notices";
 import { WebcamPond } from "./pond";
 import { FluentBoard } from "./fluent";
 import { Compare } from "./compare";
+import { StrataGallery } from "./strata";
 import "../../playground/src/apps/todo/todo.css";
 
 // Which backdrop scenery each example gets (see `Backdrop` in `shared.tsx`).
-const themes: Record<ExampleId, BackdropTheme> = { layers: "postcard", motion: "deck", effects: "lab", presence: "notices", tasks: "tasks", pond: "pond", fluent: "fluent", compare: "compare" };
+const themes: Record<ExampleId, BackdropTheme> = { layers: "postcard", motion: "deck", effects: "lab", presence: "notices", tasks: "tasks", pond: "pond", fluent: "fluent", compare: "compare", strata: "strata" };
 
 /**
  * One React root for every example. Switching examples swaps the enrolled
@@ -45,6 +46,7 @@ export function Demo({ id, onReady }: { id: ExampleId; onReady(change: (id: Exam
             : selected === "pond" ? <WebcamPond key="pond" />
               : selected === "fluent" ? <FluentBoard key="fluent" />
                 : selected === "compare" ? <Compare key="compare" />
+                  : selected === "strata" ? <StrataGallery key="strata" />
                   : <Tasks key="tasks" />}
   </SceneProvider>;
 }
