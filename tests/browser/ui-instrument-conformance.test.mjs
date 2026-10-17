@@ -5,12 +5,12 @@
  * Each case's capture is painted as plain DOM in an enrolled layer placed so the canvas centre (core's camera) is the
  * scene's vanishing point, and the scene (and each variant) becomes the layer's material. Every check kind is run:
  * - `contained`: at each t, parts on (casters off) against no objects; every changed pixel's centre inside some bounds;
- * - `exact` (within tolerance.exact) and `sampled` (within tolerance.sampled) at the device pixel floor(at · dpr);
+ * - `exact` (within tolerance.exact) and `sampled` (within tolerance.sampled, the reference calibrated to Lite, 2D.5 and
+ *   2D.10) at the device pixel floor(at · dpr);
  * - `unchanged`: identical pixels in every listed variant; `presence`: the share of part pixels a feature changes;
  * - `ratio`: mapped shadow against the map off; `relief`: the objects are stepped down and reported.
  * A check that needs a part of 2D that core does not draw yet (emitters, the guard's face factor, the shadow map, the
- * post chain and glass: core work items 2 to 4, `docs/ui-library/instrument-phase2.md`), or a sampled check (the first
- * run against Lite disagrees with the reference beyond the provisional tolerance; 2D.10), is run and recorded as
+ * post chain and glass: core work items 2 to 4, `docs/ui-library/instrument-phase2.md`) is run and recorded as
  * `pending` with the item it waits for, and is not asserted. Every other check is. The pass rate per check kind, the
  * worst deviations and every sample go to the `ui-instrument-conformance` evidence directory.
  */
@@ -65,10 +65,6 @@ function pending(entry, check, sample) {
     const object = scene.objects.find(item => item.id === sample.object), part = object.parts[sample.part];
     if (part.glass) return "glass (core item 4)";
     if (lit) return "emitter light on parts (core item 2)";
-    // 2D.10: the sampled tolerance is provisional until this suite first runs against Lite. That first run (this test)
-    // found core's parts far from the reference (instrument-phase2.md and the report), so the sampled checks are
-    // measured and reported, not asserted, until the model or core is corrected. The tolerance itself is unchanged.
-    return "the sampled tolerance (2D.10): core and the reference disagree on the first run, to be settled";
   }
   if ((check.kind === "exact" || check.kind === "relief") && sample?.source !== "cap" && lit) return "emitters on the face (core item 2)";
   return undefined;
