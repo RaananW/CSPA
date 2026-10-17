@@ -1959,6 +1959,10 @@
   :where([data-strata-mode="face"]) [data-strata-dome] { background: transparent; box-shadow: none; }
   :where([data-strata-mode="face"]) .ug-slider[data-strata-dome]::-webkit-slider-thumb { background: transparent; box-shadow: none; }
   :where([data-strata-mode="face"]) .ug-slider[data-strata-dome]::-moz-range-thumb { background: transparent; box-shadow: none; }
+  /* At the Instrument level the GPU draws a knob's skirt, cap and pointer as parts: their CSS paint is hidden, so a
+     value change repaints nothing (the focus ring round the skirt stays). */
+  :where([data-strata-mode="face"]) :is(.ug-knob__skirt, .ug-knob__cap)[data-strata-dome] { border-color: transparent; }
+  :where([data-strata-mode="face"]) .ug-knob__cap[data-strata-dome] .ug-knob__pointer { display: none; }
   /* Under the GPU, an enrolled panel's boundary never carries a CSS transform: the GPU presentation moves it. */
   :where([data-strata-mode="face"]):is(.ug-panel, .ug-card)[data-strata-motion], :where([data-strata-mode="face"]) :is(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
 

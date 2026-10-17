@@ -1762,13 +1762,14 @@
   "level": {
     "$type": "string",
     "$value": "relief",
-    "$description": "Presentation level: relief (default), objects, scene.",
+    "$description": "Presentation level: relief (default), objects, instrument, scene.",
     "$extensions": {
       "dev.underglass.strata": {
         "scope": true,
         "options": [
           "relief",
           "objects",
+          "instrument",
           "scene"
         ]
       }
