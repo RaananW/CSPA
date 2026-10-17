@@ -11,8 +11,14 @@
  * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts, `strataGpuProbe.addAvatar()` an Avatar, and
  * `strataGpuProbe.addChips()` a tag and a filter chip, `strataGpuProbe.addMessage()` a MessageBar with an action, and
  * `strataGpuProbe.addPagination()` three page keys, `strataGpuProbe.addToolbar()` a Toolbar of toggle buttons, 
- * `strataGpuProbe.addAppBar()` an AppBar, `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root, and
- * `strataGpuProbe.addPopover()` a Filters button in the panel whose Popover is in `<body>`, and
+ * `strataGpuProbe.addAppBar()` an AppBar, `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root,
+ * `strataGpuProbe.addSegmented()` a SegmentedControl of three keys,
+ * `strataGpuProbe.addRating()` a Rating of five stars,
+ * `strataGpuProbe.addStepper()` a Stepper of three steps, which `strataGpuProbe.stepTo(index)` moves as a binding would,
+ * `strataGpuProbe.addRail()` a NavigationRail of two destinations,
+ * `strataGpuProbe.addPopover()` a Filters button in the panel whose Popover is in `<body>`,
+ * `strataGpuProbe.addTree()` a TreeView, run by `attachStrata`,
+ * `strataGpuProbe.addCarousel()` a Carousel of two slides, run by `attachStrata`, and
  * `strataGpuProbe.addMenu()` an Actions menu button in the panel whose Menu is in `<body>`.
  */
 import "@underglass/ui/css";
@@ -129,6 +135,26 @@ const paginationMarkup = `<nav class="ug-pagination" aria-label="Pagination" id=
 /** A MessageBar in plain markup (`message-bar.md`), added by `strataGpuProbe.addMessage()`; its action counts presses. */
 const messageMarkup = `<div class="ug-message-bar ug-message-bar--warning" data-strata-face="raised" role="alert" id="gpu-message" style="margin-top:12px"><span class="ug-message-bar__icon" aria-hidden="true"></span><div class="ug-message-bar__content"><p class="ug-message-bar__body">Storage almost full.</p></div><div class="ug-message-bar__actions"><button class="ug-button" data-strata-face="raised" type="button" id="gpu-message-action"><span class="ug-button__label">Upgrade</span></button></div></div>`;
 let upgrades = 0;
+/** A SegmentedControl in plain markup (`segmented-control.md`), added by `strataGpuProbe.addSegmented()`, Week selected. */
+const segmentedMarkup = `<fieldset class="ug-segmented" style="margin-top:12px"><legend class="ug-segmented__legend">View</legend><div class="ug-segmented__plinth">${
+  ["Day", "Week", "Month"].map(label => `<label class="ug-segmented__item"><input class="ug-segmented__input" type="radio" name="gpu-view" value="${label.toLowerCase()}" ${label === "Week" ? "checked" : ""}><span class="ug-segmented__key" data-strata-face="raised" id="gpu-segment-${label.toLowerCase()}">${label}</span></label>`).join("")}</div></fieldset>`;
+/** A Rating in plain markup (`rating.md`), added by `strataGpuProbe.addRating()`, at 2. */
+const ratingMarkup = `<fieldset class="ug-rating" style="margin-top:12px"><legend class="ug-rating__legend">Your rating</legend><div class="ug-rating__stars">${
+  [1, 2, 3, 4, 5].map(score => `<label class="ug-rating__item" id="gpu-star-${score}"><input class="ug-rating__input" type="radio" name="gpu-score" value="${score}" ${score === 2 ? "checked" : ""}><span class="ug-rating__star" aria-hidden="true"></span><span class="ug-rating__label">${score} stars</span></label>`).join("")}</div></fieldset>`;
+/** A Stepper in plain markup (`stepper.md`), added by `strataGpuProbe.addStepper()`, at its second step. */
+const stepperMarkup = `<ol class="ug-stepper" aria-label="Checkout progress" style="margin-top:12px">${["Cart", "Shipping", "Payment"].map((label, index) =>
+  `<li class="ug-stepper__step"${index === 1 ? ' aria-current="step"' : ""}>${index ? `<span class="ug-stepper__line" data-strata-face="groove" aria-hidden="true" id="gpu-line-${index}"></span>` : ""}<span class="ug-stepper__marker" data-strata-face="${index <= 1 ? "raised" : "flat"}" aria-hidden="true" id="gpu-marker-${index}">${index + 1}</span><span class="ug-stepper__label">${label}</span></li>`).join("")}</ol>`;
+/** Moves the Stepper's current step and its markers' faces, as a binding re-renders them. */
+function stepTo(current: number) {
+  panel.querySelectorAll(".ug-stepper__step").forEach((step, index) => {
+    step.toggleAttribute("aria-current", index === current);
+    if (index === current) step.setAttribute("aria-current", "step");
+    step.querySelector(".ug-stepper__marker")!.setAttribute("data-strata-face", index <= current ? "raised" : "flat");
+  });
+}
+/** A NavigationRail in plain markup (`navigation-rail.md`), added by `strataGpuProbe.addRail()`; Inbox is current. */
+const railMarkup = `<nav class="ug-nav-rail" data-strata-face="raised" aria-label="Main" id="gpu-rail" style="margin-top:12px"><ul class="ug-nav-rail__list" role="list">${
+  ["Inbox", "Drafts"].map(label => `<li class="ug-nav-rail__entry"><a class="ug-nav-rail__item" data-strata-face="raised" id="gpu-rail-${label.toLowerCase()}" href="#rail-${label.toLowerCase()}"${label === "Inbox" ? ' aria-current="page"' : ""}><span class="ug-nav-rail__icon" aria-hidden="true"></span><span class="ug-nav-rail__label">${label}</span></a></li>`).join("")}</ul></nav>`;
 let applied = 0;
 /** A Popover (`popover.md`): its button in the panel, the popover itself at the end of `<body>`, outside the root. */
 function addPopover() {
@@ -138,6 +164,17 @@ function addPopover() {
   attachStrata(panel);
   strata?.refresh();
 }
+/** A TreeView in plain markup (`tree-view.md`), added by `strataGpuProbe.addTree()`: src (closed, with one file) and a README. */
+const treeMarkup = `<ul class="ug-tree" data-strata-face="raised" role="tree" aria-label="Files" id="gpu-tree" style="margin-top:12px">
+  <li class="ug-tree__item" role="treeitem" data-strata-value="src" aria-expanded="false" aria-selected="false" tabindex="0"><span class="ug-tree__row"><span class="ug-tree__toggle" aria-hidden="true"></span><span class="ug-tree__label">src</span></span>
+    <ul class="ug-tree__group" role="group"><li class="ug-tree__item" role="treeitem" data-strata-value="src/index.ts" aria-selected="false" tabindex="-1"><span class="ug-tree__row"><span class="ug-tree__label">index.ts</span></span></li></ul></li>
+  <li class="ug-tree__item" role="treeitem" data-strata-value="readme" aria-selected="false" tabindex="-1"><span class="ug-tree__row" id="gpu-tree-readme"><span class="ug-tree__label">README.md</span></span></li></ul>`;
+/** A Carousel in plain markup (`carousel.md`), added by `strataGpuProbe.addCarousel()`: two slides of different text. */
+const carouselMarkup = `<section class="ug-carousel" aria-roledescription="carousel" aria-label="Stories" id="gpu-carousel" style="margin-top:12px">
+  <div class="ug-carousel__slides" aria-live="polite"><div class="ug-carousel__slide" role="group" aria-roledescription="slide" aria-label="1 of 2"><p style="margin:0">WWWWWWWWWWWW</p></div><div class="ug-carousel__slide" role="group" aria-roledescription="slide" aria-label="2 of 2" hidden><p style="margin:0">iiiiiiiiiiii</p></div></div>
+  <div class="ug-carousel__controls"><button type="button" class="ug-icon-button ug-carousel__previous" data-strata-face="raised" aria-label="Previous slide" id="gpu-carousel-previous"><span class="ug-icon-button__icon" aria-hidden="true"></span></button>
+  <div class="ug-carousel__picker" role="group" aria-label="Slides"><button type="button" class="ug-carousel__key" data-strata-face="raised" aria-label="Slide 1" aria-current="true" id="gpu-carousel-key-1"></button><button type="button" class="ug-carousel__key" data-strata-face="raised" aria-label="Slide 2" id="gpu-carousel-key-2"></button></div>
+  <button type="button" class="ug-icon-button ug-carousel__next" data-strata-face="raised" aria-label="Next slide" id="gpu-carousel-next"><span class="ug-icon-button__icon" aria-hidden="true"></span></button></div></section>`;
 const menuChoices: string[] = [];
 /** A Menu (`menu.md`): its button in the panel, the menu itself at the end of `<body>`, outside the root. */
 function addMenu() {
@@ -200,10 +237,17 @@ window.strataGpuProbe = {
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
   addTooltip,
+  addSegmented: () => { panel.insertAdjacentHTML("beforeend", segmentedMarkup); strata?.refresh(); },
+  addRating: () => { panel.insertAdjacentHTML("beforeend", ratingMarkup); strata?.refresh(); },
+  addStepper: () => { panel.insertAdjacentHTML("beforeend", stepperMarkup); strata?.refresh(); },
+  stepTo,
+  addRail: () => { panel.insertAdjacentHTML("beforeend", railMarkup); strata?.refresh(); },
   addPopover,
   addMenu,
   menuChoices: () => [...menuChoices],
   applied: () => applied,
+  addTree: () => { panel.insertAdjacentHTML("beforeend", treeMarkup); attachStrata(panel); strata?.refresh(); },
+  addCarousel: () => { panel.insertAdjacentHTML("beforeend", carouselMarkup); attachStrata(panel); strata?.refresh(); },
   toast: () => { showStrataToast({ message: "Saved.", intent: "success", duration: Infinity }); },
   addAppBar: () => { panel.insertAdjacentHTML("beforeend", appBarMarkup); panel.querySelector("#gpu-sign-in")!.addEventListener("click", () => { signIns++; }); strata?.refresh(); },
   signIns: () => signIns,
@@ -234,6 +278,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addPopover(): void; applied(): number; addMenu(): void; menuChoices(): string[]; toast(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addSegmented(): void; addRating(): void; addStepper(): void; stepTo(index: number): void; addRail(): void; addPopover(): void; applied(): number; addTree(): void; addCarousel(): void; addMenu(): void; menuChoices(): string[]; toast(): void;
   } }
 }

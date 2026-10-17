@@ -133,6 +133,26 @@ test("Strata Astro components get their browser behaviour from attachStrata and 
   const removed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-remove", event => list.push(event.target.id)); return list; });
   await page.getByRole("button", { name: "Remove ada@example.com" }).click();
   expect(await removed.jsonValue()).toEqual(["ada-chip"]);
+  // A TreeView runs from its markup: Right opens an item, Enter selects it, and both are reported from the item.
+  const treeEvents = await page.evaluateHandle(() => { const list = []; for (const type of ["strata-expand", "strata-select"]) document.addEventListener(type, event => list.push(`${type}:${event.target.dataset.strataValue}`)); return list; });
+  const src = page.locator("#astro-tree [data-strata-value='src']");
+  await src.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(src).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#astro-tree [data-strata-value='src/app.ts']")).toHaveAttribute("aria-selected", "true");
+  expect(await page.locator("#astro-tree [role='treeitem'][tabindex='0']").count()).toBe(1);
+  expect(await treeEvents.jsonValue()).toEqual(["strata-expand:src", "strata-select:src/app.ts"]);
+  // A Carousel runs from its markup: Next shows the next slide, wrapping, and reports strata-slide.
+  const slides = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-slide", event => list.push(event.detail.index)); return list; });
+  const carousel = page.locator("#astro-carousel");
+  await carousel.getByRole("button", { name: "Next slide" }).click();
+  await expect(carousel.locator(".ug-carousel__slide:not([hidden])")).toHaveText("Two");
+  await expect(carousel.getByRole("button", { name: "Slide 2" })).toHaveAttribute("aria-current", "true");
+  await carousel.getByRole("button", { name: "Next slide" }).click();
+  await expect(carousel.locator(".ug-carousel__slide:not([hidden])")).toHaveText("One");
+  expect(await slides.jsonValue()).toEqual([1, 0]);
   // A Menu from markup: opening focuses its first item, Down moves, Enter chooses (reported) and closes it.
   const choices = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-select", event => { if (event.target.closest(".ug-menu")) list.push(event.detail.index); }); return list; });
   await page.locator("#astro-menu-open").click();

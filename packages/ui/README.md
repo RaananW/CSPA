@@ -449,6 +449,31 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
 
+## Carousel
+
+A few items shown one at a time, by the WAI-ARIA Carousel pattern without rotation: Previous and Next (wrapping), a
+picker key per slide (the current one held down, `aria-current`), and a polite live region for the slides:
+
+```tsx
+<Carousel label="Featured" slides={[<Story id={1} />, <Story id={2} />]} index={index} onIndexChange={setIndex} />
+```
+
+Vue takes one slide per element of its default slot (`v-model:index`); Astro takes `count` and the named slots
+`slide-1`, `slide-2`… and `attachStrata` reports `strata-slide`. [Anatomy](../../docs/ui-library/components/carousel.md).
+
+## TreeView
+
+A hierarchy to browse and pick from, by the WAI-ARIA Tree View pattern: one tab stop, the arrow keys, Home and End to
+move, open and close, and Enter, Space or a click to select. Items are data:
+
+```tsx
+<TreeView label="Files" items={[{ value: "src", label: "src", children: [{ value: "src/index.ts", label: "index.ts" }] }]}
+  expanded={open} onExpandedChange={setOpen} selected={file} onSelect={setFile} />
+```
+
+Vue uses `v-model:expanded` and `v-model:selected`. In plain HTML and Astro, `attachStrata` runs it from the markup and
+reports `strata-expand` and `strata-select` from the item. [Anatomy](../../docs/ui-library/components/tree-view.md).
+
 ## Popover
 
 Interactive content one button opens beside itself, on the native Popover API: the browser toggles it, closes it on
@@ -476,3 +501,52 @@ menu and returns focus, and a disabled item does nothing:
 
 In Astro the trigger is any button with `popovertarget` and `aria-haspopup="menu"`; `attachStrata` reports
 `strata-select` from the chosen item. [Anatomy](../../docs/ui-library/components/menu.md).
+
+## NavigationRail
+
+An application's top-level destinations in a column at the start edge: a `<nav>` landmark with a list of native links,
+the current one `aria-current="page"` and its key held down. A click reaches `onNavigate(href, event)` (Vue:
+`navigate`), so a router can prevent the default and route:
+
+```tsx
+<NavigationRail label="Main" items={[{ label: "Inbox", href: "/inbox", icon: <InboxIcon /> }]} current={path} onNavigate={(href, event) => { event.preventDefault(); navigate(href); }} />
+```
+
+In Astro an item's `icon` is SVG markup. [Anatomy](../../docs/ui-library/components/navigation-rail.md).
+
+## Stepper
+
+Where the user is in a task of ordered steps, as an `<ol>` whose current step carries `aria-current="step"`; complete
+steps say so in a visually hidden " (completed)" (`completedLabel`). It shows progress only: the task's own buttons
+move `current`.
+
+```tsx
+<Stepper label="Checkout progress" steps={["Cart", "Shipping", "Payment"]} current={1} />
+```
+
+`orientation="vertical"` stacks the steps. [Anatomy](../../docs/ui-library/components/stepper.md).
+
+## Rating
+
+A score out of `max` (5) as stars. `Rating` is native radios in a `<fieldset>`, one per score, named "1 star", "2 stars"
+(`itemLabel` changes the wording), so arrow keys and forms work natively; `RatingDisplay` shows a read-only score,
+fractions included, as one image named "4.5 out of 5 stars":
+
+```tsx
+<Rating label="Your rating" value={score} onChange={setScore} />
+<RatingDisplay value={4.5} />
+```
+
+Vue uses `v-model`; Astro takes `value` and `name`. The stars are captured content on the GPU, not relief.
+[Anatomy](../../docs/ui-library/components/rating.md).
+
+## SegmentedControl
+
+One choice from two to five short options, as keys on a plinth: native radios in a `<fieldset>`, so arrow keys and
+forms work natively. The selected key is held down.
+
+```tsx
+<SegmentedControl label="View" options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }]} value={view} onChange={setView} />
+```
+
+Vue uses `v-model`; Astro takes `value` and `name`. `hideLabel` hides the legend visually. [Anatomy](../../docs/ui-library/components/segmented-control.md).

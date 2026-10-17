@@ -1,0 +1,33 @@
+---
+/**
+ * TreeView (anatomy page `tree-view.md`), the WAI-ARIA Tree View pattern: a `role="tree"` of nested `treeitem`s.
+ * `attachStrata` runs the keys and clicks from the markup and reports `strata-expand` and `strata-select` from the item.
+ */
+import Behaviour from "./Behaviour.astro";
+import TreeItems from "./TreeItems.astro";
+import { strataTreeVisible, type StrataTreeTextNode } from "../shared/tree.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  /** The tree's name, such as "Files". */
+  label: string;
+  items: readonly StrataTreeTextNode[];
+  /** The values of the open items. */
+  expanded?: readonly string[];
+  /** The selected item's value. */
+  selected?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, items, expanded = [], selected, size, material, level, class: className, ...rest } = Astro.props;
+const shown = strataTreeVisible(items, expanded);
+const stop = selected !== undefined && shown.includes(selected) ? selected : shown[0];
+---
+<ul class={classes("ug-tree", className)} data-strata-face="raised" role="tree" aria-label={label} {...strataAttributes({ size, material, level })} {...rest}>
+  <TreeItems nodes={items} expanded={expanded} selected={selected} stop={stop} />
+</ul>
+<Behaviour />

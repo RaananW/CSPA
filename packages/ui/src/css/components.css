@@ -1202,6 +1202,389 @@
   }
   @starting-style { :where(.ug-toast) { translate: 0 8px; opacity: 0; } }
 
+  /* ---- SegmentedControl ---- */
+
+  /* Native radios, each visually hidden over its key; the keys stand on one plinth, as a ButtonGroup's. */
+  :where(.ug-segmented) {
+    display: inline-flex;
+    flex-direction: column;
+    gap: var(--strata-space-1);
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+  }
+  :where(.ug-segmented__legend) {
+    margin-bottom: var(--strata-space-2);
+    padding: 0;
+    font-size: var(--strata-font-size-small);
+    font-weight: var(--strata-font-weight-strong);
+  }
+  :where(.ug-segmented__legend--hidden) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :where(.ug-segmented__plinth) {
+    --_finish: var(--strata-finish-role-panel);
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--strata-space-2);
+    padding: var(--strata-space-2);
+    border-radius: calc(var(--strata-radius-control) + var(--strata-space-2));
+    background-color: var(--strata-colour-panel);
+  }
+  :where(.ug-segmented__item) { position: relative; display: inline-flex; }
+  :where(.ug-segmented__input) { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  :where(.ug-segmented__input:disabled) { cursor: default; }
+  :where(.ug-segmented__key) {
+    --_finish: var(--strata-finish-role-control);
+    --_text: var(--strata-colour-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: var(--strata-target-min);
+    min-height: max(calc(var(--strata-control-height) + var(--strata-control-offset)), var(--strata-target-min));
+    padding: 0 var(--strata-space-5);
+    border: var(--strata-outline-width) solid var(--strata-colour-edge);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+    color: var(--_text);
+    font-size: var(--strata-control-font);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: 1;
+  }
+  :where(.ug-segmented__item:hover > .ug-segmented__input:not(:disabled) + .ug-segmented__key) {
+    --_lift: var(--strata-state-hover-height);
+    --_tone: var(--_hover-tone);
+  }
+  /* Pressed, and held down while selected: the latched ToggleButton's three cues. */
+  :where(.ug-segmented__input:not(:disabled):active + .ug-segmented__key) {
+    --_lift: var(--strata-state-press-height);
+    --_tone: var(--_press-tone);
+  }
+  :where(.ug-segmented__input:checked + .ug-segmented__key) {
+    --_lift: var(--strata-state-press-height);
+    --_tone: var(--_press-tone);
+    padding-top: 3px;
+    border-bottom: 3px solid var(--strata-colour-accent);
+    background-color: color-mix(in srgb, var(--strata-colour-accent) 16%, var(--strata-colour-secondary));
+  }
+  :where(.ug-segmented__input:focus-visible + .ug-segmented__key) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: var(--strata-focus-offset);
+  }
+  :where(.ug-segmented__input:disabled + .ug-segmented__key) {
+    --_h: 0;
+    color: color-mix(in srgb, var(--_text) 38%, transparent);
+  }
+
+  /* ---- Rating ---- */
+
+  /* Stars printed on the panel (captured content, no relief): radios visually hidden over 24 px targets, and a display. */
+  :where(.ug-rating, .ug-rating-display) { --_star: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5l2.94 6.1 6.56.8-4.85 4.57 1.25 6.53L12 17.27 6.1 20.5l1.25-6.53L2.5 9.4l6.56-.8z'/%3E%3C/svg%3E"); }
+  :where(.ug-rating) {
+    display: inline-flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+  }
+  :where(.ug-rating__legend) {
+    margin-bottom: var(--strata-space-2);
+    padding: 0;
+    font-size: var(--strata-font-size-small);
+    font-weight: var(--strata-font-weight-strong);
+  }
+  :where(.ug-rating__stars) { display: inline-flex; gap: var(--strata-space-1); }
+  :where(.ug-rating__item) { position: relative; display: inline-flex; width: var(--strata-target-min); height: var(--strata-target-min); }
+  :where(.ug-rating__input) { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  :where(.ug-rating__input:disabled) { cursor: default; }
+  :where(.ug-rating__label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :where(.ug-rating__star) {
+    --_fill: var(--strata-colour-edge);
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--strata-radius-control);
+  }
+  /* The shape is a mask on a pseudo-element, so the focus outline on the target is not cut to it. */
+  :where(.ug-rating__star)::before { content: ""; position: absolute; inset: 1px; background-color: var(--_fill); mask: var(--_star) center / contain no-repeat; }
+  /* Filled up to the checked star; a hovered star previews its score. */
+  :where(.ug-rating__input:checked + .ug-rating__star, .ug-rating__item:has(~ .ug-rating__item > .ug-rating__input:checked) > .ug-rating__star) {
+    --_fill: var(--strata-colour-accent);
+  }
+  :where(.ug-rating__stars:has(> .ug-rating__item:hover > .ug-rating__input:not(:disabled))) > :where(.ug-rating__item) > :where(.ug-rating__star) {
+    --_fill: var(--strata-colour-edge);
+  }
+  :where(.ug-rating__stars:has(> .ug-rating__item:hover > .ug-rating__input:not(:disabled))) > :where(.ug-rating__item:hover, .ug-rating__item:has(~ .ug-rating__item:hover)) > :where(.ug-rating__star) {
+    --_fill: color-mix(in srgb, var(--strata-colour-accent) 55%, var(--strata-colour-edge));
+  }
+  :where(.ug-rating__input:focus-visible + .ug-rating__star) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: var(--strata-focus-offset);
+  }
+  :where(.ug-rating__input:disabled + .ug-rating__star) { opacity: 0.38; }
+  :where(.ug-rating-display) {
+    display: inline-block;
+    vertical-align: middle;
+    width: calc(var(--strata-rating-max, 5) * 1.25em);
+    height: 1.25em;
+    background: linear-gradient(90deg, var(--strata-colour-accent) calc(var(--strata-rating, 0) * 100%), var(--strata-colour-edge) 0);
+    mask: var(--_star) 0 0 / 1.25em 1.25em repeat-x;
+  }
+
+  /* ---- Stepper ---- */
+
+  /* Coins on a groove. A step's state is its place relative to aria-current="step": before it, complete. */
+  :where(.ug-stepper) {
+    --_marker: calc(var(--strata-indicator) + 8px);
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    font-size: var(--strata-font-size-small);
+  }
+  :where(.ug-stepper__step) {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--strata-space-2);
+    min-width: 0;
+    text-align: center;
+  }
+  :where(.ug-stepper__marker) {
+    position: relative;
+    z-index: 1;
+    display: inline-grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: var(--_marker);
+    height: var(--_marker);
+    border-radius: 50%;
+    background-color: var(--strata-colour-track);
+    /* The text colour: muted text on the track is under 4.5:1. */
+    color: var(--strata-colour-text);
+    font-weight: var(--strata-font-weight-strong);
+    font-variant-numeric: tabular-nums;
+  }
+  :where(.ug-stepper__step:has(~ .ug-stepper__step[aria-current="step"])) > :where(.ug-stepper__marker) {
+    background-color: var(--strata-colour-accent);
+    color: var(--strata-colour-on-accent);
+  }
+  :where(.ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__marker) {
+    border: 2px solid var(--strata-colour-accent);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+  }
+  :where(.ug-stepper__label) { overflow-wrap: anywhere; }
+  :where(.ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__label) { font-weight: var(--strata-font-weight-strong); }
+  :where(.ug-stepper__step[aria-current="step"] ~ .ug-stepper__step) > :where(.ug-stepper__label) { color: var(--strata-colour-muted); }
+  :where(.ug-stepper__status) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* The line runs from the previous marker's centre to this one's, behind both. */
+  :where(.ug-stepper__line) {
+    position: absolute;
+    top: calc(var(--_marker) / 2 - 2px);
+    right: calc(50% + var(--_marker) / 2);
+    left: calc(-50% + var(--_marker) / 2);
+    height: 4px;
+    border-radius: 2px;
+    background-color: var(--strata-colour-track);
+  }
+  :where(.ug-stepper__step:has(~ .ug-stepper__step[aria-current="step"]), .ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__line) {
+    background-color: var(--strata-colour-accent);
+  }
+  :where(.ug-stepper--vertical) { flex-direction: column; }
+  :where(.ug-stepper--vertical) > :where(.ug-stepper__step) {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: flex-start;
+    min-height: calc(var(--_marker) + var(--strata-space-6));
+    text-align: start;
+  }
+  :where(.ug-stepper--vertical) > :where(.ug-stepper__step) > :where(.ug-stepper__label) { padding-top: calc((var(--_marker) - 1lh) / 2); }
+  :where(.ug-stepper--vertical) > :where(.ug-stepper__step) > :where(.ug-stepper__line) {
+    /* Steps are a marker and space.6 high: the line fills the space.6 above this marker, up to the previous one. */
+    top: calc(-1 * var(--strata-space-6));
+    right: auto;
+    left: calc(var(--_marker) / 2 - 2px);
+    width: 4px;
+    height: var(--strata-space-6);
+  }
+
+  /* ---- NavigationRail ---- */
+
+  /* Keys on a raised slab down the start edge; the current destination's key is held down. */
+  :where(.ug-nav-rail) {
+    --_finish: var(--strata-finish-role-control);
+    display: inline-flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--strata-space-2);
+    border-radius: calc(var(--strata-radius-control) + var(--strata-space-2));
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+  }
+  :where(.ug-nav-rail__list) { display: flex; flex-direction: column; gap: var(--strata-space-1); margin: 0; padding: 0; list-style: none; }
+  :where(.ug-nav-rail__entry) { display: flex; }
+  :where(.ug-nav-rail__item) {
+    --_finish: var(--strata-finish-role-control);
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--strata-space-1);
+    box-sizing: border-box;
+    min-width: 56px;
+    min-height: 48px;
+    padding: var(--strata-space-2);
+    border: var(--strata-outline-width) solid var(--strata-colour-edge);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+    font-size: var(--strata-font-size-small);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+  }
+  :where(.ug-nav-rail__icon) { display: inline-grid; width: 24px; height: 24px; }
+  :where(.ug-nav-rail__icon:empty) { display: none; }
+  :where(.ug-nav-rail__label) { max-width: 100%; overflow-wrap: anywhere; }
+  :where(.ug-nav-rail__icon) > svg { width: 100%; height: 100%; }
+  :where(.ug-nav-rail__item):is(:hover, [data-strata-preview~="hover"]) {
+    --_lift: var(--strata-state-hover-height);
+    --_tone: var(--_hover-tone);
+  }
+  :where(.ug-nav-rail__item):is(:active, [data-strata-preview~="active"]) {
+    --_lift: var(--strata-state-press-height);
+    --_tone: var(--_press-tone);
+  }
+  /* The current destination: held down, tinted, and a strip along its start edge. */
+  :where(.ug-nav-rail__item[aria-current="page"]) {
+    --_lift: var(--strata-state-press-height);
+    --_tone: var(--_press-tone);
+    border-inline-start: 3px solid var(--strata-colour-accent);
+    background-color: color-mix(in srgb, var(--strata-colour-accent) 16%, var(--strata-colour-secondary));
+  }
+  :where(.ug-nav-rail__item):is(:focus-visible, [data-strata-preview~="focus"]) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: var(--strata-focus-offset);
+  }
+
+  /* ---- TreeView ---- */
+
+  /* One raised slab with flat rows; a closed item's group is hidden from aria-expanded. */
+  :where(.ug-tree) {
+    --_finish: var(--strata-finish-role-control);
+    display: block;
+    box-sizing: border-box;
+    margin: 0;
+    padding: var(--strata-space-1);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    list-style: none;
+  }
+  :where(.ug-tree__group) { margin: 0; padding: 0; padding-inline-start: var(--strata-space-5); list-style: none; }
+  :where(.ug-tree__item[aria-expanded="false"]) > :where(.ug-tree__group) { display: none; }
+  :where(.ug-tree__item) { outline: none; }
+  :where(.ug-tree__row) {
+    display: flex;
+    align-items: center;
+    gap: var(--strata-space-1);
+    box-sizing: border-box;
+    min-height: 32px;
+    padding-inline: var(--strata-space-2);
+    border-radius: var(--strata-radius-small);
+    cursor: default;
+    user-select: none;
+  }
+  /* A leaf's row starts where its siblings' labels do, past the toggle. */
+  :where(.ug-tree__item:not([aria-expanded])) > :where(.ug-tree__row) { padding-inline-start: calc(var(--strata-space-2) + 16px + var(--strata-space-1)); }
+  :where(.ug-tree__row:hover) { background-color: color-mix(in srgb, var(--strata-colour-text) 6%, transparent); }
+  /* The selected row: tinted, a strip along its start edge, and strong. */
+  :where(.ug-tree__item[aria-selected="true"]) > :where(.ug-tree__row) {
+    padding-inline-start: calc(var(--strata-space-2) - 3px);
+    border-inline-start: 3px solid var(--strata-colour-accent);
+    background-color: color-mix(in srgb, var(--strata-colour-accent) 16%, var(--strata-colour-secondary));
+    font-weight: var(--strata-font-weight-strong);
+  }
+  :where(.ug-tree__item[aria-selected="true"]:not([aria-expanded])) > :where(.ug-tree__row) { padding-inline-start: calc(var(--strata-space-2) + 16px + var(--strata-space-1) - 3px); }
+  :where(.ug-tree__item:focus-visible) > :where(.ug-tree__row) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: calc(-1 * var(--strata-focus-width));
+  }
+  /* The toggle: a chevron pointing along the text when closed, and down when open. */
+  :where(.ug-tree__toggle) { display: inline-grid; flex: none; place-items: center; width: 16px; height: 16px; cursor: pointer; }
+  :where(.ug-tree__toggle)::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    rotate: -45deg;
+    transition: rotate var(--strata-motion-fast) var(--strata-motion-easing-standard);
+  }
+  :where(.ug-tree:dir(rtl)) :where(.ug-tree__toggle)::before { rotate: 135deg; }
+  :where(.ug-tree__item[aria-expanded="true"]) > :where(.ug-tree__row) > :where(.ug-tree__toggle)::before { rotate: 45deg; }
+  :where(.ug-tree__label) { min-width: 0; overflow-wrap: anywhere; }
+
+  /* ---- Carousel ---- */
+
+  /* One slide at a time in a frame, with keys under it: Previous, a picker key per slide, Next. */
+  :where(.ug-carousel) { display: flex; flex-direction: column; gap: var(--strata-space-3); color: var(--strata-colour-text); font-family: var(--strata-font-family); }
+  :where(.ug-carousel__slides) {
+    box-sizing: border-box;
+    padding: var(--strata-space-4);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+  }
+  :where(.ug-carousel__slide) { opacity: 1; transition: opacity var(--strata-motion-normal) var(--strata-motion-easing-standard); }
+  @starting-style { :where(.ug-carousel__slide):not([hidden]) { opacity: 0; } }
+  :where(.ug-carousel__controls) { display: flex; align-items: center; justify-content: center; gap: var(--strata-space-2); }
+  :where(.ug-carousel__picker) { display: flex; flex-wrap: wrap; gap: var(--strata-space-1); }
+  :where(.ug-carousel__key) {
+    --_finish: var(--strata-finish-role-control);
+    box-sizing: border-box;
+    width: var(--strata-target-min);
+    height: var(--strata-target-min);
+    margin: 0;
+    padding: 0;
+    border: var(--strata-outline-width) solid var(--strata-colour-edge);
+    border-radius: 50%;
+    background-color: var(--strata-colour-secondary);
+    cursor: pointer;
+  }
+  :where(.ug-carousel__key):is(:hover, [data-strata-preview~="hover"]) { --_lift: var(--strata-state-hover-height); --_tone: var(--_hover-tone); }
+  :where(.ug-carousel__key):is(:active, [data-strata-preview~="active"]) { --_lift: var(--strata-state-press-height); --_tone: var(--_press-tone); }
+  /* The current slide's key: held down and filled. */
+  :where(.ug-carousel__key[aria-current="true"]) { --_lift: var(--strata-state-press-height); --_tone: var(--_press-tone); background-color: var(--strata-colour-accent); }
+  :where(.ug-carousel__key):is(:focus-visible, [data-strata-preview~="focus"]) { outline: var(--strata-focus-width) solid var(--strata-colour-accent); outline-offset: var(--strata-focus-offset); }
+  /* An empty icon gets a chevron pointing back or forward along the text. */
+  :where(.ug-carousel__previous, .ug-carousel__next) > :where(.ug-icon-button__icon) { place-items: center; }
+  :where(.ug-carousel__previous, .ug-carousel__next) > :where(.ug-icon-button__icon:empty)::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-bottom: 2px solid currentColor;
+    border-left: 2px solid currentColor;
+    rotate: 45deg;
+  }
+  :where(.ug-carousel__next) > :where(.ug-icon-button__icon:empty)::before { rotate: -135deg; }
+  :where(.ug-carousel:dir(rtl)) :where(.ug-carousel__previous) > :where(.ug-icon-button__icon:empty)::before { rotate: -135deg; }
+  :where(.ug-carousel:dir(rtl)) :where(.ug-carousel__next) > :where(.ug-icon-button__icon:empty)::before { rotate: 45deg; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1377,6 +1760,8 @@
   @media (prefers-reduced-motion: reduce) {
     :where([data-strata-face], .ug-checkbox__mark, .ug-radio__dot, .ug-switch__knob, .ug-switch__input, .ug-accordion__chevron) { transition: none; }
     :where(.ug-spinner__arc) { animation: none; }
+    :where(.ug-tree__toggle)::before { transition: none; }
+    :where(.ug-carousel__slide) { transition: none; }
     :where(.ug-scrim) { transition: none; }
     :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
@@ -1403,8 +1788,25 @@
     :where(.ug-scrim) { forced-color-adjust: none; }
     :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group, .ug-toolbar) { border: 1px solid ButtonBorder; }
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-segmented__key) { border: 1px solid ButtonBorder; }
+    :where(.ug-segmented__input:checked + .ug-segmented__key) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-rating__star) { forced-color-adjust: none; --_fill: CanvasText; }
+    :where(.ug-rating__input:checked + .ug-rating__star, .ug-rating__item:has(~ .ug-rating__item > .ug-rating__input:checked) > .ug-rating__star) { --_fill: Highlight; }
+    :where(.ug-rating-display) { forced-color-adjust: none; background: linear-gradient(90deg, Highlight calc(var(--strata-rating, 0) * 100%), CanvasText 0); }
+    :where(.ug-stepper__marker) { border: 1px solid CanvasText; }
+    :where(.ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__marker) { border: 2px solid CanvasText; }
+    :where(.ug-stepper__step:has(~ .ug-stepper__step[aria-current="step"])) > :where(.ug-stepper__marker, .ug-stepper__line),
+    :where(.ug-stepper__step[aria-current="step"]) > :where(.ug-stepper__line) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-nav-rail) { border: 1px solid CanvasText; }
+    :where(.ug-nav-rail__item) { border: 1px solid ButtonBorder; }
+    :where(.ug-nav-rail__item[aria-current="page"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-popover, .ug-menu) { border: 1px solid CanvasText; }
     :where(.ug-menu__item):is(:hover, :focus) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-tree) { border: 1px solid CanvasText; }
+    :where(.ug-tree__item[aria-selected="true"]) > :where(.ug-tree__row) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-carousel__slides) { border: 1px solid CanvasText; }
+    :where(.ug-carousel__key) { border: 1px solid ButtonBorder; }
+    :where(.ug-carousel__key[aria-current="true"]) { forced-color-adjust: none; background-color: Highlight; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
     :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }

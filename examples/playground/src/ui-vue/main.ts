@@ -7,8 +7,8 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
-  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Slider, Stepper,
+  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView, toast,
 } from "@underglass/ui/vue";
 
 const close = () => h("svg", { viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" }, [h("path", { d: "M4 4l8 8M12 4l-8 8" })]);
@@ -38,6 +38,12 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("table.md", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }, { number: "1002", customer: "Grace Hopper", amount: "87.50" }], defaultSort: { key: "number", direction: "ascending" } })),
   contract("table.md#2", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }], sort: { key: "number", direction: "ascending" } })),
   contract("avatar.md", [h(Avatar, { name: "Ada Lovelace" }), h(Avatar, { name: "Grace Hopper", src: "/people/grace.jpg" }), h(Avatar, { name: "Alan Turing", decorative: true })]),
+  contract("segmented-control.md", [h(SegmentedControl, { label: "View", name: "view", defaultValue: "day", options: [{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }] })]),
+  contract("rating.md", [h(Rating, { label: "Your rating", name: "score", max: 3, defaultValue: 2 }), h(RatingDisplay, { value: 4.5 })]),
+  contract("stepper.md", [h(Stepper, { label: "Checkout progress", steps: ["Cart", "Shipping", "Payment"], current: 1 })]),
+  contract("navigation-rail.md", [h(NavigationRail, { label: "Main", items: [{ label: "Inbox", href: "/inbox" }, { label: "Drafts", href: "/drafts" }], current: "/inbox" })]),
+  contract("tree-view.md", [h(TreeView, { label: "Files", items: [{ value: "src", label: "src", children: [{ value: "src/index.ts", label: "index.ts" }] }, { value: "readme", label: "README.md" }], defaultExpanded: ["src"], defaultSelected: "src/index.ts" })]),
+  contract("carousel.md", [h(Carousel, { label: "Featured" }, { default: () => ["First", "Second", "Third"].map(text => h("p", text)) })]),
   contract("chip.md", [h(Chip, null, { default: text("Design") }), h(Chip, { defaultPressed: true }, { default: text("Remote") }), h(Chip, { onRemove: () => {} }, { default: text("ada@example.com") })]),
   contract("message-bar.md", h(MessageBar, { intent: "warning", title: "Storage almost full", onDismiss: () => {} }, {
     default: text("You have used 95% of your space."), actions: () => h(Button, null, { default: text("Upgrade") }),
@@ -110,8 +116,9 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
-    const page = ref(1), appBar = ref(0), toasts = ref(0);
+    const page = ref(1), appBar = ref(0), toasts = ref(0), range = ref("day"), score = ref(3), step = ref(1), rail = ref("#rail-inbox"), slide = ref(0);
     const popover = reactive({ open: false, applied: 0 });
+    const tree = reactive<{ expanded: string[]; selected?: string }>({ expanded: ["docs"] });
     const chosen = reactive<string[]>([]);
     const messages = reactive({ upgrades: 0, dismissed: false });
     const chips = reactive({ remote: false, removed: [] as string[] });
@@ -136,7 +143,12 @@ const App = defineComponent({
         get page() { return page.value; },
         get appBar() { return appBar.value; },
         get toasts() { return toasts.value; },
+        get range() { return range.value; },
+        get score() { return score.value; },
+        get rail() { return rail.value; },
         get popover() { return { ...toRaw(popover) }; },
+        get tree() { return { expanded: [...tree.expanded], selected: tree.selected }; },
+        get slide() { return slide.value; },
         get chosen() { return [...chosen]; },
         setPage: (value: number) => { page.value = value; },
         get messages() { return { ...toRaw(messages) }; },
@@ -279,7 +291,25 @@ const App = defineComponent({
                 ],
               }),
               h(Pagination, { id: "live-pagination", page: page.value, count: 12, "onUpdate:page": (value: number) => { page.value = value; } }),
+              h("form", { id: "range-form", onSubmit: (event: Event) => event.preventDefault() }, [
+                h(SegmentedControl, { id: "live-segmented", label: "Range", name: "range", modelValue: range.value, "onUpdate:modelValue": (value: string) => { range.value = value; },
+                  options: [{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }, { value: "year", label: "Year" }] }),
+              ]),
+              h("form", { id: "score-form", onSubmit: (event: Event) => event.preventDefault(), style: { display: "flex", gap: "16px", alignItems: "end" } }, [
+                h(Rating, { id: "live-rating", label: "Quality", name: "quality", modelValue: score.value, "onUpdate:modelValue": (value: number) => { score.value = value; } }),
+                h(RatingDisplay, { id: "live-rating-display", value: score.value }),
+              ]),
+              h(Stepper, { id: "live-stepper", label: "Checkout progress", steps: ["Cart", "Shipping", "Payment", "Review"], current: step.value }),
+              h("p", { style: { display: "flex", gap: "12px", margin: "0" } }, [
+                h(Button, { id: "stepper-back", onClick: () => { step.value = Math.max(0, step.value - 1); } }, { default: text("Back") }),
+                h(Button, { id: "stepper-next", onClick: () => { step.value = Math.min(3, step.value + 1); } }, { default: text("Next") }),
+              ]),
+              h(Stepper, { id: "vertical-stepper", label: "Setup", orientation: "vertical", steps: ["Account", "Team", "Billing"], current: 1 }),
+              h(NavigationRail, { id: "live-rail", label: "Sections", current: rail.value, onNavigate: (href: string, event: MouseEvent) => { event.preventDefault(); rail.value = href; },
+                items: [{ label: "Inbox", href: "#rail-inbox", icon: close() }, { label: "Drafts", href: "#rail-drafts", icon: close() }, { label: "Sent", href: "#rail-sent" }] }),
               h(Breadcrumb, { id: "live-breadcrumb", items: [{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }] }),
+              h(TreeView, { id: "live-tree", label: "Project", items: [{ value: "src", label: "src", children: [{ value: "src/app.ts", label: "app.ts" }, { value: "src/ui", label: "ui", children: [{ value: "src/ui/button.ts", label: "button.ts" }] }] }, { value: "docs", label: "docs", children: [{ value: "docs/guide.md", label: "guide.md" }] }, { value: "readme", label: "README.md" }], expanded: tree.expanded, selected: tree.selected,
+                "onUpdate:expanded": (expanded: string[]) => { tree.expanded = expanded; }, "onUpdate:selected": (selected: string) => { tree.selected = selected; } }),
             ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Lists" }, [
               h(List, { label: "Folders", id: "live-list" }, {
@@ -303,6 +333,11 @@ const App = defineComponent({
                   h(AccordionItem, { id: "first", title: "First", defaultOpen: true }, { default: text("One.") }),
                   h(AccordionItem, { id: "second", title: "Second" }, { default: text("Two.") }),
                 ],
+              }),
+            ]),
+            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Carousels" }, [
+              h(Carousel, { id: "live-carousel", label: "Stories", index: slide.value, "onUpdate:index": (value: number) => { slide.value = value; } }, {
+                default: () => ["Strata lights every face.", "Objects travel when pressed.", "Scenes settle with a spring."].map(line => h("p", line)),
               }),
             ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Overlays" }, [

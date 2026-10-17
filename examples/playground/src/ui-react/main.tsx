@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast } from "@underglass/ui/react";
+import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Stepper, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView, toast } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -97,6 +97,12 @@ function Contracts() {
       <div data-contract="table.md#2"><Table caption="Invoices" columns={[{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }]} rows={[{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }]} sort={{ key: "number", direction: "ascending" }} /></div>
       <div data-contract="breadcrumb.md"><Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Settings", href: "/settings" }, { label: "Profile", href: "/settings/profile" }]} /></div>
       <div data-contract="avatar.md"><Avatar name="Ada Lovelace" /><Avatar name="Grace Hopper" src="/people/grace.jpg" /><Avatar name="Alan Turing" decorative /></div>
+      <div data-contract="segmented-control.md"><SegmentedControl label="View" name="view" defaultValue="day" options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }]} /></div>
+      <div data-contract="rating.md"><Rating label="Your rating" name="score" max={3} defaultValue={2} /><RatingDisplay value={4.5} /></div>
+      <div data-contract="stepper.md"><Stepper label="Checkout progress" steps={["Cart", "Shipping", "Payment"]} current={1} /></div>
+      <div data-contract="navigation-rail.md"><NavigationRail label="Main" items={[{ label: "Inbox", href: "/inbox" }, { label: "Drafts", href: "/drafts" }]} current="/inbox" /></div>
+      <div data-contract="tree-view.md"><TreeView label="Files" items={[{ value: "src", label: "src", children: [{ value: "src/index.ts", label: "index.ts" }] }, { value: "readme", label: "README.md" }]} defaultExpanded={["src"]} defaultSelected="src/index.ts" /></div>
+      <div data-contract="carousel.md"><Carousel label="Featured" slides={[<p>First</p>, <p>Second</p>, <p>Third</p>]} /></div>
       <div data-contract="chip.md"><Chip>Design</Chip><Chip defaultPressed>Remote</Chip><Chip onRemove={() => {}}>ada@example.com</Chip></div>
       <div data-contract="skeleton.md"><Skeleton shape="circle" /><Skeleton lines={3} /><Skeleton shape="rect" width="100%" height={120} /></div>
       <div data-contract="message-bar.md">
@@ -139,7 +145,13 @@ function App() {
   const [page, setPage] = useState(1);
   const [appBar, setAppBar] = useState(0);
   const [toasts, setToasts] = useState(0);
+  const [range, setRange] = useState("day");
+  const [score, setScore] = useState(3);
+  const [step, setStep] = useState(1);
+  const [rail, setRail] = useState("#rail-inbox");
   const [popover, setPopover] = useState({ open: false, applied: 0 });
+  const [tree, setTree] = useState<{ expanded: string[]; selected?: string }>({ expanded: ["docs"] });
+  const [slide, setSlide] = useState(0);
   const [chosen, setChosen] = useState<string[]>([]);
   const [messages, setMessages] = useState({ upgrades: 0, dismissed: false });
   const [chips, setChips] = useState({ remote: false, removed: [] as string[] });
@@ -149,7 +161,7 @@ function App() {
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts, popover, chosen } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts, range, score, rail, popover, tree, slide, chosen } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -298,6 +310,21 @@ function App() {
             <Divider orientation="vertical" /><ToggleButton id="tool-wrap">Wrap</ToggleButton>
           </Toolbar>
           <Pagination id="live-pagination" page={page} count={12} onPageChange={setPage} />
+          <form id="range-form" onSubmit={event => event.preventDefault()}>
+            <SegmentedControl id="live-segmented" label="Range" name="range" value={range} onChange={setRange} options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }, { value: "year", label: "Year" }]} />
+          </form>
+          <form id="score-form" onSubmit={event => event.preventDefault()} style={{ display: "flex", gap: 16, alignItems: "end" }}>
+            <Rating id="live-rating" label="Quality" name="quality" value={score} onChange={setScore} />
+            <RatingDisplay id="live-rating-display" value={score} />
+          </form>
+          <Stepper id="live-stepper" label="Checkout progress" steps={["Cart", "Shipping", "Payment", "Review"]} current={step} />
+          <p style={{ display: "flex", gap: 12, margin: 0 }}>
+            <Button id="stepper-back" onClick={() => setStep(current => Math.max(0, current - 1))}>Back</Button>
+            <Button id="stepper-next" onClick={() => setStep(current => Math.min(3, current + 1))}>Next</Button>
+          </p>
+          <Stepper id="vertical-stepper" label="Setup" orientation="vertical" steps={["Account", "Team", "Billing"]} current={1} />
+          <NavigationRail id="live-rail" label="Sections" current={rail} onNavigate={(href, event) => { event.preventDefault(); setRail(href); }}
+            items={[{ label: "Inbox", href: "#rail-inbox", icon: close }, { label: "Drafts", href: "#rail-drafts", icon: close }, { label: "Sent", href: "#rail-sent" }]} />
           <Breadcrumb id="live-breadcrumb" items={[{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }]} />
         </section>
         <section className="ug-panel" data-strata-face="raised" aria-label="Lists">
@@ -307,6 +334,12 @@ function App() {
             <ListItem id="locked-row" primary="Locked" disabled onClick={() => setRows(current => ({ ...current, locked: current.locked + 1 }))} />
             <ListItem id="storage-row" primary="Storage" secondary="4.2 GB of 15 GB used" />
           </List>
+          <TreeView id="live-tree" label="Project" items={[{ value: "src", label: "src", children: [{ value: "src/app.ts", label: "app.ts" }, { value: "src/ui", label: "ui", children: [{ value: "src/ui/button.ts", label: "button.ts" }] }] }, { value: "docs", label: "docs", children: [{ value: "docs/guide.md", label: "guide.md" }] }, { value: "readme", label: "README.md" }]} expanded={tree.expanded} selected={tree.selected}
+            onExpandedChange={expanded => setTree(current => ({ ...current, expanded }))} onSelect={selected => setTree(current => ({ ...current, selected }))} />
+        </section>
+        <section className="ug-panel" data-strata-face="raised" aria-label="Carousels">
+          <Carousel id="live-carousel" label="Stories" index={slide} onIndexChange={setSlide}
+            slides={[<p>Strata lights every face.</p>, <p>Objects travel when pressed.</p>, <p>Scenes settle with a spring.</p>]} />
         </section>
         <section className="ug-panel" data-strata-face="raised" aria-label="Overlays">
           <Button id="open-live" onClick={() => setLiveOpen(true)}>Open live dialog</Button>
