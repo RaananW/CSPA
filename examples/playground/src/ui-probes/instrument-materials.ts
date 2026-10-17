@@ -47,7 +47,7 @@ const tokens = {
   light: settings.light,
   interiorMax: settings.interior.max,
   face: { width: 600, height: 560, gap: 32, top: 24 },
-  display: { x: 40, y: 64, width: 520, height: 96, radius: 14, rise: 5, taper: 2.5, border: 13, chamfer: 2.5, glass: 2.6, glassTaper: 1.4, value: "440.00 Hz" },
+  display: { x: 40, y: 64, width: 520, height: 96, radius: 14, edge: 0.5, rise: 5, taper: 2.5, border: 13, chamfer: 2.5, glass: 2.6, glassTaper: 1.4, value: "440.00 Hz" },
   knob: { y: 216, size: 104, step: 136, collar: 3, skirt: 10, skirtRadius: 46, cap: 20, capRadius: 35, fillet: 2.5, crown: 2, pointer: 0.6, sweep: (270 * Math.PI) / 180,
     lens: 16, lensRadius: 35.5, ringInner: 36, kinds: ["lacquer", "gold", "glass", "chrome"] as const },
   dome: { x: 124, y: 400, size: 72, height: 14, inset: 4, exponent: 2.8 },
@@ -358,7 +358,9 @@ async function build(layer: InstrumentLayer) {
   const parts: Record<string, PartKind> = {};
   const d = tokens.display, k = tokens.knob, o = tokens.dome, r = k.size / 2;
   const glassWidth = d.width - 2 * d.border, glassHeight = d.height - 2 * d.border, glassRadius = Math.max(0.5, d.radius - d.border);
-  parts.bezel = layer.kind("bezel", bezelFrame(d.width, d.height, d.radius, d.rise, d.taper, d.border, d.chamfer), asMaterial(materials.bezel), 1);
+  // The bezel stands half a pixel inside the input's box (`edge`): at a fractional DPR in a real window, a base on the
+  // box edge put one pixel 0.18 px outside the rounded box (measured at DPR 1.25, headful).
+  parts.bezel = layer.kind("bezel", bezelFrame(d.width - 2 * d.edge, d.height - 2 * d.edge, d.radius - d.edge, d.rise, d.taper, d.border - d.edge, d.chamfer), asMaterial(materials.bezel), 1);
   const pane = frustum(glassWidth, glassHeight, glassRadius + 3, d.glass, d.glassTaper);
   parts.displayGlass = layer.kind("display-glass", pane, materials.liteGlass ? asMaterial(materials.liteGlass) : displayGlass as unknown as Material, 1);
   parts.displayShell = layer.kind("display-shell", pane, asMaterial(materials.displayShell), 1);
