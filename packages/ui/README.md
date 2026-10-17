@@ -449,6 +449,20 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
 
+## Rating
+
+A score out of `max` (5) as stars. `Rating` is native radios in a `<fieldset>`, one per score, named "1 star", "2 stars"
+(`itemLabel` changes the wording), so arrow keys and forms work natively; `RatingDisplay` shows a read-only score,
+fractions included, as one image named "4.5 out of 5 stars":
+
+```tsx
+<Rating label="Your rating" value={score} onChange={setScore} />
+<RatingDisplay value={4.5} />
+```
+
+Vue uses `v-model`; Astro takes `value` and `name`. The stars are captured content on the GPU, not relief.
+[Anatomy](../../docs/ui-library/components/rating.md).
+
 ## SegmentedControl
 
 One choice from two to five short options, as keys on a plinth: native radios in a `<fieldset>`, so arrow keys and

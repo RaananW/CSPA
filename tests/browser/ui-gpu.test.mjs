@@ -754,6 +754,25 @@ test("a toast over a GPU-presented panel leaves the panel on the GPU", async ({ 
   expect(errors).toEqual([]);
 });
 
+test("a Rating on the GPU: its stars are captured content with no primitive, and a real click sets the score, GPU on", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  await page.evaluate(async () => { window.strataGpuProbe.addRating(); await window.strataGpuProbe.controller.settle(); });
+  for (const score of [1, 5]) expect(await primitiveOf(page, `#gpu-star-${score} .ug-rating__star`)).toBeNull();
+  const fourth = await page.locator("#gpu-star-4").boundingBox(), frame = await page.locator("#frame").boundingBox();
+  const centre = [fourth.x - frame.x + fourth.width / 2, fourth.y - frame.y + fourth.height / 2];
+  const before = (await snap(page, "rating-before"))(...centre);
+  await page.mouse.click(fourth.x + fourth.width / 2, fourth.y + fourth.height / 2);
+  await page.mouse.move(5, 5);
+  expect(await page.evaluate(() => document.querySelector("input[name='gpu-score']:checked").value)).toBe("4");
+  // Fresh pixels: the fourth star is filled now, on the GPU.
+  const after = (await snap(page, "rating-after"))(...centre);
+  expect(after).not.toEqual(before);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});
+
 for (const level of ["relief", "objects"]) test(`a SegmentedControl on the GPU at the ${level} level: keys, the selected one held down, moved by a real click, GPU on`, async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));

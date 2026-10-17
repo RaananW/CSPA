@@ -12,7 +12,8 @@
  * `strataGpuProbe.addChips()` a tag and a filter chip, `strataGpuProbe.addMessage()` a MessageBar with an action, and
  * `strataGpuProbe.addPagination()` three page keys, `strataGpuProbe.addToolbar()` a Toolbar of toggle buttons, 
  * `strataGpuProbe.addAppBar()` an AppBar, `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root, and
- * `strataGpuProbe.addSegmented()` a SegmentedControl of three keys.
+ * `strataGpuProbe.addSegmented()` a SegmentedControl of three keys, and
+ * `strataGpuProbe.addRating()` a Rating of five stars.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -131,6 +132,9 @@ let upgrades = 0;
 /** A SegmentedControl in plain markup (`segmented-control.md`), added by `strataGpuProbe.addSegmented()`, Week selected. */
 const segmentedMarkup = `<fieldset class="ug-segmented" style="margin-top:12px"><legend class="ug-segmented__legend">View</legend><div class="ug-segmented__plinth">${
   ["Day", "Week", "Month"].map(label => `<label class="ug-segmented__item"><input class="ug-segmented__input" type="radio" name="gpu-view" value="${label.toLowerCase()}" ${label === "Week" ? "checked" : ""}><span class="ug-segmented__key" data-strata-face="raised" id="gpu-segment-${label.toLowerCase()}">${label}</span></label>`).join("")}</div></fieldset>`;
+/** A Rating in plain markup (`rating.md`), added by `strataGpuProbe.addRating()`, at 2. */
+const ratingMarkup = `<fieldset class="ug-rating" style="margin-top:12px"><legend class="ug-rating__legend">Your rating</legend><div class="ug-rating__stars">${
+  [1, 2, 3, 4, 5].map(score => `<label class="ug-rating__item" id="gpu-star-${score}"><input class="ug-rating__input" type="radio" name="gpu-score" value="${score}" ${score === 2 ? "checked" : ""}><span class="ug-rating__star" aria-hidden="true"></span><span class="ug-rating__label">${score} stars</span></label>`).join("")}</div></fieldset>`;
 /** Chips in plain markup (`chip.md`), added by `strataGpuProbe.addChips()`: a tag and a filter chip. */
 const chipsMarkup = `<p style="margin:12px 0 0;display:flex;gap:8px"><span class="ug-chip" data-strata-face="raised" id="gpu-tag"><span class="ug-chip__label">Design</span></span><button class="ug-chip" data-strata-face="raised" type="button" aria-pressed="false" id="gpu-filter"><span class="ug-chip__label">Remote</span></button></p>`;
 /** An Avatar in plain markup (`avatar.md`), added to the panel by `strataGpuProbe.addAvatar()`. */
@@ -185,6 +189,7 @@ window.strataGpuProbe = {
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
   addTooltip,
   addSegmented: () => { panel.insertAdjacentHTML("beforeend", segmentedMarkup); strata?.refresh(); },
+  addRating: () => { panel.insertAdjacentHTML("beforeend", ratingMarkup); strata?.refresh(); },
   toast: () => { showStrataToast({ message: "Saved.", intent: "success", duration: Infinity }); },
   addAppBar: () => { panel.insertAdjacentHTML("beforeend", appBarMarkup); panel.querySelector("#gpu-sign-in")!.addEventListener("click", () => { signIns++; }); strata?.refresh(); },
   signIns: () => signIns,
@@ -215,6 +220,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addSegmented(): void; toast(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addSegmented(): void; addRating(): void; toast(): void;
   } }
 }

@@ -60,3 +60,5 @@ export type { AccordionItemProps, AccordionProps } from "./Accordion.tsx";
 export type { TabListProps, TabPanelProps, TabProps, TabsProps } from "./Tabs.tsx";
 export { SegmentedControl } from "./SegmentedControl.tsx";
 export type { SegmentedControlProps, SegmentedOption } from "./SegmentedControl.tsx";
+export { Rating, RatingDisplay } from "./Rating.tsx";
+export type { RatingDisplayProps, RatingProps } from "./Rating.tsx";

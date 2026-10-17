@@ -17,6 +17,7 @@ export { Avatar } from "./avatar.ts";
 export { Chip } from "./chip.ts";
 export { SegmentedControl } from "./segmented.ts";
 export type { SegmentedOption } from "./segmented.ts";
+export { Rating, RatingDisplay } from "./rating.ts";
 export { Skeleton } from "./skeleton.ts";
 export { MessageBar } from "./message-bar.ts";
 export { Pagination } from "./pagination.ts";

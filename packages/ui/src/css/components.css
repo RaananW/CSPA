@@ -1205,6 +1205,65 @@
     color: color-mix(in srgb, var(--_text) 38%, transparent);
   }
 
+  /* ---- Rating ---- */
+
+  /* Stars printed on the panel (captured content, no relief): radios visually hidden over 24 px targets, and a display. */
+  :where(.ug-rating, .ug-rating-display) { --_star: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2.5l2.94 6.1 6.56.8-4.85 4.57 1.25 6.53L12 17.27 6.1 20.5l1.25-6.53L2.5 9.4l6.56-.8z'/%3E%3C/svg%3E"); }
+  :where(.ug-rating) {
+    display: inline-flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+  }
+  :where(.ug-rating__legend) {
+    margin-bottom: var(--strata-space-2);
+    padding: 0;
+    font-size: var(--strata-font-size-small);
+    font-weight: var(--strata-font-weight-strong);
+  }
+  :where(.ug-rating__stars) { display: inline-flex; gap: var(--strata-space-1); }
+  :where(.ug-rating__item) { position: relative; display: inline-flex; width: var(--strata-target-min); height: var(--strata-target-min); }
+  :where(.ug-rating__input) { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+  :where(.ug-rating__input:disabled) { cursor: default; }
+  :where(.ug-rating__label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  :where(.ug-rating__star) {
+    --_fill: var(--strata-colour-edge);
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: var(--strata-radius-control);
+  }
+  /* The shape is a mask on a pseudo-element, so the focus outline on the target is not cut to it. */
+  :where(.ug-rating__star)::before { content: ""; position: absolute; inset: 1px; background-color: var(--_fill); mask: var(--_star) center / contain no-repeat; }
+  /* Filled up to the checked star; a hovered star previews its score. */
+  :where(.ug-rating__input:checked + .ug-rating__star, .ug-rating__item:has(~ .ug-rating__item > .ug-rating__input:checked) > .ug-rating__star) {
+    --_fill: var(--strata-colour-accent);
+  }
+  :where(.ug-rating__stars:has(> .ug-rating__item:hover > .ug-rating__input:not(:disabled))) > :where(.ug-rating__item) > :where(.ug-rating__star) {
+    --_fill: var(--strata-colour-edge);
+  }
+  :where(.ug-rating__stars:has(> .ug-rating__item:hover > .ug-rating__input:not(:disabled))) > :where(.ug-rating__item:hover, .ug-rating__item:has(~ .ug-rating__item:hover)) > :where(.ug-rating__star) {
+    --_fill: color-mix(in srgb, var(--strata-colour-accent) 55%, var(--strata-colour-edge));
+  }
+  :where(.ug-rating__input:focus-visible + .ug-rating__star) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: var(--strata-focus-offset);
+  }
+  :where(.ug-rating__input:disabled + .ug-rating__star) { opacity: 0.38; }
+  :where(.ug-rating-display) {
+    display: inline-block;
+    vertical-align: middle;
+    width: calc(var(--strata-rating-max, 5) * 1.25em);
+    height: 1.25em;
+    background: linear-gradient(90deg, var(--strata-colour-accent) calc(var(--strata-rating, 0) * 100%), var(--strata-colour-edge) 0);
+    mask: var(--_star) 0 0 / 1.25em 1.25em repeat-x;
+  }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1408,6 +1467,9 @@
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-segmented__key) { border: 1px solid ButtonBorder; }
     :where(.ug-segmented__input:checked + .ug-segmented__key) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-rating__star) { forced-color-adjust: none; --_fill: CanvasText; }
+    :where(.ug-rating__input:checked + .ug-rating__star, .ug-rating__item:has(~ .ug-rating__item > .ug-rating__input:checked) > .ug-rating__star) { --_fill: Highlight; }
+    :where(.ug-rating-display) { forced-color-adjust: none; background: linear-gradient(90deg, Highlight calc(var(--strata-rating, 0) * 100%), CanvasText 0); }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
     :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }
