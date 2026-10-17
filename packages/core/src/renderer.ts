@@ -18,8 +18,8 @@ import {
   createEngine, disposeEngine, createDynamicTexture, releaseTexture,
   createEffectWrapper, disposeEffectWrapper, setEffectTexture, setEffectUniforms,
   createEffectRenderer, disposeEffectRenderer, registerEffectRenderer, unregisterEffectRenderer,
-  setEngineSize, renderFrame, captureScreenshot,
-  type EngineContext, type DynamicTexture2D, type EffectWrapper,
+  setEngineSize, renderFrame, captureScreenshot, getRenderingContexts,
+  type EngineContext, type DynamicTexture2D, type EffectWrapper, type RenderingContext,
 } from "@babylonjs/lite";
 import { capabilities, enableDrawable, isDrawableCanvas, isDrawableQueue, validateGeometry, validateAppliedGeometry, type DrawableCanvas, type DrawableQueue } from "./native.js";
 import { completeCoverage, type CaptureCoverage } from "./publication.js";
@@ -123,6 +123,45 @@ export interface SurfaceRendererOptions extends MountBoundaryOptions {
   compiled?: CompiledProgramSet;
   /** Synchronous per-operation timing samples; see `RendererSample`. */
   onMeasure?(sample: RendererSample): void;
+  /**
+   * @internal Phase I0 prototype path (`docs/ui-library/instrument.md`, probe I0.1); see `InstrumentProbeHook`. Not
+   * part of the public API and not on `RuntimeOptions`: a playground probe passes it through the runtime's options
+   * object. Phase I2 replaces it with the `instrument` material.
+   */
+  instrumentProbe?: InstrumentProbeHook;
+}
+/**
+ * @internal Phase I0 prototype path for the Instrument level's mesh pass (probe I0.1), to be replaced by the
+ * `instrument` material in Phase I2. It lets a probe draw Lite rendering contexts (one mesh scene per layer, each
+ * with its own depth buffer, cleared every frame) on the shared engine, each right after its layer's own pass, so
+ * the layers keep their painter's order. Core registers nothing for the probe: the probe creates and registers its
+ * scenes on `access.engine`, and core only orders the registered ones on the surface before every frame it draws.
+ */
+export interface InstrumentProbeHook {
+  /** Called once GPU presentation is active, with the admitted engine and core's own frame entry point. */
+  attach(access: InstrumentProbeAccess): void;
+  /**
+   * The registered contexts to draw right after `layer`'s pass, in order; read before every frame. A context returned
+   * earlier and not now is taken off the surface until it is returned again.
+   */
+  contexts(layer: InstrumentProbeLayer): readonly RenderingContext[];
+  /** Called before the engine is released; the probe disposes its scenes here. */
+  detach(): void;
+}
+/** @internal What `InstrumentProbeHook.attach` receives. */
+export interface InstrumentProbeAccess {
+  engine: EngineContext;
+  /** Core's frame: geometry check, uniforms, context order and one `renderFrame`. Does nothing outside GPU mode. */
+  draw(): void;
+}
+/** @internal One presented layer as `InstrumentProbeHook.contexts` sees it. */
+export interface InstrumentProbeLayer {
+  id: string;
+  element: HTMLElement;
+  /** Layer-local CSS px to canvas content-box CSS px, as drawn and hit-tested. */
+  matrix(): DOMMatrix;
+  /** The layer's capture (device px, top-left at layer-local 0, 0); it changes when the composition is rebuilt. */
+  texture: DynamicTexture2D;
 }
 /** One timing sample passed to `onMeasure`. */
 export interface RendererSample {
@@ -195,6 +234,10 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   let background: { effect: EffectWrapper; renderer: ReturnType<typeof createEffectRenderer> } | undefined;
   // Whether the background and `passes` are currently registered with Lite for drawing.
   let registered = false;
+  // Phase I0 prototype path (`InstrumentProbeHook`): whether the hook is attached to the current engine, and every
+  // probe context it has returned (those it no longer returns are kept off the surface).
+  let instrumentAttached = false;
+  const instrumentKnown = new Set<RenderingContext>();
   // `enable` is running; `transitioning`: `recoverToDOM` is running.
   let initializing = false;
   let transitioning = false;
@@ -290,6 +333,37 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     for (const pass of next) registerEffectRenderer(pass.renderer);
     passes = next;
     registered = true;
+  }
+  /**
+   * Phase I0 prototype path (`InstrumentProbeHook`): puts the probe's registered contexts on the surface right after
+   * their layers' passes, so a layer's meshes draw before the next layer's face. Lite documents
+   * `getRenderingContexts` as the surface's live registry view in render order and has no public call that inserts
+   * a context at a position, so the prototype reorders that list in place. Phase I2 replaces this.
+   */
+  function orderInstrument() {
+    const hook = options.instrumentProbe;
+    if (!hook || !instrumentAttached || !engine || !registered) return;
+    const list = getRenderingContexts(engine.surfaces[0]) as RenderingContext[];
+    const desired: RenderingContext[] = background ? [background.renderer] : [];
+    layers.forEach((layer, index) => {
+      desired.push(passes[index]!.renderer);
+      for (const context of hook.contexts({ id: layer.id, element: layer.element, matrix: () => layer.matrix(), texture: layer.texture })) {
+        // Only contexts the probe registered (or that core took off the surface earlier) are drawn.
+        if (desired.includes(context) || !list.includes(context) && !instrumentKnown.has(context)) continue;
+        instrumentKnown.add(context);
+        desired.push(context);
+      }
+    });
+    const next = [...desired, ...list.filter(context => !desired.includes(context) && !instrumentKnown.has(context))];
+    if (next.length !== list.length || next.some((context, index) => context !== list[index])) list.splice(0, list.length, ...next);
+  }
+  /** Phase I0 prototype path: lets the probe release its scenes before the engine goes. */
+  function detachInstrument() {
+    if (!instrumentAttached) return;
+    instrumentAttached = false;
+    instrumentKnown.clear();
+    try { options.instrumentProbe?.detach(); }
+    catch (error) { console.error("Underglass instrument probe detach failed", error); }
   }
   /** Unregisters the background and layer passes from Lite drawing without disposing them. */
   function unpresent() {
@@ -473,6 +547,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     releaseProbe();
     if (!probeReadback?.active) probeReadback = undefined;
     if (observer) { observer.release(); observer = undefined; resources.lossObservers--; }
+    detachInstrument();
     releaseComposition();
     if (engine) { disposeEngine(engine); engine = undefined; resources.engines--; }
   }
@@ -646,6 +721,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       // Never present a partial composition; the last complete frame stays on screen until fresh pixels arrive.
       if (membershipPending || pending || !complete()) { metrics.incompleteFramesSkipped++; requestPaint(); return; }
       writeUniforms(dx, tint);
+      orderInstrument();
       renderFrame(engine, 16.67);
       submittedGeneration = publicationGeneration;
     } catch (error) {
@@ -1249,6 +1325,11 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       mode = "gpu";
       output.hidden = false;
       reason = "Current content=drawable owning WebGPU canvas; synchronous native-paint direct public textures; complete same-root GPU successors.";
+      if (options.instrumentProbe && !instrumentAttached) {
+        instrumentAttached = true;
+        try { options.instrumentProbe.attach({ engine: engine!, draw }); }
+        catch (error) { console.error("Underglass instrument probe attach failed", error); }
+      }
     } catch (error) {
       abandoned = true;
       await recoverToDOM(admissionCancellation ?? (lostInfo
