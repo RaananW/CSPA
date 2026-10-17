@@ -84,6 +84,7 @@ export function createInstrumentMeshes(current: () => ResolvedTokens) {
   const controls = new Map<HTMLElement, Control>();
   const tilts: TiltKind[] = [];
   let shadows = true, frame = 0, last = 0;
+  let currentLayer: InstrumentLayer | undefined;
   const pressed = new Set<HTMLElement>();
   const reduced = matchMedia("(prefers-reduced-motion: reduce)");
   let studio: Uint8Array | undefined;
@@ -131,8 +132,9 @@ export function createInstrumentMeshes(current: () => ResolvedTokens) {
     draw();
     if (moving) frame = requestAnimationFrame(tick);
   }
+  /** Uploads every part kind that changed (harness kinds and tilt kinds). */
   function flushAll() {
-    for (const control of controls.values()) for (const shadow of control.shadows) shadow.kind.flush();
+    for (const kind of currentLayer?.kinds ?? []) kind.flush();
     for (const tilt of tilts) tilt.flush();
   }
   /** Re-reads a control's native state and animates its parts there. */
@@ -147,6 +149,7 @@ export function createInstrumentMeshes(current: () => ResolvedTokens) {
   async function build(layer: InstrumentLayer) {
     const t = current();
     controls.clear(); tilts.length = 0; glows.length = 0;
+    currentLayer = layer;
     // The studio the metals reflect; loading an environment resets image processing, which the face needs off.
     studio ??= instrumentStudioHdr(512, 256, t.light.azimuth, t.light.elevation);
     const url = URL.createObjectURL(new Blob([studio as BlobPart], { type: "application/octet-stream" }));
@@ -163,7 +166,7 @@ export function createInstrumentMeshes(current: () => ResolvedTokens) {
       const key = `${recipe.label}:${direction}`;
       if (!cache.has(key)) {
         const material = createPbrMaterial({ baseColorFactor: linear(recipe.colour), metallicFactor: recipe.metallic, roughnessFactor: recipe.roughness,
-          doubleSided: true, environmentIntensity: recipe.environment * t.light.environment, directIntensity: recipe.metallic > 0.5 ? 0.35 : 1 });
+          doubleSided: true, environmentIntensity: recipe.environment * t.light.environment, directIntensity: recipe.metallic > 0.5 ? 0.2 : 1 });
         if (recipe.brush > 0) setPbrAnisotropy(material, { isEnabled: true, intensity: recipe.brush, direction });
         if (recipe.coat > 0) setPbrClearCoat(material, { isEnabled: true, intensity: recipe.coat, roughness: recipe.coatRoughness, indexOfRefraction: 1.5 });
         cache.set(key, material as unknown as Material);
@@ -259,7 +262,7 @@ export function createInstrumentMeshes(current: () => ResolvedTokens) {
         });
       } else if (type === "fader") {
         const f = t.fader;
-        const carriage = layer.kind("fader-carriage", frustum(f.width, f.length, f.radius, f.height, f.taper), pbr(cap, [0, 1]), 1);
+        const carriage = layer.kind("fader-carriage", frustum(f.width, f.length, f.radius, f.height, f.taper), pbr(cap, [1, 0]), 1);
         const grip = layer.kind("fader-grip", bar(f.width - 2 * f.taper - 8, f.grip.width, f.height - 0.02, f.height + f.grip.rise), flat(cap.ink, 0.6), 1);
         const shadow = shadowOf("fader", [f.width / 2, f.length / 2, f.radius, f.height]);
         add(element, type, [spring("fader")], [shadow], (rect, [x]) => {

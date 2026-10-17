@@ -115,7 +115,7 @@ export function resolveTokens(values: TuningValues) {
       skirtHeight: values.skirt * s, capHeight: 16 * s, chamfer: Math.min(values.chamfer, cap / 2 - 2),
       /** Edge break on the skirt's rim. */
       skirtBreak: Math.min(0.8, (values.skirt * s) / 2),
-      pointer: { width: 1.6, from: 0.3, to: 0.8, rise: 0.06 },
+      pointer: { width: 2, from: 0.3, to: 0.8, rise: 0.06 },
       sweep: (270 * Math.PI) / 180,
     };
   };
@@ -128,8 +128,8 @@ export function resolveTokens(values: TuningValues) {
     fader: { travel: values.travel, width: 30, length: 42, height: 12 * s, taper: 2.5, radius: 3, box: 46, grip: { width: 1.4, rise: 0.06 } },
     slide: { box: [64, 28] as const, block: [24, 20] as const, height: 6 * s, taper: 1.5, radius: 3, inset: 6, slot: [50, 8] as const, flag: 0.06 },
     rocker: { box: [38, 62] as const, bezel: [38, 62] as const, bezelHeight: 2 * s, bezelTaper: 0.8, paddle: [28, 50] as const, end: 9 * s, centre: 6 * s },
-    bat: { box: [44, 68] as const, nut: 11, nutHeight: 3 * s, bushing: 6.5, bushingHeight: 7 * s, length: 22 * s, pivot: 5 * s, base: 2.8, neck: 2.1, ball: 3.6, throw: (24 * Math.PI) / 180 },
-    wall: { box: [66, 92] as const, plateHeight: 3 * s, plateTaper: 1, radius: 6, paddle: [30, 54] as const, paddleHeight: 6 * s, paddleTaper: 1, throw: (4 * Math.PI) / 180 },
+    bat: { box: [44, 68] as const, nut: 11, nutHeight: 3 * s, bushing: 6.5, bushingHeight: 7 * s, length: 28 * s, pivot: 5 * s, base: 2.8, neck: 2.1, ball: 3.6, throw: (30 * Math.PI) / 180 },
+    wall: { box: [66, 92] as const, plateHeight: 3 * s, plateTaper: 1, radius: 6, paddle: [30, 54] as const, paddleHeight: 6 * s, paddleTaper: 1, throw: (6 * Math.PI) / 180 },
     button: { box: 56, cap: 40, height: 6 * s, taper: 1.2, travel: 2.5 * s, latch: 1.2 * s, bezel: [27, 22.6] as const, bezelHeight: 2.8 * s, ring: [22.6, 20.6] as const },
     accent: [255, 146, 40] as Rgb,
     /** Springs (stiffness, damping, per unit mass) and the reduced-motion form: an instant pose. */

@@ -132,7 +132,7 @@ meshes.setDraw(() => harness.draw());
 const reliefScene = () => ({
   format: "strata-scene" as const, version: 1 as const, extent: { width: panels.instrument.offsetWidth, height: panels.instrument.offsetHeight },
   outset: { top: 18, right: 18, bottom: 18, left: 18 }, ...settings(),
-  primitives: [{ face: "raised" as const, rect: [0, 0, panels.instrument.offsetWidth, panels.instrument.offsetHeight] as [number, number, number, number], radius: 10, height: 8 * tokens.depthScale, material: "metal" }],
+  primitives: [{ face: "raised" as const, rect: [0, 0, panels.instrument.offsetWidth, panels.instrument.offsetHeight] as [number, number, number, number], radius: 10, height: 8 * tokens.depthScale, material: "satin" }],
 });
 const reliefMaterial = () => ({ kind: "relief" as const, scene: reliefScene(), bounds: "layer" as const, interaction: "material" as const, media: "identity" as const, fallback: "static" as const });
 let relief: { update(scene: ReturnType<typeof reliefScene>): void; cancel(): void } | undefined = harness.controller.setMaterial("ip-instrument", reliefMaterial());

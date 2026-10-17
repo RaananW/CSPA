@@ -18,16 +18,16 @@ interface Softbox { centre: Vec; width: number; height: number; power: number }
 export function studioRadiance(azimuth = 323, elevation = 41) {
   const a = (azimuth * Math.PI) / 180, e = (elevation * Math.PI) / 180;
   // Towards the key light in Lite's axes, pulled a little towards the panel plane so chamfers catch it.
-  const key = normalise([Math.sin(a) * Math.cos(e), Math.cos(a) * Math.cos(e), -Math.sin(e) * 0.7]);
+  const key = normalise([Math.sin(a) * Math.cos(e), Math.cos(a) * Math.cos(e), -Math.sin(e) * 0.35]);
   const boxes: Softbox[] = [
-    { centre: key, width: 0.45, height: 0.35, power: 2 },
+    { centre: key, width: 0.5, height: 0.4, power: 2.5 },
     { centre: normalise([-key[0], 0.1, -0.7]), width: 0.22, height: 0.45, power: 1.2 }, // fill, opposite side
-    { centre: [0, 0.97, -0.24], width: 0.9, height: 0.1, power: 1.4 }, // strip overhead
+    { centre: [0, 0.97, -0.24], width: 0.9, height: 0.1, power: 0.7 }, // strip overhead
   ];
   return (direction: Vec): Vec => {
     const [, y, z] = direction;
     // The sweep: dark floor, mid-grey in front, brighter towards the ceiling; behind the panel a little darker.
-    let value = 0.04 + 0.28 * smoothstep(-0.55, 0.05, y) + 0.35 * smoothstep(0.1, 0.9, y) - 0.08 * Math.max(0, z);
+    let value = 0.04 + 0.28 * smoothstep(-0.55, 0.05, y) + 0.22 * smoothstep(0.1, 0.9, y) - 0.08 * Math.max(0, z);
     for (const box of boxes) {
       const centre = normalise(box.centre);
       const right = normalise([centre[2], 0, -centre[0]]);
