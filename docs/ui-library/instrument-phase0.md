@@ -21,7 +21,7 @@ has to build and test in core. The only core change is an internal prototype hoo
   `--enable-blink-features=CanvasDrawElement,ElementCanvasTransform --enable-experimental-web-platform-features`.
 - **Headless and headful:** every probe ran headless (emulated DPR 1 and 2 unless stated). Headful Canary windows:
   I0.1 at DPR 1 (1584×905); I0.2 at DPR 1 (1584×905); I0.3 at DPR 1 (1684×955, both themes, all three levels); I0.4 at
-  DPR 1, 1.25 and 1.5; I0.5 at DPR 1 and 2 (its full test run headed); the I1 prototype at DPR 1 and 2 (1600×900). I0.6 and I0.7 ran headless only (I0.7 changes no
+  DPR 1, 1.25 and 1.5; I0.5 at DPR 1 and 2 (its full test run headed); I0.8 at DPR 1 and 2 (viewport emulated at 1920×1080); the I1 prototype at DPR 1 and 2 (1600×900). I0.6 and I0.7 ran headless only (I0.7 changes no
   capture or geometry; I0.6 is a measurement).
 
 | Probe | Question | Result | Headline numbers | Settles |
@@ -33,7 +33,7 @@ has to build and test in core. The only core change is an internal prototype hoo
 | [I0.5 Object-on-object shadow](#i05-object-on-object-shadow) | Does a per-layer PCF map give a clean lever-on-plate shadow without touching the face? | **Passed** (DPR 1 and 2, headless and headful); decision 4 amended | Lever region ≥ 96% darker on all 20 bats; 0 face px changed outside the analytic footprints; thin plate 1 component, 0 cuts; PCF 4096 0.07–0.14 ms at 60 controls | Analytic + PCF 4096 at bias 1.5e-3, re-rendered on pose change; contact optional; CSM and ESM out |
 | [I0.6 CSS parity](#i06-css-parity) | How close do CSS knobs, faders and switches get to the GPU look? | **Answered**: budgets recorded | Box-region mean worst 6.3 (fader) to 26.2 (rocker), against Relief's 2 | One budget per component, 1.5× headroom |
 | [I0.7 Interaction and accessibility](#i07-interaction-and-accessibility) | Do the knob and fader pass as sliders, with the 2.5.7 alternative, in DOM and GPU mode? | **Passed** | 16 of 16 tests, three runs; ring click sets all 37 values; axe 0 violations; snapshots identical | The knob interaction model |
-| [I0.8 Post chain and reflections](#i08-post-chain-and-reflections) | What do TAA, contact shadows, bloom, SSGI and a local probe cost, and is text untouched? | Pending | Pending | Pending |
+| [I0.8 Post chain and reflections](#i08-post-chain-and-reflections) | What do TAA, contact shadows, bloom, SSGI and a local probe cost, and is text untouched? | **Passed** (DPR 1 and 2, headless and headful), with the composite clipped | 0 text px changed by any stage; 0 px outside with the clip (up to 14.6 px overshoot without it); default chain 3.56 / 3.89 ms frame p50 / p95 at DPR 1, 4.86 / 5.49 at DPR 2 | SMAA → emitter bloom → clipped composite, probe as a material layer; TAA, contact shadows and SSGI as options |
 | [I1 prototype](#i1-prototype) | The premium chassis at Instrument, Objects and CSS | **Done**; look sign-off pending with the owner | 0 px outside; 0 of 3,023 hit mismatches; label contrast min 6.28 light, 5.57 dark (DPR 2) | Premium proportions, springs and defaults (proposed) |
 
 ## I0.1 Mesh pass
@@ -121,7 +121,8 @@ mismatches, 0 label mismatches; 250 controls with 0 captures, work p95 9.1 ms, G
 - **Where the mesh pass draws:** straight into the layer's pass target (the swapchain), right after the layer's
   effect pass, colour loaded and not cleared, with its own depth target cleared every frame. No extra texture or
   shader. Each scene needs its **own render task with `clr: false`** (`defaultRenderTask: false`): Lite's overlay
-  setup does not clear-protect a scene registered after effect renderers.
+  setup does not clear-protect a scene registered after effect renderers. With a post chain on, the pass draws into
+  an offscreen target per layer instead, composited over the face ([I0.8](#i08-post-chain-and-reflections)).
 - **Camera:** `D = max(2400, max over part envelopes of r · h / inset + h)`; at 1920×1080 it is 2,400, and the
   pointer's drift (6.83 px) stays inside its 9 px inset.
 - **Budgets** for [core work item 1](instrument.md#core-work-additive): **2,048 parts per layer and 6,000 per stage**
@@ -642,7 +643,7 @@ plate's edge, where the softer analytic face shadow takes over: a visible change
 - **Bias in world px:** below a part's depth separation along the light (3.05 px for a 2 px plate) and above ≈ 1 px
   (4096) or 1.95 px (2048).
 - **Map darkness** 0–0.15, to approach the face shadow.
-- **Contact shadows are optional,** decided by I0.8's budget: they are the costliest path and mostly duplicate the map
+- **Contact shadows are optional,** decided by I0.8's budget (which kept them optional): they are the costliest path and mostly duplicate the map
   at cap bases. When on, they run on an offscreen mesh target composited over the face, which they cannot reach.
 - **CSM and ESM are out:** CSM renders in 0.44–0.68 ms against PCF's 0.07–0.14, splits the thin plate's shadow
   at 2048 and acnes with 4 cascades; ESM gives no usable shadow over a
@@ -828,27 +829,152 @@ findings, below.
 
 ## I0.8 Post chain and reflections
 
-> **Pending: result arrives separately.** The probe is still running; this section, its summary row and the plan's
-> I0.8 wording are filled in when its report arrives.
-
 **Question.** What do TAA, contact shadows, bloom, SSGI and a per-layer local environment probe cost at 250 controls,
 and does the captured text stay untouched by all of them?
 
+**Answer:** every stage builds and runs with 0 text pixels changed, 0 pixels outside the controls and 0 hit
+mismatches, headless and headful at DPR 1 and 2, **as long as the composite is clipped** to the controls' boxes.
+- **Default chain:** SMAA → emitter bloom → clipped composite, with the local environment probe as a material layer:
+  frame p50 / p95 3.56 / 3.89 ms at DPR 1 and 4.86 / 5.49 ms at DPR 2.
+- **Options:** TAA (it trails on meters), contact shadows (the costliest, barely visible head-on) and SSGI.
+- **Bloom comes from an emitter target,** not a luminance threshold: Lite's PBR clamps its output, so a threshold also
+  blooms specular highlights.
+
 ### Method
 
-Pending.
+- Page: [`ui-probe-instrument-post.html`](../../examples/playground/ui-probe-instrument-post.html), source
+  [`src/ui-probes/instrument-post.ts`](../../examples/playground/src/ui-probes/instrument-post.ts)
+  (`window.postProbe`). Test:
+  [`tests/browser/ui-probe-instrument-post.test.mjs`](../../tests/browser/ui-probe-instrument-post.test.mjs)
+  (`CANVAS_HEADFUL_POST=1` adds the headful checks). No core change.
+- **Layout:** I0.1's 250 controls on two overlapping panels (1,470 parts; 50 meters and 20 knobs animating), a
+  faceplate label in every cell; one key in each group of 25 is a lamp (10 lamps), and a lit lamp carries a clustered
+  point light.
+- **Routes:** `direct` is I0.1's pass. `target` runs the chain in this order: mask → mesh → [TAA] → [contact] → [SSGI]
+  → [SMAA] → emitter bloom → composite → captured key tops.
+- **Mesh target:** per layer, `createSurfaceRenderTargetTexture` (rgba16float + depth24plus, `withSampledDepthTexture`),
+  cleared transparent, drawn by `createRenderTask({ sharedRt: true, autoMirror: false })` and `addMeshToTask`.
+  `sharedRt` is needed: without it, disposing an old scene's task destroyed the reused target.
+- **Composite:** `createEffectWrapper` and `createEffectRenderTask({ target: engine.scRT, clear: false })` with a
+  premultiplied blend (one, one-minus-src-alpha). With the clip on, it multiplies by an r8unorm mask of each control's
+  rounded box, drawn by a `createShaderMaterial` plate per control. Captured key tops and their LEDs stay in the scene
+  and are drawn by the harness's own task **after** the composite, so no stage filters them.
+- **Stages:**
+  - `createTaaPostProcessTask({ sourceRenderTask: <mesh task>, factor: 0.1, samples: 8 })`;
+  - `createSmaaPostProcessTask`;
+  - `createScreenSpaceContactShadowsPostProcessTask({ depthTexture: <mesh>, composition: "multiply" })`, max distance
+    8 px;
+  - `createScreenSpaceGlobalIlluminationPostProcessTask`, additive, `fadeStart` 1e5, `fadeEnd` 2e5;
+  - `createBloomPostProcessTask`, fed by an emitter target: only the lit lenses are rendered into it, and the composite
+    adds `max(bloom − source, 0)`. The luminance-threshold version is kept as `bloomSource: "mesh"`.
+- **Probe:** `enablePbrLocalCubemap` and `loadHdrEnvironment` (the generated studio, loaded on an unregistered scene)
+  supply the BRDF table and irradiance. A per-layer 128² rgba16float cube (8 mips), filled by a compute pass from the
+  layer's capture, is applied with `setPbrLocalEnvironment` (box projection) to 6 metal materials and refilled only
+  when the capture changes.
+- The test, at 1920×1080, DPR 1 and 2, for each stage alone and for the full chain:
+  1. compares the decoded pixels of every text region (215 faceplate label regions and 34 cap label regions) with the
+     chain off, with core's own frame and with the plain capture;
+  2. checks containment, painter's order and native hits with the clip on, and measures the overshoot in CSS px with
+     the clip off (`-nc` variants);
+  3. measures per-task GPU timings (`getRenderTaskGpuTimings`) and the engine's frame time, 3 runs × 300 animated
+     frames each (medians of medians, spread recorded), and the probe's refill cost;
+  4. measures the TAA trail on turning knobs and switching meters against the same frame without TAA, and SMAA's.
 
 ### Results
 
-Pending.
+**Text safety and containment** (configs `taa`, `smaa`, `contact`, `ssgi`, `bloom`, `bloom-mesh`, `probe`, `full`,
+all clipped, DPR 1 and 2). Text regions cover 30,033 faceplate and 22,590 cap px at DPR 1, 122,454 and 97,196 at
+DPR 2.
+
+| Check | Result, every config |
+| --- | --- |
+| Text px differing from the chain off, from core's frame and from the plain capture | 0 |
+| Mesh px outside their control | 0 |
+| Lower-panel parts showing through the upper panel | 0 |
+| Hit mismatches: ≈ 3,000 drawn-pixel samples per config; 1,827 edge points | 0; 0 |
+| GPU presentation | On throughout; no stage failed to build; no WebGPU validation errors |
+| `target` route against `direct` (I0.1): text px differing | 0 |
+
+**Overshoot without the clip** (CSS px past the control's box):
+
+| Stage | DPR 1 | DPR 2 |
+| --- | --- | --- |
+| TAA | 0.5 (key edges) | 0.2 |
+| SMAA | 0.4 | 0.2 |
+| SSGI | 2.0 | 0.8 |
+| Emitter bloom | 8.7 (lamps) | 0 |
+| Luminance bloom | 14.6, and 6 faceplate-label px change by 1 level | 5.9 |
+| Contact, probe | 0 | 0 |
+
+The cap labels are never touched, clip or not. **Share of pixels each stage changes** (DPR 1): TAA 5.4%, SMAA 4.3%,
+contact 2.3% (mean 7 levels), SSGI 7.3%, emitter bloom 0.6%, probe 10.9%.
+
+**Cost** (median of 3 runs × 300 animated frames; per-task p50 / p95 summed over both layers, ms):
+
+| Config | DPR 1 frame p50 / p95 | DPR 1 stage | DPR 2 frame p50 / p95 | DPR 2 stage |
+| --- | --- | --- | --- | --- |
+| direct (I0.1) | 2.21 / 3.01 | mesh 0.32 / 1.62 | 3.21 / 3.59 | mesh 0.47 / 1.19 |
+| off (target + composite) | 2.50 / 3.32 | composite 0.26 | 2.56 / 4.76 | composite 0.20 |
+| TAA | 3.31 / 3.55 | 1.16 / 1.84 | 4.63 / 5.09 | 1.56 / 1.75 |
+| SMAA | 3.24 / 3.57 | 1.18 / 1.96 | 4.68 / 5.31 | 1.77 / 1.89 |
+| contact | 3.37 / 3.60 | 1.44 / 2.10 | 4.66 / 5.12 | 2.35 / 2.78 |
+| SSGI | 3.13 / 3.33 | 0.94 / 1.71 | 4.59 / 4.97 | 1.50 / 1.95 |
+| emitter bloom | 3.30 / 3.93 | 0.76 / 1.43 | 4.54 / 5.03 | 1.37 / 1.56 |
+| probe | 2.35 / 3.02 | mesh shading ≈ unchanged | 4.39 / 5.36 | ≈ unchanged |
+| recommended (SMAA + bloom + probe) | 3.56 / 3.89 | — | 4.86 / 5.49 | — |
+| full | 2.47 / 6.31 | — | 4.74 / 5.20 | — |
+
+- **Probe refill** per capture, one layer: p50 0.41 ms at DPR 1, 0.20 ms at DPR 2.
+- **Noise:** the spread between runs is 0.1–0.7 ms, with outliers of 1.8–2.5 ms. There were no other GPU clients
+  (`nvidia-smi` showed only this Canary). The noise comes from demand-driven GPU clocks (mostly 600–900 MHz, range
+  210–1,965 of 2,100 MHz max). Stage tasks therefore run faster inside the full chain (TAA 0.56, contact 0.63) than
+  alone, and frame totals do not add up (DPR 1 `full` p50 is below `off`). **Per-task figures are upper bounds.**
+
+**TAA trail** (the same animation frame after 90 frames, against no AA): Lite's TAA is a plain history blend with no
+reprojection or clamping. Turning knobs show no measurable trail (≤ 0.1% of knob pixels change by more than 32
+levels); meters trail on 20–22% of meter pixels, mean ≈ 19 levels. SMAA leaves no trail (≤ 1%).
+
+**Headful** (a real Canary window, viewport emulated at 1920×1080, DPR 1 and 2): the full chain changes 0 text px,
+draws 0 px outside and gives 0 hit mismatches; the overshoot without the clip matches headless (8.7 px at DPR 1, 0.8
+at DPR 2). Cost: DPR 1 recommended 3.59 / 4.11, full 5.48 / 5.99; DPR 2 recommended 5.53 / 5.62, full 5.70 / 5.78.
+
+**Visual read:**
+- TAA and SMAA: smoother pointer lines and bevel edges.
+- Contact: a crescent on lit lenses and little else.
+- SSGI: switch thumbs' light on their tracks.
+- Emitter bloom: a warm halo inside the lamp's box, clear on dark, faint on light.
+- Probe: metal caps reflect the light faceplate almost white, erasing the knob pointer, so the materials need tuning
+  (I0.4's area).
 
 ### What this settles for the plan
 
-Pending.
+- **Budget rule:** adopt a stage if its task p95 at DPR 2 is about 2 ms or less and the look justifies it (the I0.1
+  mesh pass is ≈ 2.2 / 3.7 ms p95).
+- **Default chain:** **SMAA → emitter bloom → clipped composite,** with the local environment probe as a material
+  layer of the mesh pass. SMAA runs last; TAA, when on, runs first (it jitters the mesh task).
+- **The clip is mandatory:** SMAA, TAA and SSGI spill 0.2–2 px past key edges, and bloom more, so the composite is
+  multiplied by the controls' rounded-box mask.
+- **Bloom comes from an emitter target:** only lit lenses are rendered into it, and the composite adds
+  `max(bloom − source, 0)`. Lamp boxes leave room for the halo.
+- **Captured tops and their LEDs are drawn after the composite,** so no stage ever filters captured content.
+- **Options, recorded:** TAA (it trails on parts that change state instantly; use it once Lite's TAA clamps or
+  reprojects), contact shadows (the most expensive, p95 2.1–2.8 ms, barely visible head-on, and they darken lit
+  lenses; optional per I0.5 too) and SSGI (a soft bounce, mostly switch thumbs onto their tracks).
+- **The face is not in the mesh depth buffer,** so contact shadows and SSGI act only between parts, consistent with
+  decision 4's analytic face shadows.
 
 ### Limits
 
-Pending.
+- **Probe-only shortcut:** the capture texture is read from the internal `material._textureSlots`.
+- **No HDR bloom:** Lite's PBR has no unclamped output.
+- **GPU clocks could not be fixed** (it needs admin rights), so the per-task timings are upper bounds.
+- **SSGI fade:** `fadeStart` and `fadeEnd` are camera distances, not ray lengths (4–24 px changed 0 pixels), hence the
+  1e5 / 2e5 values.
+- **Probe look:** the metal caps reflect the light faceplate almost white; the probe's materials need the I0.4 tuning.
+- **I0.3 flake:** during this probe's verification one I0.3 run failed its cost test ("emitters need no capture": 4
+  captures in the first 15 s); two reruns passed 7 of 7, with the files unchanged on this branch. It is an existing
+  flake, recorded, not fixed.
+- One fast GPU; the headful window emulated its viewport and DPR.
 
 ## I1 prototype
 
@@ -1006,6 +1132,15 @@ Each is a fact measured on Canary 158.0.8110.0, with the probe that found it.
   disable the harness's direct pass in post mode (I0.5).
 - **A shadow map needs a light depth range fitted to the stage** and a bias in world px: the 2 px plate is 3.05 px
   deep along the light ray, so the clean window is narrow (≈ 1–3.25 px at 4096) (I0.5).
+- **Lite's PBR always gamma-encodes and clamps its output to [0, 1],** so a luminance-threshold bloom blooms saturated
+  specular highlights as well as lenses, and HDR bloom is impossible; bloom needs an emitter target (I0.8).
+- **SSGI's `fadeStart` and `fadeEnd` are distances from the camera,** not ray lengths: 4–24 px changed 0 pixels (I0.8).
+- **Lite's TAA is a plain history blend** with no reprojection or clamping: no measurable trail on turning knobs, but
+  meters trail on 20–22% of their pixels (mean ≈ 19 levels) (I0.8).
+- **A render task drawing into a reused target needs `sharedRt: true`;** without it, disposing an old scene's task
+  destroyed the target (I0.8).
+- **The probe-only `_textureSlots` read:** the I0.8 page reads the capture texture from the internal
+  `material._textureSlots`; core will own the capture texture and needs no such read (I0.8).
 
 **Harness and geometry**
 - **`Pose` needs a tilt and a pivot;** I0.2 thin-instanced full matrices instead (I0.2).
@@ -1044,12 +1179,17 @@ Each is a fact measured on Canary 158.0.8110.0, with the probe that found it.
   typecheck and build failed on the merged branch. Fixed in `279ae92` (a cast in `interaction.ts`, no runtime change;
   cherry-picked into the other probe branches); later probes use their own globals (`movingProbe`, `emitterProbe`,
   `materialsProbe`, `instrumentProto`).
+- **GPU clocks make per-task timings upper bounds:** the RTX 3080's clocks are demand-driven (mostly 600–900 MHz,
+  range 210–1,965 of 2,100 MHz), so a stage runs faster inside a busy chain than alone and frame totals do not add up;
+  fixing the clocks needs admin rights (I0.8; the same noise moved I0.3's DPR 1 numbers).
+- **The I0.3 cost test is flaky:** one run during I0.8's verification failed "emitters need no capture" (4 captures
+  in the first 15 s); two reruns passed 7 of 7 with the files unchanged. Recorded, not fixed (I0.8, I0.3).
 
 ## Decisions taken in Phase I0
 
 | # | Decision | Recommendation (taken) | Alternative (set aside) |
 | --- | --- | --- | --- |
-| 1 | **Where the mesh pass draws** (I0.1) | Straight into the layer's pass target, after its effect pass, colour loaded, own depth target cleared per frame | An offscreen mesh target composited over the face: an extra texture and pass |
+| 1 | **Where the mesh pass draws** (I0.1, I0.8) | Without a post chain: straight into the layer's pass target, after its effect pass, colour loaded, own depth target cleared per frame. With the default post chain (row 18): a per-layer rgba16float target with depth, cleared transparent, composited over the face (+0.26 ms at DPR 1) | Always offscreen: an extra target and pass when no post stage is on |
 | 2 | **Render task per scene** (I0.1) | Its own render task with `clr: false` (`defaultRenderTask: false`) | Lite's default task, which clears colour Lite's overlay setup does not protect after effect renderers |
 | 3 | **Camera distance** (I0.1, I0.2) | `D = max(2400, max over part envelopes of r · h / inset + h)`: 2,400 at 1920×1080; a larger stage raises `D` | A fixed `D`: drift breaks containment on larger stages |
 | 4 | **Part budgets** (I0.1) | 2,048 parts per layer, 6,000 per stage, counted in part kinds (draw calls), about 16 per layer | Count instances only: the draw calls are the cost |
@@ -1064,8 +1204,13 @@ Each is a fact measured on Canary 158.0.8110.0, with the probe that found it.
 | 13 | **Premium defaults** (I1, proposed) | Switch `slide`; the theme picks the faceplate (brushed light, gunmetal dark); metals direct light ×0.2 | Bat or rocker by default: a lever projects about 12 px head-on |
 | 14 | **Parity budget** (I0.6) | Per component over the control's box + 10 px (printed scale included): mean × 1.5, p95 × 1.5, SSIM with 50% headroom on its deficit | Relief's whole-stage mean ≤ 2, p95 ≤ 10: unreachable without reflections and perspective |
 | 15 | **Object-on-object shadow map** (I0.5) | Analytic face shadows plus a per-layer PCF map of 4096 at bias 1.5e-3 (≈ 1.95 px world), the light's depth range fitted to the stage, thin-instance bounds published, re-rendered on pose change only | PCF 2048 at bias 2e-3 (cheaper, 0.04–0.07 ms); re-rendering every frame (120 of 120 renders with nothing moving) |
-| 16 | **Contact shadows** (I0.5) | Optional, not default, decided by I0.8's budget; when on, on an offscreen mesh target composited over the face | On by default: the costliest path (1.5–3.2 ms), mostly duplicating the map at cap bases |
+| 16 | **Contact shadows** (I0.5, I0.8) | Optional, not default: I0.8 measured them at 2.10 / 2.78 ms task p95 (DPR 1 / 2), barely visible head-on; when on, on an offscreen mesh target composited over the face | On by default: the costliest path (1.5–3.2 ms), mostly duplicating the map at cap bases |
 | 17 | **Shadow generator kind** (I0.5) | PCF | CSM (0.44–0.68 ms, splits or acnes the thin plate) and ESM (no usable shadow over a stage-wide depth range): both out |
+| 18 | **Default post chain** (I0.8) | SMAA → emitter bloom → clipped composite, with the local environment probe as a material layer of the mesh pass: frame p50 / p95 3.56 / 3.89 ms at DPR 1, 4.86 / 5.49 at DPR 2. Budget rule: a stage is adopted if its task p95 at DPR 2 is about 2 ms or less and the look justifies it | No post chain: aliased bevel and skirt edges, no lamp halo |
+| 19 | **Post options** (I0.8) | Recorded as options, off by default: TAA (until Lite's TAA clamps or reprojects; when on it runs first, since it jitters the mesh task), contact shadows (row 16), SSGI (a soft bounce, mostly thumbs onto tracks) | TAA as the anti-aliasing default: meters trail on 20–22% of their pixels |
+| 20 | **Bloom source** (I0.8) | An emitter target: only lit lenses are rendered into it, the composite adds `max(bloom − source, 0)`; lamp boxes leave room for the halo | A luminance threshold on the mesh pass: Lite's clamped PBR output blooms specular highlights too (14.6 px overshoot) |
+| 21 | **Captured content and the chain** (I0.8) | Captured key tops and their LEDs are drawn after the composite, so no stage filters them | Captured tops inside the mesh target: every stage would filter text |
+| 22 | **The composite clip** (I0.8) | Mandatory: the composite is multiplied by a mask of the controls' rounded boxes | No clip: TAA, SMAA and SSGI spill 0.2–2 px past key edges and bloom up to 14.6 px |
 
 ## Next
 
@@ -1076,7 +1221,8 @@ Each is a fact measured on Canary 158.0.8110.0, with the probe that found it.
    - visible paddle and push-button travel;
    - object-on-object shadows from I0.5 (analytic plus the PCF map), with the map's darkness brought towards the face
      shadow and the softness change where a mapped streak meets the face shadow;
-   - bloom from I0.8.
+   - the default post chain from I0.8 (SMAA, emitter bloom, the clipped composite), and the probe's metal caps,
+     which reflect the light faceplate almost white and erase the knob pointer.
    Then the look sign-off.
 2. **PR 3:** the design-language sections, version 4 of the [Rendering Model](rendering-model.md), `premium.json` and
    the reference implementation, from the accepted numbers.
