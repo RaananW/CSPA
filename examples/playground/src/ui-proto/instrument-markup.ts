@@ -28,7 +28,8 @@ function scale(size: number, box: number, count: number, minor: number, numerals
   }
   numerals?.forEach((text, index) => {
     const t = index / (numerals.length - 1), angle = (t - 0.5) * sweep, r = size / 2 + 20;
-    parts.push(`<span class="ip-print ip-numeral" style="left:${fmt(centre + r * Math.sin(angle))}px;top:${fmt(centre - r * Math.cos(angle))}px">${text}</span>`);
+    // Whole-pixel boxes, so printed glyphs never straddle device pixels (thin strokes would lose their ink).
+    parts.push(`<span class="ip-print ip-numeral" style="left:${Math.round(centre + r * Math.sin(angle)) - 11}px;top:${Math.round(centre - r * Math.cos(angle)) - 7}px">${text}</span>`);
   });
   return parts.join("");
 }
@@ -54,7 +55,7 @@ export function panelMarkup(level: Level, tokens: ResolvedTokens, state: Control
       <div class="ip-fader-body">
         <span class="ip-fader-scale" aria-hidden="true" style="height:${fader.travel + fader.length}px">${dbMarks.map((mark, index) => {
           const y = fader.length / 2 + (index / (dbMarks.length - 1)) * fader.travel;
-          return `<span class="ip-print ip-db" style="top:${fmt(y)}px">${mark}</span><span class="ip-tick ip-tick--fader" style="top:${fmt(y)}px"></span>`;
+          return `<span class="ip-print ip-db" style="top:${Math.round(y) - 7}px">${mark}</span><span class="ip-tick ip-tick--fader" style="top:${fmt(y)}px"></span>`;
         }).join("")}</span>
         <div class="ip-box" style="width:${fader.box}px;height:${fader.travel + fader.length}px;--ip-v:${state.level / 100}">
           <span class="ip-slot" aria-hidden="true" style="height:${fader.travel + 6}px"></span>
@@ -88,7 +89,7 @@ export function panelMarkup(level: Level, tokens: ResolvedTokens, state: Control
       </div>
       <div class="ip-row ip-row--switches">
         ${switchMarkup("mute", "slide", "Mute", state.mute, tokens.slide.box, ["<span>Off</span><span>On</span>", ""], `<span class="ip-slot ip-slot--slide" aria-hidden="true"></span><span class="ip-css-only ip-slider" aria-hidden="true"></span>`)}
-        ${switchMarkup("power", "rocker", "Power", state.power, tokens.rocker.box, ["I", "O"], `<span class="ip-css-only ip-bezel" aria-hidden="true"><span class="ip-paddle"></span></span>`)}
+        ${switchMarkup("power", "rocker", "Power", state.power, tokens.rocker.box, ["On", "Off"], `<span class="ip-css-only ip-bezel" aria-hidden="true"><span class="ip-paddle"></span></span>`)}
         ${switchMarkup("phono", "bat", "Phono", state.phono, tokens.bat.box, ["On", "Off"], `<span class="ip-css-only ip-nut" aria-hidden="true"></span><span class="ip-css-only ip-lever" aria-hidden="true"></span>`)}
         ${switchMarkup("lights", "wall", "Lights", state.lights, tokens.wall.box, ["On", "Off"], wallPlate)}
       </div>

@@ -322,7 +322,7 @@ export function createInstrumentMeshes(current: () => ResolvedTokens) {
         const b = t.button, r = b.cap / 2;
         const bezel = layer.kind("button-bezel", revolve([[b.bezel[0], 0], [b.bezel[0], b.bezelHeight - 0.6], [b.bezel[0] - 0.6, b.bezelHeight], [b.bezel[1], b.bezelHeight], [b.bezel[1], 0.4]], 96), pbr(skirt), 1);
         const ring = layer.kind("button-ring", revolve([[b.ring[0], 0.5], [b.ring[1], 0.5]], 96),
-          flat(t.accent, 0.4, { strength: () => (element.getAttribute("aria-pressed") === "true" ? 1.6 : 0.35) }), 1);
+          flat(t.accent, 0.4, { strength: () => (element.getAttribute("aria-pressed") === "true" ? 1 : 0.3) }), 1);
         const body = layer.kind("button-cap", frustum(b.cap, b.cap, r, b.height, b.taper, 0, true), pbr(cap, [1, 0]), 1);
         const topPart = layer.kind("button-top", plate(b.cap - 2 * b.taper, b.cap - 2 * b.taper, r - b.taper, b.height), layer.capture("button-top"), 1);
         const shadow = shadowOf("button", [b.bezel[0], b.bezel[0], b.bezel[0], b.bezelHeight], { second: [r, r, r, b.height] });
