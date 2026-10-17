@@ -506,14 +506,29 @@ export function profileHeight(shape: InstrumentProfile): number {
   return Math.max(...shape.outline.map(point => point[1]));
 }
 
-/** A profile's triangles (2D.2): `lathe`, `prism` and `extrude`, cached by their parameters. */
+/**
+ * A profile's triangles (2D.2): `lathe`, `prism` and `extrude`, cached by their parameters.
+ *
+ * **Normals and winding (2D.2).** A part is shaded with its vertex normals, which point out of the part; its winding
+ * never decides its light (the reference's ray casts and shading ignore it). Every triangle is still wound the same way
+ * against those normals, as core's `profileGeometry` winds them: in layer axes, `(b − a) × (c − a)` points against the
+ * outward normal, which is a front face for a renderer that culls back faces or flips their normals (Lite's
+ * double-sided PBR). `triangle` orients each triangle by its vertices' normals, whatever order a builder lists them in;
+ * a degenerate triangle (a crease's empty band) keeps its order.
+ */
 export function profileMesh(shape: InstrumentProfile): PartMesh {
   const key = JSON.stringify(shape);
   const cached = meshes.get(key);
   if (cached) return cached;
   const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [], groups: number[] = [];
   const vertex = (p: Vec3, n: Vec3, uv: Vec2) => { positions.push(...p); normals.push(...n); uvs.push(...uv); return positions.length / 3 - 1; };
-  const triangle = (a: number, b: number, c: number, group: number) => { indices.push(a, b, c); groups.push(group); };
+  const triangle = (a: number, b: number, c: number, group: number) => {
+    const at = (index: number, axis: number) => positions[index * 3 + axis]!, normal = (axis: number) => normals[a * 3 + axis]! + normals[b * 3 + axis]! + normals[c * 3 + axis]!;
+    const e1 = [0, 1, 2].map(axis => at(b, axis) - at(a, axis)), e2 = [0, 1, 2].map(axis => at(c, axis) - at(a, axis));
+    const cross = [e1[1]! * e2[2]! - e1[2]! * e2[1]!, e1[2]! * e2[0]! - e1[0]! * e2[2]!, e1[0]! * e2[1]! - e1[1]! * e2[0]!];
+    if (cross[0]! * normal(0) + cross[1]! * normal(1) + cross[2]! * normal(2) > 0) indices.push(a, c, b); else indices.push(a, b, c);
+    groups.push(group);
+  };
   if (shape.type === "lathe") {
     // One ring per profile point, each with that point's normal revolved, so bands are smooth across the profile and a
     // repeated point with another normal is a crease: the band between them is empty and the next one is a new group.

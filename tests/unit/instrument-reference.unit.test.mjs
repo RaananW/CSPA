@@ -129,9 +129,36 @@ test("core's validation and the reference agree, scene for scene (when core's in
   for (const value of [scene(), later(), ...instrumentCases().map(entry => entry.scene)]) {
     assert.deepEqual(JSON.parse(JSON.stringify(validateInstrumentScene(value))), JSON.parse(JSON.stringify(core.validateInstrumentScene(value))));
   }
-  const shape = knobProfile(18, 14), ours = profileMesh(shape), theirs = core.profileGeometry(shape);
-  assert.deepEqual([...ours.indices], [...theirs.indices], "the same triangles");
-  assert.ok(ours.positions.every((value, index) => Math.abs(value - theirs.positions[index]) < 1e-5));
+  // The same triangles, whatever their winding: each triangle's three indices as a sorted triple, in order.
+  const triples = indices => Array.from({ length: indices.length / 3 }, (_, t) => [indices[t * 3], indices[t * 3 + 1], indices[t * 3 + 2]].sort((a, b) => a - b).join(","));
+  for (const shape of shapes) {
+    const ours = profileMesh(shape), theirs = core.profileGeometry(shape);
+    assert.deepEqual(triples(ours.indices), triples(theirs.indices), `the same triangles (${shape.type})`);
+    assert.ok(ours.positions.every((value, index) => Math.abs(value - theirs.positions[index]) < 1e-5));
+    assert.ok(ours.normals.every((value, index) => Math.abs(value - theirs.normals[index]) < 1e-5));
+  }
+});
+
+/** One shape of each profile type, an extrude in both outline orders and a lathe with an inward wall. */
+const shapes = [knobProfile(18, 14), { type: "prism", width: 30, length: 42, radius: 3, height: 12, taper: 0.6, chamfer: 2 },
+  { type: "extrude", outline: [[-25, 0], [25, 0], [25, 3], [0, 5], [-25, 3]], width: 28 }, { type: "extrude", outline: [[-25, 3], [0, 5], [25, 3], [25, 0], [-25, 0]], width: 28 },
+  { type: "lathe", points: [[27, 0, 1, 0], [27, 3, 1, 0], [27, 3, 0, 1], [22, 3, 0, 1], [22, 3, -1, 0], [22, 0, -1, 0]], segments: 32 }];
+
+test("every triangle winds against its outward normals (2D.2, Normals and winding)", () => {
+  for (const shape of shapes) {
+    const { positions: p, normals: n, indices } = profileMesh(shape);
+    let checked = 0;
+    for (let t = 0; t < indices.length; t += 3) {
+      const [a, b, c] = [indices[t], indices[t + 1], indices[t + 2]];
+      const e1 = [0, 1, 2].map(k => p[b * 3 + k] - p[a * 3 + k]), e2 = [0, 1, 2].map(k => p[c * 3 + k] - p[a * 3 + k]);
+      const cross = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+      if (Math.hypot(...cross) < 1e-9) continue;
+      const normal = [0, 1, 2].map(k => n[a * 3 + k] + n[b * 3 + k] + n[c * 3 + k]);
+      assert.ok(cross[0] * normal[0] + cross[1] * normal[1] + cross[2] * normal[2] < 0, `${shape.type} triangle ${t / 3} winds with its normal`);
+      checked++;
+    }
+    assert.ok(checked > 0, shape.type);
+  }
 });
 
 test("profiles and poses: core's triangles, rigid placements clamped at the stops", () => {
