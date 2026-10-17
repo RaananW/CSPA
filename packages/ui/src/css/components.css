@@ -504,12 +504,13 @@
    * horizontal one, under the default light from the top left), so the shadow stays in the box. Along the travel the
    * box is the travel plus the carriage plus a 16 px margin at each stop (room for the carriage's shadow at the
    * Instrument level), and the native thumb is that footprint (74), so the carriage's centre is the thumb's at every
-   * value. The travel grows with the caption size (at least 15em), so 200% text keeps the numerals apart. Everything
-   * inside the track is placed in percentages of it, so a horizontal fader can shrink to its container.
+   * value. The travel grows by as much as 15em grows past 180 px (the caption size at 12 px), so 200% text doubles a
+   * medium fader's travel and keeps the numerals apart. Everything inside the track is placed in percentages of it,
+   * so a horizontal fader can shrink to its container.
    * The transparent input covers the whole track and takes every press; the drawn parts take none.
    */
   :where(.ug-fader) {
-    --_travel: max(var(--strata-fader-travel), 15em);
+    --_travel: calc(var(--strata-fader-travel) + max(0px, 15em - 180px));
     --_across: 30px;
     --_along: 42px;
     --_band: 46px;
@@ -529,7 +530,7 @@
     line-height: 1;
   }
   :where(.ug-fader--horizontal) {
-    --_scale: calc(1em + 12px);
+    --_scale: calc(1.5em + 12px);
     width: calc(var(--_travel) + var(--_thumb));
   }
   :where(.ug-fader__track) {
