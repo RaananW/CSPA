@@ -1,0 +1,35 @@
+---
+/**
+ * NavigationRail (anatomy page `navigation-rail.md`): an application's top-level destinations, as a `<nav>` landmark
+ * holding a list of native links on a raised rail; the current one carries `aria-current="page"`. Plain links, so it
+ * needs no script. An item's `icon` is SVG markup, decorative.
+ */
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  /** The landmark's name, such as "Main". */
+  label: string;
+  items: readonly { label: string; href: string; icon?: string }[];
+  /** The current destination's `href`. */
+  current?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, items, current, size, material, level, class: className, ...rest } = Astro.props;
+---
+<nav class={classes("ug-nav-rail", className)} data-strata-face="raised" aria-label={label} {...strataAttributes({ size, material, level })} {...rest}>
+  <ul class="ug-nav-rail__list" role="list">
+    {items.map(item => (
+      <li class="ug-nav-rail__entry">
+        <a class="ug-nav-rail__item" data-strata-face="raised" href={item.href} aria-current={item.href === current ? "page" : undefined}>
+          <span class="ug-nav-rail__icon" aria-hidden="true" set:html={item.icon ?? ""}></span>
+          <span class="ug-nav-rail__label">{item.label}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>

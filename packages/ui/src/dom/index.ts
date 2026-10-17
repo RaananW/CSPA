@@ -15,6 +15,7 @@ export { attachStrata } from "./behaviour.ts";
 export { selectStrataTab, strataTabsActivation, strataTabTarget } from "./tabs.ts";
 export { rovingStrataToolbar, strataToolbarTarget } from "./toolbar.ts";
 export { attachStrataTooltips, hideStrataTooltip, showStrataTooltip } from "./tooltip.ts";
+export { attachStrataPopovers, placeStrataPopover } from "./popover.ts";
 export { attachStrataTrees, rovingStrataTree, strataTreeAction, strataTreeTabStop, visibleStrataTreeItems } from "./tree.ts";
 export type { StrataTreeAction } from "./tree.ts";
 export { showStrataToast } from "./toast.ts";

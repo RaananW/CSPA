@@ -348,13 +348,15 @@ export function reliefUniforms(scene: ReliefScene | StageScene): Float32Array {
     const lifted = primitive.face === "raised" || knob || primitive.face === "mark";
     const cast = lifted && !state.disabled ? primitive.height * (1 + (scene.state.hoverHeight - 1) * (state.hover ? 1 : 0)) * (1 - (1 - scene.state.pressHeight) * (state.pressed ? 1 : 0)) : 0;
     const sunk = primitive.face === "well" || primitive.face === "groove" || ring;
+    // 2.4: a band narrower than the bevel is a shallower bevel; its slope scales by band / bevel.width (packed with the sign).
+    const steep = knob || band <= 0 || scene.bevel.width <= 0 ? 1 : Math.min(1, band / scene.bevel.width);
     values.set([
       x, y, width, height,
       knob ? inradius : Math.min(Math.max(primitive.radius ?? 0, 0), inradius), band, cast, faces.indexOf(primitive.face),
       state.hover ? 1 : 0, state.pressed ? 1 : 0, state.focus && !state.disabled ? 1 : 0, state.disabled ? 1 : 0,
       primitive.finish && lit ? 1 : 0, primitive.ring?.thickness ?? 0, primitive.ring?.start ?? 0, primitive.ring?.sweep ?? 0,
       ...(primitive.ring ? rgb(primitive.ring.colour) : surface ? rgb(surface) : [0, 0, 0]), names.indexOf(primitive.material),
-      knob ? 0 : profiles.indexOf(scene.bevel.profile), sunk ? -1 : 1, knob ? 1 : 0, ring && primitive.ring && !state.disabled ? 1 : surface ? 2 : 0,
+      knob ? 0 : profiles.indexOf(scene.bevel.profile), (sunk ? -1 : 1) * steep, knob ? 1 : 0, ring && primitive.ring && !state.disabled ? 1 : surface ? 2 : 0,
     ], at);
   });
   packed.set(scene, values);
@@ -595,7 +597,9 @@ fn reliefShade(p: vec2f, captured: vec4f) -> vec4f {
           var theta = 1.2 * (1.0 - s);
           if (kind.x == 1.0) { theta = 0.6; }
           if (kind.x == 2.0) { theta = 1.2 * s; }
-          shade += reliefLight(vec3f(g * kind.y * sin(theta), cos(theta)), material) * cover;
+          // kind.y is the slope sign times the steepness of a band narrower than the bevel.
+          theta *= abs(kind.y);
+          shade += reliefLight(vec3f(g * sign(kind.y) * sin(theta), cos(theta)), material) * cover;
         } else {
           // 2.6 Interior offset and finish zones.
           offsets += states.z * flags.x - states.w * flags.y + material.z * 0.02 + (1.0 - material.x) * 0.01;
