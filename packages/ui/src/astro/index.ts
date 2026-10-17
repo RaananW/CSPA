@@ -48,6 +48,7 @@ export { default as Tabs } from "./Tabs.astro";
 export { default as TextArea } from "./TextArea.astro";
 export { default as TextField } from "./TextField.astro";
 export { default as Combobox } from "./Combobox.astro";
+export { default as DatePicker } from "./DatePicker.astro";
 export { default as ToggleButton } from "./ToggleButton.astro";
 export { default as Toolbar } from "./Toolbar.astro";
 export { default as Tooltip } from "./Tooltip.astro";

@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Combobox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Slider, Stepper,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Combobox, Chip, DatePicker, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Slider, Stepper,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView, toast,
 } from "@underglass/ui/vue";
 
@@ -40,6 +40,7 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("avatar.md", [h(Avatar, { name: "Ada Lovelace" }), h(Avatar, { name: "Grace Hopper", src: "/people/grace.jpg" }), h(Avatar, { name: "Alan Turing", decorative: true })]),
   contract("segmented-control.md", [h(SegmentedControl, { label: "View", name: "view", defaultValue: "day", options: [{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }] })]),
   contract("combobox.md", h(Combobox, { id: "fruit", options: ["Apple", "Apricot", { value: "Banana", label: "Yellow" }] })),
+  contract("date-picker.md", h(DatePicker, { id: "due", min: "2026-01-01", max: "2026-12-31" })),
   contract("rating.md", [h(Rating, { label: "Your rating", name: "score", max: 3, defaultValue: 2 }), h(RatingDisplay, { value: 4.5 })]),
   contract("stepper.md", [h(Stepper, { label: "Checkout progress", steps: ["Cart", "Shipping", "Payment"], current: 1 })]),
   contract("navigation-rail.md", [h(NavigationRail, { label: "Main", items: [{ label: "Inbox", href: "/inbox" }, { label: "Drafts", href: "/drafts" }], current: "/inbox" })]),
@@ -117,7 +118,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
-    const page = ref(1), appBar = ref(0), toasts = ref(0), range = ref("day"), score = ref(3), fruit = ref(""), step = ref(1), rail = ref("#rail-inbox"), slide = ref(0);
+    const page = ref(1), appBar = ref(0), toasts = ref(0), range = ref("day"), score = ref(3), fruit = ref(""), due = ref(""), step = ref(1), rail = ref("#rail-inbox"), slide = ref(0);
     const popover = reactive({ open: false, applied: 0 });
     const tree = reactive<{ expanded: string[]; selected?: string }>({ expanded: ["docs"] });
     const chosen = reactive<string[]>([]);
@@ -147,6 +148,7 @@ const App = defineComponent({
         get range() { return range.value; },
         get score() { return score.value; },
         get fruit() { return fruit.value; },
+        get due() { return due.value; },
         get rail() { return rail.value; },
         get popover() { return { ...toRaw(popover) }; },
         get tree() { return { expanded: [...tree.expanded], selected: tree.selected }; },
@@ -304,6 +306,11 @@ const App = defineComponent({
               h("form", { id: "fruit-form", onSubmit: (event: Event) => event.preventDefault() }, [
                 h(Field, { label: "Fruit", controlId: "live-combobox", help: "Type one, or choose a suggestion." }, { default: () => h(Combobox, {
                   name: "fruit", modelValue: fruit.value, "onUpdate:modelValue": (value: string) => { fruit.value = value; }, options: ["Apple", "Apricot", "Banana", "Cherry", { value: "Durian", label: "Seasonal" }],
+                }) }),
+              ]),
+              h("form", { id: "due-form", onSubmit: (event: Event) => event.preventDefault() }, [
+                h(Field, { label: "Due date", controlId: "live-date-picker", help: "Pick a day in 2026." }, { default: () => h(DatePicker, {
+                  name: "due", modelValue: due.value, "onUpdate:modelValue": (value: string) => { due.value = value; }, min: "2026-01-01", max: "2026-12-31",
                 }) }),
               ]),
               h(Stepper, { id: "live-stepper", label: "Checkout progress", steps: ["Cart", "Shipping", "Payment", "Review"], current: step.value }),

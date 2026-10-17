@@ -477,6 +477,18 @@ and any other text may still be typed. Use a Select when only the listed values 
 Vue uses `v-model`; Astro takes `options` and the Field props. The list is the browser's own, never drawn by the GPU.
 [Anatomy](../../docs/ui-library/components/combobox.md).
 
+## DatePicker
+
+A TextField that takes a date: a native `<input type="date">`, so the browser provides the segmented field and its own
+calendar. The value is `YYYY-MM-DD`, whatever the display language; `min` and `max` give native validity.
+
+```tsx
+<Field label="Due date"><DatePicker min="2026-01-01" max="2026-12-31" value={due} onChange={event => setDue(event.target.value)} /></Field>
+```
+
+Vue uses `v-model`; Astro takes the Field props. The calendar is the browser's own, never drawn by the GPU.
+[Anatomy](../../docs/ui-library/components/date-picker.md).
+
 ## Carousel
 
 A few items shown one at a time, by the WAI-ARIA Carousel pattern without rotation: Previous and Next (wrapping), a

@@ -1613,6 +1613,36 @@
   :where(.ug-combobox:dir(rtl)) { background-position: left calc(var(--strata-space-4) + 3px) center, left calc(var(--strata-space-4) + 8px) center; }
   :where(.ug-combobox)::-webkit-calendar-picker-indicator { display: block; width: 16px; height: 16px; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
 
+  /* ---- DatePicker ---- */
+
+  /* A TextField that takes a date, with a small calendar printed on the face at the end. The browser's own calendar
+     button sits over it, transparent, so a click on the glyph opens the calendar. The date's segments stay native. */
+  :where(.ug-date-picker) {
+    --_glyph: var(--strata-colour-muted);
+    --_end: var(--strata-space-4);
+    background-image:
+      linear-gradient(var(--_glyph), var(--_glyph)),
+      linear-gradient(var(--_glyph), var(--_glyph)),
+      linear-gradient(var(--_glyph), var(--_glyph)),
+      linear-gradient(var(--_glyph), var(--_glyph));
+    background-position:
+      right var(--_end) top calc(50% - 7px),
+      right var(--_end) top calc(50% - 3px),
+      right calc(var(--_end) + 12px) top calc(50% - 3px),
+      right var(--_end) top calc(50% + 5px);
+    background-size: 14px 4px, 2px 10px, 2px 10px, 14px 2px;
+    background-repeat: no-repeat;
+  }
+  :where(.ug-date-picker:dir(rtl)) {
+    background-position:
+      left var(--_end) top calc(50% - 7px),
+      left var(--_end) top calc(50% - 3px),
+      left calc(var(--_end) + 12px) top calc(50% - 3px),
+      left var(--_end) top calc(50% + 5px);
+  }
+  :where(.ug-date-picker)::-webkit-datetime-edit { padding: 0; }
+  :where(.ug-date-picker)::-webkit-calendar-picker-indicator { display: block; width: 14px; height: 14px; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1835,6 +1865,8 @@
     :where(.ug-carousel__slides) { border: 1px solid CanvasText; }
     :where(.ug-carousel__key) { border: 1px solid ButtonBorder; }
     :where(.ug-carousel__key[aria-current="true"]) { forced-color-adjust: none; background-color: Highlight; }
+    /* The printed calendar goes with the background image; the browser's own calendar button shows instead. */
+    :where(.ug-date-picker)::-webkit-calendar-picker-indicator { opacity: 1; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     /* The printed chevron goes with the background image; the browser's own list button shows instead. */
     :where(.ug-combobox)::-webkit-calendar-picker-indicator { opacity: 1; }

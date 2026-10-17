@@ -19,8 +19,9 @@
  * `strataGpuProbe.addPopover()` a Filters button in the panel whose Popover is in `<body>`,
  * `strataGpuProbe.addTree()` a TreeView, run by `attachStrata`,
  * `strataGpuProbe.addCarousel()` a Carousel of two slides, run by `attachStrata`,
- * `strataGpuProbe.addMenu()` an Actions menu button in the panel whose Menu is in `<body>`, and
- * `strataGpuProbe.addCombobox()` a Combobox with three suggestions.
+ * `strataGpuProbe.addMenu()` an Actions menu button in the panel whose Menu is in `<body>`,
+ * `strataGpuProbe.addCombobox()` a Combobox with three suggestions, and
+ * `strataGpuProbe.addDatePicker()` a DatePicker, empty.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -139,6 +140,8 @@ let upgrades = 0;
 /** A SegmentedControl in plain markup (`segmented-control.md`), added by `strataGpuProbe.addSegmented()`, Week selected. */
 const segmentedMarkup = `<fieldset class="ug-segmented" style="margin-top:12px"><legend class="ug-segmented__legend">View</legend><div class="ug-segmented__plinth">${
   ["Day", "Week", "Month"].map(label => `<label class="ug-segmented__item"><input class="ug-segmented__input" type="radio" name="gpu-view" value="${label.toLowerCase()}" ${label === "Week" ? "checked" : ""}><span class="ug-segmented__key" data-strata-face="raised" id="gpu-segment-${label.toLowerCase()}">${label}</span></label>`).join("")}</div></fieldset>`;
+/** A DatePicker in plain markup (`date-picker.md`), added by `strataGpuProbe.addDatePicker()`, empty. */
+const datePickerMarkup = `<input class="ug-text-field ug-date-picker" data-strata-face="well" type="date" id="gpu-date-picker" aria-label="Due date" style="margin-top:12px">`;
 /** A Rating in plain markup (`rating.md`), added by `strataGpuProbe.addRating()`, at 2. */
 /** A Combobox in plain markup (`combobox.md`), added by `strataGpuProbe.addCombobox()`, empty. */
 const comboboxMarkup = `<input class="ug-text-field ug-combobox" data-strata-face="well" type="text" autocomplete="off" id="gpu-combobox" list="gpu-combobox-options" aria-label="Fruit" style="margin-top:12px"><datalist id="gpu-combobox-options">${
@@ -249,6 +252,7 @@ window.strataGpuProbe = {
   addPopover,
   addMenu,
   addCombobox: () => { panel.insertAdjacentHTML("beforeend", comboboxMarkup); strata?.refresh(); },
+  addDatePicker: () => { panel.insertAdjacentHTML("beforeend", datePickerMarkup); strata?.refresh(); },
   menuChoices: () => [...menuChoices],
   applied: () => applied,
   addTree: () => { panel.insertAdjacentHTML("beforeend", treeMarkup); attachStrata(panel); strata?.refresh(); },
@@ -283,6 +287,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addSegmented(): void; addRating(): void; addCombobox(): void; addStepper(): void; stepTo(index: number): void; addRail(): void; addPopover(): void; applied(): number; addTree(): void; addCarousel(): void; addMenu(): void; menuChoices(): string[]; toast(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addSegmented(): void; addRating(): void; addCombobox(): void; addStepper(): void; stepTo(index: number): void; addRail(): void; addPopover(): void; applied(): number; addTree(): void; addCarousel(): void; addMenu(): void; addDatePicker(): void; menuChoices(): string[]; toast(): void;
   } }
 }
