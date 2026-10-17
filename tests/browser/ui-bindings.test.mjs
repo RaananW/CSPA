@@ -13,6 +13,7 @@
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  *   toasts appear in the status region and go after their time, which hovering stops;
+ *   a SegmentedControl selects with clicks and arrow keys, skips a disabled option and submits its value;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -732,5 +733,39 @@ for (const binding of bindings) test(`Strata ${binding} toasts appear in the sta
   await expect(toasts).toHaveCount(3);
   await toasts.first().getByRole("button", { name: "Dismiss" }).click();
   await expect(toasts).toHaveCount(2);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} SegmentedControl selects by click and arrow keys, skips a disabled option, holds its key down and submits its value`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const group = page.getByRole("group", { name: "Range" });
+  const option = name => group.getByRole("radio", { name, exact: true });
+  await expect(option("Day")).toBeChecked();
+  // A real click on a key selects its radio, which covers the key.
+  await page.locator("#live-segmented").scrollIntoViewIfNeeded();
+  const week = await page.locator("#live-segmented .ug-segmented__key", { hasText: "Week" }).boundingBox();
+  await page.mouse.click(week.x + week.width / 2, week.y + week.height / 2);
+  await expect(option("Week")).toBeChecked();
+  expect(await page.evaluate(() => window.strataBinding.range)).toBe("week");
+  // Arrow keys move the selection natively, skip the disabled Month and wrap.
+  await expect(option("Week")).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(option("Year")).toBeChecked();
+  expect(await page.evaluate(() => window.strataBinding.range)).toBe("year");
+  await page.keyboard.press("ArrowRight");
+  await expect(option("Day")).toBeChecked();
+  await expect(option("Month")).toBeDisabled();
+  // The value takes part in the form.
+  expect(await page.evaluate(() => new FormData(document.getElementById("range-form")).get("range"))).toBe("day");
+  // The selected key is held down with its strip; every key is a 24 px target at least.
+  const keys = await page.locator("#live-segmented .ug-segmented__key").evaluateAll(spans => spans.map(span => {
+    const rect = span.getBoundingClientRect();
+    return { strip: getComputedStyle(span).borderBottomWidth, size: Math.min(rect.width, rect.height) };
+  }));
+  expect(keys.map(key => key.strip)).toEqual(["3px", "0px", "0px", "0px"]);
+  for (const key of keys) expect(key.size).toBeGreaterThanOrEqual(24);
   await context.close();
 });

@@ -448,3 +448,14 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
+
+## SegmentedControl
+
+One choice from two to five short options, as keys on a plinth: native radios in a `<fieldset>`, so arrow keys and
+forms work natively. The selected key is held down.
+
+```tsx
+<SegmentedControl label="View" options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }]} value={view} onChange={setView} />
+```
+
+Vue uses `v-model`; Astro takes `value` and `name`. `hideLabel` hides the legend visually. [Anatomy](../../docs/ui-library/components/segmented-control.md).
