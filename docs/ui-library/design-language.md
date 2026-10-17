@@ -15,9 +15,10 @@ never silently relaxed.
 
 **The Instrument level** ([plan](instrument.md), [Phase I0 report](instrument-phase0.md)) is a fourth presentation
 level: 3D-first hardware controls drawn as parametric meshes. Its rules are in sections 2, 3, 4, 6, 7, 11, 12, 14, 15
-and 16, and in sections [19](#19-characters) and [20](#20-feedback). A dagger (†) marks a **provisional** value: a
-number from the first prototype iteration, or a proposed range, that the second iteration confirms or replaces. The
-[spec notes](instrument-spec-notes.md) list every one.
+and 16, and in sections [19](#19-characters) and [20](#20-feedback). Its numbers come from the second iteration of
+the [I1 prototype](instrument-phase0.md#i1-prototype), whose look sign-off is pending with the owner. A dagger (†)
+marks a **provisional** value: a number the second iteration did not use or measure, or a proposed range. The
+[spec notes](instrument-spec-notes.md) list every value and its status.
 
 ## Contents
 
@@ -118,12 +119,13 @@ may be set from 0° to 60°. P0.1 proved exact native hits through perspective u
 The key light also lights the meshes (a directional light in Lite's PBR), and the [environment](#environment) supplies
 the rest of their light.
 
-- **The fill is diffuse only** in any scene with an environment: a hemispheric fill's specular term faces the viewer
-  and turns metal tops white ([I0.4](instrument-phase0.md#i04-materials-over-the-capture),
-  [I1](instrument-phase0.md#i1-prototype)). The prototype ran it at 0.35† where `light.ambient` is 0.55.
-- **Metals read from the environment.** A metal takes the key light's direct term scaled by its `base.direct`
-  (section 4; 0.2† in the metal presets). With the full term, brushed tops changed brightness with a knob's size and
-  position.
+- **The studio is the fill.** An Instrument layer has no fill light by default (`light.ambient` 0 there; 0.55 stays
+  the Objects default): a hemispheric fill's specular term faces the viewer and turns metal tops white
+  ([I0.4](instrument-phase0.md#i04-materials-over-the-capture), [I1](instrument-phase0.md#i1-prototype)). A fill an
+  application adds is diffuse only. The second iteration ran with the fill off.
+- **Metals take the full key light.** A metal takes the key light's direct term scaled by its `base.direct` (section
+  4), 1 in every preset. The first iteration scaled it by 0.2 because brushed tops changed brightness with a knob's
+  size and position under its grey sweep; with the studio of section 4 and crowned tops they no longer do.
 - **Emitters** (below) add local light. They are not lights in the sense of the tokens above: `light.*` stays the one
   key light.
 
@@ -166,7 +168,8 @@ the face, and lights:
   **protected rects**, at most 64 per layer; a layer with more protects its whole box. Inside a protected rect the
   light is limited so that the face's whole change (its interior factor, the shadows of parts and emitter light
   together) stays within `interior.max`; over `emitter.guardFeather` px outside it, the light returns to full strength.
-  Contrast on lit faces (section 8) is measured with the brightest emitter beside the text and the pointer light
+  A layer's guard has one feather: the largest `guardFeather` of the emitters that reach it (10 px with the pointer
+  light, below). Contrast on lit faces (section 8) is measured with the brightest emitter beside the text and the pointer light
   directly over it.
 - **Budget: 64 emitters per layer,** binned into a 16 × 9 tile mask per layer, so the cost stays flat as emitters are
   added (at 64, the tiled face pass and the mesh lights together cost less than an untiled face pass alone, I0.3). The
@@ -187,16 +190,22 @@ CSS presentation unable to follow.
 | Token | Default | Range | Meaning |
 | --- | --- | --- | --- |
 | `pointerLight.enabled` | `false` | — | Opt-in, per application |
-| `pointerLight.strength` | 16,000† | 0–32,000† | Intensity `I` |
-| `pointerLight.radius` | 360† | 60–1,000† | Reach `R`, px |
-| `pointerLight.height` | 120† | 20–400† | Height above the face, px |
-| `pointerLight.colour` | (255, 255, 255)† | any | Light colour |
+| `pointerLight.strength` | 16,000 | 0–32,000† | Intensity `I`, on the parts |
+| `pointerLight.face` | 0.3 | 0–1† | The share of `strength` that lights the face |
+| `pointerLight.guardFeather` | 10 | 0–16† | Its `emitter.guardFeather`, px |
+| `pointerLight.radius` | 360 | 60–1,000† | Reach `R`, px |
+| `pointerLight.height` | 120 | 20–400† | Height above the face, px |
+| `pointerLight.colour` | (255, 242, 224) | any | Light colour, a warm white: (1, 0.95, 0.88) as light |
 
+- **Parts at full strength, the face at 0.3:** the parts take `strength` (the highlight that travels across metal and
+  glass); the face pool takes `face` of it with a 10 px feather. At full strength the pool saturated a light faceplate
+  and every guarded text box read as a grey patch (the I1 prototype's second iteration).
 - **Fine pointers only:** the light exists only under `(pointer: fine)`. It carries no meaning and changes no state;
   hover, focus and selection keep their own cues, so touch and keyboard users lose nothing without it.
 - **Preferences:** off under `prefers-contrast: more` and `forced-colors`. Under `prefers-reduced-motion` it stays
   (nothing in the UI moves) but has no fade.
-- **Fade:** it fades out over `motion.fast` when the pointer leaves the stage, and in when it returns.
+- **Fade:** it exists only while the pointer is over the stage. It fades out over `motion.fast` when the pointer leaves
+  the stage, and in when it returns.
 - **How it moves:** the GPU helper converts the pointer to stage px once per frame and writes the emitter into every
   layer within reach. Each layer's pass lights only that layer's own content, so where layers overlap the light is
   applied once. A move is a uniform update: no capture, no upload and no change to hit geometry (I0.3, at every level).
@@ -243,21 +252,24 @@ others.
 | `matte` (default) | base roughness from depth (0.8 → 0.45 → 0.3), metallic 0 | The recipe, in the role's colour | Plain painted surface |
 | `satin` | base roughness 0.4; coat 0.3 at roughness 0.35 | The recipe | Soft sheen |
 | `gloss` | base roughness 0.25; coat 0.6 at roughness 0.12 | The recipe | Shiny plastic |
-| `lacquer` | base roughness 0.45; coat 1.0 at roughness 0.04, ior 1.5 | Black lacquer: base (29, 29, 31)†, roughness 0.5†; coat 1 at roughness 0.03†, ior 1.5 | Glass-coated: a clear, glossy top layer |
-| `glass` | transmission 0.9, ior 1.5, frost 0.3, tint from the role; base roughness 0.05 | [Glass](#glass): ior 1.5; `dispersion` 0.5† (a spread of 0.05); reflection roughness 0.02†; rim tint (209, 230, 224) at 0.9† | Translucent glass |
-| `metal` | metallic 1, roughness 0.3 | Brushed aluminium: base (239, 240, 241)†, roughness 0.3; `brush` 0.9† with a hairline `grain` of 0.15†; `direct` 0.2† | Brushed metal |
-| `polished` | metallic 1, roughness 0.08† | Polished aluminium: base (244, 245, 247)†; `direct` 0.2† | Spun, bright aluminium |
-| `gunmetal` | metallic 1, roughness 0.36† | Base (104, 107, 114)†; `brush` 0.6†; `direct` 0.2† | Dark brushed metal |
-| `gold` | metallic 1, roughness 0.18† | Base (255, 219, 147)†; `direct` 0.2† | Gold, by its base colour |
-| `chrome` | metallic 1, roughness 0.04 | Base (250, 250, 252)†; `direct` 0.2† | Mirror |
+| `lacquer` | base roughness 0.45; coat 1.0 at roughness 0.04, ior 1.5 | Black lacquer: base (28, 28, 30), roughness 0.5; coat 1 at roughness 0.03, ior 1.5 | Glass-coated: a clear, glossy top layer |
+| `glass` | transmission 0.9, ior 1.5, frost 0.3, tint from the role; base roughness 0.05 | [Glass](#glass): ior 1.5; `dispersion` 0.2 (a spread of ±0.02); absorption tint (0.84, 0.93, 0.9) at 0.03 per px of path; reflections at 1.5 × `environment.intensity`, a mirror | Translucent glass |
+| `metal` | metallic 1, roughness 0.3 | Brushed aluminium: base (239, 240, 241), roughness 0.3; `brush` 0.9 with a hairline `grain` of 0.15 (none on large plates, below) | Brushed metal |
+| `polished` | metallic 1, roughness 0.04 | Polished aluminium: base (250, 250, 251) | Spun, bright aluminium |
+| `gunmetal` | metallic 1, roughness 0.36 | Base (104, 107, 114); `brush` 0.9 with the hairline `grain` | Dark brushed metal |
+| `gold` | metallic 1, roughness 0.18 | Base (255, 219, 147), no brush | Gold, by its base colour |
+| `chrome` | metallic 1, roughness 0.04 | Base (250, 250, 252)† | Mirror |
 | `emissive` | emissive from the role colour, strength 1 | Emissive; an emitter when the part is a lens | Light source: indicators, active tracks |
 
 - **Instrument colours:** meshes have no captured content, so Instrument presets carry a base colour (sRGB, converted
   from the probe's linear factors). Below Instrument, the recipe column applies and colour comes from the capture or
   the role, as before.
-- **Where the values come from:** [I0.4](instrument-phase0.md#i04-materials-over-the-capture) for `lacquer`, `glass`,
-  `metal`, `gold` and `chrome`, the [I1 prototype](instrument-phase0.md#i1-prototype) for `polished` and `gunmetal`.
-  The two iterations differ (the spec notes list both); the second iteration settles them.
+- **Where the values come from:** [I0.4](instrument-phase0.md#i04-materials-over-the-capture), carried into the
+  [I1 prototype](instrument-phase0.md#i1-prototype)'s second iteration with its studio, which also set `polished`,
+  `gunmetal` and the glass shader's numbers. Every metal takes the key light's full direct term (`direct` 1, section 3).
+  `chrome` was not on the prototype page.
+- **No grain on large plates:** a wall plate and a display bezel take `brush` without the `grain` map. There the
+  hairline map aliased into coarse streaks; on caps, carriages and blocks it reads as brushed metal.
 
 ### Defining and assigning materials
 
@@ -286,12 +298,13 @@ others.
   | `trackOn` | `emissive` |
   | `indicator` | `emissive` |
   | `overlay` | `matte` (`glass` is a common choice) |
-  | `knobCap` | `metal`†, with its chamfer `polished`† |
-  | `knobSkirt` | `polished`† |
-  | `faderCap` | `metal`† |
-  | `lever` | `metal`† |
-  | `rockerPlate` | `metal`† |
-  | `plate` (wall plates and bezels) | `metal` on light themes, `gunmetal` on dark themes† |
+  | `knobCap` | `metal`, its chamfer the same metal polished (roughness 0.06, no brush) |
+  | `knobSkirt` | `polished` |
+  | `faderCap` | `metal`, its chamfer polished as `knobCap`'s |
+  | `lever` | `metal`, polished as a chamfer is |
+  | `rockerPlate` | `metal` |
+  | `plate` (wall plates) | `metal` on light themes, `gunmetal` on dark themes |
+  | `bezel` (bezels of rockers, push buttons and displays; a bat's nut and bushing) | `polished` |
   | `lens` | `glass` |
   | `needle` | Set with the Meter and Gauge components (Phase I4) |
   | `display` (a display's window) | `glass` |
@@ -348,13 +361,13 @@ and `environment.source: "none"` is rejected there (reported, and the studio use
 
   | Token | Default | Range | Meaning |
   | --- | --- | --- | --- |
-  | `studio.key` | 12† | 0–40† | The key softbox, centred on the key light's direction |
-  | `studio.keyRadius` | 0.24 rad† | 0.05–0.6† | The softbox's angular radius; its edge softens over 0.1 rad |
-  | `studio.fill` | 1.2† | 0–10† | A broad fill opposite the key, below the horizon |
-  | `studio.front` | 0.12† | 0–2† | A dim panel behind the viewer, so face-on metal reads as metal, not black |
-  | `studio.strip` | 2.5† | 0–10† | A ring of light 12–20° above the horizon: the band that crowned caps and chrome catch |
-  | `studio.floor` | 0.03† | 0–1† | The room below the horizon |
-  | `studio.ceiling` | 0.25† | 0–2† | The room above it |
+  | `studio.key` | 12 | 0–40† | The key softbox, centred on the key light's direction |
+  | `studio.keyRadius` | 0.24 rad | 0.05–0.6† | The softbox's angular radius; its edge softens over 0.1 rad |
+  | `studio.fill` | 1.2 | 0–10† | A broad fill opposite the key, below the horizon |
+  | `studio.front` | 0.12 | 0–2† | A dim panel behind the viewer, so face-on metal reads as metal, not black |
+  | `studio.strip` | 2.5 | 0–10† | A ring of light 12–20° above the horizon: the band that crowned caps and chrome catch |
+  | `studio.floor` | 0.03 | 0–1† | The room below the horizon |
+  | `studio.ceiling` | 0.25 | 0–2† | The room above it |
 
   `environment.intensity` scales all of it (the prototype's "Reflections" control).
 - **The page, reflected.** Each layer has one local environment cube, filled on the GPU from the layer's own capture,
@@ -363,7 +376,8 @@ and `environment.source: "none"` is rejected there (reported, and the studio use
   so that the studio stays at infinity: a direction that meets the face plane inside the layer sees the capture there,
   any other sees the studio. **It is refreshed only when the layer is captured** (and when the capture texture is
   replaced), never per frame, so poses and motion cost it nothing. Lite's probe set
-  (`createPbrLocalEnvironmentProbeSet`) cannot serve: it copies its cubes once.
+  (`createPbrLocalEnvironmentProbeSet`) cannot serve: it copies its cubes once. With the studio above it no longer
+  whitens metal caps; head-on, a flat top reflects the studio's front more than the page.
 
 ### Glass
 
@@ -372,23 +386,35 @@ transmission. Inside a layer scene Lite's transmission redirects the render, fai
 DOM, and its fixed 1024² grab would blur text ([I0.4](instrument-phase0.md#i04-materials-over-the-capture)). Glass must
 read as glass:
 
-- **Refraction and magnification:** each pixel reads the capture through the glass. Where the surface is parallel to
-  the face the shift is exactly zero and the pixel is the capture texel; on bevels, domes and lenses the view ray
-  refracts by Snell's law down to the face, so a lens visibly magnifies the print under it.
+- **Lenses are real lenses:** a lens or glass cap is a plano-convex lens standing on the surface below it. Each pixel
+  refracts the view ray into the glass by Snell's law, follows it down to the flat bottom, refracts it out and reads
+  the capture where it lands on the face, so a domed cap magnifies the print under its centre (×1.46 on the prototype's
+  hub ring). Near the rim the ray meets the bottom beyond the critical angle: total internal reflection, and the rim
+  shows the dark interior, as real glass does. It is decided on one channel for all three, so the rim does not sparkle.
+- **Windows and flat parts** read the capture shifted by the difference between the ray refracted through the surface
+  and through a flat pane: exactly zero where the glass is parallel to the face, so the pixel is the capture texel.
 - **Dispersion:** one index of refraction per colour channel (`ior − s`, `ior`, `ior + s`, with the spread
-  `s = 0.1 · dispersion.strength`), so thick edges show a thin prism fringe.
-- **Reflection, in the same shader:** the environment (studio and page) in the reflected direction, weighted by Fresnel
-  (Schlick, with `F0` from the `ior`: 0.04 at 1.5), with the refracted light weighted by `1 − F`. The first probe drew
-  the reflection as a separate PBR shell over the refraction, which added almost nothing on flat glass; it belongs in
-  the refraction shader.
-- **Rim:** where the glass tilts towards its bezel it takes its tint and the full Fresnel, so a pane has a visible
-  edge.
-- **Lenses and glass caps** carry no text and take the full Fresnel everywhere.
+  `s = 0.1 · dispersion.strength`, ±0.02 by default), so thick edges show a thin prism fringe.
+- **Absorption:** light is tinted along its path inside the glass (the `glass` preset's tint, per px of path), so
+  thick glass and steep bevels read greener and darker than thin glass.
+- **Reflection, in the same shader:** Schlick Fresnel (`F0` from the `ior`: 0.04 at 1.5) weights the radiance along
+  the reflected ray, and the refracted light takes `1 − F`. A ray towards the face meets the polished part the glass
+  stands on (a knob's skirt: a mirror of the studio in that part's colour) or the face itself (the capture where the
+  ray lands, the exact local reflection that the page cube approximates); a ray away from it sees the studio,
+  evaluated from its definition. Glass reflections take 1.5 × `environment.intensity`. The polished stand is what lights
+  a cap's rim on a light faceplate: there a ray reflected onto the face sees the same grey as the plain capture, so
+  Fresnel alone adds nothing. The first probe drew the reflection as a separate PBR shell over the refraction, which
+  added almost nothing on flat glass, so glass read as invisible.
+- **Rim:** a window's bevel refracts the window's edge, with the Fresnel above and a darker, tinted rim; a lens's rim
+  goes dark by total internal reflection and catches the stand's reflection on the key light's side.
+- **Lenses and glass caps** carry no text and take the full Fresnel everywhere. A glass knob cap's pointer is printed in
+  the faceplate's ink, so it reads against the magnified plate.
 - **Display windows, the finish-zone rule:** the flat region of a display window that carries text stays
-  **texel-exact**: no shift, no reflection, no tint. A window's reflection is measured against the flat pane (`F` less
-  its head-on value, so 0 face-on), and a reflection band may be drawn only in the window's
-  [finish zones](#finish-zones) and on its rim. A display whose text can reach a zone turns that zone off, as key tops
-  do. Display text contrast is measured through the glass (section 8).
+  **texel-exact**: no shift, no reflection, no tint, inside its text runs grown by 2 px. A window's reflection is
+  measured against the flat pane (`F` less its head-on value, so 0 face-on), and a reflection band may be drawn only in
+  the window's top [finish zone](#finish-zones) and on its rim: a band from 3% to 26% of the window, peak 0.3, brighter
+  on the key light's side, over a dark horizon line at 25–31%, 0.25. A display whose text can reach a zone turns that
+  zone off, as key tops do. Display text contrast is measured through the glass (section 8).
 
 ### Guardrails
 
@@ -585,27 +611,29 @@ hands core mesh data; core never fetches at render time.
 
 ### Instrument object table
 
-The `premium` character's objects. Heights are at 50% depth; numbers come from the
-[I1 prototype](instrument-phase0.md#i1-prototype) and are all provisional; components not yet prototyped get theirs
-in their phase. Components not listed here keep their Objects object, drawn as meshes of the same shapes.
+The `premium` character's objects. Heights are at 50% depth; numbers come from the second iteration of the
+[I1 prototype](instrument-phase0.md#i1-prototype), whose look sign-off is pending with the owner, and those it did not
+use carry a dagger. Components not yet prototyped get theirs in their phase. Components not listed here keep their
+Objects object, drawn as meshes of the same shapes. Lit parts give their `emissive` strength lit / unlit.
 
 | Control (form) | Static parts | Moving part | Motion | Box and parts (premium, 50% depth) |
 | --- | --- | --- | --- | --- |
-| Knob | `collar`; the scale, printed on the face | `skirt`, `cap`, `chamfer` and `pointer`, as one | Turn through `knob.sweep`, 270° | Dial box = skirt + 76 (140)†. Skirt Ø64, 2.5 high, 0.8 edge break†. Cap Ø 0.8 × skirt (51), 16 high†. Chamfer 1.4†, polished. Pointer 2 wide, from 0.3 to 0.8 of the cap radius†. Ticks at r + 5, numerals at r + 20† |
-| Knob, detented | As Knob | As Knob | Turn in `detents` steps, 11† | 0.8 × the knob's size† |
-| Fader | `slot`, printed (5 wide†); the scale | `carriage` with its `grip` (an index line) | Slide along `fader.travel`, 180† | Box 46 wide† and the travel plus the carriage long. Carriage 30 × 42, 12 high, taper 2.5, radius 3† |
-| Switch `slide` | `slot` | `carriage` (a block), with an accent flag when on | Slide 28† | Box 64 × 28†. Block 24 × 20, 6 high, taper 1.5† |
-| Switch `rocker` | `bezel`, 2 high† | `paddle`: a two-facet plate (facets 10 / 5†) on a `pivot` | Tilt ±11.3°† | Box 38 × 62†. Paddle 28 × 50† |
-| Switch `bat` | `nut` Ø22, 3 high†; `bushing` Ø13, 7 high† | `lever` with its `ball`, on a `pivot` | Tilt ±30°† | Box 44 × 68†. Lever 28†, pivot 5† up, ball r 3.6† |
-| Switch `wall` | `plate`, 3 high, radius 6† | `paddle` | Tilt ±6°† | Box 66 × 92†. Paddle 30 × 54, 6 high† |
-| PushButton `momentary` | `bezel` (r 27 → 22.6†); the lit ring, a `lens` (r 22.6 → 20.6†) | `cap`, carrying its captured label | Travel 2.5†, while held | Box 56†. Cap Ø40, 6 high, taper 1.2† |
-| PushButton `latching` | As momentary, with an LED | `cap` | Travel 2.5† held, 1.2† latched | As momentary |
+| Knob | `collar`; the scale, printed on the face | `skirt`, `cap`, `chamfer` and `pointer`, as one | Turn through `knob.sweep`, 270° | Dial box = skirt + 76 (140). Skirt Ø64, 2.5 high, 0.8 edge break, its top a 7.5° cone (a turned flange that catches the studio's strip). Cap Ø 0.8 × skirt (51), 16 high, with a spun top crowned 1.2 and a 2 px polished chamfer. Pointer 2.2 wide, from 0.28 to 0.86 of the top's radius, engraved in the cap's ink along the crown. Ticks at r + 5, numerals at r + 20 |
+| Knob, glass cap | As Knob, with a printed hub ring (r 7) at the centre | `skirt` and a glass `cap` (a lens) with its `pointer` | As Knob | The cap is a plano-convex lens on the skirt: radius 0.45 × the metal cap's diameter (23), a 2 px wall and an elliptical dome to 22 high; its pointer in the faceplate's ink; it casts 0.45 of `shadow.strength` |
+| Knob, detented | As Knob | As Knob | Turn in `detents` steps, 11 | 0.8 × the knob's size |
+| Fader | `slot`, printed (5 wide); the scale | `carriage` with its `grip` (an index line, 1.6 wide) | Slide along `fader.travel`, 180 | Box 46 wide and the travel plus the carriage long. Carriage 30 × 42, 12 high, taper 0.6, radius 3: a brushed body, a 2 px polished chamfer and a brushed top |
+| Switch `slide` | `slot` | `carriage` (a block), with an accent flag when on | Slide 28 | Box 64 × 28. Block 24 × 20, 6 high, taper 0.4, chamfer 2. Flag lit 1.0 when on, hidden when off |
+| Switch `rocker` | `bezel`, 2 high | `paddle`: a two-facet plate (facets 12 / 4) on a `pivot`, with an accent flag on its On end | Tilt ±17.7° | Box 38 × 62. Paddle 28 × 50. Flag 18 × 9, 1.0 / 0.12. The paddle's shadow moves to its raised end |
+| Switch `bat` | `nut` Ø24, 3 high; `bushing` Ø14, 7 high | `lever` with its `ball`, on a `pivot` | Tilt ±40° | Box 48 × 92. Lever 40 long (it scales with depth, at most × 1.15), pivot 5 up, base r 3.4, neck r 2.7, ball r 5.6: about 28 px head-on, with its shadow |
+| Switch `wall` | `plate`, 3 high, radius 6 | `paddle`, with a lit dot near its On end | Tilt ±9° | Box 66 × 92. Paddle 30 × 54, 7 high, taper 0.6, chamfer 2, its top crowned 1.6 along its length (the reflection band moves as it tips). Dot 12 × 4, 1.0 / 0.12 |
+| PushButton `momentary` | `bezel` (r 27 → 22.6, 3.2 high); the lit ring, a `lens` (r 22.6 → 20.6), 1.0 / 0.22, in the bloom | `cap`, carrying its captured label | Travel 4, while held; a contact gap darkens round the cap as it goes in | Box 64 (room for the halo). Cap Ø40, 6 high, taper 0.6, chamfer 2 |
+| PushButton `latching` | As momentary, with an LED | `cap` | Travel 4 held, 1.8 latched | As momentary |
 | Lamp | `bezel`; `lens`, an emitter | None | The emitter turns on | Lens 28† ([I0.3](instrument-phase0.md#i03-emitters-and-the-pointer-light)); the box leaves room for the bloom halo |
 | StatusLight | `lens`, an emitter | None | `blink`, at most 3 flashes a second | Lens 10† (I0.3) |
 | Meter `bar` | `window`; `segment`s | Segments, shown or collapsed | — | 16 `segments`† (I0.1) |
 | Meter `needle`, Gauge | `bezel`, `window`, `dial` | `needle` on a `pivot` | Turn through the gauge's sweep, with a damped spring | Phase I4 |
 | RotarySelector | `collar`; the ring of positions, printed | As Knob | Turn to the selected option, one detent per option | As Knob |
-| Display | `bezel`, `window` | None | The backlight, an emitter | The bezel stands 0.5 px inside the box ([I0.4](instrument-phase0.md#i04-materials-over-the-capture)); the rest in Phase I4 |
+| Display | `bezel`, `window`; the text, a native `<output>` printed under the window | None | The backlight, an emitter† | Box 236 × 58 on the prototype. Bezel 7 wide, radius 8, 2.4 high, chamfer 2, polished, standing 0.5 px inside the box ([I0.4](instrument-phase0.md#i04-materials-over-the-capture)); window 2.4 high with a 2.6 bevel; finish band 0.3, horizon 0.25; the rest in Phase I4 |
 | Pad | `plinth` | `cap`: soft (`subsurface`), lit from below | Travel | Phase I5 |
 | JogWheel | `collar` | A large `cap` with a finger dimple | Turn, wrapping | Phase I5 |
 | Keypad | `plinth` | Push-button `cap`s | Travel | Phase I5 |
@@ -636,7 +664,8 @@ Two kinds of shadow, each where it is exact ([I0.5](instrument-phase0.md#i05-obj
 
 - **On the face: analytic,** the formula above on each part's footprint at its current pose. A part casts the rounded
   box of its footprint at its mean height (a lever along its length); a ball casts a disc at its centre's height.
-  Overlapping part shadows take the darkest. A moving part's shadow moves with it, as a uniform update.
+  Overlapping part shadows take the darkest. A moving part's shadow moves with it, as a uniform update. A glass part
+  casts 0.45 of `shadow.strength`.
 - **On other parts: a shadow map** from the key light, one per layer, in which every part casts and receives (a lever
   on its plate, a carriage in its slot, a cap on its plinth). The face is not a mesh, so the map never reaches it: face
   pixels outside the analytic footprints do not change.
@@ -645,7 +674,7 @@ Two kinds of shadow, each where it is exact ([I0.5](instrument-phase0.md#i05-obj
 | --- | --- | --- | --- |
 | `shadow.map.size` | 4,096 | 2,048 or 4,096 | Map resolution, filtered by PCF. 2,048 is the cheaper choice, at a bias of 2.6 px |
 | `shadow.map.bias` | 1.95 px | See below | Depth bias, in world px |
-| `shadow.map.darkness` | 0.1† | 0–1 | The share of the key light's direct term a mapped shadow leaves |
+| `shadow.map.darkness` | 0.1 | 0–1 | The share of the key light's direct term a mapped shadow leaves |
 
 - **Bias in world px,** below the depth along the light of the thinnest part (a 2 px plate is 3.05 px deep along a ray
   at 41°) and above about 1 px at 4,096 (1.95 px at 2,048). Outside that window a thin plate's shadow acnes or detaches.
@@ -657,8 +686,9 @@ Two kinds of shadow, each where it is exact ([I0.5](instrument-phase0.md#i05-obj
 - **Contact shadows are optional,** off by default (`post.contact`, section 16): the costliest path, barely visible
   head-on, and mostly a copy of the map at cap bases.
 - **Emitters cast no shadows** (section 3).
-- **Open for the second iteration:** a mapped shadow reads lighter than the face shadow beside it (hence the darkness
-  range of 0–0.15†), and a sharp mapped streak meets the softer face shadow at a plate's edge.
+- **Still open for the look sign-off:** the prototype's second iteration runs the map at darkness 0.1, but whether a
+  mapped shadow still reads lighter than the face shadow beside it (hence the range of 0–0.15†), and how a sharp mapped
+  streak meets the softer face shadow at a plate's edge, are to be judged on its screenshots.
 
 ## 8. Colour
 
@@ -897,6 +927,7 @@ model was proven with real pointer and keyboard input in plain DOM and on the GP
 | `knob.dragPx` | 200 | 50–1,000† | Vertical drag for a full sweep, px |
 | `knob.fine` | 0.1 | 0.01–1† | The drag rate while Shift is held |
 | `knob.tapSlop` | 4 | 1–12† | A press that moves less than this, in px, is a tap |
+| `knob.snap` | 2 | 0–5† | A ring click within this many degrees of a printed numeral sets exactly its value |
 
 - **One native control covers the dial.** A transparent native input covers the whole dial, cap and scale ring; the
   drawn ring and cap are `aria-hidden` with `pointer-events: none`, so every click lands on the original control.
@@ -905,12 +936,15 @@ model was proven with real pointer and keyboard input in plain DOM and on the GP
   A circular drag may be offered as an option.
 - **Ring click-to-set:** a click on the scale ring, outside the skirt, sets the value by angle: 0° at the top,
   clockwise over `knob.sweep`; a click in the gap below goes to the nearer end. The ring is printed on the face, so the
-  click is not offset by drift.
-- **Cap tap, the single-pointer alternative (WCAG 2.5.7):** a tap on the cap's upper half steps up by `step`, on its
-  lower half down. Taps reach every value a drag can.
-- **Wheel:** one step per notch, through a **document-level**, non-passive wheel listener that finds the control with
-  `elementFromPoint` and cancels scrolling only over a knob or a fader. A listener on the input itself is unreliable
-  inside the canvas subtree.
+  click is not offset by drift. A click within `knob.snap` degrees of a printed numeral sets exactly that numeral's
+  value (a numeral's box sits on whole pixels, about 0.5° off its true angle): the prototype's clicks on "0", "3", "5",
+  "7" and "10" set 0, 30, 50, 70 and 100.
+- **Cap tap, the single-pointer alternative (WCAG 2.5.7):** a tap inside the skirt (on the skirt or the cap) steps up
+  by a **notch** on its upper half, down on its lower half. A notch is the input's `step`, at least 1% of its range:
+  a 0.1 step on a 0–100 knob would need 1,000 taps. Taps reach every value a drag can.
+- **Wheel:** one notch per wheel notch, through a **document-level**, non-passive wheel listener that finds the control
+  with `elementFromPoint` and cancels scrolling only over a knob or a fader. A listener on the input itself is
+  unreliable inside the canvas subtree.
 - **Double-click** returns to the default value. **Keys** are the native range input's: arrows, Page Up, Page Down,
   Home, End.
 - **Events:** every change goes through the input's `value`, firing `input`, then `change` at the end of a gesture, so
@@ -1201,11 +1235,14 @@ mechanics are the same in every character: parts, poses, containment, interactio
   order and clip; whether feedback is on; reduced motion; any invariant. Values that would break one are reported and
   not applied, as for any theme.
 
-**Premium.** The first character's defaults, all from the first prototype iteration and so provisional: Switch's form
-is `slide` (a `bat` lever projects about 12 px head-on, so it stays available but small); the theme picks the
-faceplate (`metal` on light, `gunmetal` on dark; an explicit plate overrides it); metals take the key light's direct
-term × 0.2 and read from the studio; the lit ring is a plain emissive; the numbers are those of the
-[Instrument object table](#instrument-object-table), section 12's springs and section 4's presets.
+**Premium.** The first character's defaults, from the second iteration of the
+[I1 prototype](instrument-phase0.md#i1-prototype) (the look sign-off on it is pending with the owner): Switch's form is
+`slide` (the `bat` lever, now 40 px long and thrown ±40°, projects about 28 px head-on and is available as a form);
+the theme picks the faceplate (`metal` on light, `gunmetal` on dark; an explicit plate overrides it); every metal takes
+the key light's full direct term and reads from the studio and the page; glass is the capture refraction of section 4;
+lit rings and flags are emissive and feed the emitter bloom; the pointer light, where an application turns it on,
+lights the face at 0.3 of its strength; the numbers are those of the [Instrument object table](#instrument-object-table),
+section 12's springs† and section 4's presets.
 
 ## 20. Feedback
 
@@ -1283,3 +1320,19 @@ it.
 
   An application at `scene` now draws its panels at the Instrument level, and its `camera.distance` defaults to 2,400.
   Values marked † are provisional ([spec notes](instrument-spec-notes.md)).
+- 2026-10-17: the Instrument values from the prototype's second iteration, which took the owner's review of the first
+  ([spec notes](instrument-spec-notes.md) list each value's status):
+  - section 3: no fill light at the Instrument level (the studio is the fill); metals take the full direct term
+    (`direct` 1, was 0.2); the pointer light's warm colour, its face share of 0.3 and its 10 px guard feather; one
+    guard feather per layer;
+  - section 4: the presets' second-iteration values (`polished` 0.04, `gunmetal` brush 0.9, `lacquer` (28, 28, 30)),
+    no grain on large plates, a `bezel` role in `polished` (bezels were in `plate`), glass as real lenses with
+    absorption along the path and its reflection traced to the stand, the face or the studio (dispersion 0.2, was 0.5;
+    the rim tint became an absorption tint), and the display window's finish band;
+  - section 6: the object table's second-iteration numbers (2 px chamfers, crowned tops, a 7.5° skirt cone, a glass
+    cap, a longer bat lever thrown ±40°, rocker ±17.7°, wall ±9°, push-button travel 4 / 1.8 in a 64 px box, the
+    display);
+  - section 7: glass casts 0.45 of the shadow strength; the map's darkness 0.1 is confirmed;
+  - section 14: ring clicks snap to a printed numeral (`knob.snap`), and taps and the wheel step by a notch of at least
+    1% of the range;
+  - section 19: the premium defaults.

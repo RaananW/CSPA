@@ -615,7 +615,7 @@ A version 4 scene has `version: 4` and may add these fields:
 | `emitters` | any scene | At most 64 point lights (2D.4) |
 | `protected` | any scene | At most 64 rects `[x, y, width, height]`, the layer's text runs, or `"extent"` to protect the whole extent; with `feather`, default 4 px (2D.4) |
 | `camera` | `instrument`, required | `{ distance, vanish }` as in 2B.1, with `distance` by the camera rule (2D.3) |
-| `light` | `instrument` | Adds `intensity` (default 1.6) and `ambient` (default 0.55): the key light's strength and the diffuse-only fill (2D.5) |
+| `light` | `instrument` | Adds `intensity` (default 1.6) and `ambient` (default 0: the studio is the fill): the key light's strength and the diffuse-only fill (2D.5) |
 | `environment` | `instrument`, required | `{ source: "studio", strength, studio, page }` (2D.5); `"none"` is invalid |
 | `materials` | `instrument` | Adds `base.colour`, `base.direct` and the layers `reflectance`, `glass`, `dispersion`, `brush`, `grain` and `subsurface` (2D.5) |
 | `profiles` | `instrument` | Part shapes by name (2D.2) |
@@ -652,7 +652,8 @@ Coordinates are layer px, x to the right, y down and z towards the viewer, as in
 | `material` | A key of `materials` |
 | `captured` | Default `false`: a cap that carries the layer's capture (2D.8) |
 | `glass` | Glass parts only: `"lens"` (lenses and glass caps) or `"window"` (2D.6) |
-| `finish` | Finish zones (2.6) on a captured cap or a window |
+| `stand` | Lenses only, optional: `{ radius, colour }`, the polished disc the lens stands on (a knob's skirt), centred on the part at the height of its `at` (2D.6) |
+| `finish` | `true` for the finish zones (2.6) on a captured cap; `{ band, horizon }` (default 0.3, 0.25) for a window's (2D.6) |
 | `caster` | `{ rect, radius, height }`, or `null`: what it casts on the face at the object's `t` (2D.7) |
 | `emitter` | An index into `emitters`: the part is that emitter's lens |
 | `state` | `{ hover, pressed, focus, disabled }`, for captured caps (2B.2) |
@@ -718,6 +719,7 @@ The camera and projection are those of 2B.1: a point `X` appears at `V + (X.xy �
 | `position` | `[x, y, z]`, layer px; `z` is the height above the face |
 | `colour` | `[r, g, b]`, each 0–1 |
 | `strength` | `I`, at least 0 |
+| `face` | 0–1, default 1: the share of `I` that lights the face; parts take all of it (the pointer light's is 0.3) |
 | `radius` | `R`, greater than 0, px |
 | `reach` | `"outset"` (default: the extent and the outset) or `"layer"` (the layer's own content only: the pointer light) |
 
@@ -728,8 +730,9 @@ d = position − X
 E = I · colour · max(n · d / ‖d‖, 0) / (π · ‖d‖²) · clamp(1 − (‖d‖² / R²)², 0, 1)²
 ```
 
-On the face, `X = (x, y, 0)` and `n = (0, 0, 1)`. `Eᶠ(p)` is the sum of the terms of every emitter at `p`; a `"layer"`
-emitter's term is multiplied by the captured alpha `a(p)`, so it lights the layer's own content and nothing beneath it.
+On the face, `X = (x, y, 0)` and `n = (0, 0, 1)`. `Eᶠ(p)` is the sum of the terms of every emitter at `p`, each with
+`I` multiplied by its `face`; a `"layer"` emitter's term is multiplied by the captured alpha `a(p)`, so it lights the
+layer's own content and nothing beneath it.
 
 **Part shadows on the face.** `Sₚ(p)` is the maximum, over the parts with a `caster`, of 2.8's `Sᵢ` for the caster's
 rounded box and height (2D.7).
@@ -767,7 +770,7 @@ shadows whatever lies beneath the layer. Conformance renders over the backdrop.
 | `coat` | `strength` (0), `roughness` (0), `ior` (1.5) | Shaded |
 | `reflectance` | `f0` (1), `tint` (`#ffffff`) | Shaded: the dielectric `F0` |
 | `emissive` | `strength` (0), `colour` (`#ffffff`) | Added, unlit |
-| `glass` | `ior` (1.5), `tint` (`#d1e6e0`), `tintStrength` (0.9) | 2D.6 |
+| `glass` | `ior` (1.5), `tint` (`[0.84, 0.93, 0.9]`, 0–1 per channel), `absorption` (0.03 per px of path), `reflection` (1.5) | 2D.6 |
 | `dispersion` | `strength` (0) | 2D.6 |
 | `brush`, `grain`, `sheen`, `iridescence`, `subsurface` | As in the design language | Presence only (2D.10) |
 
@@ -793,6 +796,7 @@ out  = enc(clamp(key + lamp + fill + env + emissive.strength · lin(emissive.col
 - **Coat:** with `F꜀` the Schlick term for `F0 = ((ior − 1)/(ior + 1))²` and `ndf꜀`, `vis꜀` at `α = coat.roughness²`,
   `f(ω)` becomes `f(ω) · (1 − coat · F꜀(n · v)) + coat · ndf꜀ · vis꜀ · F꜀`.
 - **The map:** `σ` is 1 where the shadow map (2D.7) does not shadow `X`, and `map.darkness` where it does.
+- **The fill** is 0 unless the scene sets `light.ambient` (2D.1): the studio is the fill.
 - **The integral** is evaluated by deterministic quadrature, fine enough that doubling it changes no channel by a
   level. Page reflections are not part of the reference shading (2D.10 checks them by presence).
 - **The clamp:** the output is clamped to 0–1 before encoding, as Lite's PBR does; there is no tone mapping.
@@ -823,31 +827,76 @@ extent's centre, in which a direction that meets the face plane inside the exten
 
 ### 2D.6 Glass
 
-A glass part draws the capture through itself. With `d = normalize(X − C)` (from the camera), `n` the glass normal
-turned towards the viewer, `z` the height of `X`, and GLSL's `refract`:
+A glass part draws the capture through itself, with its reflection in the same computation, in linear light. With
+`d = normalize(X − C)` (from the camera), `n` the glass normal turned towards the viewer, `z` the height of `X`,
+`c(q)` the captured colour at layer point `q` (read exactly at the texel when `q` is a texel centre, bilinearly
+otherwise), GLSL's `refract` and `reflect`, and one index per channel, `ior − Δ`, `ior` and `ior + Δ` for red, green
+and blue, with the spread `Δ = 0.1 · dispersion.strength`:
+
+```text
+F0      = ((ior − 1) / (ior + 1))²
+Fr(n)   = F0 + (1 − F0) · (1 − (−d · n))⁵
+absorb(ℓ) = exp(−(1 − glass.tint) · glass.absorption · ℓ)          per channel, ℓ px of path inside the glass
+```
+
+**Reflection.** The radiance `R(X, r)` along the reflected ray `r = reflect(d, n)`:
+
+```text
+R = studio(r)                                              if r.z ≥ 0 (away from the face)
+R = lin(stand.colour) · studio((r.x, r.y, −r.z))           if the ray meets the stand: G = X + r · (z − b) / (−r.z)
+                                                           lies within stand.radius of the part's centre
+R = lin(c(X.xy + r.xy · z / (−r.z)))                       otherwise: the face where the ray lands
+```
+
+`b` is the height of the part's `at` (the surface it stands on), and `stand` is the part's (2D.2); without one, the
+second case does not apply. The studio is evaluated from its definition (2D.5), not from a prefiltered image.
+
+**A lens** (`glass: "lens"`: lenses and glass caps) is a plano-convex lens whose flat bottom lies at `b`. Per channel,
+with that channel's index `η`:
+
+```text
+t₁ = refract(d, n, 1 / η)                         into the glass
+ℓ  = (z − b) / max(−t₁.z, 10⁻³)                   the path to the bottom
+Q  = X + ℓ · t₁
+t₂ = refract(t₁, (0, 0, 1), η)                    out through the bottom; zero beyond the critical angle
+T  = lin(c(Q.xy + t₂.xy · b / max(−t₂.z, 10⁻³)))   where it lands on the face
+```
+
+Where the green channel's `t₂` is zero (total internal reflection), the light stays in the glass: `T = (0.015, 0.015,
+0.018)` for all three channels and `ℓ = 0`, so the rim shows the dark interior without a per-channel sparkle.
+Otherwise `T` takes each channel from its own index, and `ℓ` is the green channel's. Then:
+
+```text
+out = enc((1 − Fr(n)) · T · absorb(ℓ) + Fr(n) · environment.strength · glass.reflection · R(X, r))
+```
+
+**A window** (`glass: "window"`):
 
 ```text
 s(n, η) = refract(d, n, η).xy · z / max(−refract(d, n, η).z, 0.15)      where the refracted ray meets z = 0
 δ(η)    = s(n, η) − s((0, 0, 1), η)                                      0 wherever the glass is flat
-Δ       = 0.1 · dispersion.strength                                      the spread
-col     = (c(p + δ(1 / (ior − Δ))).r, c(p + δ(1 / ior)).g, c(p + δ(1 / (ior + Δ))).b)
+T       = (c(p + δ(1 / (ior − Δ))).r, c(p + δ(1 / ior)).g, c(p + δ(1 / (ior + Δ))).b)
+F′      = max(Fr(n) − Fr((0, 0, 1)), 0)
+col     = mix(lin(T) · absorb(12 · (1 − n.z)), environment.strength · glass.reflection · R(X, r), F′)
 ```
 
-`c(p + δ)` is the captured colour, read exactly at the texel when `|δ| < 10⁻⁴` px and bilinearly otherwise. Then:
+A tilted bevel is seen through more glass: 12 px is the nominal path through a pane's bevel. If the window sets
+`finish`, its top finish zone is drawn on the glass, with `v` the distance from the window's top and `u` the distance
+from its edge on the key light's side (the left when `L.x < 0`), each as a fraction of the window's height and width:
 
 ```text
-F0    = ((ior − 1) / (ior + 1))²
-Fr(n) = F0 + (1 − F0) · (1 − (−d · n))⁵
-F′    = Fr(n)                              lens
-F′    = max(Fr(n) − Fr((0, 0, 1)), 0)      window
-tint  = mix((1, 1, 1), glass.tint, clamp((1 − n.z) · tintStrength, 0, 1))
-out   = col · tint · (1 − F′) + F′ · enc(environment.strength · studio(reflect(d, n)))
+band    = finish.band · smoothstep(0.03, 0.06, v) · (1 − smoothstep(0.06, 0.26, v)) · (1.25 − 0.6 · u)
+horizon = finish.horizon · (smoothstep(0.25, 0.27, v) − smoothstep(0.28, 0.31, v))
+col     = col · (1 − horizon) + (0.86, 0.9, 0.95) · band
+out     = enc(col)
 ```
 
-- **A window's flat region is exact:** there `δ = 0`, `F′ = 0` and `tint = 1`, so the pixel is `c(p)`.
-- **Finish zones** apply to a window that sets `finish` (2.6), over its rect.
-- The page may add to the reflection in a renderer; the model's reflection is the studio's (2D.10 checks lens
-  reflections by presence).
+- **A window's flat region is exact:** there `δ = 0`, `F′ = 0` and the path is 0, so outside the finish zone the
+  pixel is `c(p)`.
+- **Text under a window is exact:** inside the scene's protected rects grown by 2 px, a window's pixel is `c(p)`,
+  whatever else applies (2D.9).
+- **The reflection is traced, not filtered:** the face and the stand are found by intersecting the reflected ray, so a
+  renderer whose custom shaders cannot sample a cube still draws it. The page cube (2D.5) is not used for glass.
 
 ### 2D.7 Shadows
 
@@ -906,7 +955,8 @@ These are exact, and a renderer keeps them in every configuration, post options 
 5. **The clip:** outside every object's `bounds`, neither the parts nor the chain change a pixel; the result is step
    2's `out`.
 6. **The map never reaches the face:** face pixels are the same with the map on and off.
-7. **Flat glass over text is exact:** a window's pixels inside protected rects are the captured colour `c(p)`.
+7. **Flat glass over text is exact:** a window's pixels inside protected rects grown by 2 px are the captured colour
+   `c(p)`.
 8. **No hits, no recapture.** Instrument scenes take no hits. A renderer applies changes of `t`, of emitters (the
    pointer light included) and of `post` as scene data: none recaptures the layer or changes its hit geometry.
    Underglass's browser tests check this with counters; a suite of scenes cannot.
@@ -1067,7 +1117,8 @@ version 4 is geometric and sampled (2D):
   - push buttons, held and latched, with captured labels;
   - a lamp beside a label, on and off: the face pool, the outset past the panel's edge and the guard;
   - an LED, and the pointer light over text;
-  - a display window with text under flat glass, and a lens over a printed target (refraction, dispersion);
+  - a display window with text under flat glass and its finish band, and a lens on a polished stand over a printed
+    target (refraction, magnification, the dark rim, dispersion, the stand's reflection);
   - the `metal`, `polished`, `lacquer`, `gold`, `gunmetal` and `chrome` presets at sampled points;
   - a lever's shadow on its plate, and a 2 px plate's shadow;
   - the shadows of parts on the face;
@@ -1107,6 +1158,17 @@ version 4 is geometric and sampled (2D):
   renderer states which versions it conforms to.
 
 ## Change log
+
+- 2026-10-17: version 4, draft, from the second iteration of the
+  [I1 prototype](instrument-phase0.md#i1-prototype):
+  - **Glass (2D.6)** is computed in linear light with its reflection traced: a ray towards the face meets the part's
+    polished `stand` or the face, a ray away from it sees the studio. A lens refracts in at its surface and out at its
+    flat bottom (total internal reflection gives a dark rim) instead of being shifted against a flat pane; light is
+    absorbed along its path (`glass.tint`, `glass.absorption`) instead of a rim tint (`tintStrength`); glass
+    reflections take `glass.reflection` (1.5); a window's finish band is defined (`finish: { band, horizon }`), and its
+    text is exact over its protected rects grown by 2 px.
+  - **Emitters (2D.4)** gain `face`, the share of their strength that lights the face (the pointer light's is 0.3).
+  - **The fill (2D.1, 2D.5)** defaults to 0 in Instrument scenes: the studio is the fill.
 
 - 2026-10-17: version 4 (Instrument), draft: part 2D, from the [Instrument plan](instrument.md) and the
   [Phase I0 report](instrument-phase0.md). The scene format gains `kind`, emitters and protected rects at every level,
