@@ -542,6 +542,6 @@ One concern per PR, each based on `main`:
 3. Design-language sections, version 4 of the Rendering Model, `premium.json` and the reference implementation.
 4. Core: `instrument` material and the mesh pass. 5. Core: emitters. 6. Core: object-on-object shadows.
 7. Core: transmission over the capture. 8. Core: custom parts.
-9. Knob. 10. Fader. 11. Switch forms, with sound and haptics as the opt-in option.
+9. Knob (wave 1: [anatomy](components/knob.md); Relief, Objects and CSS done, the Instrument scene waits for PR 4). 10. Fader. 11. Switch forms, with sound and haptics as the opt-in option.
 12. Wave 2 components, one or two per PR. 13. Everyday forms, a few per PR. 14. Instrument gallery and showpiece.
 15. Wave 3 components. 16. Characters: studio, hifi, playful, one per PR.
