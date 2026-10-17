@@ -13,6 +13,7 @@
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  *   toasts appear in the status region and go after their time, which hovering stops;
+ *   a Rating is set by click and arrow keys, fills up to its score and submits it, and its display is named by it;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -732,5 +733,44 @@ for (const binding of bindings) test(`Strata ${binding} toasts appear in the sta
   await expect(toasts).toHaveCount(3);
   await toasts.first().getByRole("button", { name: "Dismiss" }).click();
   await expect(toasts).toHaveCount(2);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Rating is set by click and arrow keys, fills up to its score, submits it, and its display is named by it`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  await page.locator("#live-rating").scrollIntoViewIfNeeded();
+  const group = page.getByRole("group", { name: "Quality" });
+  const star = name => group.getByRole("radio", { name, exact: true });
+  await expect(star("3 stars")).toBeChecked();
+  const display = page.getByRole("img", { name: "3 out of 5 stars" });
+  await expect(display).toBeVisible();
+  // Filled stars follow the score: the first three use the accent, the rest the edge colour.
+  const fills = () => page.locator("#live-rating .ug-rating__star").evaluateAll(stars => stars.map(star => getComputedStyle(star, "::before").backgroundColor));
+  const [accent, edge] = await page.evaluate(() => { const style = getComputedStyle(document.querySelector("#live-rating")); return [style.getPropertyValue("--strata-colour-accent"), style.getPropertyValue("--strata-colour-edge")]; });
+  const filled = await fills();
+  expect(new Set(filled.slice(0, 3)).size).toBe(1);
+  expect(filled[3]).not.toBe(filled[0]);
+  expect(filled[3]).toBe(filled[4]);
+  expect(accent && edge).toBeTruthy();
+  // A real click on the fifth star; the pointer leaves so no hover preview remains.
+  const fifth = await page.locator("#live-rating .ug-rating__item").nth(4).boundingBox();
+  await page.mouse.click(fifth.x + fifth.width / 2, fifth.y + fifth.height / 2);
+  await page.mouse.move(5, 5);
+  await expect(star("5 stars")).toBeChecked();
+  expect(await page.evaluate(() => window.strataBinding.score)).toBe(5);
+  await expect(page.getByRole("img", { name: "5 out of 5 stars" })).toBeVisible();
+  expect(new Set(await fills()).size).toBe(1);
+  // Arrow keys change the score by one, natively.
+  await page.keyboard.press("ArrowLeft");
+  await expect(star("4 stars")).toBeChecked();
+  expect(await page.evaluate(() => window.strataBinding.score)).toBe(4);
+  expect(await page.evaluate(() => new FormData(document.getElementById("score-form")).get("quality"))).toBe("4");
+  // Each star is a 24 px target.
+  for (const box of await page.locator("#live-rating .ug-rating__item").evaluateAll(items => items.map(item => item.getBoundingClientRect().toJSON()))) {
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(24);
+  }
   await context.close();
 });
