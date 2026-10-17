@@ -138,6 +138,8 @@ const interactive = "input, button, select, textarea, a[href], [tabindex]";
 /** Material roles by face, for elements that name no material (design language section 4). */
 function roleOf(face: SceneFace, element: Element, panel: Element): string {
   if (element === panel || element.matches(".ug-card")) return "panel";
+  // A fader's carriage is a raised face in the knob's material (its slot is a groove, a rail).
+  if (element.matches(".ug-fader__carriage")) return "knob";
   if (face === "raised") return element.matches(".ug-button--accent, .ug-button--primary") ? "buttonPrimary" : "control";
   return ({ well: "field", groove: "rail", knob: "knob", mark: "indicator", ring: "field", flat: "control" } as Record<string, string>)[face] ?? "control";
 }
@@ -250,7 +252,11 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
     return material(named && panel.contains(named) ? named.getAttribute("data-strata-material")! : tokens.raw(`material.roles.${roleOf(face, element, panel)}`) || "matte");
   };
   const states = (element: Element) => {
-    const control = element.matches(interactive) ? element : element.closest("label")?.querySelector("input, select, textarea") ?? element;
+    // A fader's slot and carriage are its input's object: they take its hover and disabled state (a carriage does not
+    // sink while it is dragged, as hardware does not). Its focus ring is the CSS outline round the track (captured
+    // content), so the GPU adds no focus edge of its own.
+    const owner = element.closest(".ug-fader__track")?.querySelector(".ug-fader__input");
+    const control = element.matches(interactive) ? element : owner ?? element.closest("label")?.querySelector("input, select, textarea") ?? element;
     const target = control.closest("label") ?? control;
     const preview = `${element.getAttribute("data-strata-preview") ?? ""} ${control.getAttribute("data-strata-preview") ?? ""}`.split(/\s+/);
     // Only a control takes hover and press: a card, a plinth or any other surface under the pointer stays where it is.
@@ -259,8 +265,8 @@ export function strataScene(panel: HTMLElement, options: StrataSceneOptions = {}
       hover: (isControl && target.matches(":hover")) || preview.includes("hover"),
       // A toggle that is on, the current page of a Pagination, or a SegmentedControl's selected key holds its key down (design language section 6: it
       // latches at its travel).
-      pressed: (isControl && control.matches(":active, [aria-pressed='true'], [aria-current]:not([aria-current='false']), .ug-segmented__input:checked")) || preview.includes("active"),
-      focus: control.matches(":focus-visible") || preview.includes("focus"),
+      pressed: !owner && (isControl && control.matches(":active, [aria-pressed='true'], [aria-current]:not([aria-current='false']), .ug-segmented__input:checked")) || preview.includes("active"),
+      focus: !owner && (control.matches(":focus-visible") || preview.includes("focus")),
       disabled: control.matches(":disabled, [aria-disabled='true']"),
     };
   };
