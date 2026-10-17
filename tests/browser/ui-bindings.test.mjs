@@ -396,6 +396,8 @@ for (const binding of bindings) test(`Strata ${binding} List rows are links, but
   await expect(page).toHaveURL(/#inbox$/);
   // A button row fills the row: a click at its far end presses it, and so do Enter and Space.
   const archive = page.locator("#archive-row .ug-list__action");
+  // A coordinate click does not scroll: the list may be below the fold.
+  await archive.scrollIntoViewIfNeeded();
   const row = await page.locator("#archive-row").boundingBox(), action = await archive.boundingBox();
   expect(Math.abs(row.width - action.width)).toBeLessThanOrEqual(1);
   expect(action.height).toBeGreaterThanOrEqual(24);
