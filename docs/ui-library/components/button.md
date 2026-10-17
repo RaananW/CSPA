@@ -95,7 +95,8 @@ One `raised` primitive: the `<button>` itself, from its border box and `border-r
 
 The relief recipe at `elevation.raised`, with `box-shadow` derived from the light (section 7), the bevel
 gradient, and the material's finish zones (section 4). Minimum size: the density's control height, and never
-below `target.min` (24) in either dimension. Under `forced-colors`: `ButtonFace`, `ButtonText` and a
+below `target.min` (24) in either dimension. A flex row never squeezes a button below its label
+(`flex-shrink: 0`): a row too narrow for its buttons should wrap. Under `forced-colors`: `ButtonFace`, `ButtonText` and a
 `ButtonBorder` outline; no shadows.
 
 ## 10. Tests

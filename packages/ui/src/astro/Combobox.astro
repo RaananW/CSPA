@@ -1,0 +1,39 @@
+---
+/**
+ * Combobox (anatomy page `combobox.md`): a TextField with the browser's own suggestion list, a native `<input list>`
+ * and its `<datalist>`. With Field props it renders its Field. The list's id is the input's id with `-options`, so
+ * the input has an id: `id`, the Field's, or a generated one.
+ */
+import Field from "./Field.astro";
+import { fieldControl, nextId } from "./field.ts";
+import { comboboxListId, comboboxOptions, type ComboboxOption } from "../shared/combobox.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  options: readonly ComboboxOption[];
+  id?: string;
+  label?: string;
+  help?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+  requiredLabel?: string;
+  errorPrefix?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { options, id, label, help, error, required, disabled, invalid, requiredLabel, errorPrefix, size, material, level, class: className, ...rest } = Astro.props;
+const field = fieldControl({ id, label, help, error, required, disabled, invalid });
+const inputId = field.id || nextId("combobox");
+const listId = comboboxListId(inputId);
+const strata = strataAttributes({ size, material, level });
+---
+<Field wrap={field.wrap} controlId={field.id} label={label} help={help} error={error} required={required} requiredLabel={requiredLabel} errorPrefix={errorPrefix}>
+  <input class={classes("ug-text-field ug-combobox", className)} data-strata-face="well" type="text" autocomplete="off" {...strata} {...field.attrs} {...rest} id={inputId} list={listId} />
+  <datalist id={listId}>{comboboxOptions(options).map(option => <option value={option.value}>{option.label}</option>)}</datalist>
+</Field>

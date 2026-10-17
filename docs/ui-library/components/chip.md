@@ -103,7 +103,8 @@ Objects level; a tag or removable chip is a slab. The remove button and the chec
 
 ## 9. CSS presentation
 
-An inline flex pill with the `raised` recipe, `space.3` inline padding and `font.size.small`. A filter chip uses the
+An inline flex pill with the `raised` recipe, `space.3` inline padding and `font.size.small`. A chip is never wider than its
+container: a long label is cut with an ellipsis. A filter chip uses the
 ToggleButton's latch (a smaller shadow and a tint) with a check mark drawn by borders. The remove button is a round
 button with a cross drawn by two rotated bars. Under `forced-colors` chips have a `ButtonBorder` border; a filter chip
 that is on is `Highlight` with `HighlightText`.
