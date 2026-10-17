@@ -15,6 +15,7 @@ export { attachStrata } from "./behaviour.ts";
 export { selectStrataTab, strataTabsActivation, strataTabTarget } from "./tabs.ts";
 export { rovingStrataToolbar, strataToolbarTarget } from "./toolbar.ts";
 export { attachStrataTooltips, hideStrataTooltip, showStrataTooltip } from "./tooltip.ts";
+export { attachStrataCarousels, showStrataSlide, strataSlideIndex, strataSlideTarget } from "./carousel.ts";
 export { showStrataToast } from "./toast.ts";
 export type { ToastHandle, ToastOptions } from "./toast.ts";
 export type { TabChange, TabsActivation } from "./tabs.ts";

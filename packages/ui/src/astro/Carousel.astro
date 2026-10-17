@@ -1,0 +1,43 @@
+---
+/**
+ * Carousel (anatomy page `carousel.md`), the WAI-ARIA Carousel pattern without rotation: `count` slides from the named
+ * slots `slide-1`, `slide-2` and so on, one shown at a time. `attachStrata` runs the buttons and reports `strata-slide`
+ * (`detail.index`) from the carousel.
+ */
+import Behaviour from "./Behaviour.astro";
+import { strataSlideLabels } from "../shared/carousel.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  /** The carousel's name, such as "Featured". */
+  label: string;
+  count: number;
+  /** The shown slide, from 0. */
+  index?: number;
+  previousLabel?: string;
+  nextLabel?: string;
+  pickerLabel?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, count, index = 0, previousLabel = "Previous slide", nextLabel = "Next slide", pickerLabel = "Slides", size, material, level, class: className, ...rest } = Astro.props;
+const labels = strataSlideLabels(count);
+const slides = await Promise.all(labels.slides.map((_, at) => Astro.slots.render(`slide-${at + 1}`)));
+---
+<section class={classes("ug-carousel", className)} aria-roledescription="carousel" aria-label={label} {...strataAttributes({ size, material, level })} {...rest}>
+  <div class="ug-carousel__slides" aria-live="polite">
+    {slides.map((html, at) => <div class="ug-carousel__slide" role="group" aria-roledescription="slide" aria-label={labels.slides[at]} hidden={at !== index} set:html={html}></div>)}
+  </div>
+  <div class="ug-carousel__controls">
+    <button type="button" class="ug-icon-button ug-carousel__previous" data-strata-face="raised" aria-label={previousLabel}><span class="ug-icon-button__icon" aria-hidden="true"></span></button>
+    <div class="ug-carousel__picker" role="group" aria-label={pickerLabel}>
+      {labels.keys.map((name, at) => <button type="button" class="ug-carousel__key" data-strata-face="raised" aria-label={name} aria-current={at === index ? "true" : undefined}></button>)}
+    </div>
+    <button type="button" class="ug-icon-button ug-carousel__next" data-strata-face="raised" aria-label={nextLabel}><span class="ug-icon-button__icon" aria-hidden="true"></span></button>
+  </div>
+</section>
+<Behaviour />

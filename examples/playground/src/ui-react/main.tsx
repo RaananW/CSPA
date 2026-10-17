@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast } from "@underglass/ui/react";
+import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -95,6 +95,7 @@ function Contracts() {
       <div data-contract="table.md#2"><Table caption="Invoices" columns={[{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }]} rows={[{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }]} sort={{ key: "number", direction: "ascending" }} /></div>
       <div data-contract="breadcrumb.md"><Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Settings", href: "/settings" }, { label: "Profile", href: "/settings/profile" }]} /></div>
       <div data-contract="avatar.md"><Avatar name="Ada Lovelace" /><Avatar name="Grace Hopper" src="/people/grace.jpg" /><Avatar name="Alan Turing" decorative /></div>
+      <div data-contract="carousel.md"><Carousel label="Featured" slides={[<p>First</p>, <p>Second</p>, <p>Third</p>]} /></div>
       <div data-contract="chip.md"><Chip>Design</Chip><Chip defaultPressed>Remote</Chip><Chip onRemove={() => {}}>ada@example.com</Chip></div>
       <div data-contract="skeleton.md"><Skeleton shape="circle" /><Skeleton lines={3} /><Skeleton shape="rect" width="100%" height={120} /></div>
       <div data-contract="message-bar.md">
@@ -131,6 +132,7 @@ function App() {
   const [page, setPage] = useState(1);
   const [appBar, setAppBar] = useState(0);
   const [toasts, setToasts] = useState(0);
+  const [slide, setSlide] = useState(0);
   const [messages, setMessages] = useState({ upgrades: 0, dismissed: false });
   const [chips, setChips] = useState({ remote: false, removed: [] as string[] });
   const [sort, setSort] = useState<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -139,7 +141,7 @@ function App() {
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts, slide } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -292,6 +294,10 @@ function App() {
             <ListItem id="locked-row" primary="Locked" disabled onClick={() => setRows(current => ({ ...current, locked: current.locked + 1 }))} />
             <ListItem id="storage-row" primary="Storage" secondary="4.2 GB of 15 GB used" />
           </List>
+        </section>
+        <section className="ug-panel" data-strata-face="raised" aria-label="Carousels">
+          <Carousel id="live-carousel" label="Stories" index={slide} onIndexChange={setSlide}
+            slides={[<p>Strata lights every face.</p>, <p>Objects travel when pressed.</p>, <p>Scenes settle with a spring.</p>]} />
         </section>
         <section className="ug-panel" data-strata-face="raised" aria-label="Overlays">
           <Button id="open-live" onClick={() => setLiveOpen(true)}>Open live dialog</Button>

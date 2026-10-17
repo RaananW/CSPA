@@ -133,6 +133,15 @@ test("Strata Astro components get their browser behaviour from attachStrata and 
   const removed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-remove", event => list.push(event.target.id)); return list; });
   await page.getByRole("button", { name: "Remove ada@example.com" }).click();
   expect(await removed.jsonValue()).toEqual(["ada-chip"]);
+  // A Carousel runs from its markup: Next shows the next slide, wrapping, and reports strata-slide.
+  const slides = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-slide", event => list.push(event.detail.index)); return list; });
+  const carousel = page.locator("#astro-carousel");
+  await carousel.getByRole("button", { name: "Next slide" }).click();
+  await expect(carousel.locator(".ug-carousel__slide:not([hidden])")).toHaveText("Two");
+  await expect(carousel.getByRole("button", { name: "Slide 2" })).toHaveAttribute("aria-current", "true");
+  await carousel.getByRole("button", { name: "Next slide" }).click();
+  await expect(carousel.locator(".ug-carousel__slide:not([hidden])")).toHaveText("One");
+  expect(await slides.jsonValue()).toEqual([1, 0]);
   // A MessageBar's dismiss button reports strata-dismiss from the bar.
   const dismissed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-dismiss", event => list.push(event.target.id)); return list; });
   await page.locator("#astro-message").getByRole("button", { name: "Dismiss" }).click();

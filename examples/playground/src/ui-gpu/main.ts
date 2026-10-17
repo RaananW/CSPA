@@ -11,7 +11,8 @@
  * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts, `strataGpuProbe.addAvatar()` an Avatar, and
  * `strataGpuProbe.addChips()` a tag and a filter chip, `strataGpuProbe.addMessage()` a MessageBar with an action, and
  * `strataGpuProbe.addPagination()` three page keys, `strataGpuProbe.addToolbar()` a Toolbar of toggle buttons, 
- * `strataGpuProbe.addAppBar()` an AppBar, and `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root.
+ * `strataGpuProbe.addAppBar()` an AppBar, `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root, and
+ * `strataGpuProbe.addCarousel()` a Carousel of two slides, run by `attachStrata`.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -127,6 +128,12 @@ const paginationMarkup = `<nav class="ug-pagination" aria-label="Pagination" id=
 /** A MessageBar in plain markup (`message-bar.md`), added by `strataGpuProbe.addMessage()`; its action counts presses. */
 const messageMarkup = `<div class="ug-message-bar ug-message-bar--warning" data-strata-face="raised" role="alert" id="gpu-message" style="margin-top:12px"><span class="ug-message-bar__icon" aria-hidden="true"></span><div class="ug-message-bar__content"><p class="ug-message-bar__body">Storage almost full.</p></div><div class="ug-message-bar__actions"><button class="ug-button" data-strata-face="raised" type="button" id="gpu-message-action"><span class="ug-button__label">Upgrade</span></button></div></div>`;
 let upgrades = 0;
+/** A Carousel in plain markup (`carousel.md`), added by `strataGpuProbe.addCarousel()`: two slides of different text. */
+const carouselMarkup = `<section class="ug-carousel" aria-roledescription="carousel" aria-label="Stories" id="gpu-carousel" style="margin-top:12px">
+  <div class="ug-carousel__slides" aria-live="polite"><div class="ug-carousel__slide" role="group" aria-roledescription="slide" aria-label="1 of 2"><p style="margin:0">WWWWWWWWWWWW</p></div><div class="ug-carousel__slide" role="group" aria-roledescription="slide" aria-label="2 of 2" hidden><p style="margin:0">iiiiiiiiiiii</p></div></div>
+  <div class="ug-carousel__controls"><button type="button" class="ug-icon-button ug-carousel__previous" data-strata-face="raised" aria-label="Previous slide" id="gpu-carousel-previous"><span class="ug-icon-button__icon" aria-hidden="true"></span></button>
+  <div class="ug-carousel__picker" role="group" aria-label="Slides"><button type="button" class="ug-carousel__key" data-strata-face="raised" aria-label="Slide 1" aria-current="true" id="gpu-carousel-key-1"></button><button type="button" class="ug-carousel__key" data-strata-face="raised" aria-label="Slide 2" id="gpu-carousel-key-2"></button></div>
+  <button type="button" class="ug-icon-button ug-carousel__next" data-strata-face="raised" aria-label="Next slide" id="gpu-carousel-next"><span class="ug-icon-button__icon" aria-hidden="true"></span></button></div></section>`;
 /** Chips in plain markup (`chip.md`), added by `strataGpuProbe.addChips()`: a tag and a filter chip. */
 const chipsMarkup = `<p style="margin:12px 0 0;display:flex;gap:8px"><span class="ug-chip" data-strata-face="raised" id="gpu-tag"><span class="ug-chip__label">Design</span></span><button class="ug-chip" data-strata-face="raised" type="button" aria-pressed="false" id="gpu-filter"><span class="ug-chip__label">Remote</span></button></p>`;
 /** An Avatar in plain markup (`avatar.md`), added to the panel by `strataGpuProbe.addAvatar()`. */
@@ -180,6 +187,7 @@ window.strataGpuProbe = {
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
   addTooltip,
+  addCarousel: () => { panel.insertAdjacentHTML("beforeend", carouselMarkup); attachStrata(panel); strata?.refresh(); },
   toast: () => { showStrataToast({ message: "Saved.", intent: "success", duration: Infinity }); },
   addAppBar: () => { panel.insertAdjacentHTML("beforeend", appBarMarkup); panel.querySelector("#gpu-sign-in")!.addEventListener("click", () => { signIns++; }); strata?.refresh(); },
   signIns: () => signIns,
@@ -210,6 +218,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; toast(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addCarousel(): void; toast(): void;
   } }
 }

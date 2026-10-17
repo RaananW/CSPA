@@ -448,3 +448,15 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
+
+## Carousel
+
+A few items shown one at a time, by the WAI-ARIA Carousel pattern without rotation: Previous and Next (wrapping), a
+picker key per slide (the current one held down, `aria-current`), and a polite live region for the slides:
+
+```tsx
+<Carousel label="Featured" slides={[<Story id={1} />, <Story id={2} />]} index={index} onIndexChange={setIndex} />
+```
+
+Vue takes one slide per element of its default slot (`v-model:index`); Astro takes `count` and the named slots
+`slide-1`, `slide-2`… and `attachStrata` reports `strata-slide`. [Anatomy](../../docs/ui-library/components/carousel.md).

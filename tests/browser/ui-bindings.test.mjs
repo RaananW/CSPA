@@ -13,6 +13,7 @@
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  *   toasts appear in the status region and go after their time, which hovering stops;
+ *   a Carousel shows one slide, steps and wraps with Previous and Next, jumps with a picker key, and reports it;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -395,6 +396,8 @@ for (const binding of bindings) test(`Strata ${binding} List rows are links, but
   await expect(page).toHaveURL(/#inbox$/);
   // A button row fills the row: a click at its far end presses it, and so do Enter and Space.
   const archive = page.locator("#archive-row .ug-list__action");
+  // A coordinate click does not scroll: the list may be below the fold.
+  await archive.scrollIntoViewIfNeeded();
   const row = await page.locator("#archive-row").boundingBox(), action = await archive.boundingBox();
   expect(Math.abs(row.width - action.width)).toBeLessThanOrEqual(1);
   expect(action.height).toBeGreaterThanOrEqual(24);
@@ -732,5 +735,39 @@ for (const binding of bindings) test(`Strata ${binding} toasts appear in the sta
   await expect(toasts).toHaveCount(3);
   await toasts.first().getByRole("button", { name: "Dismiss" }).click();
   await expect(toasts).toHaveCount(2);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Carousel shows one slide, steps and wraps with Previous and Next, jumps with a picker key, and reports it`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const carousel = page.locator("#live-carousel");
+  await carousel.scrollIntoViewIfNeeded();
+  const shown = () => carousel.locator(".ug-carousel__slide:not([hidden])").evaluateAll(slides => slides.map(slide => `${slide.getAttribute("aria-label")}:${slide.textContent}`));
+  const current = () => carousel.locator(".ug-carousel__key[aria-current='true']").getAttribute("aria-label");
+  expect(await shown()).toEqual(["1 of 3:Strata lights every face."]);
+  await expect(page.getByRole("region", { name: "Stories" })).toBeVisible();
+  // Next steps; Previous wraps back to the last slide.
+  await carousel.getByRole("button", { name: "Next slide" }).click();
+  expect(await shown()).toEqual(["2 of 3:Objects travel when pressed."]);
+  expect(await current()).toBe("Slide 2");
+  expect(await page.evaluate(() => window.strataBinding.slide)).toBe(1);
+  await carousel.getByRole("button", { name: "Previous slide" }).click();
+  await carousel.getByRole("button", { name: "Previous slide" }).click();
+  expect(await shown()).toEqual(["3 of 3:Scenes settle with a spring."]);
+  // Next wraps to the first; a picker key jumps, by keyboard too.
+  await carousel.getByRole("button", { name: "Next slide" }).click();
+  expect(await current()).toBe("Slide 1");
+  await carousel.getByRole("button", { name: "Slide 2" }).focus();
+  await page.keyboard.press("Enter");
+  expect(await shown()).toEqual(["2 of 3:Objects travel when pressed."]);
+  expect(await page.evaluate(() => window.strataBinding.slide)).toBe(1);
+  // The slides are a polite live region; every control is a 24 px target at least.
+  await expect(carousel.locator(".ug-carousel__slides")).toHaveAttribute("aria-live", "polite");
+  for (const box of await carousel.locator("button").evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().toJSON()))) {
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(24);
+  }
   await context.close();
 });

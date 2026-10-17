@@ -1129,6 +1129,51 @@
   }
   @starting-style { :where(.ug-toast) { translate: 0 8px; opacity: 0; } }
 
+  /* ---- Carousel ---- */
+
+  /* One slide at a time in a frame, with keys under it: Previous, a picker key per slide, Next. */
+  :where(.ug-carousel) { display: flex; flex-direction: column; gap: var(--strata-space-3); color: var(--strata-colour-text); font-family: var(--strata-font-family); }
+  :where(.ug-carousel__slides) {
+    box-sizing: border-box;
+    padding: var(--strata-space-4);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+  }
+  :where(.ug-carousel__slide) { opacity: 1; transition: opacity var(--strata-motion-normal) var(--strata-motion-easing-standard); }
+  @starting-style { :where(.ug-carousel__slide):not([hidden]) { opacity: 0; } }
+  :where(.ug-carousel__controls) { display: flex; align-items: center; justify-content: center; gap: var(--strata-space-2); }
+  :where(.ug-carousel__picker) { display: flex; flex-wrap: wrap; gap: var(--strata-space-1); }
+  :where(.ug-carousel__key) {
+    --_finish: var(--strata-finish-role-control);
+    box-sizing: border-box;
+    width: var(--strata-target-min);
+    height: var(--strata-target-min);
+    margin: 0;
+    padding: 0;
+    border: var(--strata-outline-width) solid var(--strata-colour-edge);
+    border-radius: 50%;
+    background-color: var(--strata-colour-secondary);
+    cursor: pointer;
+  }
+  :where(.ug-carousel__key):is(:hover, [data-strata-preview~="hover"]) { --_lift: var(--strata-state-hover-height); --_tone: var(--_hover-tone); }
+  :where(.ug-carousel__key):is(:active, [data-strata-preview~="active"]) { --_lift: var(--strata-state-press-height); --_tone: var(--_press-tone); }
+  /* The current slide's key: held down and filled. */
+  :where(.ug-carousel__key[aria-current="true"]) { --_lift: var(--strata-state-press-height); --_tone: var(--_press-tone); background-color: var(--strata-colour-accent); }
+  :where(.ug-carousel__key):is(:focus-visible, [data-strata-preview~="focus"]) { outline: var(--strata-focus-width) solid var(--strata-colour-accent); outline-offset: var(--strata-focus-offset); }
+  /* An empty icon gets a chevron pointing back or forward along the text. */
+  :where(.ug-carousel__previous, .ug-carousel__next) > :where(.ug-icon-button__icon) { place-items: center; }
+  :where(.ug-carousel__previous, .ug-carousel__next) > :where(.ug-icon-button__icon:empty)::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    border-bottom: 2px solid currentColor;
+    border-left: 2px solid currentColor;
+    rotate: 45deg;
+  }
+  :where(.ug-carousel__next) > :where(.ug-icon-button__icon:empty)::before { rotate: -135deg; }
+  :where(.ug-carousel:dir(rtl)) :where(.ug-carousel__previous) > :where(.ug-icon-button__icon:empty)::before { rotate: -135deg; }
+  :where(.ug-carousel:dir(rtl)) :where(.ug-carousel__next) > :where(.ug-icon-button__icon:empty)::before { rotate: 45deg; }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1304,6 +1349,7 @@
   @media (prefers-reduced-motion: reduce) {
     :where([data-strata-face], .ug-checkbox__mark, .ug-radio__dot, .ug-switch__knob, .ug-switch__input, .ug-accordion__chevron) { transition: none; }
     :where(.ug-spinner__arc) { animation: none; }
+    :where(.ug-carousel__slide) { transition: none; }
     :where(.ug-scrim) { transition: none; }
     :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
@@ -1330,6 +1376,9 @@
     :where(.ug-scrim) { forced-color-adjust: none; }
     :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group, .ug-toolbar) { border: 1px solid ButtonBorder; }
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-carousel__slides) { border: 1px solid CanvasText; }
+    :where(.ug-carousel__key) { border: 1px solid ButtonBorder; }
+    :where(.ug-carousel__key[aria-current="true"]) { forced-color-adjust: none; background-color: Highlight; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
     :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }

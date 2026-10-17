@@ -753,3 +753,27 @@ test("a toast over a GPU-presented panel leaves the panel on the GPU", async ({ 
   expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`a Carousel on the GPU at the ${level} level: keys under captured slides, the current picker key held down, a real click on Next shows fresh pixels, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addCarousel(); await window.strataGpuProbe.controller.settle(); });
+  const key = level === "objects" ? "key" : "raised";
+  const keys = () => Promise.all(["previous", "key-1", "key-2", "next"].map(async name => { const entry = await primitiveOf(page, `#gpu-carousel-${name}`); return `${entry.object ?? entry.face}:${entry.state.pressed}`; }));
+  expect(await keys()).toEqual([`${key}:false`, `${key}:true`, `${key}:false`, `${key}:false`]);
+  const slide = await page.locator("#gpu-carousel .ug-carousel__slide:not([hidden]) p").boundingBox(), frame = await page.locator("#frame").boundingBox();
+  const centre = [slide.x - frame.x + 12, slide.y - frame.y + slide.height / 2];
+  const before = (await snap(page, "carousel-before"))(...centre);
+  // A real click on Next through the GPU: the second slide shows, its key is held down, and the pixels are fresh.
+  const next = await page.locator("#gpu-carousel-next").boundingBox();
+  await page.mouse.click(next.x + next.width / 2, next.y + next.height / 2);
+  await page.mouse.move(5, 5);
+  await expect(page.locator("#gpu-carousel .ug-carousel__slide:not([hidden])")).toHaveAttribute("aria-label", "2 of 2");
+  expect(await keys()).toEqual([`${key}:false`, `${key}:false`, `${key}:true`, `${key}:false`]);
+  await page.waitForTimeout(400);
+  const after = (await snap(page, "carousel-after"))(...centre);
+  expect(after).not.toEqual(before);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});
