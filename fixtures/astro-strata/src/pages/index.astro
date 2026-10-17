@@ -6,8 +6,8 @@
  */
 import "@underglass/ui/css";
 import {
-  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Chip, Dialog, Divider, Drawer, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, RadioGroup, Select, Skeleton, Slider, Spinner, Table, Tabs,
-  StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton, Toolbar, Tooltip,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Chip, Dialog, Divider, Drawer, IconButton, Link, List, ListItem, MessageBar, NavigationRail, Pagination, Panel, Popover, ProgressBar, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Stepper, Slider, Spinner, Table, Tabs,
+  StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView,
 } from "@underglass/ui/astro";
 
 const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
@@ -33,6 +33,12 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     <div data-contract="radio.md"><RadioGroup legend="Plan" name="plan" value="free" help="You can change it later." error="choose a plan." options={[{ value: "free", label: "Free" }, { value: "pro", label: "Pro" }]} /></div>
     <div data-contract="table.md#2"><Table caption="Invoices" columns={[{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }]} rows={[{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }]} sort={{ key: "number", direction: "ascending" }} /></div>
     <div data-contract="avatar.md"><Avatar name="Ada Lovelace" /><Avatar name="Grace Hopper" src="/people/grace.jpg" /><Avatar name="Alan Turing" decorative /></div>
+    <div data-contract="segmented-control.md"><SegmentedControl label="View" name="view" value="day" options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }]} /></div>
+    <div data-contract="rating.md"><Rating label="Your rating" name="score" max={3} value={2} /><RatingDisplay value={4.5} /></div>
+    <div data-contract="stepper.md"><Stepper label="Checkout progress" steps={["Cart", "Shipping", "Payment"]} current={1} /></div>
+    <div data-contract="navigation-rail.md"><NavigationRail label="Main" items={[{ label: "Inbox", href: "/inbox" }, { label: "Drafts", href: "/drafts" }]} current="/inbox" /></div>
+    <div data-contract="popover.md"><Button popovertarget="filters-popover">Filters</Button><Popover id="filters-popover" title="Filters" /></div>
+    <div data-contract="tree-view.md"><TreeView label="Files" items={[{ value: "src", label: "src", children: [{ value: "src/index.ts", label: "index.ts" }] }, { value: "readme", label: "README.md" }]} expanded={["src"]} selected="src/index.ts" /></div>
     <div data-contract="carousel.md"><Carousel label="Featured" count={3}><p slot="slide-1">First</p><p slot="slide-2">Second</p><p slot="slide-3">Third</p></Carousel></div>
     <div data-contract="chip.md"><Chip label="Design" /><Chip label="Remote" pressed /><Chip label="ada@example.com" removable /></div>
     <div data-contract="message-bar.md"><MessageBar intent="warning" title="Storage almost full" dismissible>You have used 95% of your space.<Fragment slot="actions"><Button>Upgrade</Button></Fragment></MessageBar></div>
@@ -76,6 +82,9 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     </section>
     <section class="ug-panel" data-strata-face="raised" aria-label="Messages">
       <MessageBar intent="warning" id="astro-message" dismissible>Check your address.</MessageBar>
+    </section>
+    <section class="ug-panel" data-strata-face="raised" aria-label="Trees">
+      <TreeView id="astro-tree" label="Project" items={[{ value: "src", label: "src", children: [{ value: "src/app.ts", label: "app.ts" }, { value: "src/ui", label: "ui", children: [{ value: "src/ui/button.ts", label: "button.ts" }] }] }, { value: "docs", label: "docs", children: [{ value: "docs/guide.md", label: "guide.md" }] }, { value: "readme", label: "README.md" }]} expanded={["docs"]} />
     </section>
     <section class="ug-panel" data-strata-face="raised" aria-label="Carousels">
       <Carousel id="astro-carousel" label="Stories" count={2}><p slot="slide-1">One</p><p slot="slide-2">Two</p></Carousel>
