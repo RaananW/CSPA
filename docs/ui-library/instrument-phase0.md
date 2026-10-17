@@ -21,7 +21,7 @@ has to build and test in core. The only core change is an internal prototype hoo
   `--enable-blink-features=CanvasDrawElement,ElementCanvasTransform --enable-experimental-web-platform-features`.
 - **Headless and headful:** every probe ran headless (emulated DPR 1 and 2 unless stated). Headful Canary windows:
   I0.1 at DPR 1 (1584×905); I0.2 at DPR 1 (1584×905); I0.3 at DPR 1 (1684×955, both themes, all three levels); I0.4 at
-  DPR 1, 1.25 and 1.5; the I1 prototype at DPR 1 and 2 (1600×900). I0.6 and I0.7 ran headless only (I0.7 changes no
+  DPR 1, 1.25 and 1.5; I0.5 at DPR 1 and 2 (its full test run headed); the I1 prototype at DPR 1 and 2 (1600×900). I0.6 and I0.7 ran headless only (I0.7 changes no
   capture or geometry; I0.6 is a measurement).
 
 | Probe | Question | Result | Headline numbers | Settles |
@@ -30,7 +30,7 @@ has to build and test in core. The only core change is an internal prototype hoo
 | [I0.2 Moving parts and hits](#i02-moving-parts-and-hits) | Do moving parts stay in their box through the whole travel, with hits on the control? | **Passed** (DPR 1 and 2, headful DPR 1) | 0 px outside at every pose and in the stage corners; 0 hit mismatches; 300 frames of motion, 0 captures | The box sizing rule; containment over the whole travel |
 | [I0.3 Emitters and the pointer light](#i03-emitters-and-the-pointer-light) | Do lamps light the face, objects and the outset within the guard? Does the pointer light cross panels at 60 fps? | **Passed** on every condition, three caveats | Pool +18 light / +26 dark on the face; +34 at 2 px past the edge; lit caption 5.63:1; pointer 0 captures over 300 moves; 64 emitters ≈ 2.1 ms at DPR 2 | 64 emitters per layer, tiled; the face pool is its own pass |
 | [I0.4 Materials over the capture](#i04-materials-over-the-capture) | Do brushed metal, coat and glass read over the capture, and does text under glass keep contrast? | **Passed** on the measured conditions; visual sign-off with the prototype pending | Text under flat glass 0 mismatched px; display 12.04:1 light, 12.75:1 dark; GPU on through typing | Local environment cube per layer, refreshed on capture; glass as capture refraction; gold through base colour |
-| [I0.5 Object-on-object shadow](#i05-object-on-object-shadow) | Does a per-layer PCF map give a clean lever-on-plate shadow without touching the face? | Pending | Pending | Pending |
+| [I0.5 Object-on-object shadow](#i05-object-on-object-shadow) | Does a per-layer PCF map give a clean lever-on-plate shadow without touching the face? | **Passed** (DPR 1 and 2, headless and headful); decision 4 amended | Lever region ≥ 96% darker on all 20 bats; 0 face px changed outside the analytic footprints; thin plate 1 component, 0 cuts; PCF 4096 0.07–0.14 ms at 60 controls | Analytic + PCF 4096 at bias 1.5e-3, re-rendered on pose change; contact optional; CSM and ESM out |
 | [I0.6 CSS parity](#i06-css-parity) | How close do CSS knobs, faders and switches get to the GPU look? | **Answered**: budgets recorded | Box-region mean worst 6.3 (fader) to 26.2 (rocker), against Relief's 2 | One budget per component, 1.5× headroom |
 | [I0.7 Interaction and accessibility](#i07-interaction-and-accessibility) | Do the knob and fader pass as sliders, with the 2.5.7 alternative, in DOM and GPU mode? | **Passed** | 16 of 16 tests, three runs; ring click sets all 37 values; axe 0 violations; snapshots identical | The knob interaction model |
 | [I0.8 Post chain and reflections](#i08-post-chain-and-reflections) | What do TAA, contact shadows, bloom, SSGI and a local probe cost, and is text untouched? | Pending | Pending | Pending |
@@ -513,26 +513,150 @@ and highlight.
 
 ## I0.5 Object-on-object shadow
 
-> **Pending: result arrives separately.** The probe is still running; this section, its summary row and the plan's
-> I0.5 wording are filled in when its report arrives.
-
 **Question.** Does a per-layer PCF map give a clean lever-on-plate shadow without touching the face?
+
+**Answer: yes,** headless and headful at DPR 1 and 2. [Decision 4](instrument.md#rendering-decisions) holds with
+three amendments:
+- **Clean on parts, never on the face:** the map darkens every bat's plate under its lever and ball, keeps a 2 px thin
+  plate's shadow whole, and changes 0 face pixels outside the analytic footprints.
+- **Amendments:** the map needs a light depth range fitted to the stage and a bias set in world px; CSM and ESM are
+  not alternatives here; contact shadows are optional, not default.
+- **Default:** analytic face shadows plus a PCF map of 4096 at bias 1.5e-3 (≈ 1.95 px world), re-rendered on pose
+  change, for 0.07–0.14 ms per frame at 60 controls.
 
 ### Method
 
-Pending.
+- Page: [`ui-probe-instrument-shadows.html`](../../examples/playground/ui-probe-instrument-shadows.html), source
+  [`src/ui-probes/instrument-shadows.ts`](../../examples/playground/src/ui-probes/instrument-shadows.ts)
+  (`window.shadowsProbe`). Test:
+  [`tests/browser/ui-probe-instrument-shadows.test.mjs`](../../tests/browser/ui-probe-instrument-shadows.test.mjs).
+  The part builders and the harness are unchanged.
+- **Stage.** One 1920×1080 panel with bats (at both stops and mid-travel), rockers, knobs, faders, keys and 2 px thin
+  plates (membrane keys: the case whose shadow maps cut and detached at the Objects level), each with a label printed
+  above it. Layouts `cases` (60 controls, 20 bats) and `dense` (250 controls, 42 bats).
+- **Three shadow paths,** switchable at run time:
+  - **(a) analytic:** the Relief formula under each part's footprint, offset `−L.xy / L.z · h` = (0.692 h, 0.919 h),
+    drawn as a shader quad per control on the mesh pass (not core's relief pass). Each quad loads up to 6 rounded-box
+    casters of its control from a storage buffer and takes the maximum, so overlap is max, not sum.
+  - **(b) map:** a shadow map from the key light; every part casts and receives. Nothing on the face is a mesh, so the
+    map is masked off the face by construction. The light stands 4,000 px behind the stage, `orthoMinZ` and
+    `orthoMaxZ` are fitted to the stage (a range of ≈ 2,603 px), and each part kind publishes the union of its
+    placements as `boundMin` and `boundMax` for the directional fit of thin instances. PCF by default; CSM and ESM as
+    alternatives, each on its own page.
+  - **(c) contact:** `createScreenSpaceContactShadowsPostProcessTask`. The mesh pass draws into an offscreen target
+    cleared transparent, the contact task multiplies it by its occlusion into a second target, and a present quad
+    composites the result over the face with premultiplied alpha. Face pixels have alpha 0 there, so the post chain
+    cannot reach them. Contact settings are deterministic: temporal weight 1, 1 sample, spatial radius 0, max distance
+    12 px, thickness 6 px.
+- The test, at DPR 1 and 2, compares each path on against off:
+  1. changed pixels against the control boxes and the analytic footprints;
+  2. the lever's projected region on every bat's plate, and acne elsewhere;
+  3. the band at every cap's base, and every thin plate's shadow as connected components, cut rows and gaps;
+  4. label contrast, containment, and native hits on mesh pixels, on a grid over every control and on shadow pixels
+     outside the boxes;
+  5. captures and geometry updates when paths toggle, and the post chain with contact off against the direct pass.
+  It then records the bias window per map size, CSM and ESM on the thin plate, and the per-task GPU cost at 60 and 250
+  controls, static and with 20 bats snapping, for both refresh policies.
 
 ### Results
 
-Pending.
+Headless and headful pixel numbers are identical.
+
+| Check | DPR 1 | DPR 2 |
+| --- | --- | --- |
+| (b) on against off: changed px | 14,328, all inside boxes | 58,098, all inside boxes |
+| (c) on against off: changed px | 14,301, all inside boxes | 46,820, all inside boxes |
+| (b) with (a) on, against (a) only | 14,328, inside | 58,098, inside |
+| Face px changed outside the boxes, (b) or (c) | 0 | 0 |
+| Face px changed outside the analytic footprints, any path | 0 | 0 |
+
+- **Lever on plate (b), all 20 bats:** ≥ 96% (DPR 1) / 97% (DPR 2) of the lever and ball's projected region darker;
+  mean change −15.9 to −19.8 levels (lit-to-shadow ratio 0.885–0.91); acne elsewhere 0.
+- **Contact lines (c),** share of the cap's base band darkened and mean change:
+
+  | Part | DPR 1 | DPR 2 |
+  | --- | --- | --- |
+  | Knob | 69%, −7.4 | 68%, −8.1 |
+  | Fader | 72%, −18.7 | 63%, −21.5 |
+  | Key | 85%, −18.1 | 71%, −20.1 |
+
+- **Thin plate:** with the map (PCF 4096, bias 1.5e-3) all 8 plates give 1 connected component, 0 cut rows, 0 acne,
+  largest gap 0.97 px (DPR 1) / 0.75 (DPR 2), which is scan quantisation, in a band 2 px wide. Analytic: 1 component,
+  0 cuts, gap ≤ 1 px. Contact alone: 18–36 cut rows on some plates.
+- **Contrast and hits:** label contrast at least 10.8:1 (DPR 1) and 12.6:1 (DPR 2) on every path. With (b) and (c) on,
+  meshes on against off: 0 px outside boxes, 0 hit mismatches on mesh pixels; a 2,812-point grid is unchanged after
+  toggles, 0 misses; shadow pixels more than 1.5 px outside the boxes that hit a control: 0 of 1,801 (DPR 1) and 0 of
+  1,224 (DPR 2). Toggles cause 0 captures and 0 geometry updates, GPU on. The post chain with (c) off matches the
+  direct pass exactly (0 px).
+
+**Bias window** (Lite units, world px in brackets; the same at both DPRs, headless and headful):
+
+| Map | Acne | Clean | Cut |
+| --- | --- | --- | --- |
+| PCF 2048 | at 1e-3 (1.3 px) | 1.5e-3 to 3e-3 (1.95–3.9 px) | — |
+| PCF 4096 | at 5e-4 (0.65 px) | 7.5e-4 (0.98 px; 2 components at DPR 2) to 2.5e-3 (3.25 px) | every row at 3e-3 (3.9 px) |
+
+This reproduces the Objects finding: the 2 px plate is 3.05 px deep along the light ray, so a larger bias detaches its
+shadow.
+
+**Alternatives:**
+- **CSM,** 2 cascades: 4096 with a world bias of 1.5 px is clean (1–2 components); 2048 with 2 px breaks into 4–11
+  components; 4 cascades with 1 px: 95% acne. Render 0.44–0.68 ms (4096) against 0.07–0.14 for PCF.
+- **ESM:** no usable shadow (the thin plate's shadow is absent, about 10% of the lever region darkens, and the whole
+  plate darkens in blotches). `exp(min(87, depthScale · d))` cannot separate a 3 px caster from its receiver over a
+  stage-wide depth range.
+
+**Cost** (Lite per-task GPU ms per frame, 1920×1080, mesh-pass tasks only; the whole-frame `gpuFrameTimeMs` is noisy
+with GPU clock states and is not used):
+
+| Path | 60 controls | 250 controls |
+| --- | --- | --- |
+| PCF 4096 render (re-render on pose change, Lite's default) | 0.07–0.14 | 0.12–0.60 |
+| PCF 2048 render | 0.04–0.07 | 0.10–0.47 |
+| Contact shadows, DPR 1 | 1.5–1.9 | 2.3–2.5 |
+| Contact shadows, DPR 2 | 2.0–2.3 | 1.9–3.2 |
+| Analytic quads (a) | +0.2–0.45 (DPR 1), ≈ 0.7 (DPR 2) | 1.1–2.2 |
+
+The post structure with contact off costs 0.17–0.29 ms plus 0.14–0.26 for the present pass. The analytic quads
+overdraw: a bat's quad is padded up to 75 px for its ball. **Refresh policy:** re-render on pose change renders 0
+times in 120 static frames and 120 of 120 with 20 bats snapping; every frame always renders 120 of 120, at the same
+cost per render.
+
+**Visual read** (DPR 2 close-ups):
+- **none:** parts float;
+- **(a):** grounds every part, but a bat's lever leaves nothing on its own plate;
+- **(a) + (b):** adds the lever's streak on the plate, the fader cap's shadow on its track, the key cap's on its
+  plinth and a thin line under each thin plate; reads as physical;
+- **(c) alone:** crisp, slightly inky lines at cap bases;
+- **(a) + (b) + (c):** reads best.
+
+Two issues remain. The mapped shadow is lighter than the face shadow (ratio ≈ 0.9 against the analytic 0.76 at
+darkness 0.35; darkness 0 only reaches 0.81–0.84 because of the hemispheric fill). A sharp mapped streak ends at the
+plate's edge, where the softer analytic face shadow takes over: a visible change of softness.
 
 ### What this settles for the plan
 
-Pending.
+- **Default shadows: (a) + (b).** Analytic on the face, plus a per-layer **PCF map of 4096 at bias 1.5e-3 (≈ 1.95 px
+  world)**, **re-rendered on pose change** only, with the light's depth range **fitted to the stage** and thin-instance
+  bounds published. PCF 2048 at bias 2e-3 is the cheaper alternative.
+- **Bias in world px:** below a part's depth separation along the light (3.05 px for a 2 px plate) and above ≈ 1 px
+  (4096) or 1.95 px (2048).
+- **Map darkness** 0–0.15, to approach the face shadow.
+- **Contact shadows are optional,** decided by I0.8's budget: they are the costliest path and mostly duplicate the map
+  at cap bases. When on, they run on an offscreen mesh target composited over the face, which they cannot reach.
+- **CSM and ESM are out:** CSM renders in 0.44–0.68 ms against PCF's 0.07–0.14, splits the thin plate's shadow
+  at 2048 and acnes with 4 cascades; ESM gives no usable shadow over a
+  stage-wide depth range.
 
 ### Limits
 
-Pending.
+- **Prototype path:** disabling the harness's direct pass in post mode reads `getFrameGraph(scene)._tasks`, an
+  internal; Lite has no public way to find or remove a task.
+- **Lite 1.33 problems** (in [Findings](#findings-for-later-phases)) shaped the page: a map is rendered once before
+  it is turned off, and each generator kind has its own page.
+- The analytic quad models a lever as a rounded box at its mean height and its ball as a disc at centre height.
+- **Not measured:** contact shadows at a reduced `resolutionScale`; a low-end GPU. The headful window size is not
+  recorded in the probe's report.
 
 ## I0.6 CSS parity
 
@@ -831,7 +955,7 @@ do not):
   - head-on views hide paddle motion: wall and rocker states read mainly through facet shading, and the push
     button's travel (2.5 against 1.2 px) is nearly invisible, so only the ring's brightness tells held from latched;
   - chamfers are soft at 1.4 px (about 2 px is crisper);
-  - no object-on-object shadows (I0.5);
+  - no object-on-object shadows (I0.5 has since settled them);
   - unused space at the bottom of the panel; the Objects panel's drop shadow is clipped at the frame edge at 100%
     depth.
 - **Coordinator's read:** a correct premium baseline, not yet stunning; Instrument and CSS look close head-on;
@@ -869,6 +993,19 @@ Each is a fact measured on Canary 158.0.8110.0, with the probe that found it.
 - **`createPbrLocalEnvironmentProbeSet` copies its cubes once;** a live capture needs the single local cube, whose view
   Lite binds directly (I0.4).
 - Lite PBR ignores thin-instance colours, so lit and dark segments are two kinds (I0.1).
+- **Shadow generators in Lite 1.33** (I0.5), for core's shadow work in Phase I2:
+  1. `setShadowGeneratorEnabled(generator, false)` before the generator's first shadow pass makes its receivers render
+     solid black; render the map once before turning it off.
+  2. CSM with `numCascades: 1` fails WebGPU validation every frame (a 2D view where a 2D array is expected), and a CSM
+     scene built after a PCF scene on the same engine fails the opposite way; the probe opens a new page per
+     generator kind.
+  3. The directional PCF generator accepts `normalBias` but never uses it.
+  4. The shadow fit for thin instances uses the prototype mesh's bounds; each part kind must publish the union of its
+     placements.
+- **No public way to find or remove a frame-graph task;** the I0.5 probe reads `getFrameGraph(scene)._tasks` to
+  disable the harness's direct pass in post mode (I0.5).
+- **A shadow map needs a light depth range fitted to the stage** and a bias in world px: the 2 px plate is 3.05 px
+  deep along the light ray, so the clean window is narrow (≈ 1–3.25 px at 4096) (I0.5).
 
 **Harness and geometry**
 - **`Pose` needs a tilt and a pivot;** I0.2 thin-instanced full matrices instead (I0.2).
@@ -898,6 +1035,9 @@ Each is a fact measured on Canary 158.0.8110.0, with the probe that found it.
   ignores `prefers-contrast: more`; it needs explicit rules (I0.6).
 - At DPR 1, text centred with `translate(-50%)` lands on half pixels and loses ink (2.46:1); print boxes must be on
   whole pixels (I1).
+- **Chrome hits round range inputs outside their circle:** a round knob input is hit up to 4.8 px outside its 24 px
+  `border-radius` circle, in the square box's corners, so the I0.5 shadow-hit check judges against the square box
+  (I0.5). Drawn pixels still stay inside the box; containment checks against a rounded box are the stricter side.
 
 **Probe pages**
 - I0.1's `instrument.ts` and I0.7's `interaction.ts` both declared `window.instrumentProbe` with different types, so
@@ -923,6 +1063,9 @@ Each is a fact measured on Canary 158.0.8110.0, with the probe that found it.
 | 12 | **Knob interaction** (I0.7) | Vertical drag 200 px per sweep (Shift ×0.1, 4 px tap slop), ring click-to-set, cap tap steps by half, document-level wheel, double-click reset, native keys; a transparent input covers the dial | A wheel listener on the input (unreliable in the canvas subtree); circular drag stays an option |
 | 13 | **Premium defaults** (I1, proposed) | Switch `slide`; the theme picks the faceplate (brushed light, gunmetal dark); metals direct light ×0.2 | Bat or rocker by default: a lever projects about 12 px head-on |
 | 14 | **Parity budget** (I0.6) | Per component over the control's box + 10 px (printed scale included): mean × 1.5, p95 × 1.5, SSIM with 50% headroom on its deficit | Relief's whole-stage mean ≤ 2, p95 ≤ 10: unreachable without reflections and perspective |
+| 15 | **Object-on-object shadow map** (I0.5) | Analytic face shadows plus a per-layer PCF map of 4096 at bias 1.5e-3 (≈ 1.95 px world), the light's depth range fitted to the stage, thin-instance bounds published, re-rendered on pose change only | PCF 2048 at bias 2e-3 (cheaper, 0.04–0.07 ms); re-rendering every frame (120 of 120 renders with nothing moving) |
+| 16 | **Contact shadows** (I0.5) | Optional, not default, decided by I0.8's budget; when on, on an offscreen mesh target composited over the face | On by default: the costliest path (1.5–3.2 ms), mostly duplicating the map at cap bases |
+| 17 | **Shadow generator kind** (I0.5) | PCF | CSM (0.44–0.68 ms, splits or acnes the thin plate) and ESM (no usable shadow over a stage-wide depth range): both out |
 
 ## Next
 
@@ -931,7 +1074,8 @@ Each is a fact measured on Canary 158.0.8110.0, with the probe that found it.
    - crisper 2 px chamfers;
    - a larger bat lever, or accept the `slide` default;
    - visible paddle and push-button travel;
-   - object-on-object shadows from I0.5;
+   - object-on-object shadows from I0.5 (analytic plus the PCF map), with the map's darkness brought towards the face
+     shadow and the softness change where a mapped streak meets the face shadow;
    - bloom from I0.8.
    Then the look sign-off.
 2. **PR 3:** the design-language sections, version 4 of the [Rendering Model](rendering-model.md), `premium.json` and
