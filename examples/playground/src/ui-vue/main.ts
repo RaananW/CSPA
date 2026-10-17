@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Slider, Stepper,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast,
 } from "@underglass/ui/vue";
 
@@ -38,6 +38,10 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("table.md", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }, { number: "1002", customer: "Grace Hopper", amount: "87.50" }], defaultSort: { key: "number", direction: "ascending" } })),
   contract("table.md#2", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }], sort: { key: "number", direction: "ascending" } })),
   contract("avatar.md", [h(Avatar, { name: "Ada Lovelace" }), h(Avatar, { name: "Grace Hopper", src: "/people/grace.jpg" }), h(Avatar, { name: "Alan Turing", decorative: true })]),
+  contract("segmented-control.md", [h(SegmentedControl, { label: "View", name: "view", defaultValue: "day", options: [{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }] })]),
+  contract("rating.md", [h(Rating, { label: "Your rating", name: "score", max: 3, defaultValue: 2 }), h(RatingDisplay, { value: 4.5 })]),
+  contract("stepper.md", [h(Stepper, { label: "Checkout progress", steps: ["Cart", "Shipping", "Payment"], current: 1 })]),
+  contract("navigation-rail.md", [h(NavigationRail, { label: "Main", items: [{ label: "Inbox", href: "/inbox" }, { label: "Drafts", href: "/drafts" }], current: "/inbox" })]),
   contract("chip.md", [h(Chip, null, { default: text("Design") }), h(Chip, { defaultPressed: true }, { default: text("Remote") }), h(Chip, { onRemove: () => {} }, { default: text("ada@example.com") })]),
   contract("message-bar.md", h(MessageBar, { intent: "warning", title: "Storage almost full", onDismiss: () => {} }, {
     default: text("You have used 95% of your space."), actions: () => h(Button, null, { default: text("Upgrade") }),
@@ -109,7 +113,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
-    const page = ref(1), appBar = ref(0), toasts = ref(0);
+    const page = ref(1), appBar = ref(0), toasts = ref(0), range = ref("day"), score = ref(3), step = ref(1), rail = ref("#rail-inbox");
     const popover = reactive({ open: false, applied: 0 });
     const messages = reactive({ upgrades: 0, dismissed: false });
     const chips = reactive({ remote: false, removed: [] as string[] });
@@ -134,6 +138,9 @@ const App = defineComponent({
         get page() { return page.value; },
         get appBar() { return appBar.value; },
         get toasts() { return toasts.value; },
+        get range() { return range.value; },
+        get score() { return score.value; },
+        get rail() { return rail.value; },
         get popover() { return { ...toRaw(popover) }; },
         setPage: (value: number) => { page.value = value; },
         get messages() { return { ...toRaw(messages) }; },
@@ -276,6 +283,22 @@ const App = defineComponent({
                 ],
               }),
               h(Pagination, { id: "live-pagination", page: page.value, count: 12, "onUpdate:page": (value: number) => { page.value = value; } }),
+              h("form", { id: "range-form", onSubmit: (event: Event) => event.preventDefault() }, [
+                h(SegmentedControl, { id: "live-segmented", label: "Range", name: "range", modelValue: range.value, "onUpdate:modelValue": (value: string) => { range.value = value; },
+                  options: [{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }, { value: "year", label: "Year" }] }),
+              ]),
+              h("form", { id: "score-form", onSubmit: (event: Event) => event.preventDefault(), style: { display: "flex", gap: "16px", alignItems: "end" } }, [
+                h(Rating, { id: "live-rating", label: "Quality", name: "quality", modelValue: score.value, "onUpdate:modelValue": (value: number) => { score.value = value; } }),
+                h(RatingDisplay, { id: "live-rating-display", value: score.value }),
+              ]),
+              h(Stepper, { id: "live-stepper", label: "Checkout progress", steps: ["Cart", "Shipping", "Payment", "Review"], current: step.value }),
+              h("p", { style: { display: "flex", gap: "12px", margin: "0" } }, [
+                h(Button, { id: "stepper-back", onClick: () => { step.value = Math.max(0, step.value - 1); } }, { default: text("Back") }),
+                h(Button, { id: "stepper-next", onClick: () => { step.value = Math.min(3, step.value + 1); } }, { default: text("Next") }),
+              ]),
+              h(Stepper, { id: "vertical-stepper", label: "Setup", orientation: "vertical", steps: ["Account", "Team", "Billing"], current: 1 }),
+              h(NavigationRail, { id: "live-rail", label: "Sections", current: rail.value, onNavigate: (href: string, event: MouseEvent) => { event.preventDefault(); rail.value = href; },
+                items: [{ label: "Inbox", href: "#rail-inbox", icon: close() }, { label: "Drafts", href: "#rail-drafts", icon: close() }, { label: "Sent", href: "#rail-sent" }] }),
               h(Breadcrumb, { id: "live-breadcrumb", items: [{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }] }),
             ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Lists" }, [

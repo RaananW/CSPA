@@ -1,0 +1,36 @@
+---
+/**
+ * Stepper (anatomy page `stepper.md`): where the user is in a task of ordered steps, as an `<ol>` whose current step
+ * carries `aria-current="step"`. Steps before it are complete (a visually hidden status says so).
+ */
+import { stepperFace } from "../shared/stepper.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  /** The list's name, such as "Checkout progress". */
+  label: string;
+  /** Each step's label, in order. */
+  steps: readonly string[];
+  /** The current step, from 0. */
+  current: number;
+  /** Read after a complete step's label; " (completed)" by default. */
+  completedLabel?: string;
+  orientation?: "horizontal" | "vertical";
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { label, steps, current, completedLabel = " (completed)", orientation = "horizontal", size, material, level, class: className, ...rest } = Astro.props;
+---
+<ol class={classes("ug-stepper", orientation === "vertical" && "ug-stepper--vertical", className)} aria-label={label} {...strataAttributes({ size, material, level })} {...rest}>
+  {steps.map((step, index) => (
+    <li class="ug-stepper__step" aria-current={index === current ? "step" : undefined}>
+      {index > 0 && <span class="ug-stepper__line" data-strata-face="groove" aria-hidden="true"></span>}
+      <span class="ug-stepper__marker" data-strata-face={stepperFace(index, current)} aria-hidden="true">{index + 1}</span>
+      <span class="ug-stepper__label">{step}{index < current && <span class="ug-stepper__status">{completedLabel}</span>}</span>
+    </li>
+  ))}
+</ol>

@@ -116,6 +116,17 @@ export function conformanceCases(source: TokenGroup = strataSource): Conformance
       }),
     },
     {
+      name: "divider",
+      description: "A 2 px divider groove: its 1 px band is a shallow bevel (2.4, narrow bands), not a near-black wall.",
+      scene: scene(200, 40, [panel(200, 40), { face: "groove", rect: [20, 19, 160, 2], radius: 1, height: 2, material: "matte" }]),
+      capture: [panelPaint(200, 40)],
+      samples: [
+        { at: [100, 19.5], note: "the row nearest the light: a little darker" },
+        { at: [100, 20.5], note: "the row away from the light: a little brighter" },
+        { at: [100, 10], note: "panel interior" },
+      ],
+    },
+    {
       name: "well-and-groove",
       description: "A field well and a metal groove: the inverted bevel is dark nearest the light.",
       scene: scene(200, 96, [panel(200, 96), { face: "well", rect: [20, 16, 160, 32], radius: 8, height: 2, material: "matte" }, { face: "groove", rect: [20, 68, 160, 8], radius: 4, height: 2, material: "metal" }]),
