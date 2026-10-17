@@ -13,6 +13,8 @@ export { StrataProvider, StrataScope } from "./Provider.tsx";
 export type { StrataProviderProps, StrataScopeProps } from "./Provider.tsx";
 export { TextField } from "./TextField.tsx";
 export type { TextFieldProps } from "./TextField.tsx";
+export { Combobox } from "./Combobox.tsx";
+export type { ComboboxOption, ComboboxProps } from "./Combobox.tsx";
 export { DatePicker } from "./DatePicker.tsx";
 export type { DatePickerProps } from "./DatePicker.tsx";
 export type { StrataLevel, StrataProps, StrataSize } from "./shared.ts";

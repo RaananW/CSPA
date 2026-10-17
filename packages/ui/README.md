@@ -69,6 +69,22 @@ const json = theme.toJSON();
 - **Scope colours:** colour overrides in a scope need the scope's `theme`, so their contrast can be checked. The
   derived on- and -text colours are set with them.
 
+## Layout
+
+Components have no outer margin. Two classes put the design language's gaps between them, scaled by density
+(`--strata-gap-control`: 8, 12 or 16 px; `--strata-gap-group`: 16, 20 or 24 px):
+
+```html
+<section class="ug-panel ug-stack" data-strata-face="raised">
+  <div class="ug-field">…</div>
+  <p class="ug-cluster"><button class="ug-button" data-strata-face="raised">Save</button> …</p>
+</section>
+```
+
+- `.ug-stack` puts groups (fields, rows, sections) one under another, `gap.group` apart.
+- `.ug-cluster` is a wrapping row of controls, `gap.control` apart: a row too narrow for its controls wraps
+  instead of squeezing them. Buttons never shrink below their label.
+
 ## Rendering model
 
 The Relief and Objects looks are specified independently of any engine in the
@@ -448,6 +464,18 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
+
+## Combobox
+
+A TextField with suggestions: a native `<input list>` and its `<datalist>`, so the browser filters and shows the list
+and any other text may still be typed. Use a Select when only the listed values are allowed.
+
+```tsx
+<Field label="Fruit"><Combobox options={["Apple", "Apricot", { value: "Banana", label: "Yellow" }]} value={fruit} onChange={event => setFruit(event.target.value)} /></Field>
+```
+
+Vue uses `v-model`; Astro takes `options` and the Field props. The list is the browser's own, never drawn by the GPU.
+[Anatomy](../../docs/ui-library/components/combobox.md).
 
 ## DatePicker
 

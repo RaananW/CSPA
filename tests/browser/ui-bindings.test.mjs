@@ -17,6 +17,7 @@
  *   toasts appear in the status region and go after their time, which hovering stops;
  *   a SegmentedControl selects with clicks and arrow keys, skips a disabled option and submits its value;
  *   a Rating is set by click and arrow keys, fills up to its score and submits it, and its display is named by it;
+ *   a Combobox is a combobox with the browser's suggestions, takes any text, follows its value and submits it;
  *   a DatePicker is a native date input named by its Field, takes typed dates, follows its value and submits it as YYYY-MM-DD;
  *   a Stepper marks the current step and the complete ones, follows its state, and stacks when vertical;
  *   a NavigationRail is a landmark of links whose current page follows its state, and reports navigation;
@@ -136,9 +137,9 @@ for (const binding of bindings) test(`Strata ${binding} components render their 
     await page.evaluate(() => { document.documentElement.dataset.strataMode = "face"; });
     const face = await new AxeBuilder({ page }).include("main").withTags(tags).analyze();
     expect(face.violations.map(v => v.id), `axe, ${theme}, face mode`).toEqual([]);
-    // Selects and date pickers draw their glyph with background gradients; their text contrast is checked on pixels in
-    // ui-specimen.
-    const undecided = face.incomplete.filter(result => result.id === "color-contrast").flatMap(result => result.nodes.filter(node => !/ug-select|ug-date-picker/.test(node.html)).map(node => node.target.join(" ")));
+    // Selects, comboboxes and date pickers draw their glyph with background gradients; their text contrast is checked on
+    // pixels in ui-specimen.
+    const undecided = face.incomplete.filter(result => result.id === "color-contrast").flatMap(result => result.nodes.filter(node => !/ug-select|ug-combobox|ug-date-picker/.test(node.html)).map(node => node.target.join(" ")));
     expect(undecided, `undecided contrast, ${theme}`).toEqual([]);
     await page.evaluate(() => { delete document.documentElement.dataset.strataMode; });
   }
@@ -544,6 +545,11 @@ for (const binding of bindings) test(`Strata ${binding} Chip is a tag, a filter 
     return result;
   });
   expect(squeezed).toEqual({ kept: true, fits: true });
+  // Layout (section 13): the row is a cluster, a wrapping row with the controls' gap; the panel is a stack of groups.
+  expect(await page.locator("#notify").evaluate(button => {
+    const row = getComputedStyle(button.parentElement), panel = getComputedStyle(button.closest(".ug-panel"));
+    return [row.flexWrap, row.columnGap, row.rowGap, panel.flexDirection, panel.rowGap];
+  })).toEqual(["wrap", "12px", "12px", "column", "20px"]);
   // A disabled filter chip does nothing.
   await page.locator("#locked-chip").click({ force: true });
   await expect(page.locator("#locked-chip")).toHaveAttribute("aria-pressed", "false");
@@ -1035,6 +1041,29 @@ for (const binding of bindings) test(`Strata ${binding} Rating is set by click a
   for (const box of await page.locator("#live-rating .ug-rating__item").evaluateAll(items => items.map(item => item.getBoundingClientRect().toJSON()))) {
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(24);
   }
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Combobox is a combobox with the browser's suggestions, takes any text, follows its value and submits it`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  // A native input with a list: the combobox role, named by the Field, described by its help.
+  const input = page.getByRole("combobox", { name: "Fruit", exact: true });
+  await input.scrollIntoViewIfNeeded();
+  await expect(input).toHaveAttribute("list", "live-combobox-options");
+  await expect(input).toHaveAccessibleDescription("Type one, or choose a suggestion.");
+  expect(await page.locator("#live-combobox-options option").evaluateAll(options => options.map(option => option.value))).toEqual(["Apple", "Apricot", "Banana", "Cherry", "Durian"]);
+  // Real typing updates the value (onChange, v-model); text outside the list is allowed.
+  await input.click();
+  await page.keyboard.type("Ban");
+  expect(await page.evaluate(() => window.strataBinding.fruit)).toBe("Ban");
+  await page.keyboard.type("jo");
+  expect(await page.evaluate(() => window.strataBinding.fruit)).toBe("Banjo");
+  expect(await page.evaluate(() => new FormData(document.getElementById("fruit-form")).get("fruit"))).toBe("Banjo");
+  // The chevron is printed at the end of the face.
+  expect(await input.evaluate(element => getComputedStyle(element).backgroundImage)).toContain("linear-gradient");
   await context.close();
 });
 

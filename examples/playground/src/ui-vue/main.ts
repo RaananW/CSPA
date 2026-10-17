@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Chip, DatePicker, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Slider, Stepper,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Combobox, Chip, DatePicker, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Slider, Stepper,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView, toast,
 } from "@underglass/ui/vue";
 
@@ -39,6 +39,7 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("table.md#2", h(Table, { caption: "Invoices", columns: [{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }], rows: [{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }], sort: { key: "number", direction: "ascending" } })),
   contract("avatar.md", [h(Avatar, { name: "Ada Lovelace" }), h(Avatar, { name: "Grace Hopper", src: "/people/grace.jpg" }), h(Avatar, { name: "Alan Turing", decorative: true })]),
   contract("segmented-control.md", [h(SegmentedControl, { label: "View", name: "view", defaultValue: "day", options: [{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }] })]),
+  contract("combobox.md", h(Combobox, { id: "fruit", options: ["Apple", "Apricot", { value: "Banana", label: "Yellow" }] })),
   contract("date-picker.md", h(DatePicker, { id: "due", min: "2026-01-01", max: "2026-12-31" })),
   contract("rating.md", [h(Rating, { label: "Your rating", name: "score", max: 3, defaultValue: 2 }), h(RatingDisplay, { value: 4.5 })]),
   contract("stepper.md", [h(Stepper, { label: "Checkout progress", steps: ["Cart", "Shipping", "Payment"], current: 1 })]),
@@ -117,7 +118,7 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
-    const page = ref(1), appBar = ref(0), toasts = ref(0), range = ref("day"), score = ref(3), due = ref(""), step = ref(1), rail = ref("#rail-inbox"), slide = ref(0);
+    const page = ref(1), appBar = ref(0), toasts = ref(0), range = ref("day"), score = ref(3), fruit = ref(""), due = ref(""), step = ref(1), rail = ref("#rail-inbox"), slide = ref(0);
     const popover = reactive({ open: false, applied: 0 });
     const tree = reactive<{ expanded: string[]; selected?: string }>({ expanded: ["docs"] });
     const chosen = reactive<string[]>([]);
@@ -146,6 +147,7 @@ const App = defineComponent({
         get toasts() { return toasts.value; },
         get range() { return range.value; },
         get score() { return score.value; },
+        get fruit() { return fruit.value; },
         get due() { return due.value; },
         get rail() { return rail.value; },
         get popover() { return { ...toRaw(popover) }; },
@@ -169,8 +171,8 @@ const App = defineComponent({
             end: () => h(Button, { id: "app-sign-in", onClick: () => { appBar.value++; } }, { default: text("Sign in") }),
           }),
           h("main", { style: { display: "grid", gap: "24px", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", padding: "24px" } }, [
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Buttons" }, [
-              h("form", { onSubmit: (event: Event) => { event.preventDefault(); clicks.submit++; }, style: { display: "flex", flexWrap: "wrap", gap: "12px" } }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Buttons" }, [
+              h("form", { onSubmit: (event: Event) => { event.preventDefault(); clicks.submit++; }, class: "ug-cluster" }, [
                 h(Button, { ref: buttonRef, variant: "accent", id: "save", class: "extra", style: { marginRight: "4px" }, "data-testid": "save", onClick: count("save") }, { default: text("Save") }),
                 h(Button, { id: "blocked", "aria-disabled": "true", onClick: count("blocked") }, { default: text("Unavailable") }),
                 h(Button, { id: "disabled", disabled: true, onClick: count("disabled") }, { default: text("Disabled") }),
@@ -182,7 +184,7 @@ const App = defineComponent({
               ]),
               h("p", null, ["Read the ", h(Link, { id: "inline-link", href: "#guide" }, { default: text("guide") }), ", or ", h(Link, { id: "standalone-link", standalone: true, href: "#more" }, { default: text("more") }), "."]),
             ]),
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Fields" }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Fields" }, [
               h(Field, { label: "Email", help: "We only use it for receipts.", error: invalid ? "enter an address like name@example.com." : undefined, required: true, id: "email-field" }, {
                 default: () => h(TextField, { ref: inputRef, type: "email", modelValue: email.value, "onUpdate:modelValue": (value: string) => { email.value = value; } }),
               }),
@@ -190,7 +192,7 @@ const App = defineComponent({
               h(Field, { label: "Search", help: "Titles and tags." }, { default: () => h(TextField, { ref: wrappedRef, type: "search" }, { icon: close }) }),
               h(Field, { label: "Locked", disabled: true }, { default: () => h(TextField, { "^value": "Read only" }) }),
             ]),
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Choices" }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Choices" }, [
               h(Field, { help: "Required to continue.", error: choices.terms ? undefined : "accept the terms." }, {
                 default: () => h(Checkbox, { id: "terms", modelValue: choices.terms, "onUpdate:modelValue": (value: boolean) => { choices.terms = value; } }, { default: text("I accept the terms") }),
               }),
@@ -219,7 +221,7 @@ const App = defineComponent({
               default: () => [
                 h(Card, { title: "Latency", id: "latency-card" }, { default: text("p95 is 41 ms."), footer: () => h(Button, { id: "details" }, { default: text("Details") }) }),
                 h(Divider, { id: "rule" }),
-                h("div", { style: { display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center" } }, [
+                h("div", { class: "ug-cluster" }, [
                   h(ButtonGroup, { label: "View", orientation: "vertical", id: "view-group" }, { default: () => [h(Button, null, { default: text("List") }), h(Button, null, { default: text("Grid") })] }),
                   h(Divider, { orientation: "vertical", id: "vertical-rule" }),
                   h(Badge, { id: "inbox", variant: "accent", count: 120 }),
@@ -232,9 +234,9 @@ const App = defineComponent({
               ],
             }),
             h(StrataScope, { depth: 0.1, density: "compact", size: "small", id: "scope", "aria-label": "Compact scope", role: "region" }, {
-              default: () => h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Scoped" }, [h(Button, { id: "scoped" }, { default: text("Scoped") })]),
+              default: () => h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Scoped" }, [h(Button, { id: "scoped" }, { default: text("Scoped") })]),
             }),
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Tabs" }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Tabs" }, [
               h(Tabs, { id: "live-tabs", modelValue: tab.value, "onUpdate:modelValue": (value: string) => { tab.value = value; } }, {
                 default: () => [
                   h(TabList, { label: "Preferences" }, { default: () => [
@@ -257,17 +259,17 @@ const App = defineComponent({
                 ],
               }),
             ]),
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Tables" }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Tables" }, [
               h(Table, { id: "live-table", caption: "Payments", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true, sortable: true }], rows: [{ number: 1003, customer: "Alan Turing", amount: 42 }, { number: 1001, customer: "Ada Lovelace", amount: 120 }, { number: 1002, customer: "Grace Hopper", amount: 87.5 }] }),
               h(Table, { id: "controlled-table", caption: "Controlled", columns: [{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true, sortable: true }], rows: [{ number: 1003, customer: "Alan Turing", amount: 42 }, { number: 1001, customer: "Ada Lovelace", amount: 120 }, { number: 1002, customer: "Grace Hopper", amount: 87.5 }], sort: sort.value, "onUpdate:sort": (value: { key: string; direction: "ascending" | "descending" }) => { sort.value = value; } }),
             ]),
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Navigation" }, [
-              h("p", { style: { display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center", margin: "0" } }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Navigation" }, [
+              h("p", { class: "ug-cluster" }, [
                 h(Avatar, { id: "avatar-small", name: "Ada Lovelace", size: "small" }), h(Avatar, { id: "avatar-medium", name: "Plato" }),
                 h(Avatar, { id: "avatar-large", name: "  grace   brewster hopper ", size: "large" }),
                 h("span", null, [h(Avatar, { id: "avatar-decorative", name: "Alan Turing", decorative: true, size: "small" }), " Alan Turing"]),
               ]),
-              h("p", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", margin: "0" } }, [
+              h("p", { class: "ug-cluster" }, [
                 h(Chip, { id: "tag-chip" }, { default: text("Design") }),
                 h(Chip, { id: "remote-chip", pressed: chips.remote, "onUpdate:pressed": (value: boolean) => { chips.remote = value; } }, { default: text("Remote") }),
                 h(Chip, { id: "locked-chip", defaultPressed: false, disabled: true }, { default: text("Locked") }),
@@ -277,10 +279,10 @@ const App = defineComponent({
               !messages.dismissed && h(MessageBar, { id: "message-live", intent: "danger", title: "Payment failed", onDismiss: () => { messages.dismissed = true; } }, {
                 default: text("The card was declined."), actions: () => h(Button, { id: "message-retry", onClick: () => { messages.upgrades++; } }, { default: text("Retry") }),
               }),
-              h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
+              h("div", { id: "loading-region", "aria-busy": "true", class: "ug-cluster" }, [
                 h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
-              h("p", { style: { margin: "0", display: "flex", flexWrap: "wrap", gap: "12px" } }, [h(Menu, { id: "live-menu", label: "Actions", items: [{ label: "Rename", onSelect: () => { chosen.push("Rename"); } }, { label: "Duplicate", onSelect: () => { chosen.push("Duplicate"); } }, "separator", { label: "Archive", onSelect: () => { chosen.push("Archive"); } }, { label: "Delete", disabled: true, onSelect: () => { chosen.push("Delete"); } }] }, { trigger: () => h(Button, { id: "menu-open" }, { default: text("Actions") }) }), h(Popover, { id: "live-popover", title: "Filters", onToggle: (open: boolean) => { popover.open = open; } }, {
+              h("p", { class: "ug-cluster" }, [h(Menu, { id: "live-menu", label: "Actions", items: [{ label: "Rename", onSelect: () => { chosen.push("Rename"); } }, { label: "Duplicate", onSelect: () => { chosen.push("Duplicate"); } }, "separator", { label: "Archive", onSelect: () => { chosen.push("Archive"); } }, { label: "Delete", disabled: true, onSelect: () => { chosen.push("Delete"); } }] }, { trigger: () => h(Button, { id: "menu-open" }, { default: text("Actions") }) }), h(Popover, { id: "live-popover", title: "Filters", onToggle: (open: boolean) => { popover.open = open; } }, {
                 trigger: () => h(Button, { id: "popover-open" }, { default: text("Filters") }),
                 default: () => [h(Checkbox, { id: "popover-only" }, { default: text("Open only") }), h(Button, { id: "popover-apply", onClick: () => { popover.applied++; } }, { default: text("Apply") })],
               }), h(Button, { id: "notify", onClick: () => toast({ message: "Message sent.", intent: "success", duration: 1500,
@@ -297,9 +299,14 @@ const App = defineComponent({
                 h(SegmentedControl, { id: "live-segmented", label: "Range", name: "range", modelValue: range.value, "onUpdate:modelValue": (value: string) => { range.value = value; },
                   options: [{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }, { value: "year", label: "Year" }] }),
               ]),
-              h("form", { id: "score-form", onSubmit: (event: Event) => event.preventDefault(), style: { display: "flex", flexWrap: "wrap", gap: "16px", alignItems: "end" } }, [
+              h("form", { id: "score-form", onSubmit: (event: Event) => event.preventDefault(), class: "ug-cluster", style: { alignItems: "end" } }, [
                 h(Rating, { id: "live-rating", label: "Quality", name: "quality", modelValue: score.value, "onUpdate:modelValue": (value: number) => { score.value = value; } }),
                 h(RatingDisplay, { id: "live-rating-display", value: score.value }),
+              ]),
+              h("form", { id: "fruit-form", onSubmit: (event: Event) => event.preventDefault() }, [
+                h(Field, { label: "Fruit", controlId: "live-combobox", help: "Type one, or choose a suggestion." }, { default: () => h(Combobox, {
+                  name: "fruit", modelValue: fruit.value, "onUpdate:modelValue": (value: string) => { fruit.value = value; }, options: ["Apple", "Apricot", "Banana", "Cherry", { value: "Durian", label: "Seasonal" }],
+                }) }),
               ]),
               h("form", { id: "due-form", onSubmit: (event: Event) => event.preventDefault() }, [
                 h(Field, { label: "Due date", controlId: "live-date-picker", help: "Pick a day in 2026." }, { default: () => h(DatePicker, {
@@ -307,7 +314,7 @@ const App = defineComponent({
                 }) }),
               ]),
               h(Stepper, { id: "live-stepper", label: "Checkout progress", steps: ["Cart", "Shipping", "Payment", "Review"], current: step.value }),
-              h("p", { style: { display: "flex", flexWrap: "wrap", gap: "12px", margin: "0" } }, [
+              h("p", { class: "ug-cluster" }, [
                 h(Button, { id: "stepper-back", onClick: () => { step.value = Math.max(0, step.value - 1); } }, { default: text("Back") }),
                 h(Button, { id: "stepper-next", onClick: () => { step.value = Math.min(3, step.value + 1); } }, { default: text("Next") }),
               ]),
@@ -318,7 +325,7 @@ const App = defineComponent({
               h(TreeView, { id: "live-tree", label: "Project", items: [{ value: "src", label: "src", children: [{ value: "src/app.ts", label: "app.ts" }, { value: "src/ui", label: "ui", children: [{ value: "src/ui/button.ts", label: "button.ts" }] }] }, { value: "docs", label: "docs", children: [{ value: "docs/guide.md", label: "guide.md" }] }, { value: "readme", label: "README.md" }], expanded: tree.expanded, selected: tree.selected,
                 "onUpdate:expanded": (expanded: string[]) => { tree.expanded = expanded; }, "onUpdate:selected": (selected: string) => { tree.selected = selected; } }),
             ]),
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Lists" }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Lists" }, [
               h(List, { label: "Folders", id: "live-list" }, {
                 default: () => [
                   h(ListItem, { href: "#inbox", current: "page", primary: "Inbox", secondary: "12 unread", end: "Now" }),
@@ -328,7 +335,7 @@ const App = defineComponent({
                 ],
               }),
             ]),
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Accordions" }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Accordions" }, [
               h(Accordion, { exclusive: true, id: "live-accordion" }, {
                 default: () => [
                   h(AccordionItem, { id: "delivery", title: "Delivery", open: faq.delivery, "onUpdate:open": (open: boolean) => { faq.delivery = open; } }, { default: text("Two days.") }),
@@ -342,12 +349,12 @@ const App = defineComponent({
                 ],
               }),
             ]),
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Carousels" }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Carousels" }, [
               h(Carousel, { id: "live-carousel", label: "Stories", index: slide.value, "onUpdate:index": (value: number) => { slide.value = value; } }, {
                 default: () => ["Strata lights every face.", "Objects travel when pressed.", "Scenes settle with a spring."].map(line => h("p", line)),
               }),
             ]),
-            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Overlays" }, [
+            h("section", { class: "ug-panel ug-stack", "data-strata-face": "raised", "aria-label": "Overlays" }, [
               h(Button, { id: "open-live", onClick: () => { liveOpen.value = true; } }, { default: text("Open live dialog") }),
             ]),
           ]),

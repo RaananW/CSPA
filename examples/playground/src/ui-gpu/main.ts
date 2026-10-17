@@ -19,7 +19,8 @@
  * `strataGpuProbe.addPopover()` a Filters button in the panel whose Popover is in `<body>`,
  * `strataGpuProbe.addTree()` a TreeView, run by `attachStrata`,
  * `strataGpuProbe.addCarousel()` a Carousel of two slides, run by `attachStrata`,
- * `strataGpuProbe.addMenu()` an Actions menu button in the panel whose Menu is in `<body>`, and
+ * `strataGpuProbe.addMenu()` an Actions menu button in the panel whose Menu is in `<body>`,
+ * `strataGpuProbe.addCombobox()` a Combobox with three suggestions, and
  * `strataGpuProbe.addDatePicker()` a DatePicker, empty.
  */
 import "@underglass/ui/css";
@@ -142,6 +143,9 @@ const segmentedMarkup = `<fieldset class="ug-segmented" style="margin-top:12px">
 /** A DatePicker in plain markup (`date-picker.md`), added by `strataGpuProbe.addDatePicker()`, empty. */
 const datePickerMarkup = `<input class="ug-text-field ug-date-picker" data-strata-face="well" type="date" id="gpu-date-picker" aria-label="Due date" style="margin-top:12px">`;
 /** A Rating in plain markup (`rating.md`), added by `strataGpuProbe.addRating()`, at 2. */
+/** A Combobox in plain markup (`combobox.md`), added by `strataGpuProbe.addCombobox()`, empty. */
+const comboboxMarkup = `<input class="ug-text-field ug-combobox" data-strata-face="well" type="text" autocomplete="off" id="gpu-combobox" list="gpu-combobox-options" aria-label="Fruit" style="margin-top:12px"><datalist id="gpu-combobox-options">${
+  ["Apple", "Apricot", "Banana"].map(fruit => `<option value="${fruit}"></option>`).join("")}</datalist>`;
 const ratingMarkup = `<fieldset class="ug-rating" style="margin-top:12px"><legend class="ug-rating__legend">Your rating</legend><div class="ug-rating__stars">${
   [1, 2, 3, 4, 5].map(score => `<label class="ug-rating__item" id="gpu-star-${score}"><input class="ug-rating__input" type="radio" name="gpu-score" value="${score}" ${score === 2 ? "checked" : ""}><span class="ug-rating__star" aria-hidden="true"></span><span class="ug-rating__label">${score} stars</span></label>`).join("")}</div></fieldset>`;
 /** A Stepper in plain markup (`stepper.md`), added by `strataGpuProbe.addStepper()`, at its second step. */
@@ -247,6 +251,7 @@ window.strataGpuProbe = {
   addRail: () => { panel.insertAdjacentHTML("beforeend", railMarkup); strata?.refresh(); },
   addPopover,
   addMenu,
+  addCombobox: () => { panel.insertAdjacentHTML("beforeend", comboboxMarkup); strata?.refresh(); },
   addDatePicker: () => { panel.insertAdjacentHTML("beforeend", datePickerMarkup); strata?.refresh(); },
   menuChoices: () => [...menuChoices],
   applied: () => applied,
@@ -282,6 +287,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addSegmented(): void; addRating(): void; addStepper(): void; stepTo(index: number): void; addRail(): void; addPopover(): void; applied(): number; addTree(): void; addCarousel(): void; addMenu(): void; addDatePicker(): void; menuChoices(): string[]; toast(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addSegmented(): void; addRating(): void; addCombobox(): void; addStepper(): void; stepTo(index: number): void; addRail(): void; addPopover(): void; applied(): number; addTree(): void; addCarousel(): void; addMenu(): void; addDatePicker(): void; menuChoices(): string[]; toast(): void;
   } }
 }
