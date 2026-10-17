@@ -128,3 +128,56 @@ export function bar(width: number, length: number, base: number, top: number): P
   }
   return data;
 }
+
+// Builders added for probe I0.2 (moving parts): spheres, merged parts and parts tipped about an in-plane axis.
+
+/** A smooth sphere of `radius` whose centre stands `centre` above the face (a bat lever's ball, a lens). */
+export function sphere(radius: number, centre: number, rings = 12, segments = 24): PartData {
+  const data = empty();
+  for (let ring = 0; ring <= rings; ring++) {
+    const polar = (ring / rings) * Math.PI, z = Math.cos(polar), ringRadius = Math.sin(polar);
+    for (let step = 0; step <= segments; step++) {
+      const angle = (step / segments) * Math.PI * 2, nx = ringRadius * Math.cos(angle), ny = ringRadius * Math.sin(angle);
+      // Polar angle 0 is the top (towards the viewer, z = −h).
+      data.positions.push(radius * nx, radius * ny, -(centre + radius * z));
+      data.normals.push(nx, ny, -z);
+      data.uvs.push(step / segments, ring / rings);
+    }
+  }
+  for (let ring = 0; ring < rings; ring++) for (let step = 0; step < segments; step++) {
+    const a = ring * (segments + 1) + step, b = a + segments + 1;
+    data.indices.push(a, b, a + 1, a + 1, b, b + 1);
+  }
+  return data;
+}
+
+/** One part made of several, so a compound moving part (a rocker's two plates) is one mesh and one pose. */
+export function merge(...parts: PartData[]): PartData {
+  const data = empty();
+  for (const part of parts) {
+    const start = data.positions.length / 3;
+    data.positions.push(...part.positions); data.normals.push(...part.normals); data.uvs.push(...part.uvs);
+    data.indices.push(...part.indices.map(index => index + start));
+  }
+  return data;
+}
+
+/** `data` moved by `dx`, `dy` in the face plane and `dh` towards the viewer. */
+export function offset(data: PartData, dx: number, dy: number, dh = 0): PartData {
+  return { ...data, positions: data.positions.map((value, index) => value + [dx, dy, -dh][index % 3]!) };
+}
+
+/**
+ * `data` tipped by `angle` (radians) about the line parallel to the x axis through `y = pivotY` at `pivotHeight` above
+ * the face. A positive angle tips the part's top (towards the viewer) towards +y, so a point on +y sinks into the face.
+ */
+export function turnX(data: PartData, angle: number, pivotHeight: number, pivotY = 0): PartData {
+  const c = Math.cos(angle), s = Math.sin(angle), positions: number[] = [], normals: number[] = [];
+  for (let index = 0; index < data.positions.length; index += 3) {
+    const x = data.positions[index]!, y = data.positions[index + 1]! - pivotY, z = data.positions[index + 2]! + pivotHeight;
+    positions.push(x, c * y - s * z + pivotY, s * y + c * z - pivotHeight);
+    const ny = data.normals[index + 1]!, nz = data.normals[index + 2]!;
+    normals.push(data.normals[index]!, c * ny - s * nz, s * ny + c * nz);
+  }
+  return { ...data, positions, normals };
+}
