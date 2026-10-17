@@ -161,7 +161,7 @@ export function createInstrumentController(options: InstrumentControllerOptions)
   let chain: Promise<void> = Promise.resolve();
   let gate: Promise<void> | undefined;
   const compile = { builds: 0, failures: 0, deferredDeadlines: 0, deferredMs: 0, lastBuildMs: null as number | null, lastWarmupMs: null as number | null,
-    waitedForPreparationMs: 0, timeouts: 0 };
+    waitedForPreparationMs: 0, timeouts: 0, warmupTimeouts: 0 };
   let timing: { status: string; supported: boolean; frameIndex: number; enabled: boolean } = { status: "disabled", supported: isGpuTimingSupported(engine), frameIndex: 0, enabled: false };
   let grain: DynamicTexture2D | undefined;
   const studios = new Map<string, Uint8Array>();
@@ -543,9 +543,22 @@ export function createInstrumentController(options: InstrumentControllerOptions)
           // most the build deadline; no drawn frame is needed, so a pending successor cannot hold it.
           const warming = performance.now();
           let wait: ReturnType<typeof setTimeout> | undefined;
-          await Promise.race([queue.onSubmittedWorkDone().catch(() => undefined), new Promise(resolve => { wait = setTimeout(resolve, INSTRUMENT_BUILD_DEADLINE_MS); })]);
+          const caughtUp = await Promise.race([queue.onSubmittedWorkDone().then(() => true, () => true),
+            new Promise<false>(resolve => { wait = setTimeout(() => resolve(false), INSTRUMENT_BUILD_DEADLINE_MS); })]);
           clearTimeout(wait);
           compile.lastWarmupMs = performance.now() - warming;
+          if (!caughtUp && state.pass === pass && !disposed) {
+            // The GPU did not catch up with the registration within the deadline: a GPU-side hang after the scene
+            // registered. Diagnosed like a build timeout: the scene is retired and the layer drawn at Relief.
+            compile.warmupTimeouts++;
+            retirePass(pass);
+            state.pass = undefined;
+            state.structure = undefined;
+            const reason = `Instrument scene warm-up timed out after ${INSTRUMENT_BUILD_DEADLINE_MS} ms: the GPU queue did not catch up with its registration`;
+            state.failed = { structure, reason };
+            console.error(`Underglass instrument layer ${state.id} is drawn at the Relief level: ${reason}`);
+            options.requestDraw();
+          }
         } catch (error) {
           clearTimeout(timer);
           compile.failures++;
@@ -741,8 +754,18 @@ export function createInstrumentController(options: InstrumentControllerOptions)
     orderFailed: (reason: string) => {
       if (!orderUnavailable) console.error(`Underglass instrument draw order unavailable: ${reason}`);
       orderUnavailable = reason;
-      // Off the surface at once, so the frame about to render does not draw parts in the wrong order.
-      for (const state of layers.values()) if (state.pass?.registered) { unregisterScene(state.pass.scene); state.pass.registered = false; state.status = "stepped-down"; }
+      // Off the surface at once, so the frame about to render does not draw parts in the wrong order, and every object
+      // at Relief in that same frame (the renderer orders contexts before it writes the face's uniforms).
+      for (const state of layers.values()) {
+        if (state.pass?.registered) { unregisterScene(state.pass.scene); state.pass.registered = false; }
+        const scene = state.checked?.scene;
+        if (!scene) continue;
+        state.status = "stepped-down";
+        state.stepped = scene.objects.map((_, index) => index);
+        state.steppedDown = all(scene, "order-unavailable", reason);
+        state.drawnParts = 0;
+        state.checked = undefined;
+      }
     },
     retirements: () => [...retirements],
     active: () => layers.size > 0,

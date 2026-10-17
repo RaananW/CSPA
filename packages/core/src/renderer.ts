@@ -787,8 +787,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (membershipPending || pending || !complete()) { metrics.incompleteFramesSkipped++; requestPaint(); return; }
       // Instrument parts move in the same frame as the geometry above, before the face's uniforms (its step-downs).
       instrumentFrame(dx);
-      writeUniforms(dx, tint);
+      // Ordering first: if Lite refuses the order, the face's uniforms below already carry every object at Relief.
       orderContexts();
+      writeUniforms(dx, tint);
       renderFrame(engine, 16.67);
       submittedGeneration = publicationGeneration;
       instrument?.afterFrame();
@@ -1023,9 +1024,16 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       // The deferral has a ceiling (`INSTRUMENT_SUCCESSOR_DEFERRAL_MS`, 3 s): a build that hangs cannot hold a successor longer.
       const waiting = performance.now(), controller = instrument!;
       let ceiling: ReturnType<typeof setTimeout> | undefined, begun = false;
-      const begin = () => { if (begun) return; begun = true; clearTimeout(ceiling); controller.deferred(performance.now() - waiting); start(); };
-      ceiling = setTimeout(begin, INSTRUMENT_SUCCESSOR_DEFERRAL_MS);
-      void gate.then(begin);
+      const begin = (byCeiling = false) => {
+        if (begun) return;
+        begun = true;
+        clearTimeout(ceiling);
+        controller.deferred(performance.now() - waiting);
+        if (byCeiling) console.warn(`Underglass successor composition stopped waiting for an instrument scene build after ${INSTRUMENT_SUCCESSOR_DEFERRAL_MS} ms; its 1500 ms deadline runs from now`);
+        start();
+      };
+      ceiling = setTimeout(() => begin(true), INSTRUMENT_SUCCESSOR_DEFERRAL_MS);
+      void gate.then(() => begin());
     });
     const prepared = Promise.race([Promise.all([device.popErrorScope(), compilation]), preparationTimeout]).then(([error]) => {
       if (error) throw new Error(`Successor composition preparation failed: ${error.message}`);

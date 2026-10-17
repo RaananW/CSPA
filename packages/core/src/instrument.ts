@@ -697,10 +697,15 @@ export function similarity(matrix: { a: number; b: number; c: number; d: number;
 /** Where a layer stands on the stage: its similarity, the vanishing point (canvas px) and the camera distance. */
 export interface Placement { matrix: { a: number; b: number; c: number; d: number; e: number; f: number; scale: number }; vanish: Vec2; distance: number }
 
-/** Whether an object's `bounds` lie inside its layer's box (0, 0, width, height): parts drawn outside it would cover other content. */
+/**
+ * Whether an object's `bounds` lie inside its layer's box (0, 0, width, height), within half a pixel: parts drawn outside
+ * it would cover other content. The half pixel keeps a control laid out flush with a fractional layer edge (headful
+ * scrollbars put layers on fractional pixels) drawn as parts; containment still keeps every vertex 0.5 px inside `bounds`.
+ */
+export const BOUNDS_TOLERANCE = 0.5;
 export function boundsInside(object: InstrumentObject, extent: { width: number; height: number }): boolean {
   const [x, y, width, height] = (object.bounds ?? { rect: object.rect }).rect;
-  return x >= 0 && y >= 0 && x + width <= extent.width + 1e-6 && y + height <= extent.height + 1e-6;
+  return x >= -BOUNDS_TOLERANCE && y >= -BOUNDS_TOLERANCE && x + width <= extent.width + BOUNDS_TOLERANCE && y + height <= extent.height + BOUNDS_TOLERANCE;
 }
 /** The outcome of checking one object at one placement. */
 export interface Containment { contained: boolean; part: number; inset: number; overshoot: number; exact: boolean }

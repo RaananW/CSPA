@@ -321,6 +321,7 @@ test("an object's bounds must lie inside its layer's box", () => {
   assert.equal(boundsInside(value.objects[0], value.extent), true);
   assert.equal(boundsInside({ ...value.objects[0], bounds: { rect: [380, 20, 40, 40], radius: 0 } }, value.extent), false, "past the right edge");
   assert.equal(boundsInside({ ...value.objects[0], bounds: { rect: [-1, 20, 40, 40], radius: 0 } }, value.extent), false, "past the left edge");
+  assert.equal(boundsInside({ ...value.objects[0], bounds: { rect: [360.4, 20, 40, 40], radius: 0 } }, value.extent), true, "within half a pixel of the edge");
   // The light and the environment are part of the structure: a change rebuilds the scene.
   const relit = validateInstrumentScene(scene({ light: { azimuth: 200, elevation: 41 } }));
   assert.notEqual(instrumentStructure(relit), instrumentStructure(value));
