@@ -113,8 +113,11 @@ captured caps after it ([I0.8](instrument-phase0.md#i08-post-chain-and-reflectio
   a crease); `prism` is a rounded rectangle raised to `height`, its top inset by `taper` and edged by a `chamfer`;
   `extrude` sweeps an `[x, z]` outline across `width`. The triangles are the part: containment is checked on them.
 - **Kinds.** Parts that share profile, material and `captured` are one kind: one mesh, thin-instanced, with
-  `enableThinInstanceGpuCulling`. Capacity is the next power of two above twice the count (at most 2,048), so a density
-  change within it only changes the instance count (`setThinInstanceCount`). A new kind rebuilds the scene.
+  `enableThinInstanceGpuCulling`. Capacity is the next power of two above twice the count (at least 256, at most 2,048),
+  so a density change within it only changes the instance count (`setThinInstanceCount`); the face-shadow quads hold all
+  256 objects the format allows, so more objects of existing kinds never rebuild. A new kind, profile, material, light
+  or environment rebuilds the scene: the key light, the fill, the studio image and its rotation and each material's
+  environment intensity are built into it, so they are part of the structure key.
 - **Poses.** `mix(from, to, t)` field by field, `t` clamped to 0..1, and the placement
   `T(at) · T(slide, travel) · T(pivot) · R(axis, tilt) · R(z, turn) · T(−pivot)`: rotation and translation only.
 - **Layout and moves.** Instance matrices are written in canvas space: the layer's matrix times the placement. They
@@ -147,12 +150,16 @@ captured caps after it ([I0.8](instrument-phase0.md#i08-post-chain-and-reflectio
 
 - **The travel** is sampled at `n` steps, `n ≥ 32` and large enough that a turning or tilting vertex's chord strays
   less than 0.45 px from its arc.
-- **Fast path.** Per object core keeps the frontier of (orthographic inset, height) over all vertices and steps. Since
-  a point at height `h` drifts at most `r · h / (D − h)` from its orthographic position, with `r` the distance from the
-  vanishing point to the object's farthest bounds corner, `min(inset − r · h / (D − h)) ≥ 0.5` proves containment in
-  constant time per object per frame, wherever the layer is.
+- **The layer's box.** An object whose `bounds` leave the layer's own box steps down at once (`containment`, "its bounds
+  leave the layer's box"): with the clip covering the layer, no mask would stop its parts covering other content.
+- **Fast path.** Per object core keeps the frontier of (orthographic inset, height) over all vertices and steps, kept
+  separately above and below the face (a point at `+h` drifts more than one at `−h`, so they never dominate each other).
+  Since a point at height `h` drifts at most `r · |h| / (D − h)` from its orthographic position, with `r` the distance
+  from the vanishing point to the object's farthest bounds corner, `min(inset − r · |h| / (D − h)) ≥ 0.5` proves
+  containment in constant time per object per frame, wherever the layer is.
 - **Exact path.** If the bound fails, core projects every vertex at every step at the object's current stage position.
-  It runs only for objects near the limit, and is cached until the layer moves.
+  It runs only for objects near the limit, and is cached per placement: on a layer that moves every frame, an object
+  near the limit pays the exact projection every frame (a known cost, not a correctness issue).
 - **Step-down.** A failing object is drawn as its `relief` primitive (default: a raised rectangle over its bounds) in
   the face's list, and `state().instrument` names the object, the part, the smallest projected inset and the
   overshoot past `bounds` in px. GPU stays on.
@@ -180,10 +187,14 @@ I1's second iteration found that core's successor deadline (1.5 s for a successo
 fired in 1 start of 8 while a page's mesh pipelines compiled, because the GPU process compiles one pipeline at a time.
 Core now owns both, so it **sequences** them:
 
-- an instrument scene build starts only after any pending successor preparation has settled;
-- a successor that starts while a scene is building (registration, pipeline preparation and its first frame up to
-  `onSubmittedWorkDone`) starts its 1.5 s deadline when that build has finished, so the deadline counts core's own
-  work again. Each deferral is counted (`state().instrument.compile.deferredDeadlines`, with the time waited);
+- an instrument scene build starts only after any pending successor preparation has settled, waiting at most 10 s, so
+  successors arriving one after another cannot starve it;
+- the **gate** is held only by the build that is running: from its start (after that wait) through registration and
+  pipeline preparation to the GPU queue catching up (`onSubmittedWorkDone`, at most 10 s). A queued build holds nothing,
+  and the gate needs no drawn frame, so a pending successor (which stops core's frames) can never hold it open;
+- a successor that starts while the gate is held starts its 1.5 s deadline when the gate opens or after 10 s, whichever
+  comes first, so the deadline counts core's own work again and a hung build cannot hold a successor longer than the
+  build deadline. Each deferral is counted (`state().instrument.compile.deferredDeadlines`, with the time waited);
 - an instrument build has its own deadline of 10 s; past it, the layer steps down with `compile` and GPU stays on;
 - until a build is ready, the layer draws its objects at the Relief level (`pending`), so no frame shows a half-built
   scene. `enableAsyncShaderPipelineCompilation` lets registration prepare the shader-material pipelines.
@@ -236,7 +247,7 @@ Radiance image generated in code once per engine and light, loaded into each lay
 | --- | --- | --- | --- |
 | 1 | Draw order | Keep the reorder of `getRenderingContexts` as a documented reliance, permuting only core's contexts, with a read-back guard that steps instrument layers down; ask Lite for an ordered insert | Re-register every context in order: `registerScene` is async, so a membership change draws a frame without meshes or waits for a rebuild |
 | 2 | Mesh target | Direct into the layer's pass target, own render tasks with `clr: false`, the target named once for item 3 | An offscreen target now: an extra target and composite before any post stage needs one |
-| 3 | Compile-deadline policy | Sequence: builds wait for successor preparation; a successor's deadline starts after a running build; builds have their own 10 s deadline and step down; pending layers draw at Relief | Extend the successor deadline while instrument layers exist |
+| 3 | Compile-deadline policy | Sequence: builds wait (at most 10 s) for successor preparation; only the running build holds the gate, until the GPU queue has caught up; a successor's deadline starts when the gate opens or after 10 s; builds have their own 10 s deadline and step down; pending layers draw at Relief | Extend the successor deadline while instrument layers exist |
 | 4 | Recipes to Lite PBR | `base` → base colour (linear), metallic, roughness, `directIntensity`; `environment.strength` → `environmentIntensity`; `coat` → `setPbrClearCoat`; `reflectance` → `setPbrMetallicReflectance` (dielectric F0 only, I0.4); `emissive` → `setPbrEmissive`; `sheen`, `iridescence` → their setters; `brush` → `setPbrAnisotropy` with a generated hairline `grain` normal map | Per-layer custom shading: would re-specify Lite's PBR |
 | 5 | Face shadows | A quad per object with up to 8 casters from a storage buffer, darkest wins (I0.5 (a)) | Casters in the relief binding: 256 entries cannot hold 2,048 parts, and the binding is shared with the conformance-tested shader |
 | 6 | Clip | Fragment discard for shader materials, a depth clip mask before the PBR parts | Camera viewports: scissor exactly, but Lite would also change the projection |
@@ -283,6 +294,23 @@ layer), one panel clipped by a viewport. Headless and headful gave the same pixe
 composition joined during the builds (`?race=1`): each deferred one successor deadline, by 414–632 ms headless
 (505–662 headful); ready in 0.88–1.23 s headless, 1.08–1.33 s headful. No build timed out or failed. Each scene builds
 in about 17–86 ms; its first frame finishes on the GPU about 20–35 ms later.
+
+**Review fixes (2026-10-17).** An independent contract review found that the first compile gate covered the whole
+build queue and waited for a drawn frame, so a successor and a queued build could wait on each other with no deadline;
+that light and environment changes did not reach the parts; that bounds past the layer's box were not stepped down;
+and that one more object rebuilt the scene. Each is fixed above and tested: a build held forever by core's internal
+test hook (`?hang=1&race=1`) times out after 10,000 ms, its layer is drawn at Relief (`compile`), and the racing
+successor waits 9,995 ms (the ceiling) and is published with GPU on; the 10 starts deferred one successor deadline
+each (323–680 ms); a new light rebuilds all three scenes and changes 128,715 knob pixels (DPR 1); an object 40 px past
+the panel changes 0 pixels beside it; three more knobs need 0 rebuilds; scenes and retirements return to 3 / 0 after a
+rebuild, 2 / 0 after a cancel, 3 / 0 after restoring it, none after disable and 3 / 0 after re-enabling.
+
+Smaller fixes from the same review: a failed order read-back takes the scenes off the surface before that frame
+renders; Lite's task timings are turned off when the last instrument layer leaves; the studio image cache keeps at most
+4 images; the camera's near plane is `D / 20` (was `D / 4`, which clipped parts taller than `0.75 D` at small `D`). Left
+as they are, recorded: the browser test's 1 px band at the upper panel's edge accepts a pixel owned by a control of
+either panel there (the border pixel is shared by both layers' antialiasing), and the exact containment cache misses
+on a moving layer (above).
 
 **Lite 1.33 behaviour found while building it** (each fixed in core, recorded for the Lite requests):
 

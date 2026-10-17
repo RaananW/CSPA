@@ -570,10 +570,12 @@ The scene is a version 4 `strata-scene` with `kind: "instrument"`:
 - **Drawing.** Each instrument layer has a Lite scene on the shared engine, drawn right after the layer's pass:
   analytic face shadows of the parts, then the parts (thin-instanced per kind, GPU-culled) and the captured caps, with
   their own depth buffer, the layer's clip and its opacity. `handle.update(scene)` with new `t`, states or layout
-  writes instances in the same frame, with no capture, upload or hit-geometry change. New profiles, materials or part
-  kinds rebuild the scene; meanwhile the layer draws its objects at the Relief level.
-- **Containment.** Every vertex of every part, over the whole travel, must project at least 0.5 px inside `bounds`. An
-  object that does not is drawn as its `relief` primitive (default: a raised box over its bounds).
+  writes instances in the same frame, with no capture, upload or hit-geometry change; so do more or fewer objects of
+  existing kinds. New profiles, materials, part kinds, a new light or environment rebuild the scene; meanwhile the layer
+  draws its objects at the Relief level.
+- **Containment.** Every vertex of every part, over the whole travel, must project at least 0.5 px inside `bounds`, and
+  `bounds` must lie inside the layer's box. An object that does not is drawn as its `relief` primitive (default: a raised
+  box over its bounds).
 - **Budgets.** 2,048 parts per layer and 6,000 per stage; above either, the layer is drawn at the Relief level. More
   than 16 part kinds per layer is reported; more than 64 steps the layer down. The format accepts up to 8,192 parts.
 - **Diagnostics.** `state().instrument` lists each layer's `status` (`ready`, `pending`, `stepped-down`, `failed`),
