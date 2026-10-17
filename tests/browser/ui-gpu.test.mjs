@@ -753,3 +753,23 @@ test("a toast over a GPU-presented panel leaves the panel on the GPU", async ({ 
   expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
   expect(errors).toEqual([]);
 });
+
+for (const level of ["relief", "objects"]) test(`a NavigationRail on the GPU at the ${level} level: keys on a raised rail, the current page held down, a real click reaches its link, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addRail(); await window.strataGpuProbe.controller.settle(); });
+  const rail = await primitiveOf(page, "#gpu-rail");
+  expect(rail.object ?? rail.face).toBe(level === "objects" ? "slab" : "raised");
+  const key = level === "objects" ? "key" : "raised";
+  const keys = () => Promise.all(["inbox", "drafts"].map(async name => { const entry = await primitiveOf(page, `#gpu-rail-${name}`); return `${entry.object ?? entry.face}:${entry.state.pressed}`; }));
+  expect(await keys()).toEqual([`${key}:true`, `${key}:false`]);
+  if (level === "objects") expect((await primitiveOf(page, "#gpu-rail-drafts")).base).toBeGreaterThan(rail.base ?? 0);
+  // A real click through the GPU follows the original link.
+  const drafts = await page.locator("#gpu-rail-drafts").boundingBox();
+  await page.mouse.click(drafts.x + drafts.width / 2, drafts.y + drafts.height / 2);
+  await page.mouse.move(5, 5);
+  expect(await page.evaluate(() => location.hash)).toBe("#rail-drafts");
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});

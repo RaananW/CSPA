@@ -15,6 +15,8 @@ export { Accordion, AccordionItem } from "./accordion.ts";
 export { List, ListItem } from "./list.ts";
 export { Avatar } from "./avatar.ts";
 export { Chip } from "./chip.ts";
+export { NavigationRail } from "./navigation-rail.ts";
+export type { NavigationRailItem } from "./navigation-rail.ts";
 export { Skeleton } from "./skeleton.ts";
 export { MessageBar } from "./message-bar.ts";
 export { Pagination } from "./pagination.ts";

@@ -1129,6 +1129,68 @@
   }
   @starting-style { :where(.ug-toast) { translate: 0 8px; opacity: 0; } }
 
+  /* ---- NavigationRail ---- */
+
+  /* Keys on a raised slab down the start edge; the current destination's key is held down. */
+  :where(.ug-nav-rail) {
+    --_finish: var(--strata-finish-role-control);
+    display: inline-flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--strata-space-2);
+    border-radius: calc(var(--strata-radius-control) + var(--strata-space-2));
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+  }
+  :where(.ug-nav-rail__list) { display: flex; flex-direction: column; gap: var(--strata-space-1); margin: 0; padding: 0; list-style: none; }
+  :where(.ug-nav-rail__entry) { display: flex; }
+  :where(.ug-nav-rail__item) {
+    --_finish: var(--strata-finish-role-control);
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--strata-space-1);
+    box-sizing: border-box;
+    min-width: 56px;
+    min-height: 48px;
+    padding: var(--strata-space-2);
+    border: var(--strata-outline-width) solid var(--strata-colour-edge);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-secondary);
+    color: var(--strata-colour-text);
+    font-size: var(--strata-font-size-small);
+    font-weight: var(--strata-font-weight-strong);
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+  }
+  :where(.ug-nav-rail__icon) { display: inline-grid; width: 24px; height: 24px; }
+  :where(.ug-nav-rail__icon:empty) { display: none; }
+  :where(.ug-nav-rail__label) { max-width: 100%; overflow-wrap: anywhere; }
+  :where(.ug-nav-rail__icon) > svg { width: 100%; height: 100%; }
+  :where(.ug-nav-rail__item):is(:hover, [data-strata-preview~="hover"]) {
+    --_lift: var(--strata-state-hover-height);
+    --_tone: var(--_hover-tone);
+  }
+  :where(.ug-nav-rail__item):is(:active, [data-strata-preview~="active"]) {
+    --_lift: var(--strata-state-press-height);
+    --_tone: var(--_press-tone);
+  }
+  /* The current destination: held down, tinted, and a strip along its start edge. */
+  :where(.ug-nav-rail__item[aria-current="page"]) {
+    --_lift: var(--strata-state-press-height);
+    --_tone: var(--_press-tone);
+    border-inline-start: 3px solid var(--strata-colour-accent);
+    background-color: color-mix(in srgb, var(--strata-colour-accent) 16%, var(--strata-colour-secondary));
+  }
+  :where(.ug-nav-rail__item):is(:focus-visible, [data-strata-preview~="focus"]) {
+    outline: var(--strata-focus-width) solid var(--strata-colour-accent);
+    outline-offset: var(--strata-focus-offset);
+  }
+
   /* ---- Divider ---- */
 
   :where(.ug-divider) {
@@ -1330,6 +1392,9 @@
     :where(.ug-scrim) { forced-color-adjust: none; }
     :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group, .ug-toolbar) { border: 1px solid ButtonBorder; }
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-nav-rail) { border: 1px solid CanvasText; }
+    :where(.ug-nav-rail__item) { border: 1px solid ButtonBorder; }
+    :where(.ug-nav-rail__item[aria-current="page"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
     :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }

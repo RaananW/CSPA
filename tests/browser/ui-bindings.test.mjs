@@ -13,6 +13,7 @@
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  *   toasts appear in the status region and go after their time, which hovering stops;
+ *   a NavigationRail is a landmark of links whose current page follows its state, and reports navigation;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -732,5 +733,33 @@ for (const binding of bindings) test(`Strata ${binding} toasts appear in the sta
   await expect(toasts).toHaveCount(3);
   await toasts.first().getByRole("button", { name: "Dismiss" }).click();
   await expect(toasts).toHaveCount(2);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} NavigationRail is a landmark of named links whose current page follows its state, and reports navigation`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const rail = page.getByRole("navigation", { name: "Sections" });
+  await rail.scrollIntoViewIfNeeded();
+  const link = name => rail.getByRole("link", { name, exact: true });
+  await expect(link("Inbox")).toHaveAttribute("aria-current", "page");
+  // A click is reported; the page prevents the default and moves the current page.
+  await link("Drafts").click();
+  await expect(link("Drafts")).toHaveAttribute("aria-current", "page");
+  await expect(link("Inbox")).not.toHaveAttribute("aria-current", /.*/);
+  expect(await page.evaluate(() => [window.strataBinding.rail, location.hash])).toEqual(["#rail-drafts", ""]);
+  // Enter on a focused link does the same, natively.
+  await link("Sent").focus();
+  await page.keyboard.press("Enter");
+  await expect(link("Sent")).toHaveAttribute("aria-current", "page");
+  // The current key is held down with its strip; each destination is a 24 px target at least.
+  const keys = await rail.locator(".ug-nav-rail__item").evaluateAll(items => items.map(item => {
+    const rect = item.getBoundingClientRect();
+    return { strip: getComputedStyle(item).borderInlineStartWidth, size: Math.min(rect.width, rect.height) };
+  }));
+  expect(keys.map(key => key.strip)).toEqual(["0px", "0px", "3px"]);
+  for (const key of keys) expect(key.size).toBeGreaterThanOrEqual(24);
   await context.close();
 });

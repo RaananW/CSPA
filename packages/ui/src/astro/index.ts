@@ -15,6 +15,7 @@ export { default as Button } from "./Button.astro";
 export { default as ButtonGroup } from "./ButtonGroup.astro";
 export { default as Card } from "./Card.astro";
 export { default as Chip } from "./Chip.astro";
+export { default as NavigationRail } from "./NavigationRail.astro";
 export { default as Checkbox } from "./Checkbox.astro";
 export { default as Dialog } from "./Dialog.astro";
 export { default as Divider } from "./Divider.astro";

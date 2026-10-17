@@ -3,7 +3,7 @@
 **Status:** accepted plan (2026-10-15). Phases 0 to 5 are implemented (2026-10-16): the design language and tokens,
 Tier A components with Dialog and Drawer, and the GPU presentation at the Relief, Objects and Scene levels with the
 adjust policy ([Phase 4](phase4.md), [Objects](phase4-objects.md), [Phase 5](phase5.md)). Tier B is done (Dialog, Drawer,
-[Tabs](components/tabs.md), [Accordion](components/accordion.md), [List](components/list.md), [Table](components/table.md), [Breadcrumb](components/breadcrumb.md), [Avatar](components/avatar.md), [Chip](components/chip.md), [Skeleton](components/skeleton.md), [MessageBar](components/message-bar.md), [Pagination](components/pagination.md), [Toolbar](components/toolbar.md), [AppBar](components/app-bar.md), [Tooltip](components/tooltip.md) and [Toast](components/toast.md)), and the showcase has a component gallery ([`#/strata`](../showcase.md)); Tier C remains. Later phases may refine it through their own PRs.
+[Tabs](components/tabs.md), [Accordion](components/accordion.md), [List](components/list.md), [Table](components/table.md), [Breadcrumb](components/breadcrumb.md), [Avatar](components/avatar.md), [Chip](components/chip.md), [Skeleton](components/skeleton.md), [MessageBar](components/message-bar.md), [Pagination](components/pagination.md), [Toolbar](components/toolbar.md), [AppBar](components/app-bar.md), [Tooltip](components/tooltip.md) and [Toast](components/toast.md)), and the showcase has a component gallery ([`#/strata`](../showcase.md)); Tier C is under way ([NavigationRail](components/navigation-rail.md) is done). Later phases may refine it through their own PRs.
 
 **Names:** the design language is **Strata**; the package is `@underglass/ui`.
 

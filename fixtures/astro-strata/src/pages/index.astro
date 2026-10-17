@@ -6,7 +6,7 @@
  */
 import "@underglass/ui/css";
 import {
-  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, RadioGroup, Select, Skeleton, Slider, Spinner, Table, Tabs,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, IconButton, Link, List, ListItem, MessageBar, NavigationRail, Pagination, Panel, ProgressBar, RadioGroup, Select, Skeleton, Slider, Spinner, Table, Tabs,
   StrataProvider, StrataScope, Switch, TextArea, TextField, ToggleButton, Toolbar, Tooltip,
 } from "@underglass/ui/astro";
 
@@ -33,6 +33,7 @@ const close = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke
     <div data-contract="radio.md"><RadioGroup legend="Plan" name="plan" value="free" help="You can change it later." error="choose a plan." options={[{ value: "free", label: "Free" }, { value: "pro", label: "Pro" }]} /></div>
     <div data-contract="table.md#2"><Table caption="Invoices" columns={[{ key: "number", header: "Number" }, { key: "customer", header: "Customer" }, { key: "amount", header: "Amount", numeric: true }]} rows={[{ number: "1001", customer: "Ada Lovelace", amount: "120.00" }]} sort={{ key: "number", direction: "ascending" }} /></div>
     <div data-contract="avatar.md"><Avatar name="Ada Lovelace" /><Avatar name="Grace Hopper" src="/people/grace.jpg" /><Avatar name="Alan Turing" decorative /></div>
+    <div data-contract="navigation-rail.md"><NavigationRail label="Main" items={[{ label: "Inbox", href: "/inbox" }, { label: "Drafts", href: "/drafts" }]} current="/inbox" /></div>
     <div data-contract="chip.md"><Chip label="Design" /><Chip label="Remote" pressed /><Chip label="ada@example.com" removable /></div>
     <div data-contract="message-bar.md"><MessageBar intent="warning" title="Storage almost full" dismissible>You have used 95% of your space.<Fragment slot="actions"><Button>Upgrade</Button></Fragment></MessageBar></div>
     <div data-contract="app-bar.md"><AppBar title="Underglass"><Fragment slot="start"><IconButton label="Menu" /></Fragment><Fragment slot="end"><Button>Sign in</Button></Fragment></AppBar></div>

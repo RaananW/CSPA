@@ -448,3 +448,15 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
+
+## NavigationRail
+
+An application's top-level destinations in a column at the start edge: a `<nav>` landmark with a list of native links,
+the current one `aria-current="page"` and its key held down. A click reaches `onNavigate(href, event)` (Vue:
+`navigate`), so a router can prevent the default and route:
+
+```tsx
+<NavigationRail label="Main" items={[{ label: "Inbox", href: "/inbox", icon: <InboxIcon /> }]} current={path} onNavigate={(href, event) => { event.preventDefault(); navigate(href); }} />
+```
+
+In Astro an item's `icon` is SVG markup. [Anatomy](../../docs/ui-library/components/navigation-rail.md).
