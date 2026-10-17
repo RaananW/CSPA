@@ -421,11 +421,19 @@ and `state.pressSink`.
   configurable (default 4).
 - **Density:**
 
-  | Density | Control height | Panel padding |
-  | --- | --- | --- |
-  | `compact` | 28 | 12 |
-  | `comfortable` (default) | 34 | 18 |
-  | `spacious` | 40 | 24 |
+  | Density | Control height | Panel padding | Gap between controls | Gap between groups |
+  | --- | --- | --- | --- | --- |
+  | `compact` | 28 | 12 | 8 | 16 |
+  | `comfortable` (default) | 34 | 18 | 12 | 20 |
+  | `spacious` | 40 | 24 | 16 | 24 |
+
+- **Spacing between controls:** components have no outer margin; the page places them. Separate controls in a row
+  stand at least `gap.control` apart, and groups (fields, rows of controls, sections) at least `gap.group`. A raised
+  control's cast shadow covers part of any gap, so a gap that looks generous in a flat design looks cramped here.
+  Controls joined on purpose, such as the keys of a ButtonGroup, Toolbar or SegmentedControl on their plinth, are
+  one control and keep their own spacing. A row that may be too narrow for its controls wraps; it never squeezes a
+  control below its content. `.ug-stack` (groups, one under another) and `.ug-cluster` (a wrapping row of
+  controls) apply these gaps.
 
 - **Layering:** panels are the GPU layer unit, so pages should use a few large panels, not one
   panel per control (layer budget 32–64; 256 relief primitives per panel, P0.3).

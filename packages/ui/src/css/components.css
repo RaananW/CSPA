@@ -123,6 +123,14 @@
   :where(.ug-card__body) { min-width: 0; }
   :where(.ug-card__footer) { display: flex; flex-wrap: wrap; gap: var(--strata-space-3); }
 
+  /* ---- Layout ---- */
+
+  /* Components have no outer margin; these put the design language's gaps between them (section 13), scaled by
+     density. A stack holds groups (fields, rows, sections) one under another; a cluster is a wrapping row of
+     controls, so a row too narrow for its controls wraps instead of squeezing them. */
+  :where(.ug-stack) { display: flex; flex-direction: column; gap: var(--strata-gap-group); margin: 0; }
+  :where(.ug-cluster) { display: flex; flex-wrap: wrap; align-items: center; gap: var(--strata-gap-control); margin: 0; }
+
   /* ---- Overlays: Dialog and Drawer are top-level panels at the modal level, over a scrim ---- */
 
   /* Panel and scrim are siblings in the same container, scrim first; a later pair stacks above an earlier one. */
