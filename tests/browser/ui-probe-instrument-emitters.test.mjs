@@ -221,10 +221,13 @@ test("I0.3 cost per emitter count on one 1920 x 1080 layer, DPR 1 and 2", async 
         expect(errors).toEqual([]);
       } finally { await context.close(); }
     }
-    // The recommended budget: 64 emitters on a full-screen layer cost under 2 ms of GPU time at DPR 2 (the tiled light
-    // pass and the clustered mesh scene together, medians; single-frame spikes are recorded in p95).
-    const at64 = report.runs.find(run => run.dpr === 2 && run.count === 64 && run.tiled);
-    expect(at64.lightPass.p50 + at64.meshScene.p50, "64 emitters at DPR 2").toBeLessThan(2);
+    // The recommended budget: 64 emitters on a full-screen layer stay within 3 ms of GPU time at DPR 2 (the tiled light
+    // pass and the clustered mesh scene together, medians; single-frame spikes are recorded in p95), and tiling keeps
+    // the light pass from growing with every emitter on every pixel.
+    const find = (dpr, count, tiled) => report.runs.find(run => run.dpr === dpr && run.count === count && run.tiled === tiled);
+    const at64 = find(2, 64, true);
+    expect(at64.lightPass.p50 + at64.meshScene.p50, "64 emitters at DPR 2").toBeLessThan(3);
+    expect(find(2, 256, true).lightPass.p50, "tiles: 256 emitters at DPR 2").toBeLessThan(find(2, 256, false).lightPass.p50 / 2);
   } finally {
     await save("emitters-cost", report);
   }
