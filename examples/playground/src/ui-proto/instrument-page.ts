@@ -7,12 +7,16 @@
  *   the same controller (one shared engine): what the panel looks like when it steps down.
  * - **CSS:** a third copy outside the GPU frame, styled by the skeuomorphic recipe in the page's stylesheet.
  * The copies share their control state (a change in one is mirrored to the others). The tuning bar's values live in
- * the query string, so a variant is reproducible from its URL.
+ * the query string, so a variant is reproducible from its URL. Every copy's knobs behave round (`instrument-behaviour.ts`),
+ * a display window reads the state out under glass, and the pointer light (a tuning-bar toggle) follows the pointer
+ * over the stage. `?debug` decodes Lite's numeric errors; `?glassDebug=1` shows the glass's reflected radiance alone and
+ * `?glassDebug=2` its Fresnel weight.
  *
  * `window.instrumentProto` drives `tests/browser/ui-proto-instrument.test.mjs`: `ready` resolves to the API with `set`
  * (tuning values), `state` (control states), `press` (hold the push buttons down), `settle`, `screenshot` (clip rects
- * for the screenshots and the token values behind them), and the checks `containment`, `labelContrast`, `capLabels`,
- * `hits` and `counts`. Throwaway prototype code.
+ * for the screenshots and the token values behind them), the checks `containment`, `labelContrast`, `capLabels` (the
+ * push button's label and the display's text against core's plain pass), `glass` (rim and magnification), `hits` and
+ * `counts`, and `numerals`, `native` and `pointer` for the knob and pointer-light checks. Throwaway prototype code.
  */
 import "@underglass/ui/css";
 import { enableErrorDecoding, type Screenshot } from "@babylonjs/lite";
