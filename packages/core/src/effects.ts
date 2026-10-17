@@ -7,6 +7,7 @@
  */
 import { validateReliefScene, type ReliefScene } from "./relief.js";
 import { validateStageScene, type StageScene } from "./stage.js";
+import { validateInstrumentScene, type InstrumentScene } from "./instrument.js";
 
 /** Effect clock: `seconds` is the effect time (0..1e6) and `playing` whether it advances each frame. */
 export interface EffectTime { seconds: number; playing?: boolean }
@@ -185,12 +186,19 @@ export function effectUniforms(values: readonly EffectDescriptor[] = []) {
  *   holds objects (keys, slabs, wells, knobs...), seen through its camera. Objects never take hits: one that would
  *   draw outside its control is drawn at the Relief level, and `state().materials` reports it.
  * - `stage` draws a stage scene (version 3) on a decorative layer: a lit backdrop and particles around the UI.
+ * - `instrument` is the Instrument level (version 4, part 2D): the face is shaded as `relief`, and each object is built
+ *   from parametric parts drawn as Babylon Lite meshes right after the layer, posed by native state. Parts never take
+ *   hits: an object that would draw outside its bounds is drawn as its Relief primitive, and `state().materials`
+ *   reports it (`docs/ui-library/instrument-phase2.md`).
  */
-export type MaterialDescriptor = CustomMaterial | ReliefMaterial | ObjectsMaterial | StageMaterial;
-/** A material whose look is a Strata scene: `relief` (version 1), `objects` (versions 2 and 3) or `stage` (version 3). */
-export type SceneMaterial = ReliefMaterial | ObjectsMaterial | StageMaterial;
+export type MaterialDescriptor = CustomMaterial | ReliefMaterial | ObjectsMaterial | StageMaterial | InstrumentMaterial;
+/**
+ * A material whose look is a Strata scene: `relief` (version 1), `objects` (versions 2 and 3), `stage` (version 3) or
+ * `instrument` (version 4).
+ */
+export type SceneMaterial = ReliefMaterial | ObjectsMaterial | StageMaterial | InstrumentMaterial;
 export const isSceneMaterial = (value: MaterialDescriptor | undefined): value is SceneMaterial =>
-  value?.kind === "relief" || value?.kind === "objects" || value?.kind === "stage";
+  value?.kind === "relief" || value?.kind === "objects" || value?.kind === "stage" || value?.kind === "instrument";
 /** Fields every material declares: it stays in the layer, relights pixels in place, and DOM shows the original. */
 interface MaterialPolicy {
   bounds: "layer";
@@ -221,6 +229,11 @@ export interface StageMaterial extends MaterialPolicy {
   kind: "stage";
   scene: StageScene;
 }
+/** The built-in instrument material: a Strata scene, version 4 with `kind: "instrument"` (`docs/ui-library/rendering-model.md`, 2D). */
+export interface InstrumentMaterial extends MaterialPolicy {
+  kind: "instrument";
+  scene: InstrumentScene;
+}
 /**
  * Handle for a layer's material, returned by `setMaterial`. A material persists across DOM and GPU presentation
  * (ordinary DOM shows the original), and ends only when cancelled, disposed, replaced by a later `setMaterial`
@@ -232,9 +245,10 @@ export interface MaterialHandle {
   state(): { active: boolean; material: MaterialDescriptor };
   /**
    * Changes the material without recompiling: a custom material's parameters (same schema), or a relief
-   * material's whole scene (states, rectangles, primitives added or removed).
+   * material's whole scene (states, rectangles, primitives added or removed). An instrument scene's poses, states and
+   * layout update in place; new part kinds rebuild its mesh scene while the layer draws its objects at Relief.
    */
-  update(change: Record<string, number> | ReliefScene | StageScene): void;
+  update(change: Record<string, number> | ReliefScene | StageScene | InstrumentScene): void;
   cancel(): void;
   dispose(): void;
 }
@@ -248,6 +262,7 @@ export function validateMaterial(value: MaterialDescriptor): MaterialDescriptor 
   if (value.kind === "relief") return { ...value, scene: validateReliefScene(value.scene) };
   if (value.kind === "objects") return { ...value, scene: validateReliefScene(value.scene, "objects") };
   if (value.kind === "stage") return { ...value, scene: validateStageScene(value.scene) };
+  if (value.kind === "instrument") return { ...value, scene: validateInstrumentScene(value.scene) };
   if (value.kind !== "custom") throw new Error("Unsupported material kind");
   if (!value.parameters || !value.interior) throw new Error("Custom materials require parameters and an interior budget");
   if (!definitions.has(value.definition)) throw new Error("Custom materials must come from defineEffect");

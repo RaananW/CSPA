@@ -31,6 +31,8 @@ import { createAdmissionProbe, verifyFrameBounds, verifyProbeGeometry, verifyPro
 import type { Ripple } from "./ripple.js";
 import { isSceneMaterial, type ApplicationEffect, type EffectDescriptor, type MaterialDescriptor } from "./effects.js";
 import type { CompiledMotion, CompiledProgramSet } from "./compiled.js";
+import { instrumentFaceScene } from "./instrument.js";
+import { createInstrumentController, INSTRUMENT_SUCCESSOR_DEFERRAL_MS, type InstrumentController, type InstrumentLayerInput } from "./instrument-pass.js";
 
 /**
  * One enrolled layer as the runtime describes it to the renderer. The callbacks are read again on every
@@ -129,6 +131,8 @@ export interface SurfaceRendererOptions extends MountBoundaryOptions {
    * object. Phase I2 replaces it with the `instrument` material.
    */
   instrumentProbe?: InstrumentProbeHook;
+  /** @internal Tests only, like `instrumentProbe`: hooks into the instrument material's builds (see `instrument-pass.ts`). */
+  instrumentTestHook?: { beforeBuild?(layerId: string): Promise<void> | void };
 }
 /**
  * @internal Phase I0 prototype path for the Instrument level's mesh pass (probe I0.1), to be replaced by the
@@ -165,7 +169,8 @@ export interface InstrumentProbeLayer {
 }
 /** One timing sample passed to `onMeasure`. */
 export interface RendererSample {
-  kind: "captureMs" | "uploadMs" | "frameWorkMs" | "frameIntervalsMs" | "readbackCompareMs" | "effectCompileMs";
+  /** `instrumentGpuMs`: the GPU time of one instrument layer's mesh pass in one frame (Lite's per-task timings). */
+  kind: "captureMs" | "uploadMs" | "frameWorkMs" | "frameIntervalsMs" | "readbackCompareMs" | "effectCompileMs" | "instrumentGpuMs";
   /** `performance.now()` time when the sample was taken, in milliseconds. */
   at: number;
   durationMs: number;
@@ -238,6 +243,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
   // probe context it has returned (those it no longer returns are kept off the surface).
   let instrumentAttached = false;
   const instrumentKnown = new Set<RenderingContext>();
+  // The `instrument` material's mesh passes on the current engine (`instrument-pass.ts`), created with the first
+  // instrument layer and released with the engine.
+  let instrument: InstrumentController | undefined;
   // `enable` is running; `transitioning`: `recoverToDOM` is running.
   let initializing = false;
   let transitioning = false;
@@ -335,27 +343,75 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     registered = true;
   }
   /**
-   * Phase I0 prototype path (`InstrumentProbeHook`): puts the probe's registered contexts on the surface right after
-   * their layers' passes, so a layer's meshes draw before the next layer's face. Lite documents
-   * `getRenderingContexts` as the surface's live registry view in render order and has no public call that inserts
-   * a context at a position, so the prototype reorders that list in place. Phase I2 replaces this.
+   * Puts mesh scenes on the surface right after their layers' passes, so a layer's meshes draw before the next layer's
+   * face: the `instrument` material's scenes, and the Phase I0 prototype hook's (`InstrumentProbeHook`). Lite documents
+   * `getRenderingContexts` as the surface's live registry view in render order and has no public call that inserts a
+   * context at a position (`registerScene` appends, asynchronously), so core reorders that list in place: a documented
+   * reliance (`docs/ui-library/instrument-phase2.md`, decision 1). Only contexts core registered are permuted; others
+   * keep their order after them. The order is read back, and if Lite did not take it every instrument layer is drawn at
+   * the Relief level from the next frame. Does nothing on a surface with no mesh scenes.
    */
-  function orderInstrument() {
+  function orderContexts() {
     const hook = options.instrumentProbe;
-    if (!hook || !instrumentAttached || !engine || !registered) return;
+    const probe = !!hook && instrumentAttached;
+    const owned = instrument?.scenes();
+    if (!engine || !registered || !probe && !owned?.size) return;
     const list = getRenderingContexts(engine.surfaces[0]) as RenderingContext[];
     const desired: RenderingContext[] = background ? [background.renderer] : [];
     layers.forEach((layer, index) => {
       desired.push(passes[index]!.renderer);
-      for (const context of hook.contexts({ id: layer.id, element: layer.element, matrix: () => layer.matrix(), texture: layer.texture })) {
+      if (owned?.size) for (const context of instrument!.contexts(layer.id)) if (!desired.includes(context)) desired.push(context);
+      if (probe) for (const context of hook.contexts({ id: layer.id, element: layer.element, matrix: () => layer.matrix(), texture: layer.texture })) {
         // Only contexts the probe registered (or that core took off the surface earlier) are drawn.
         if (desired.includes(context) || !list.includes(context) && !instrumentKnown.has(context)) continue;
         instrumentKnown.add(context);
         desired.push(context);
       }
     });
-    const next = [...desired, ...list.filter(context => !desired.includes(context) && !instrumentKnown.has(context))];
-    if (next.length !== list.length || next.some((context, index) => context !== list[index])) list.splice(0, list.length, ...next);
+    const next = [...desired, ...list.filter(context => !desired.includes(context) && !instrumentKnown.has(context) && !owned?.has(context))];
+    if (next.length === list.length && next.every((context, index) => context === list[index])) return;
+    try { list.splice(0, list.length, ...next); }
+    catch (error) {
+      if (!owned?.size) throw error;
+      instrument!.orderFailed(`the surface's context list cannot be reordered: ${String(error)}`);
+      return;
+    }
+    if (!owned?.size) return;
+    const after = getRenderingContexts(engine.surfaces[0]);
+    if (after.length !== next.length || next.some((context, index) => context !== after[index])) {
+      instrument!.orderFailed("the surface's context list did not take the order core wrote");
+    }
+  }
+  /**
+   * The `instrument` material's frame, inside `draw()` after native geometry: hands the controller every presented
+   * layer (an instrument one with its scene), so it can step objects down, start builds and write instances in this
+   * frame. Creates the controller with the first instrument layer.
+   */
+  function instrumentFrame(shift: number) {
+    if (!engine || !queue || !observer) return;
+    const any = layers.some(layer => layer.material?.()?.kind === "instrument");
+    if (!any && !instrument?.active()) return;
+    if (!instrument) {
+      const lost = observer.lost;
+      instrument = createInstrumentController({ engine, queue: queue as unknown as GPUQueue, lost, stage: () => options.size(),
+        texture: id => layers.find(layer => layer.id === id)?.texture,
+        preparation: () => preparation, onMeasure: options.onMeasure, testHook: options.instrumentTestHook,
+        requestDraw: () => {
+          if (scheduled || mode !== "gpu") return;
+          resources.scheduledFrames++;
+          scheduled = requestAnimationFrame(() => {
+            scheduled = 0; resources.scheduledFrames--;
+            try { draw(); } catch (error) { console.error("Underglass instrument frame failed", error); }
+          });
+        } });
+    }
+    instrument.frame(layers.map((layer): InstrumentLayerInput => {
+      const material = layer.material?.();
+      const matrix = new DOMMatrix().translate(shift, 0).multiply(layer.matrix());
+      return { id: layer.id, scene: material?.kind === "instrument" ? material.scene : undefined, matrix,
+        clip: layer.clip?.(matrix) ?? { x: 0, y: 0, width: layer.extent.width, height: layer.extent.height },
+        extent: layer.extent, opacity: layer.opacity(), texture: layer.texture, content: layer.contentExtent };
+    }));
   }
   /** Phase I0 prototype path: lets the probe release its scenes before the engine goes. */
   function detachInstrument() {
@@ -383,7 +439,11 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       const block = layerUniforms(layer, size.dpr, size, shift, shade, pass.custom, !!options.compiled);
       if (pass.custom?.relief) {
         const material = layer.material?.();
-        setEffectUniforms(pass.effect, { 2: block, 3: isSceneMaterial(material) ? reliefUniforms(material.scene) : noRelief });
+        // An instrument layer's face is its relief primitives plus the objects drawn at the Relief level this frame.
+        const scene = material?.kind === "instrument"
+          ? instrumentFaceScene(material.scene, instrument?.stepped(layer.id) ?? material.scene.objects.map((_, object) => object))
+          : isSceneMaterial(material) ? material.scene : undefined;
+        setEffectUniforms(pass.effect, { 2: block, 3: scene ? reliefUniforms(scene) : noRelief });
       } else setEffectUniforms(pass.effect, block);
     });
   }
@@ -487,6 +547,8 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
         captures: layers.map(layer => ({ id: layer.id, ...layer.coverage, textureWidth: layer.texture.texture.width, textureHeight: layer.texture.texture.height })) },
       rootContainer: container.parentElement?.id,
       transforms: mode === "gpu" ? current.map(layer => ({ id: layer.element.id, matrix: Array.from(nativeHost().getElementTransform(layer.element).toFloat64Array()) })) : [],
+      /** The `instrument` material's diagnostics, or null before the first instrument layer on this engine. */
+      instrument: instrument?.state() ?? null,
     };
   }
   /** Adds an event listener that is counted in `resources.listeners` and removed on dispose. */
@@ -548,6 +610,9 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
     if (!probeReadback?.active) probeReadback = undefined;
     if (observer) { observer.release(); observer = undefined; resources.lossObservers--; }
     detachInstrument();
+    // Instrument scenes go before the engine; the caller has fenced the GPU or the device is lost.
+    instrument?.dispose();
+    instrument = undefined;
     releaseComposition();
     if (engine) { disposeEngine(engine); engine = undefined; resources.engines--; }
   }
@@ -625,7 +690,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       if (work) await work;
       if (preparation) await preparation;
       if (engine) {
-       const outstanding = Promise.all([...retirements, ...(probeReadback?.active ? [probeReadback.completion] : [])]).then(() => undefined);
+       const outstanding = Promise.all([...retirements, ...(instrument?.retirements() ?? []), ...(probeReadback?.active ? [probeReadback.completion] : [])]).then(() => undefined);
        const { outcome, completion } = await waitForTeardown(engine, observer?.lost, 1500, outstanding);
         sample(metrics.fenceOutcomes, outcome);
         metrics.fenceCount++;
@@ -720,10 +785,14 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       geometry();
       // Never present a partial composition; the last complete frame stays on screen until fresh pixels arrive.
       if (membershipPending || pending || !complete()) { metrics.incompleteFramesSkipped++; requestPaint(); return; }
+      // Instrument parts move in the same frame as the geometry above, before the face's uniforms (its step-downs).
+      instrumentFrame(dx);
+      // Ordering first: if Lite refuses the order, the face's uniforms below already carry every object at Relief.
+      orderContexts();
       writeUniforms(dx, tint);
-      orderInstrument();
       renderFrame(engine, 16.67);
       submittedGeneration = publicationGeneration;
+      instrument?.afterFrame();
     } catch (error) {
       if (mode === "gpu") {
         const failedGeneration = generation;
@@ -939,10 +1008,32 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       queueCapture();
       return true;
     };
-    // Preparation (error scope and shader compilation) is limited to 1500 ms; a timeout recovers to DOM.
-    let preparationTimer: ReturnType<typeof setTimeout>;
+    // Preparation (error scope and shader compilation) is limited to 1500 ms; a timeout recovers to DOM. While an
+    // instrument scene builds (registration to its first frame on the GPU), the GPU process is compiling its pipelines
+    // one at a time, so the deadline starts when that build is done and counts core's own work (the compile policy,
+    // `docs/ui-library/instrument-phase2.md`).
+    let preparationTimer: ReturnType<typeof setTimeout> | undefined;
+    let preparationSettled = false;
     const preparationTimeout = new Promise<never>((_, reject) => {
-      preparationTimer = setTimeout(() => reject(new Error("Successor composition preparation timed out after 1500 ms")), 1500);
+      const start = () => {
+        if (preparationSettled) return;
+        preparationTimer = setTimeout(() => reject(new Error("Successor composition preparation timed out after 1500 ms")), 1500);
+      };
+      const gate = instrument?.gate();
+      if (!gate) { start(); return; }
+      // The deferral has a ceiling (`INSTRUMENT_SUCCESSOR_DEFERRAL_MS`, 3 s): a build that hangs cannot hold a successor longer.
+      const waiting = performance.now(), controller = instrument!;
+      let ceiling: ReturnType<typeof setTimeout> | undefined, begun = false;
+      const begin = (byCeiling = false) => {
+        if (begun) return;
+        begun = true;
+        clearTimeout(ceiling);
+        controller.deferred(performance.now() - waiting);
+        if (byCeiling) console.warn(`Underglass successor composition stopped waiting for an instrument scene build after ${INSTRUMENT_SUCCESSOR_DEFERRAL_MS} ms; its 1500 ms deadline runs from now`);
+        start();
+      };
+      ceiling = setTimeout(() => begin(true), INSTRUMENT_SUCCESSOR_DEFERRAL_MS);
+      void gate.then(() => begin());
     });
     const prepared = Promise.race([Promise.all([device.popErrorScope(), compilation]), preparationTimeout]).then(([error]) => {
       if (error) throw new Error(`Successor composition preparation failed: ${error.message}`);
@@ -954,7 +1045,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       console.error(error);
       if (pending === successor || active === successor) void recover(`GPU successor failure: ${String(error)}`).catch(reportFailure);
     })
-      .finally(() => { clearTimeout(preparationTimer); if (preparation === prepared) preparation = undefined; });
+      .finally(() => { preparationSettled = true; clearTimeout(preparationTimer); if (preparation === prepared) preparation = undefined; });
     preparation = prepared;
   }
   /**

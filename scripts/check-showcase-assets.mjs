@@ -26,8 +26,10 @@ async function check(path, prefix = "") {
       assert.equal(name, "assets", `Unexpected public directory: ${name}`);
       await check(file, "assets/");
     } else {
-      // Hashed JS/CSS plus the JPEG previews of GPU mode shown to browsers that cannot run it.
-      assert.ok(name === "index.html" || /^assets\/[\w-]+\.(js|css|jpg)$/.test(name), `Unexpected public asset: ${name}`);
+      // Hashed JS/CSS plus the JPEG previews of GPU mode shown to browsers that cannot run it. A chunk's base
+      // name may contain dots: Vite names Babylon Lite's lazily loaded shader chunks after their source files
+      // (`skybox.vertex-<hash>.js`), which the instrument material's environment loading brings in.
+      assert.ok(name === "index.html" || /^assets\/[\w.-]+\.(js|css|jpg)$/.test(name), `Unexpected public asset: ${name}`);
       if (name.endsWith(".jpg")) {
         // JPEG start-of-image marker.
         const bytes = await readFile(file);

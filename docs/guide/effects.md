@@ -122,6 +122,14 @@ that travel when pressed, wells, bezels, spherical knobs) seen through a perspec
 camera. Their tops stay exactly on the captured labels, and nothing is ever drawn
 outside the control it belongs to, so clicks still land on the real elements.
 
+The `instrument` material takes a version 4 scene: each control becomes real hardware
+(knob caps, fader carriages, key caps, switch levers) built from profiles and drawn as
+lit meshes after its layer. Set each object's `t` from the control's native value with
+`handle.update(scene)`: the parts move with no capture and no change to hit testing.
+A part that could leave its control's box at any point of its travel is drawn flat
+instead, and `state().materials` says which and by how much
+([API](../api.md#the-instrument-material)).
+
 ## Transition effects on interactive layers
 
 A layer with real controls can carry an effect **while it is in a transition**:
