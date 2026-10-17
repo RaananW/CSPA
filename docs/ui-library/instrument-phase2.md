@@ -204,9 +204,13 @@ Core now owns both, so it **sequences** them:
 freeze every layer: 3 s, against measured starts of 0.88–1.33 s with three instrument layers and successor deferrals of
 323–717 ms (two to three times the need). A successor whose compile is still blocked after it falls back, diagnosed,
 after 3 s + 1.5 s, as the contract allows for a GPU stall. The build keeps its own 10 s, so a slow build steps its layer
-down without holding anyone else for that long. The alternative, a longer deadline for every successor while instrument
-layers exist, would let a real GPU stall hold
-the last frame longer and would still race the first frame.
+down without holding anyone else for that long. When the ceiling, not the gate, releases a successor, core logs a
+warning. A build that takes the gate while another successor's 1.5 s is already running does not defer that one, so
+under continuous successor churn a build and a running successor deadline can overlap: the build waits at most 10 s for
+preparations to settle and then runs anyway. The alternative, a longer deadline for every successor while instrument
+layers exist, would let a real GPU stall hold the last frame longer and would still race the first frame.
+- **After registration,** the GPU queue must catch up within 10 s; if it does not (a GPU-side hang after the scene
+  registered), the scene is retired and the layer is drawn at Relief with `compile` (`compile.warmupTimeouts`).
 
 ## Budgets
 
@@ -313,12 +317,19 @@ GPU); with the 3 s ceiling the 10 starts deferred 276–380 ms headless and 441�
 the panel changes 0 pixels beside it; three more knobs need 0 rebuilds; scenes and retirements return to 3 / 0 after a
 rebuild, 2 / 0 after a cancel, 3 / 0 after restoring it, none after disable and 3 / 0 after re-enabling.
 
-Smaller fixes from the same review: a failed order read-back takes the scenes off the surface before that frame
-renders; Lite's task timings are turned off when the last instrument layer leaves; the studio image cache keeps at most
+Smaller fixes from the same review: a failed order read-back takes the scenes off the surface and steps every object
+down to Relief in that same frame (core now orders contexts before it writes the face's uniforms); Lite's task timings are turned off when the last instrument layer leaves; the studio image cache keeps at most
 4 images; the camera's near plane is `D / 20` (was `D / 4`, which clipped parts taller than `0.75 D` at small `D`). Left
 as they are, recorded: the browser test's 1 px band at the upper panel's edge accepts a pixel owned by a control of
 either panel there (the border pixel is shared by both layers' antialiasing), and the exact containment cache misses
 on a moving layer (above).
+
+A second review added: a warm-up that times out is diagnosed like a build timeout (above); the successor-deferral
+ceiling is 3 s and logs a warning when it, not the gate, releases a successor (the hung-build test checks the warning);
+`boundsInside` allows half a pixel past the layer's edge, so a control flush with a fractional layer edge stays parts;
+the 10-starts test asserts a deferral in every start; and the new modules are in the package allowlist. **Trade-off
+kept (S1):** any change of light or environment rebuilds the layer's scene, so objects show at Relief for one build
+(about 20–90 ms); a follow-up can update the key light and the fill in place and rebuild only for a new studio image.
 
 **Lite 1.33 behaviour found while building it** (each fixed in core, recorded for the Lite requests):
 
