@@ -462,3 +462,14 @@ fractions included, as one image named "4.5 out of 5 stars":
 
 Vue uses `v-model`; Astro takes `value` and `name`. The stars are captured content on the GPU, not relief.
 [Anatomy](../../docs/ui-library/components/rating.md).
+
+## SegmentedControl
+
+One choice from two to five short options, as keys on a plinth: native radios in a `<fieldset>`, so arrow keys and
+forms work natively. The selected key is held down.
+
+```tsx
+<SegmentedControl label="View" options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }]} value={view} onChange={setView} />
+```
+
+Vue uses `v-model`; Astro takes `value` and `name`. `hideLabel` hides the legend visually. [Anatomy](../../docs/ui-library/components/segmented-control.md).

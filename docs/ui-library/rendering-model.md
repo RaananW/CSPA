@@ -166,11 +166,15 @@ slope, `θmax / 2`.
 | `chamfer` | `θmax / 2` | A flat facet |
 | `cove` | `θmax · s` | Concave: flat at the edge, steepest where it meets the interior |
 
+**Narrow bands.** A band narrower than the bevel is a shallower bevel: on every face but a knob, `θ` is scaled by
+`min(1, bᵢ / bevel.width)`. A 2 px divider or a tab rail (a 1 px band) is then a shallow groove, not a 1 px wall as
+steep as a full bevel's, which reads as a near-black line.
+
 **Normal.**
 
 ```text
 g = ∇dᵢ / ‖∇dᵢ‖          (the outward direction; (0, 0) where the gradient vanishes)
-n = (σᵢ · sin θ · g, cos θ)
+n = (σᵢ · sin θ · g, cos θ)          (θ after the narrow-band scale)
 ```
 
 An implementation may take `∇d` analytically, or by central differences with a step of at most 0.5 px. The reference
@@ -680,6 +684,11 @@ renderer anti-aliases the capture.
   renderer states which versions it conforms to.
 
 ## Change log
+
+- 2026-10-17: narrow bands (2.4). A band narrower than `bevel.width` scales the slope by `bᵢ / bevel.width`, so thin
+  grooves (dividers, tab rails) are shallow instead of near-black on the GPU. This changes the expected colours of
+  bevels on primitives less than two bevel widths across (the `well-and-groove` suite's groove and the `ring`'s
+  band); the `divider` case is new.
 
 - 2026-10-16: version 3 (Scene): part 2C, stage scenes (`strata-stage`) with a lit backdrop and particles,
   environment maps for objects, the reference implementation in `stage.ts`, and the `scene-3.json` suite. The
