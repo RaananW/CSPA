@@ -122,6 +122,14 @@ test("key points: the bevel is lit from the light, and inverted in wells", () =>
   assert.ok(bottom("quarter-round") < bottom("chamfer") && bottom("chamfer") < bottom("cove"));
 });
 
+test("key points: a band narrower than the bevel is a shallower bevel", () => {
+  // 2.4: a 2 px divider has a 1 px band, so its slope is scaled by 1 / bevel.width: a shallow groove, darker on the row
+  // nearest the light and brighter on the other, within 10% of the panel, not a near-black wall.
+  const panel = luma(at("divider", 100, 10)), near = luma(at("divider", 100, 19.5)), far = luma(at("divider", 100, 20.5));
+  assert.ok(near < panel && near > 0.9 * panel, `near row ${near} against the panel's ${panel}`);
+  assert.ok(far > panel && far < 1.1 * panel, `far row ${far} against the panel's ${panel}`);
+});
+
 test("key points: emissive, ring arc, focus edge and finish", () => {
   const accent = colour("accent");
   // 2.3: an emissive material is unlit.

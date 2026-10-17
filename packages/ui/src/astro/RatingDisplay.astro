@@ -1,0 +1,18 @@
+---
+/** RatingDisplay (anatomy page `rating.md`): a read-only score, possibly fractional, as one image named by it. */
+import { ratingName, ratingStyle } from "../shared/rating.ts";
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  value: number;
+  /** The highest score, and the number of stars; 5 by default. */
+  max?: number;
+  /** The image's name; "{value} out of {max} stars" by default. */
+  label?: string;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { value, max = 5, label, class: className, ...rest } = Astro.props;
+---
+<span class={classes("ug-rating-display", className)} role="img" aria-label={label ?? ratingName(value, max)} style={ratingStyle(value, max)} {...rest}></span>

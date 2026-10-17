@@ -546,6 +546,178 @@
       ]
     },
     {
+      "name": "divider",
+      "description": "A 2 px divider groove: its 1 px band is a shallow bevel (2.4, narrow bands), not a near-black wall.",
+      "scene": {
+        "format": "strata-scene",
+        "version": 1,
+        "extent": {
+          "width": 200,
+          "height": 40
+        },
+        "outset": {
+          "top": 24,
+          "right": 24,
+          "bottom": 24,
+          "left": 24
+        },
+        "backdrop": "#ffffff",
+        "light": {
+          "azimuth": 323,
+          "elevation": 41
+        },
+        "bevel": {
+          "width": 6,
+          "gain": 0.55,
+          "profile": "quarter-round"
+        },
+        "shadow": {
+          "strength": 0.24
+        },
+        "interior": {
+          "max": 0.04
+        },
+        "state": {
+          "hoverHeight": 1.6,
+          "pressHeight": 0.25,
+          "hoverLift": 0.04,
+          "pressSink": 0.06
+        },
+        "focus": {
+          "colour": "#2563eb",
+          "width": 3,
+          "offset": 0.5
+        },
+        "materials": {
+          "matte": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            }
+          },
+          "satin": {
+            "base": {
+              "roughness": 0.4,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.3,
+              "roughness": 0.35,
+              "ior": 1.5
+            }
+          },
+          "gloss": {
+            "base": {
+              "roughness": 0.25,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 0.6,
+              "roughness": 0.12,
+              "ior": 1.5
+            }
+          },
+          "lacquer": {
+            "base": {
+              "roughness": 0.45,
+              "metallic": 0
+            },
+            "coat": {
+              "strength": 1,
+              "roughness": 0.04,
+              "ior": 1.5
+            }
+          },
+          "glass": {
+            "base": {
+              "roughness": 0.05,
+              "metallic": 0
+            },
+            "transmission": {
+              "strength": 0.9,
+              "ior": 1.5,
+              "frost": 0.3
+            }
+          },
+          "metal": {
+            "base": {
+              "roughness": 0.3,
+              "metallic": 1
+            }
+          },
+          "emissive": {
+            "emissive": {
+              "strength": 1
+            }
+          }
+        },
+        "primitives": [
+          {
+            "face": "raised",
+            "rect": [
+              0,
+              0,
+              200,
+              40
+            ],
+            "radius": 14,
+            "height": 8,
+            "material": "matte"
+          },
+          {
+            "face": "groove",
+            "rect": [
+              20,
+              19,
+              160,
+              2
+            ],
+            "radius": 1,
+            "height": 2,
+            "material": "matte"
+          }
+        ]
+      },
+      "capture": [
+        {
+          "rect": [
+            0,
+            0,
+            200,
+            40
+          ],
+          "radius": 14,
+          "colour": "#e9ebef"
+        }
+      ],
+      "samples": [
+        {
+          "at": [
+            100.5,
+            19.5
+          ],
+          "note": "the row nearest the light: a little darker",
+          "expect": "#e0e2e6"
+        },
+        {
+          "at": [
+            100.5,
+            20.5
+          ],
+          "note": "the row away from the light: a little brighter",
+          "expect": "#f1f3f7"
+        },
+        {
+          "at": [
+            100.5,
+            10.5
+          ],
+          "note": "panel interior",
+          "expect": "#eaecf0"
+        }
+      ]
+    },
+    {
       "name": "well-and-groove",
       "description": "A field well and a metal groove: the inverted bevel is dark nearest the light.",
       "scene": {
@@ -753,7 +925,7 @@
             72.5
           ],
           "note": "groove centre, all bevel at 8 px high",
-          "expect": "#e5e9f1"
+          "expect": "#dde1e9"
         },
         {
           "at": [
@@ -1161,7 +1333,7 @@
             54.5
           ],
           "note": "on the ring, at 225°: the groove",
-          "expect": "#c8ccd4"
+          "expect": "#cbcfd7"
         },
         {
           "at": [

@@ -13,6 +13,9 @@
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  *   toasts appear in the status region and go after their time, which hovering stops;
+ *   a SegmentedControl selects with clicks and arrow keys, skips a disabled option and submits its value;
+ *   a Rating is set by click and arrow keys, fills up to its score and submits it, and its display is named by it;
+ *   a Stepper marks the current step and the complete ones, follows its state, and stacks when vertical;
  *   a NavigationRail is a landmark of links whose current page follows its state, and reports navigation;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
@@ -762,6 +765,105 @@ for (const binding of bindings) test(`Strata ${binding} NavigationRail is a land
     return { strip: getComputedStyle(item).borderInlineStartWidth, size: Math.min(rect.width, rect.height) };
   }));
   expect(keys.map(key => key.strip)).toEqual(["0px", "0px", "3px"]);
+  for (const key of keys) expect(key.size).toBeGreaterThanOrEqual(24);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Stepper marks the current step and the complete ones, follows its state, and stacks when vertical`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const stepper = page.getByRole("list", { name: "Checkout progress" }).last();
+  const steps = stepper.getByRole("listitem");
+  const read = () => steps.evaluateAll(items => items.map(item => `${item.getAttribute("aria-current") ?? "-"}:${item.textContent}:${item.querySelector(".ug-stepper__marker").getAttribute("data-strata-face")}`));
+  expect(await read()).toEqual(["-:1Cart (completed):raised", "step:2Shipping:raised", "-:3Payment:flat", "-:4Review:flat"]);
+  await page.locator("#stepper-next").click();
+  expect(await read()).toEqual(["-:1Cart (completed):raised", "-:2Shipping (completed):raised", "step:3Payment:raised", "-:4Review:flat"]);
+  await page.locator("#stepper-back").click();
+  await page.locator("#stepper-back").click();
+  expect(await read()).toEqual(["step:1Cart:raised", "-:2Shipping:flat", "-:3Payment:flat", "-:4Review:flat"]);
+  // Complete markers are filled with the accent; markers to come are not.
+  await page.locator("#stepper-next").click();
+  const fills = await steps.evaluateAll(items => items.map(item => getComputedStyle(item.querySelector(".ug-stepper__marker")).backgroundColor));
+  expect(fills[0]).not.toBe(fills[2]);
+  expect(fills[2]).toBe(fills[3]);
+  // The vertical form stacks its markers in one column.
+  const markers = await page.locator("#vertical-stepper .ug-stepper__marker").evaluateAll(spans => spans.map(span => span.getBoundingClientRect().toJSON()));
+  expect(new Set(markers.map(box => Math.round(box.x))).size).toBe(1);
+  expect(markers[1].y).toBeGreaterThan(markers[0].y);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Rating is set by click and arrow keys, fills up to its score, submits it, and its display is named by it`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  await page.locator("#live-rating").scrollIntoViewIfNeeded();
+  const group = page.getByRole("group", { name: "Quality" });
+  const star = name => group.getByRole("radio", { name, exact: true });
+  await expect(star("3 stars")).toBeChecked();
+  const display = page.getByRole("img", { name: "3 out of 5 stars" });
+  await expect(display).toBeVisible();
+  // Filled stars follow the score: the first three use the accent, the rest the edge colour.
+  const fills = () => page.locator("#live-rating .ug-rating__star").evaluateAll(stars => stars.map(star => getComputedStyle(star, "::before").backgroundColor));
+  const [accent, edge] = await page.evaluate(() => { const style = getComputedStyle(document.querySelector("#live-rating")); return [style.getPropertyValue("--strata-colour-accent"), style.getPropertyValue("--strata-colour-edge")]; });
+  const filled = await fills();
+  expect(new Set(filled.slice(0, 3)).size).toBe(1);
+  expect(filled[3]).not.toBe(filled[0]);
+  expect(filled[3]).toBe(filled[4]);
+  expect(accent && edge).toBeTruthy();
+  // A real click on the fifth star; the pointer leaves so no hover preview remains.
+  const fifth = await page.locator("#live-rating .ug-rating__item").nth(4).boundingBox();
+  await page.mouse.click(fifth.x + fifth.width / 2, fifth.y + fifth.height / 2);
+  await page.mouse.move(5, 5);
+  await expect(star("5 stars")).toBeChecked();
+  expect(await page.evaluate(() => window.strataBinding.score)).toBe(5);
+  await expect(page.getByRole("img", { name: "5 out of 5 stars" })).toBeVisible();
+  expect(new Set(await fills()).size).toBe(1);
+  // Arrow keys change the score by one, natively.
+  await page.keyboard.press("ArrowLeft");
+  await expect(star("4 stars")).toBeChecked();
+  expect(await page.evaluate(() => window.strataBinding.score)).toBe(4);
+  expect(await page.evaluate(() => new FormData(document.getElementById("score-form")).get("quality"))).toBe("4");
+  // Each star is a 24 px target.
+  for (const box of await page.locator("#live-rating .ug-rating__item").evaluateAll(items => items.map(item => item.getBoundingClientRect().toJSON()))) {
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(24);
+  }
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} SegmentedControl selects by click and arrow keys, skips a disabled option, holds its key down and submits its value`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const group = page.getByRole("group", { name: "Range" });
+  const option = name => group.getByRole("radio", { name, exact: true });
+  await expect(option("Day")).toBeChecked();
+  // A real click on a key selects its radio, which covers the key.
+  await page.locator("#live-segmented").scrollIntoViewIfNeeded();
+  const week = await page.locator("#live-segmented .ug-segmented__key", { hasText: "Week" }).boundingBox();
+  await page.mouse.click(week.x + week.width / 2, week.y + week.height / 2);
+  await expect(option("Week")).toBeChecked();
+  expect(await page.evaluate(() => window.strataBinding.range)).toBe("week");
+  // Arrow keys move the selection natively, skip the disabled Month and wrap.
+  await expect(option("Week")).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect(option("Year")).toBeChecked();
+  expect(await page.evaluate(() => window.strataBinding.range)).toBe("year");
+  await page.keyboard.press("ArrowRight");
+  await expect(option("Day")).toBeChecked();
+  await expect(option("Month")).toBeDisabled();
+  // The value takes part in the form.
+  expect(await page.evaluate(() => new FormData(document.getElementById("range-form")).get("range"))).toBe("day");
+  // The selected key is held down with its strip; every key is a 24 px target at least.
+  const keys = await page.locator("#live-segmented .ug-segmented__key").evaluateAll(spans => spans.map(span => {
+    const rect = span.getBoundingClientRect();
+    return { strip: getComputedStyle(span).borderBottomWidth, size: Math.min(rect.width, rect.height) };
+  }));
+  expect(keys.map(key => key.strip)).toEqual(["3px", "0px", "0px", "0px"]);
   for (const key of keys) expect(key.size).toBeGreaterThanOrEqual(24);
   await context.close();
 });
