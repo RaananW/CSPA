@@ -53,7 +53,12 @@ const tokens = {
   dome: { x: 124, y: 400, size: 72, height: 14, inset: 4, exponent: 2.8 },
   beacon: { x: 64, y: 414, away: 300 },
   probe: { size: 512, reach: 50000 },
-  /** Lite PBR parameters per material (linear colours). */
+  /**
+   * Lite PBR parameters per material (linear colours). Measured on Lite 1.33.0 (each layer switched off in turn, DPR 2):
+   * clear coat, sheen, anisotropy, grain and the glass dispersion each change their part visibly; the gold's
+   * `setPbrMetallicReflectance` tint changes 1 pixel by 1 level (Lite applies it to dielectric F0 only, so a metal's F0
+   * is its base colour); the display shell's iridescence changes at most 3 levels (the flat glass reflects little).
+   */
   materials: {
     brushed: { base: [0.86, 0.87, 0.88], metallic: 1, roughness: 0.3, anisotropy: 0.9, grain: { strength: 0.15 } },
     lacquer: { base: [0.012, 0.012, 0.014], metallic: 0, roughness: 0.5, coat: { intensity: 1, roughness: 0.03, ior: 1.5 } },
