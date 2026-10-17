@@ -10,9 +10,12 @@
  *   into the swapchain right after the layer's own pass.
  * - `target` (the post chain): the parts are not in the scene's auto-mirrored list; a render task of this page draws
  *   them into the layer's own colour + depth target (`rgba16float` + `depth24plus`, cleared to transparent), the
- *   enabled stages run on that target in the plan's order (TAA or SMAA, contact shadows, SSGI, bloom), and a
- *   composite effect task draws the result over the swapchain with premultiplied alpha, so the captured face below
- *   is never an input or an output of a stage. With `clip` the composite multiplies by a mask of the controls' rounded
+ *   enabled stages run on that target (TAA, contact shadows, SSGI, then SMAA when it replaces TAA), and a composite
+ *   effect task draws the result over the swapchain with premultiplied alpha, so the captured face below is never an
+ *   input or an output of a stage. Bloom (`bloomSource: "emitters"`, the default) renders the lit lenses alone into
+ *   an emitter target, blooms that, and the composite adds the halo (bloom output minus its source); Lite's PBR
+ *   output is display-encoded and clamped to [0, 1], so a luminance threshold on the mesh target
+ *   (`bloomSource: "mesh"`, kept for the record) cannot tell a lit lens from a saturated specular highlight. With `clip` the composite multiplies by a mask of the controls' rounded
  *   boxes (a mask task draws one flat plate per control into an `r8unorm` target), so no stage (bloom halos included)
  *   can draw outside its control. The captured key tops (and the LED on each key) stay in the scene and are drawn by
  *   the harness's own task after the composite, unfiltered, so cap labels are texel-exact whatever the chain does.
@@ -24,7 +27,7 @@
  * rebuilds the layer scenes for a stage set, `measure(frames)` animates and returns per-task GPU timings, `meshDiff`,
  * `regions`/`compare` the text safety, `ghosting` the TAA trail on turning knobs, `probeRefresh` the probe's fill cost.
  * Query: `?chain=taa,contact,ssgi,bloom,probe` (or `full`, `none`), `?aa=taa|smaa|none`, `?route=direct|target`,
- * `?clip=0`, `?density=n` (250), `?relief=0`.
+ * `?clip=0`, `?bloomSource=mesh`, `?density=n` (250), `?relief=0`, `?post={...}` (stage settings).
  */
 import {
   addClusteredLightContainer, addMeshToTask, addTaskAfter, addTaskAtStart, createBloomPostProcessTask, createClusteredLightContainer,
@@ -57,7 +60,7 @@ const tokens = {
   switch: { track: 2.5, thumb: 7, thumbTaper: 2.5 },
   meter: { segments: 16, window: 1.2, segment: 1.4 },
   /** A lamp: a bezel ring and a lens dome inside a square box, room left for its glow (fractions of the box). */
-  lamp: { box: 0.6, bezel: 0.34, lens: 0.25, ring: 3.5, dome: 7.6, emissive: [6, 3.4, 1.1] as [number, number, number], light: { height: 12, intensity: 1.5, reach: 6 } },
+  lamp: { box: 0.6, bezel: 0.34, lens: 0.25, ring: 3.5, dome: 7.6, emissive: [1, 0.5, 0.1] as [number, number, number], light: { height: 12, intensity: 1.5, reach: 6 } },
   // I0.1's repeat of 25 with one key (index 12) made a lamp: 5 meters, 7 knobs, 4 faders, 4 keys, 4 switches, 1 lamp.
   pattern: ["meter", "knob", "key", "knob", "fader", "meter", "switch", "knob", "key", "meter", "knob", "fader", "lamp",
     "switch", "meter", "knob", "key", "fader", "knob", "switch", "meter", "key", "fader", "switch", "knob"] as const,
@@ -67,12 +70,18 @@ const tokens = {
     smaa: { threshold: 0.05, maxSearchSteps: 16 },
     // World units are CSS px: contact rays reach 8 px towards the key light.
     contact: { intensity: 0.7, stepCount: 12, maxDistance: 8, thickness: 3, bias: 0.15, normalBias: 0.4, resolutionScale: 1 },
-    ssgi: { intensity: 1, stepCount: 12, rayCount: 1, rayLength: 24, thickness: 4, bias: 0.2, fadeStart: 4, fadeEnd: 24, resolutionScale: 0.5, composition: "additive" as const },
-    // Only HDR values (the lit lenses, emissive above 1) pass the threshold.
-    bloom: { threshold: 1, weight: 0.6, kernel: 48, bloomScale: 0.5, exposure: 1 },
+    // SSGI fades by distance from the camera (fadeStart/fadeEnd), not by ray length: the stage camera stands
+    // thousands of px away, so the fade sits beyond it (a fade of 4–24 px left every pixel unchanged).
+    ssgi: { intensity: 0.6, stepCount: 12, rayCount: 1, rayLength: 24, thickness: 4, bias: 0.2, fadeStart: 100000, fadeEnd: 200000, resolutionScale: 0.5, composition: "additive" as const },
+    // Emitter source: every lit lens pixel blooms. (Mesh source: Lite's PBR output is clamped to [0, 1], so only
+    // saturated pixels, lenses and specular highlights alike, pass a threshold just under 1.)
+    bloom: { threshold: 0.05, weight: 0.8, kernel: 48, bloomScale: 0.5, exposure: 1 },
+    bloomMesh: { threshold: 0.98, weight: 0.6, kernel: 48, bloomScale: 0.5, exposure: 1 },
     probe: { size: 128, height: 24 },
   },
 };
+// `?post={"ssgi":{"intensity":4}}` overrides stage settings (exploration).
+for (const [stage, values] of Object.entries(JSON.parse(params.get("post") ?? "{}") as Record<string, object>)) Object.assign((tokens.post as Record<string, object>)[stage] ?? {}, values);
 type ControlKind = (typeof tokens.pattern)[number];
 // Tallest point of each part and its inset from the control's box: the camera distance follows from these.
 const envelopes = [
@@ -83,13 +92,13 @@ const envelopes = [
 ];
 
 /** The post chain configuration: route, anti-aliasing and the stages (see the header). */
-export interface Chain { route: "direct" | "target"; aa: "none" | "taa" | "smaa"; contact: boolean; ssgi: boolean; bloom: boolean; probe: boolean; clip: boolean }
+export interface Chain { route: "direct" | "target"; aa: "none" | "taa" | "smaa"; contact: boolean; ssgi: boolean; bloom: boolean; bloomSource: "emitters" | "mesh"; probe: boolean; clip: boolean }
 const fromQuery = (): Chain => {
   const listed = new Set((params.get("chain") ?? "none").split(",").map(value => value.trim()));
   const full = listed.has("full");
   const aa = (params.get("aa") ?? (listed.has("smaa") ? "smaa" : listed.has("taa") || full ? "taa" : "none")) as Chain["aa"];
   const chain: Chain = { route: (params.get("route") ?? "target") as Chain["route"], aa, contact: full || listed.has("contact"), ssgi: full || listed.has("ssgi"),
-    bloom: full || listed.has("bloom"), probe: full || listed.has("probe"), clip: params.get("clip") !== "0" };
+    bloom: full || listed.has("bloom"), bloomSource: params.get("bloomSource") === "mesh" ? "mesh" : "emitters", probe: full || listed.has("probe"), clip: params.get("clip") !== "0" };
   return chain;
 };
 let chain = fromQuery();
@@ -219,7 +228,7 @@ const reliefMaterial = () => ({ kind: "relief" as const, scene: reliefScene(), b
 // ---- GPU resources that outlive a rebuild: per-layer targets, the probe cubes, the composite effects. ----
 
 const transparent = { r: 0, g: 0, b: 0, a: 0 };
-interface Targets { mesh: RenderTargetTextureResult; ping: RenderTargetTextureResult; pong: RenderTargetTextureResult; mask: RenderTargetTextureResult }
+interface Targets { mesh: RenderTargetTextureResult; ping: RenderTargetTextureResult; pong: RenderTargetTextureResult; mask: RenderTargetTextureResult; emitters: RenderTargetTextureResult; glow: RenderTargetTextureResult }
 const targets = new Map<string, Targets>();
 /** The layer's surface-sized targets, made once and reused by every rebuild (they follow surface resizes). */
 function targetsOf(id: string, engine: EngineContext): Targets {
@@ -228,7 +237,7 @@ function targetsOf(id: string, engine: EngineContext): Targets {
     const colour = (name: string) => createSurfaceRenderTargetTexture(engine, { lbl: `${id}-post-${name}`, format: "rgba16float", samples: 1, size: engine });
     entry = {
       mesh: createSurfaceRenderTargetTexture(engine, { lbl: `${id}-post-mesh`, format: "rgba16float", dFormat: "depth24plus", samples: 1, size: engine }, withSampledDepthTexture),
-      ping: colour("ping"), pong: colour("pong"),
+      ping: colour("ping"), pong: colour("pong"), emitters: colour("emitters"), glow: colour("glow"),
       mask: createSurfaceRenderTargetTexture(engine, { lbl: `${id}-post-mask`, format: "r8unorm", samples: 1, size: engine }),
     };
     targets.set(id, entry);
@@ -240,9 +249,13 @@ function targetsOf(id: string, engine: EngineContext): Targets {
 const compositeWGSL = /* wgsl */ `@group(0) @binding(0) var meshColour: texture_2d<f32>;
 @group(0) @binding(1) var meshMask: texture_2d<f32>;
 @group(0) @binding(2) var<uniform> composite: vec4f;
+@group(0) @binding(3) var glow: texture_2d<f32>;
+@group(0) @binding(4) var emitters: texture_2d<f32>;
 @fragment fn effectFragment(input: EffectVertexOutput) -> @location(0) vec4f {
   let texel = vec2i(floor(input.position.xy));
-  let colour = textureLoad(meshColour, texel, 0);
+  var colour = textureLoad(meshColour, texel, 0);
+  // Emitter bloom: the halo is the bloom result minus its source, added (light without coverage).
+  if (composite.y > 0.5) { colour = vec4f(colour.rgb + max(textureLoad(glow, texel, 0).rgb - textureLoad(emitters, texel, 0).rgb, vec3f(0.0)), colour.a); }
   let keep = select(1.0, textureLoad(meshMask, texel, 0).r, composite.x > 0.5);
   return vec4f(min(colour.rgb, vec3f(1.0)), min(colour.a, 1.0)) * keep;
 }`;
@@ -514,7 +527,7 @@ async function build(layer: InstrumentLayer) {
     const l = tokens.lamp, rb = lamp.width * l.bezel, rl = lamp.width * l.lens;
     parts.bezel = kind("lamp-bezel", revolve([[rb, 0], [rb, l.ring - 1], [rb - 1, l.ring], [rl, l.ring]]), pbr(linear(170, 172, 178), 0.9, 0.3, undefined, true), counts.lamp);
     const dome = revolve([[rl, l.ring], [rl * 0.92, l.ring + 2], [rl * 0.6, l.dome - 0.6], [0, l.dome]]);
-    parts.lensOn = kind("lamp-lens-on", dome, pbr(linear(255, 200, 120), 0, 0.2, l.emissive), counts.lamp);
+    parts.lensOn = kind("lamp-lens-on", dome, pbr(linear(90, 60, 30), 0, 0.2, l.emissive), counts.lamp);
     parts.lensOff = kind("lamp-lens-off", dome, pbr(linear(40, 34, 30), 0, 0.15), counts.lamp);
     // Lit lamps are clustered point lights for the parts around them (I0.3).
     const container = createClusteredLightContainer();
@@ -573,20 +586,39 @@ async function build(layer: InstrumentLayer) {
     const post = tokens.post;
     if (config.aa === "taa") stage("taa", [`createTaaPostProcessTask({ sourceTexture: mesh, sourceRenderTask: mesh task, factor: ${post.taa.factor}, samples: ${post.taa.samples} })`],
       output => createTaaPostProcessTask({ name: "post-taa", sourceTexture: source.rt, sourceRenderTask: meshTask!, targetTexture: output.rt, factor: post.taa.factor, samples: post.taa.samples }, engine, layer.scene));
-    if (config.aa === "smaa") stage("smaa", [`createSmaaPostProcessTask({ threshold: ${post.smaa.threshold}, maxSearchSteps: ${post.smaa.maxSearchSteps} })`],
-      output => createSmaaPostProcessTask({ name: "post-smaa", sourceTexture: source.rt, targetTexture: output.rt, threshold: post.smaa.threshold, maxSearchSteps: post.smaa.maxSearchSteps }, engine, layer.scene));
     if (config.contact) stage("contact", [`createScreenSpaceContactShadowsPostProcessTask({ depthTexture: mesh, camera, lightDirection: key light, composition: "multiply", ${JSON.stringify(post.contact)} })`],
       output => createScreenSpaceContactShadowsPostProcessTask({ name: "post-contact", sourceTexture: source.rt, depthTexture: rts.mesh.rt, camera, lightDirection: travel, targetTexture: output.rt, composition: "multiply", ...post.contact }, engine, layer.scene));
     if (config.ssgi) stage("ssgi", [`createScreenSpaceGlobalIlluminationPostProcessTask({ depthTexture: mesh, camera, ${JSON.stringify(post.ssgi)} })`],
       output => createScreenSpaceGlobalIlluminationPostProcessTask({ name: "post-ssgi", sourceTexture: source.rt, depthTexture: rts.mesh.rt, camera, targetTexture: output.rt, ...post.ssgi }, engine, layer.scene));
-    if (config.bloom) stage("bloom", [`createBloomPostProcessTask(${JSON.stringify(post.bloom)}) (extract highlights, blur x, blur y, merge)`],
-      output => createBloomPostProcessTask({ name: "post-bloom", sourceTexture: source.rt, targetTexture: output.rt, ...post.bloom }, engine, layer.scene));
+    if (config.bloom && config.bloomSource === "mesh") stage("bloom", [`createBloomPostProcessTask(${JSON.stringify(post.bloomMesh)}) on the mesh chain (extract highlights, blur x, blur y, merge)`],
+      output => createBloomPostProcessTask({ name: "post-bloom", sourceTexture: source.rt, targetTexture: output.rt, ...post.bloomMesh }, engine, layer.scene));
+    // SMAA last (Lite: "after tone mapping"), as a filter on the finished mesh image; TAA is first because it jitters
+    // the mesh task's projection.
+    if (config.aa === "smaa") stage("smaa", [`createSmaaPostProcessTask({ threshold: ${post.smaa.threshold}, maxSearchSteps: ${post.smaa.maxSearchSteps} })`],
+      output => createSmaaPostProcessTask({ name: "post-smaa", sourceTexture: source.rt, targetTexture: output.rt, threshold: post.smaa.threshold, maxSearchSteps: post.smaa.maxSearchSteps }, engine, layer.scene));
+    // Emitter bloom: the lit lenses alone into their own target, bloomed; the composite adds the halo.
+    let emitterBloom = false;
+    if (config.bloom && config.bloomSource === "emitters" && parts.lensOn) {
+      const calls = ["createRenderTask({ rt: emitters, sharedRt: true, clr: true, clrColor: transparent, autoMirror: false }) + addMeshToTask(lit lens mesh)",
+        `createBloomPostProcessTask(${JSON.stringify(post.bloom)}) on the emitter target (extract highlights, blur x, blur y, merge)`, "composite adds max(bloom − emitters, 0)"];
+      try {
+        const emitterTask = createRenderTask({ name: "post-emitters", rt: rts.emitters.rt, sharedRt: true, clr: true, clrColor: transparent, autoMirror: false }, engine, layer.scene);
+        addMeshToTask(emitterTask, parts.lensOn.mesh);
+        const bloom = createBloomPostProcessTask({ name: "post-bloom", sourceTexture: rts.emitters.rt, targetTexture: rts.glow.rt, ...post.bloom }, engine, layer.scene);
+        chainTasks.push(emitterTask, bloom);
+        emitterBloom = true;
+        stages.push({ stage: "bloom", calls });
+      } catch (error) { stages.push({ stage: "bloom", calls, error: String(error) }); }
+    }
     const effect = createEffectWrapper(engine, { name: `${layer.id}-post-composite`, fragmentWGSL: compositeWGSL, blend: premultiplied, bindings: [
-      { binding: 0, kind: "texture", name: "meshColour" }, { binding: 1, kind: "texture", name: "meshMask" }, { binding: 2, kind: "uniform", name: "composite", uniformByteLength: 16 }] });
+      { binding: 0, kind: "texture", name: "meshColour" }, { binding: 1, kind: "texture", name: "meshMask" }, { binding: 2, kind: "uniform", name: "composite", uniformByteLength: 16 },
+      { binding: 3, kind: "texture", name: "glow" }, { binding: 4, kind: "texture", name: "emitters" }] });
     liveEffects.push(effect);
     setEffectTexture(effect, "meshColour", source.texture);
     setEffectTexture(effect, "meshMask", rts.mask.texture);
-    setEffectUniforms(effect, new Float32Array([config.clip ? 1 : 0, 0, 0, 0]));
+    setEffectTexture(effect, "glow", rts.glow.texture);
+    setEffectTexture(effect, "emitters", rts.emitters.texture);
+    setEffectUniforms(effect, new Float32Array([config.clip ? 1 : 0, emitterBloom ? 1 : 0, 0, 0]));
     chainTasks.push(createEffectRenderTask({ name: "post-composite", effect, target: engine.scRT, clear: false }, engine, layer.scene));
     stages.push({ stage: "composite", calls: ["createEffectWrapper(textureLoad of the last stage's target and the mask; blend one, one-minus-src-alpha)",
       `createEffectRenderTask({ target: engine.scRT, clear: false })${config.clip ? ", times the control mask" : ""}`] });
@@ -701,7 +733,7 @@ const canvasBox = () => harness.hosts.outputCanvas.getBoundingClientRect();
 const controlCount = () => [...built.values()].reduce((sum, entry) => sum + entry.controls.size, 0);
 const partCount = () => [...built.values()].reduce((sum, entry) => sum + [...entry.controls.values()].reduce((total, control) => total + tokens.partsPerKind[control.kind], 0), 0);
 const describe = () => {
-  const on = [chain.route, chain.aa !== "none" ? chain.aa : "", chain.contact ? "contact" : "", chain.ssgi ? "ssgi" : "", chain.bloom ? "bloom" : "", chain.probe ? "probe" : "", chain.clip ? "clip" : "no clip"].filter(Boolean).join(", ");
+  const on = [chain.route, chain.aa !== "none" ? chain.aa : "", chain.contact ? "contact" : "", chain.ssgi ? "ssgi" : "", chain.bloom ? `bloom (${chain.bloomSource})` : "", chain.probe ? "probe" : "", chain.clip ? "clip" : "no clip"].filter(Boolean).join(", ");
   status.textContent = `I0.8 post chain: ${controlCount()} controls, ${partCount()} parts; ${on}\n${status.dataset.core ?? ""}`;
 };
 /** Resolves a decoded frame; `step` keeps animating while the readback completes (so a frame is never held still). */
@@ -806,7 +838,8 @@ async function meshDiff(samples = 3000) {
       continue;
     }
     result.perKind[owner.kind] = (result.perKind[owner.kind] ?? 0) + 1;
-    if (distance <= -1 && Math.abs(edge) > 1) drawn.push({ ...point, id: owner.id });
+    // (2 px from the upper panel's edge: Chrome's hit test of its rounded corner differs from the analytic circle by about 1 px.)
+    if (distance <= -1 && Math.abs(edge) > 2) drawn.push({ ...point, id: owner.id });
   }
   const step = Math.max(1, Math.floor(drawn.length / samples));
   for (let index = 0; index < drawn.length; index += step) {
@@ -865,6 +898,17 @@ function compare(a: string, b: string, kinds: Region["kind"][] = ["face", "cap"]
   return result;
 }
 
+/** What a stage changes: pixels of two kept frames differing by more than `threshold`, and their mean difference. */
+function frameDelta(a: string, b: string, threshold = 2) {
+  const one = regionShots.get(a)!, two = regionShots.get(b)!;
+  let changed = 0, sum = 0, max = 0;
+  for (let offset = 0; offset < one.data.length; offset += 4) {
+    const delta = Math.max(Math.abs(one.data[offset]! - two.data[offset]!), Math.abs(one.data[offset + 1]! - two.data[offset + 1]!), Math.abs(one.data[offset + 2]! - two.data[offset + 2]!));
+    if (delta <= threshold) continue;
+    changed++; sum += delta; max = Math.max(max, delta);
+  }
+  return { pixels: one.data.length / 4, changed, share: changed / (one.data.length / 4), meanDelta: changed ? sum / changed : 0, maxDelta: max };
+}
 /** Animation of the I0.1 probe: `meters` meters and `knobs` knobs, poses only. */
 function animator(options: { meters?: number; knobs?: number } = {}) {
   const all = [...built.values()].flatMap(entry => [...entry.controls].map(([element, control]) => ({ entry, element, kind: control.kind })));
@@ -978,7 +1022,7 @@ const api = {
   tokens: () => ({ ...tokens, envelopes, camera: harness.camera() }),
   chain: () => ({ ...chain }),
   settle: async () => { await settle(); },
-  setChain, measure, meshDiff, regions, snapshot, compare, ghosting, trail, probeRefresh,
+  setChain, measure, meshDiff, regions, snapshot, compare, frameDelta, ghosting, trail, probeRefresh,
   /** Pixels at client points from the last settled frame. */
   pixels: (points: Point[]) => points.map(point => harness.pixel(shot!, point)),
   hits: (points: Point[]) => points.map(point => { const hit = document.elementFromPoint(point.x, point.y); return hit?.closest<HTMLElement>("[data-part]")?.id ?? hit?.id ?? ""; }),
