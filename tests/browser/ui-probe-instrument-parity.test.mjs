@@ -28,11 +28,13 @@ const pads = { object: 8, box: 10, labels: 6, legend: 2 };
 // Relief's budget (P0.6, docs/ui-library/phase0.md): mean <= 2, p95 <= 10 luminance levels over the whole stage.
 const relief = { mean: 2, p95: 10 };
 // The Instrument parity budget per component, over the control's box: mean and 95th percentile luminance levels, and the
-// lowest SSIM, for the worst state in light and dark at any depth (see parity.json `proposedBudget`).
+// lowest SSIM, for the worst state in light and dark at any depth (see parity.json `proposedBudget`). Re-derived by the
+// same rule for the I1 prototype's second iteration (studio, capture probe, glass, crowned and flagged paddles); the first
+// iteration's budgets are in docs/ui-library/instrument-phase0.md, I0.6.
 const budgets = {
-  volume: { mean: 15.5, p95: 84, ssim: 0.81 }, input: { mean: 15.5, p95: 53, ssim: 0.83 }, level: { mean: 9.5, p95: 40, ssim: 0.89 },
-  mute: { mean: 19.5, p95: 94, ssim: 0.68 }, power: { mean: 39.5, p95: 143, ssim: 0.37 }, phono: { mean: 21.5, p95: 85, ssim: 0.78 },
-  lights: { mean: 32.5, p95: 110, ssim: 0.57 }, rec: { mean: 30.5, p95: 146, ssim: 0.2 },
+  volume: { mean: 18.5, p95: 87, ssim: 0.82 }, input: { mean: 18.5, p95: 77, ssim: 0.83 }, level: { mean: 11.5, p95: 58, ssim: 0.84 },
+  mute: { mean: 23, p95: 137, ssim: 0.68 }, power: { mean: 61, p95: 237, ssim: 0.29 }, phono: { mean: 22.5, p95: 81, ssim: 0.81 },
+  lights: { mean: 44.5, p95: 127, ssim: 0.49 }, rec: { mean: 38.5, p95: 152, ssim: 0.32 },
 };
 const round = (value, digits = 2) => Number(value.toFixed(digits));
 const median = values => { const sorted = [...values].sort((a, b) => a - b); return sorted[Math.floor(sorted.length / 2)]; };
