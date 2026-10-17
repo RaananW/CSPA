@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Stepper, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView, toast } from "@underglass/ui/react";
+import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Combobox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Stepper, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView, toast } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -98,6 +98,7 @@ function Contracts() {
       <div data-contract="breadcrumb.md"><Breadcrumb items={[{ label: "Home", href: "/" }, { label: "Settings", href: "/settings" }, { label: "Profile", href: "/settings/profile" }]} /></div>
       <div data-contract="avatar.md"><Avatar name="Ada Lovelace" /><Avatar name="Grace Hopper" src="/people/grace.jpg" /><Avatar name="Alan Turing" decorative /></div>
       <div data-contract="segmented-control.md"><SegmentedControl label="View" name="view" defaultValue="day" options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }]} /></div>
+      <div data-contract="combobox.md"><Combobox id="fruit" options={["Apple", "Apricot", { value: "Banana", label: "Yellow" }]} /></div>
       <div data-contract="rating.md"><Rating label="Your rating" name="score" max={3} defaultValue={2} /><RatingDisplay value={4.5} /></div>
       <div data-contract="stepper.md"><Stepper label="Checkout progress" steps={["Cart", "Shipping", "Payment"]} current={1} /></div>
       <div data-contract="navigation-rail.md"><NavigationRail label="Main" items={[{ label: "Inbox", href: "/inbox" }, { label: "Drafts", href: "/drafts" }]} current="/inbox" /></div>
@@ -147,6 +148,7 @@ function App() {
   const [toasts, setToasts] = useState(0);
   const [range, setRange] = useState("day");
   const [score, setScore] = useState(3);
+  const [fruit, setFruit] = useState("");
   const [step, setStep] = useState(1);
   const [rail, setRail] = useState("#rail-inbox");
   const [popover, setPopover] = useState({ open: false, applied: 0 });
@@ -161,7 +163,7 @@ function App() {
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts, range, score, rail, popover, tree, slide, chosen } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts, range, score, fruit, rail, popover, tree, slide, chosen } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -316,6 +318,11 @@ function App() {
           <form id="score-form" onSubmit={event => event.preventDefault()} style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "end" }}>
             <Rating id="live-rating" label="Quality" name="quality" value={score} onChange={setScore} />
             <RatingDisplay id="live-rating-display" value={score} />
+          </form>
+          <form id="fruit-form" onSubmit={event => event.preventDefault()}>
+            <Field label="Fruit" controlId="live-combobox" help="Type one, or choose a suggestion.">
+              <Combobox name="fruit" value={fruit} onChange={event => setFruit(event.target.value)} options={["Apple", "Apricot", "Banana", "Cherry", { value: "Durian", label: "Seasonal" }]} />
+            </Field>
           </form>
           <Stepper id="live-stepper" label="Checkout progress" steps={["Cart", "Shipping", "Payment", "Review"]} current={step} />
           <p style={{ display: "flex", flexWrap: "wrap", gap: 12, margin: 0 }}>
