@@ -605,5 +605,7 @@ gives `aria-valuetext`.
 
 Vue uses `v-model`; Astro takes `value` and `unit`. The ref is the `.ug-knob` root (`inputRef`, or Vue's exposed
 `input`, is the input). On the GPU the skirt and the cap are raised faces at Relief and slabs at Objects, and the turning
-pointer is captured content; the Instrument level waits for core's `instrument` material.
+pointer is captured content. At the Instrument level (`level: "instrument"`) the panel takes core's `instrument`
+material: the knob is a skirt, a brushed cap, a polished chamfer and an engraved pointer that turns on a spring, and
+buttons become keys with captured caps.
 [Anatomy](../../docs/ui-library/components/knob.md).

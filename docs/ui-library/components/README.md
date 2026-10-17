@@ -19,7 +19,7 @@ native attributes (`:hover`, `:active`, `:focus-visible`, `:checked`, `:disabled
 | `data-strata-face` | Any element the material pass lights | The relief primitive: `raised`, `well`, `groove`, `knob`, `mark`, `ring` or `flat` (below) |
 | `data-strata-material` | A face, a component or a scope | A material role (`buttonPrimary`) or preset (`lacquer`); overrides the role default |
 | `data-strata-elevation` | A raised face | An elevation token name (`raised`, `floating`); the component's default when absent |
-| `data-strata-level` | A component or a scope | `relief`, `objects` or `scene`, overriding the scope's level |
+| `data-strata-level` | A component or a scope | `relief`, `objects`, `instrument` or `scene`, overriding the scope's level |
 | `data-strata-depth` | A scope | Depth for the subtree, 0–1 |
 | `data-strata-theme` | The root or a scope | `light`, `dark`, `contrast` or `contrast-dark`; the root follows the system without it |
 | `data-strata-density` | The root or a scope | `compact`, `comfortable` or `spacious` |

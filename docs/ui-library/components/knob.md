@@ -29,13 +29,24 @@ the face around it. Labels are printed on the face, never on the cap (design lan
 - **Only the pointer turns.** The skirt and the cap keep their boxes at every value, so their faces never change size
   ([I0.7](../instrument-phase0.md#i07-interaction-and-accessibility), finding 3); the pointer is captured content on
   the cap. Every part lies inside the dial, the input's box, at every value.
-- **At the Instrument level** the object is the [Instrument object table](../design-language.md#instrument-object-table)'s
-  Knob: a `collar` and the printed scale; the `skirt` (Ø64, 2.5 high, a 7.5° cone top), the `cap` (0.8 × the skirt,
-  16 high, a 1.2 px spun crown, a 2 px polished chamfer) and the `pointer`, which turn as one through `knob.sweep`; a
-  detented knob settles on `spring.detent`. **Not drawn yet:** core's `instrument` material (Instrument plan, core work
-  item 1) is not on `main`, so a knob at the Instrument level is the stub in
-  [`gpu/instrument-knob.ts`](../../../packages/ui/src/gpu/instrument-knob.ts) (the parts and the turn, no scene). No
-  emitters; no sound.
+- **At the Instrument level** (`data-strata-level="instrument"`) the panel is drawn with core's `instrument` material
+  and the knob is the [Instrument object table](../design-language.md#instrument-object-table)'s Knob, built by
+  [`gpu/instrument.ts`](../../../packages/ui/src/gpu/instrument.ts) from the laid-out skirt and cap:
+
+  | Part | Profile (50% depth; heights × 0.6, 1, 1.6 with depth) | Material (premium) | Pose |
+  | --- | --- | --- | --- |
+  | `skirt` | Lathe: Ø of the skirt (64), 2.5 high, a 0.8 edge break, its top a 7.5° cone rising to the cap | `knobSkirt`: polished (250, 250, 251), roughness 0.04 | None (a solid of revolution) |
+  | `cap` | Lathe on the skirt: Ø of the cap (52), 16 high, a 2 px 45° chamfer, a spun top crowned 1.2 at the centre | `knobCap`: brushed (239, 240, 241), roughness 0.3, circular brush 0.9 with the hairline grain 0.15 | None |
+  | `chamfer` | Lathe: the cap's chamfer, a hair outside it | `knobChamfer`: the cap's metal polished, roughness 0.06 | None |
+  | `pointer` | Extrude: 2.2 wide, from 0.28 to 0.86 of the top's radius, following the crown 0.25 above it | `knobInk`: (38, 40, 44), roughness 0.6 | `turn` from −sweep/2 − 90° to sweep/2 − 90° (it is built along +x) |
+
+  The object's `bounds` is the input's box (the dial) and `t` the value's place along the range, driven by
+  `spring.knob` (420 / 41) or, detented, `spring.detent` (900 / 42) in fixed 4 ms steps, clamped at the stops, instant
+  under reduced motion. A value change is the native change core captures once; the turning frames after it are
+  uniform updates with no capture. The skirt, cap and pointer's own CSS paint is hidden while the parts draw them
+  (`data-strata-dome`); the printed scale, the legend and the focus ring stay on the face. Parts take the input's hover
+  and disabled state. If an object could not stay in its box, core draws its Relief primitive (a raised circle the size
+  of the skirt) and reports it. No collar, emitters or sound yet.
 
 ## 3. Faces and materials
 
@@ -62,7 +73,9 @@ The pointer keeps at least 3:1 against the cap in every theme (non-text contrast
 | Disabled | Height 0, no bevel gain, the dial at 38% | Flattened | Flat, the dial at 38% |
 | Value change | The pointer turns: captured content, fresh pixels; no geometry changes | Same | `rotate` on the pointer; a detented knob settles over `motion.fast` with a slight overshoot |
 
-Selected, invalid and busy do not apply. Under `prefers-reduced-motion` the pointer turns at once.
+Selected, invalid and busy do not apply. Under `prefers-reduced-motion` the pointer turns at once. At the Instrument
+level the parts stay at their height on hover (hardware does not rise under a finger) and the pointer turns on its
+spring; focus is the same CSS ring.
 
 ## 5. Relief primitives
 
@@ -71,6 +84,8 @@ Selected, invalid and busy do not apply. Under `prefers-reduced-motion` the poin
 - The `<input>` carries no `data-strata-face`: a range input with one is drawn as a Slider's rail and puck.
 - The skirt and the cap take the input's hover and disabled state (the GPU helper finds the input in the dial); their
   material role is `knob`.
+- At the Instrument level the same two markers name the parts' sizes; the knob adds no primitive to the face, so the
+  layer's face is the panel and its printed print.
 
 ## 6. Tokens it reads
 
@@ -176,8 +191,15 @@ at angles from `sin()` and `cos()`. The dial is at least 108 px square, far abov
   the expected primitives or slabs; pixels change after each value change and only inside the dial; native hits at a
   grid of points over the dial land on the input (0 mismatches); the accessibility snapshot is the same in DOM and GPU
   modes.
+- **Instrument** (`ui-knob.test.mjs`, DPR 1 and 2, headless and headful): the scene is version 4 with the four parts
+  per knob and the Reset key; every pixel the knobs draw (parts and their face shadows, against the dials hidden) lies
+  inside a dial, and native hits on them find the input; real ring clicks, drags, cap taps, keys, the wheel and the
+  reset turn the pointer with fresh pixels inside the dial only; 300 frames of turning add 0 captures beyond the native
+  changes and 0 hit-geometry updates; nothing is stepped down to Relief; reduced motion makes the turn instant.
 - **Bindings** (`ui-knob-bindings.test.mjs`, `ui-knob-astro.test.mjs`): React, Vue and Astro render the markup above;
   controlled and uncontrolled values, `onValueChange` / `v-model`, the root ref, `class` and `style`.
-- **Unit** (`strata-knob.unit.test.mjs`): the value and angle maths, marks, styles and the Instrument stub's numbers.
-- **Not yet:** parity budgets against an Instrument rendering (no Instrument scene yet), a headful check at the
-  Instrument level, and the manual screen-reader script.
+- **Unit** (`strata-knob.unit.test.mjs`): the value and angle maths, marks and styles; the knob's and a key's objects
+  validated by core's `validateInstrumentScene`, the knob contained over its whole travel in a corner of the reference
+  stage at every depth (core's `checkContainment`), and the springs.
+- **Not yet:** a parity budget between the Instrument and Objects or CSS renderings, a low-end GPU, and the manual
+  screen-reader script.
