@@ -60,3 +60,5 @@ export type { AccordionItemProps, AccordionProps } from "./Accordion.tsx";
 export type { TabListProps, TabPanelProps, TabProps, TabsProps } from "./Tabs.tsx";
 export { Popover } from "./Popover.tsx";
 export type { PopoverProps } from "./Popover.tsx";
+export { Menu } from "./Menu.tsx";
+export type { MenuEntry, MenuProps } from "./Menu.tsx";

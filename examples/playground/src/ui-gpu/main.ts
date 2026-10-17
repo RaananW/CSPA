@@ -12,7 +12,8 @@
  * `strataGpuProbe.addChips()` a tag and a filter chip, `strataGpuProbe.addMessage()` a MessageBar with an action, and
  * `strataGpuProbe.addPagination()` three page keys, `strataGpuProbe.addToolbar()` a Toolbar of toggle buttons, 
  * `strataGpuProbe.addAppBar()` an AppBar, `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root, and
- * `strataGpuProbe.addPopover()` a Filters button in the panel whose Popover is in `<body>`.
+ * `strataGpuProbe.addPopover()` a Filters button in the panel whose Popover is in `<body>`, and
+ * `strataGpuProbe.addMenu()` an Actions menu button in the panel whose Menu is in `<body>`.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -137,6 +138,15 @@ function addPopover() {
   attachStrata(panel);
   strata?.refresh();
 }
+const menuChoices: string[] = [];
+/** A Menu (`menu.md`): its button in the panel, the menu itself at the end of `<body>`, outside the root. */
+function addMenu() {
+  panel.insertAdjacentHTML("beforeend", `<p style="margin:12px 0 0"><button class="ug-button" data-strata-face="raised" type="button" id="gpu-menu-open" popovertarget="gpu-menu" aria-haspopup="menu"><span class="ug-button__label">Actions</span></button></p>`);
+  document.body.insertAdjacentHTML("beforeend", `<div class="ug-menu" data-strata-face="raised" id="gpu-menu" popover role="menu" aria-label="Actions">${["Rename", "Duplicate"].map(label => `<button class="ug-menu__item" type="button" role="menuitem" tabindex="-1">${label}</button>`).join("")}</div>`);
+  document.getElementById("gpu-menu")!.addEventListener("click", event => { const entry = (event.target as Element).closest("[role='menuitem']"); if (entry) menuChoices.push(entry.textContent!); });
+  attachStrata(panel);
+  strata?.refresh();
+}
 /** Chips in plain markup (`chip.md`), added by `strataGpuProbe.addChips()`: a tag and a filter chip. */
 const chipsMarkup = `<p style="margin:12px 0 0;display:flex;gap:8px"><span class="ug-chip" data-strata-face="raised" id="gpu-tag"><span class="ug-chip__label">Design</span></span><button class="ug-chip" data-strata-face="raised" type="button" aria-pressed="false" id="gpu-filter"><span class="ug-chip__label">Remote</span></button></p>`;
 /** An Avatar in plain markup (`avatar.md`), added to the panel by `strataGpuProbe.addAvatar()`. */
@@ -191,6 +201,8 @@ window.strataGpuProbe = {
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
   addTooltip,
   addPopover,
+  addMenu,
+  menuChoices: () => [...menuChoices],
   applied: () => applied,
   toast: () => { showStrataToast({ message: "Saved.", intent: "success", duration: Infinity }); },
   addAppBar: () => { panel.insertAdjacentHTML("beforeend", appBarMarkup); panel.querySelector("#gpu-sign-in")!.addEventListener("click", () => { signIns++; }); strata?.refresh(); },
@@ -222,6 +234,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addPopover(): void; applied(): number; toast(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addPopover(): void; applied(): number; addMenu(): void; menuChoices(): string[]; toast(): void;
   } }
 }

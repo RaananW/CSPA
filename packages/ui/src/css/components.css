@@ -1128,11 +1128,56 @@
   }
   :where(.ug-popover[data-strata-placement="top"]) { position-area: block-start span-inline-end; }
   /* Opened from inside an Underglass layer, where anchor positioning does not follow the layer: placed by script. */
-  :where(.ug-popover[data-strata-anchor="script"]) { position-area: none; inset: auto; margin: 0; }
+  :where(.ug-popover, .ug-menu)[data-strata-anchor="script"] { position-area: none; inset: auto; margin: 0; }
   :where(.ug-popover):not(:popover-open) { opacity: 0; }
   @starting-style { :where(.ug-popover):popover-open { opacity: 0; } }
   :where(.ug-popover__title) { margin: 0 0 var(--strata-space-2); font-size: var(--strata-font-size-body); font-weight: var(--strata-font-weight-strong); }
   :where(.ug-popover__body) { display: flex; flex-direction: column; gap: var(--strata-space-2); }
+
+  /* ---- Menu ---- */
+
+  /* A floating slab like a Popover, with flat rows: the focused row is tinted. */
+  :where(.ug-menu) {
+    --_finish: var(--strata-finish-role-panel);
+    --_h: var(--strata-elevation-overlay);
+    box-sizing: border-box;
+    min-width: 10rem;
+    max-width: min(20rem, calc(100vw - 16px));
+    margin: var(--strata-space-1) 0;
+    padding: var(--strata-space-1);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-panel);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block;
+    opacity: 1;
+    transition: opacity var(--strata-motion-fast) var(--strata-motion-easing-standard), display var(--strata-motion-fast) allow-discrete, overlay var(--strata-motion-fast) allow-discrete;
+  }
+  :where(.ug-menu[data-strata-placement="top"]) { position-area: block-start span-inline-end; }
+  :where(.ug-menu):not(:popover-open) { opacity: 0; }
+  @starting-style { :where(.ug-menu):popover-open { opacity: 0; } }
+  :where(.ug-menu__item) {
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    width: 100%;
+    min-height: 32px;
+    margin: 0;
+    padding: 0 var(--strata-space-3);
+    border: 0;
+    border-radius: var(--strata-radius-small);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+  }
+  :where(.ug-menu__item):is(:hover, :focus) { outline: none; background-color: color-mix(in srgb, var(--strata-colour-accent) 16%, var(--strata-colour-panel)); }
+  :where(.ug-menu__item:focus-visible) { outline: var(--strata-focus-width) solid var(--strata-colour-accent); outline-offset: calc(-1 * var(--strata-focus-width)); }
+  :where(.ug-menu__item[aria-disabled="true"]) { color: color-mix(in srgb, var(--strata-colour-text) 38%, transparent); cursor: default; }
+  :where(.ug-menu__item[aria-disabled="true"]:hover:not(:focus)) { background: transparent; }
+  :where(.ug-menu__separator) { margin: var(--strata-space-1) 0; border: 0; border-top: 1px solid var(--strata-colour-edge); }
 
   /* ---- Toast ---- */
 
@@ -1336,7 +1381,7 @@
     :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-skeleton) { animation: none; background-image: none; }
-    :where(.ug-tooltip, .ug-toast, .ug-popover) { transition: none; }
+    :where(.ug-tooltip, .ug-toast, .ug-popover, .ug-menu) { transition: none; }
     :where(.ug-progress:indeterminate) {
       animation: none;
       background-image: repeating-linear-gradient(45deg, var(--strata-colour-accent) 0 6px, transparent 6px 12px);
@@ -1358,7 +1403,8 @@
     :where(.ug-scrim) { forced-color-adjust: none; }
     :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group, .ug-toolbar) { border: 1px solid ButtonBorder; }
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
-    :where(.ug-popover) { border: 1px solid CanvasText; }
+    :where(.ug-popover, .ug-menu) { border: 1px solid CanvasText; }
+    :where(.ug-menu__item):is(:hover, :focus) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
     :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }

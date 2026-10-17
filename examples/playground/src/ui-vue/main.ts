@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider,
   Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast,
 } from "@underglass/ui/vue";
 
@@ -93,6 +93,7 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("drawer.md", h(Drawer, { open: overlays.value, container: '[data-contract="drawer.md"]', title: "Filters", titleId: "filters-title", description: "Narrow the list.", descriptionId: "filters-description" }, {
     actions: () => h(Button, { "data-strata-close": "" }, { default: text("Done") }),
   })),
+  h("div", { "data-contract": "menu.md", id: "menu-host" }, [h(Menu, { id: "actions-menu", label: "Actions", to: "#menu-host", items: [{ label: "Rename" }, "separator", { label: "Delete", disabled: true }] }, { trigger: () => h(Button, null, { default: text("Actions") }) })]),
   h("div", { "data-contract": "popover.md", id: "popover-host" }, [h(Popover, { id: "filters-popover", title: "Filters", to: "#popover-host" }, { trigger: () => h(Button, null, { default: text("Filters") }) })]),
   contract("slider.md", h(Slider, { min: 0, max: 100, step: 1, defaultValue: 40, "aria-label": "Volume" })),
 ]);
@@ -111,6 +112,7 @@ const App = defineComponent({
     const rows = reactive({ archive: 0, locked: 0 });
     const page = ref(1), appBar = ref(0), toasts = ref(0);
     const popover = reactive({ open: false, applied: 0 });
+    const chosen = reactive<string[]>([]);
     const messages = reactive({ upgrades: 0, dismissed: false });
     const chips = reactive({ remote: false, removed: [] as string[] });
     const sort = ref<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -135,6 +137,7 @@ const App = defineComponent({
         get appBar() { return appBar.value; },
         get toasts() { return toasts.value; },
         get popover() { return { ...toRaw(popover) }; },
+        get chosen() { return [...chosen]; },
         setPage: (value: number) => { page.value = value; },
         get messages() { return { ...toRaw(messages) }; },
         get chips() { return { remote: chips.remote, removed: [...chips.removed] }; },
@@ -263,7 +266,7 @@ const App = defineComponent({
               h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
                 h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
-              h("p", { style: { margin: "0", display: "flex", gap: "12px" } }, [h(Popover, { id: "live-popover", title: "Filters", onToggle: (open: boolean) => { popover.open = open; } }, {
+              h("p", { style: { margin: "0", display: "flex", gap: "12px" } }, [h(Menu, { id: "live-menu", label: "Actions", items: [{ label: "Rename", onSelect: () => { chosen.push("Rename"); } }, { label: "Duplicate", onSelect: () => { chosen.push("Duplicate"); } }, "separator", { label: "Archive", onSelect: () => { chosen.push("Archive"); } }, { label: "Delete", disabled: true, onSelect: () => { chosen.push("Delete"); } }] }, { trigger: () => h(Button, { id: "menu-open" }, { default: text("Actions") }) }), h(Popover, { id: "live-popover", title: "Filters", onToggle: (open: boolean) => { popover.open = open; } }, {
                 trigger: () => h(Button, { id: "popover-open" }, { default: text("Filters") }),
                 default: () => [h(Checkbox, { id: "popover-only" }, { default: text("Open only") }), h(Button, { id: "popover-apply", onClick: () => { popover.applied++; } }, { default: text("Apply") })],
               }), h(Button, { id: "notify", onClick: () => toast({ message: "Message sent.", intent: "success", duration: 1500,

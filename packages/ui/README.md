@@ -463,3 +463,16 @@ below the button, flipped above when there is no room. It is portalled to `<body
 
 Vue takes the trigger in its `trigger` slot and emits `toggle`; in Astro any button with `popovertarget` set to the
 popover's `id` opens it. [Anatomy](../../docs/ui-library/components/popover.md).
+
+## Menu
+
+A short list of actions one button opens, by the WAI-ARIA Menu Button pattern on the native Popover API: opening
+focuses the first item (the last with Up), the arrow keys, Home, End and a typed letter move, choosing an item closes the
+menu and returns focus, and a disabled item does nothing:
+
+```tsx
+<Menu trigger={<Button>Actions</Button>} label="Actions" items={[{ label: "Rename", onSelect: rename }, "separator", { label: "Delete", disabled: true }]} />
+```
+
+In Astro the trigger is any button with `popovertarget` and `aria-haspopup="menu"`; `attachStrata` reports
+`strata-select` from the chosen item. [Anatomy](../../docs/ui-library/components/menu.md).

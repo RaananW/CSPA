@@ -787,3 +787,25 @@ test("a Popover opened from a GPU-presented panel floats in the top layer, takes
   expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
   expect(errors).toEqual([]);
 });
+
+test("a Menu opened from a GPU-presented panel floats in the top layer, real keys choose an item, focus returns into the panel, GPU on", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  await page.evaluate(async () => { window.strataGpuProbe.addMenu(); await window.strataGpuProbe.controller.settle(); });
+  const open = await page.locator("#gpu-menu-open").boundingBox();
+  await page.mouse.click(open.x + open.width / 2, open.y + open.height / 2);
+  await expect(page.locator("#gpu-menu")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.textContent)).toBe("Rename");
+  // Placed by script below the button in the layer, aligned with its start edge.
+  const menu = await page.locator("#gpu-menu").boundingBox();
+  expect(Math.abs(menu.x - open.x)).toBeLessThanOrEqual(1);
+  expect(menu.y).toBeGreaterThanOrEqual(open.y + open.height);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#gpu-menu")).toBeHidden();
+  expect(await page.evaluate(() => [window.strataGpuProbe.menuChoices(), document.activeElement?.id])).toEqual([["Duplicate"], "gpu-menu-open"]);
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});

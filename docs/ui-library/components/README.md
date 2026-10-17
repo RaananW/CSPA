@@ -115,3 +115,4 @@ light and depth, reduced motion, keyboard input and reflow.
 | Component | Native element | Object |
 | --- | --- | --- |
 | [Popover](popover.md) | `<div popover role="dialog">` opened by a `<button popovertarget>` | A floating slab in the top layer |
+| [Menu](menu.md) | `<div popover role="menu">` of `menuitem` buttons, opened by a menu button | A floating slab with flat rows |

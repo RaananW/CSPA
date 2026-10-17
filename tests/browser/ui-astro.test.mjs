@@ -133,6 +133,16 @@ test("Strata Astro components get their browser behaviour from attachStrata and 
   const removed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-remove", event => list.push(event.target.id)); return list; });
   await page.getByRole("button", { name: "Remove ada@example.com" }).click();
   expect(await removed.jsonValue()).toEqual(["ada-chip"]);
+  // A Menu from markup: opening focuses its first item, Down moves, Enter chooses (reported) and closes it.
+  const choices = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-select", event => { if (event.target.closest(".ug-menu")) list.push(event.detail.index); }); return list; });
+  await page.locator("#astro-menu-open").click();
+  await expect(page.locator("#astro-menu")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.textContent)).toBe("Copy");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#astro-menu")).toBeHidden();
+  expect(await choices.jsonValue()).toEqual([1]);
+  expect(await page.evaluate(() => document.activeElement?.id)).toBe("astro-menu-open");
   // A MessageBar's dismiss button reports strata-dismiss from the bar.
   const dismissed = await page.evaluateHandle(() => { const list = []; document.addEventListener("strata-dismiss", event => list.push(event.target.id)); return list; });
   await page.locator("#astro-message").getByRole("button", { name: "Dismiss" }).click();

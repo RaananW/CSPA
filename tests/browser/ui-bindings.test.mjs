@@ -13,6 +13,7 @@
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  *   a Popover opens below its button in the top layer, takes Tab, and closes on Escape and outside clicks;
+ *   a Menu focuses an item on opening, moves by the menu keys, runs a chosen item and closes, and skips disabled ones;
  *   toasts appear in the status region and go after their time, which hovering stops;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
@@ -160,7 +161,7 @@ for (const binding of bindings) test(`Strata ${binding} Dialog is modal, control
   }))).toEqual({ parent: true, scrim: "ug-scrim", modal: "true", className: expect.stringContaining("ug-panel ug-dialog"), ref: true });
   await expect(dialog).toHaveClass(/extra/);
   // The app's root, and the tooltip and the popover portalled beside it in the body, are inert behind the modal.
-  expect((await inert()).sort()).toEqual(["live-popover", "root", "share-tip"]);
+  expect((await inert()).sort()).toEqual(["live-menu", "live-popover", "root", "share-tip"]);
   // Tab stays inside.
   for (let step = 0; step < 6; step++) {
     await page.keyboard.press("Tab");
@@ -771,5 +772,55 @@ for (const binding of bindings) test(`Strata ${binding} Popover opens below its 
   await expect(popover).toBeVisible();
   await page.mouse.click(5, 5);
   await expect(popover).toBeHidden();
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Menu focuses an item on opening, moves by the menu keys, runs a chosen item and closes`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const button = page.locator("#menu-open"), menu = page.getByRole("menu", { name: "Actions" }).and(page.locator("#live-menu"));
+  const focused = () => page.evaluate(() => document.activeElement?.textContent);
+  await button.scrollIntoViewIfNeeded();
+  await expect(button).toHaveAttribute("aria-haspopup", "menu");
+  // A click opens it below the button, outside the app, with focus on the first item.
+  await button.click();
+  await expect(menu).toBeVisible();
+  await expect.poll(focused).toBe("Rename");
+  expect(await page.evaluate(() => { const box = document.getElementById("live-menu").getBoundingClientRect(), trigger = document.getElementById("menu-open").getBoundingClientRect();
+    return box.top >= trigger.bottom - 1 && !document.getElementById("root")?.contains(document.getElementById("live-menu")) && !document.getElementById("app")?.contains(document.getElementById("live-menu")); })).toBe(true);
+  // Down moves past the separator to a disabled item (focusable), and wraps; End, Home and a letter.
+  for (const expected of ["Duplicate", "Archive", "Delete", "Rename"]) { await page.keyboard.press("ArrowDown"); expect(await focused()).toBe(expected); }
+  await page.keyboard.press("End");
+  expect(await focused()).toBe("Delete");
+  await page.keyboard.press("Home");
+  await page.keyboard.press("a");
+  expect(await focused()).toBe("Archive");
+  // Enter chooses it: it runs, the menu closes, and focus returns to the button.
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => [window.strataBinding.chosen, document.activeElement.id])).toEqual([["Archive"], "menu-open"]);
+  // Up on the button opens it at the last item; a disabled item does nothing and the menu stays.
+  await page.keyboard.press("ArrowUp");
+  await expect(menu).toBeVisible();
+  await expect.poll(focused).toBe("Delete");
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeVisible();
+  expect(await page.evaluate(() => window.strataBinding.chosen)).toEqual(["Archive"]);
+  // Escape closes it, back on the button; Tab closes it too.
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => document.activeElement.id)).toBe("menu-open");
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeVisible();
+  await expect.poll(focused).toBe("Rename");
+  await page.keyboard.press("Tab");
+  await expect(menu).toBeHidden();
+  // A click on an item chooses it.
+  await button.click();
+  await menu.getByRole("menuitem", { name: "Duplicate" }).click();
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => window.strataBinding.chosen)).toEqual(["Archive", "Duplicate"]);
   await context.close();
 });
