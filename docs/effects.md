@@ -126,6 +126,11 @@ exactly its parameters, and `interior: { max }` within 0..0.1.
   content is empty and takes no hits. Particles move by `handle.update(scene)` each frame, with no recompile; their
   physics is the application's. `state().materials` reports `{ kind: "stage", particles, backdrop }`. Its decoded GPU
   pixels pass `scene-3.json` (`tests/browser/stage.test.mjs`).
+- `kind: "instrument"` is the Instrument level (version 4 of the model, part 2D): the face is the relief pass, and each
+  object's parametric parts are drawn as Babylon Lite meshes in a scene of the layer's own, right after its pass, with
+  captured caps, analytic face shadows, the layer's clip and opacity. Parts never take hits; an object that would draw
+  outside its `bounds` over its travel is drawn at the Relief level and reported. See [the API](api.md#the-instrument-material)
+  and the [design note](ui-library/instrument-phase2.md); `tests/browser/core-instrument.test.mjs` checks it.
 - One pass may hold a custom effect and a custom material; a new definition is
   compiled as a successor while the previous frame keeps presenting.
 - Replacement resolves the previous handle as `replaced`. The material survives
