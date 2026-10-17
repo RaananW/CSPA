@@ -894,6 +894,50 @@ for (const level of ["relief", "objects"]) test(`a Stepper on the GPU at the ${l
   expect(errors).toEqual([]);
 });
 
+test("a Combobox on the GPU: one well, and real typing shows each new character with GPU on", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  await page.evaluate(async () => { window.strataGpuProbe.addCombobox(); await window.strataGpuProbe.controller.settle(); });
+  expect((await primitiveOf(page, "#gpu-combobox")).face).toBe("well");
+  const box = await page.locator("#gpu-combobox").boundingBox(), frame = await page.locator("#frame").boundingBox();
+  // The text's start, in frame coordinates: a row of samples across the first characters.
+  const samples = shot => Array.from({ length: 12 }, (_, at) => shot(box.x - frame.x + 18 + at * 3, box.y - frame.y + box.height / 2)).flat();
+  const before = samples(await snap(page, "combobox-before"));
+  // A real click reaches the input through the GPU; real keys type into it.
+  await page.mouse.click(box.x + box.width / 3, box.y + box.height / 2);
+  await expect(page.locator("#gpu-combobox")).toBeFocused();
+  await page.keyboard.type("Ban");
+  expect(await page.locator("#gpu-combobox").inputValue()).toBe("Ban");
+  // Fresh pixels: the typed text is on the GPU-presented face.
+  const after = samples(await snap(page, "combobox-after"));
+  expect(after).not.toEqual(before);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});
+
+test("a DatePicker on the GPU: one well, and a real click and real keys set a date with GPU on", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  await page.evaluate(async () => { window.strataGpuProbe.addDatePicker(); await window.strataGpuProbe.controller.settle(); });
+  expect((await primitiveOf(page, "#gpu-date-picker")).face).toBe("well");
+  const box = await page.locator("#gpu-date-picker").boundingBox(), frame = await page.locator("#frame").boundingBox();
+  // The segments' start, in frame coordinates: a row of samples across the first characters.
+  const samples = shot => Array.from({ length: 12 }, (_, at) => shot(box.x - frame.x + 18 + at * 3, box.y - frame.y + box.height / 2)).flat();
+  const before = samples(await snap(page, "date-picker-before"));
+  // A real click reaches the input through the GPU; real keys type a date into it.
+  await page.mouse.click(box.x + 24, box.y + box.height / 2);
+  await expect(page.locator("#gpu-date-picker")).toBeFocused();
+  await page.keyboard.type("03152026");
+  expect(await page.locator("#gpu-date-picker").inputValue()).toBe("2026-03-15");
+  // Fresh pixels: the typed date is on the GPU-presented face.
+  const after = samples(await snap(page, "date-picker-after"));
+  expect(after).not.toEqual(before);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});
+
 test("a Rating on the GPU: its stars are captured content with no primitive, and a real click sets the score, GPU on", async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));

@@ -78,9 +78,15 @@ test("the Strata token stylesheet computes depth, light, themes and density", as
   expect(await panel("light")).toBe("rgb(255, 255, 255)");
   await page.emulateMedia({ colorScheme: "light", contrast: "no-preference" });
 
-  // Density sets the control height and panel padding.
+  // Density sets the control height, the panel padding and the gaps between controls and between groups.
   expect(await evaluate("var(--strata-control-height)")).toBe(34);
   expect(await evaluate("var(--strata-control-height)", { scopes: [{ attributes: { "data-strata-density": "compact" } }] })).toBe(28);
   expect(await evaluate("var(--strata-panel-padding)", { scopes: [{ attributes: { "data-strata-density": "spacious" } }] })).toBe(24);
+  expect(await evaluate("var(--strata-gap-control)")).toBe(12);
+  expect(await evaluate("var(--strata-gap-group)")).toBe(20);
+  expect(await evaluate("var(--strata-gap-control)", { scopes: [{ attributes: { "data-strata-density": "compact" } }] })).toBe(8);
+  expect(await evaluate("var(--strata-gap-group)", { scopes: [{ attributes: { "data-strata-density": "compact" } }] })).toBe(16);
+  expect(await evaluate("var(--strata-gap-control)", { scopes: [{ attributes: { "data-strata-density": "spacious" } }] })).toBe(16);
+  expect(await evaluate("var(--strata-gap-group)", { scopes: [{ attributes: { "data-strata-density": "spacious" } }] })).toBe(24);
   await context.close();
 });

@@ -1,0 +1,33 @@
+---
+/**
+ * DatePicker (anatomy page `date-picker.md`): a TextField that takes a date, a native `<input type="date">`. With
+ * Field props it renders its Field.
+ */
+import Field from "./Field.astro";
+import { fieldControl } from "./field.ts";
+import { classes, strataAttributes, type StrataLevel, type StrataSize } from "../shared/markup.ts";
+
+interface Props {
+  id?: string;
+  label?: string;
+  help?: string;
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+  invalid?: boolean;
+  requiredLabel?: string;
+  errorPrefix?: string;
+  size?: StrataSize;
+  material?: string;
+  level?: StrataLevel;
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { id, label, help, error, required, disabled, invalid, requiredLabel, errorPrefix, size, material, level, class: className, ...rest } = Astro.props;
+const field = fieldControl({ id, label, help, error, required, disabled, invalid });
+const strata = strataAttributes({ size, material, level });
+---
+<Field wrap={field.wrap} controlId={field.id} label={label} help={help} error={error} required={required} requiredLabel={requiredLabel} errorPrefix={errorPrefix}>
+  <input class={classes("ug-text-field ug-date-picker", className)} data-strata-face="well" {...strata} {...field.attrs} {...rest} type="date" />
+</Field>

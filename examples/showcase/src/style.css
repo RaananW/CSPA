@@ -629,14 +629,14 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 .art-strata i:nth-child(2) { left: 52%; top: 22px; width: 40%; background: linear-gradient(180deg, #6f7cff, #4a55e0); box-shadow: 0 1px 0 #a9b1ff inset, 0 -2px 0 #333cb0 inset, 0 8px 14px #39456a50; }
 .art-strata i:nth-child(3) { left: 8%; top: 64px; width: 84%; height: 18px; border-radius: 9px; background: #d4dae6; box-shadow: 0 2px 3px #39456a55 inset, 0 -1px 0 #ffffff inset; }
 .art-strata i:nth-child(4) { left: 52%; top: 59px; width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff, #cfd6e2 70%); box-shadow: 0 6px 10px #39456a55; }
-/* The gallery's two panels, placed on the stage; the bar's controls sit in a row. */
+/* The gallery's two panels, placed on the stage; the bar's controls sit in a row. Gaps are Strata's (section 13). */
 .stage .strata-bar { position: absolute; left: 20px; top: 20px; width: 1000px; }
-.stage .strata-bar .ug-app-bar__end { display: flex; gap: 12px; align-items: center; }
+.stage .strata-bar .ug-app-bar__end { display: flex; gap: var(--strata-gap-control); align-items: center; }
 .stage .strata-title { margin: 0; font-size: inherit; }
 .stage .strata-gallery { position: absolute; left: 20px; top: 104px; width: 1000px; height: 576px; overflow: hidden; }
 .strata-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding-top: 16px; }
-.strata-columns > div { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.strata-group { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.strata-columns > div { display: flex; flex-direction: column; gap: var(--strata-gap-group); min-width: 0; }
+.strata-group { display: flex; flex-direction: column; align-items: flex-start; gap: var(--strata-gap-control); }
 .strata-group h4 { margin: 0; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; opacity: .75; }
 .strata-group > p { margin: 0; }
 .strata-group > .ug-field { align-self: stretch; }

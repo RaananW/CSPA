@@ -122,3 +122,5 @@ light and depth, reduced motion, keyboard input and reflow.
 | [TreeView](tree-view.md) | `<ul role="tree">` of nested `treeitem`s | One raised slab; rows are flat |
 | [Carousel](carousel.md) | A `<section aria-roledescription="carousel">` of slides, with buttons | Captured slides in a frame, keys under it |
 | [Menu](menu.md) | `<div popover role="menu">` of `menuitem` buttons, opened by a menu button | A floating slab with flat rows |
+| [Combobox](combobox.md) | `<input list>` with a `<datalist>`; the browser's own list | A TextField well with a printed chevron |
+| [DatePicker](date-picker.md) | `<input type="date">`; the browser's own calendar | A TextField well with a printed calendar |
