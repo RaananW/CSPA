@@ -158,6 +158,11 @@ const harness = await startInstrument({
   throw error;
 });
 meshes.setDraw(() => harness.draw());
+// Let the mesh scene's pipelines compile (its first frames) before the relief material and the Objects copy ask core
+// for a successor composition: core gives a successor's shader compilation 1,500 ms, and the GPU process compiles
+// one pipeline at a time, so compiling both at once could time core out to DOM (1 start in 8 without this wait).
+for (let frame = 0; frame < 8; frame++) { harness.draw(); await new Promise(resolve => requestAnimationFrame(resolve)); }
+await harness.idle();
 harnessRef = harness;
 // The pointer light (I0.3): the pointer in canvas CSS px, the toggle from the tuning bar.
 meshes.setPointer({ enabled: values.pointer === 1 });
