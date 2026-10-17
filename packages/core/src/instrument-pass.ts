@@ -38,6 +38,14 @@ import {
 
 /** A build that has not finished in this long steps its layer down (`compile`); GPU stays on. */
 export const INSTRUMENT_BUILD_DEADLINE_MS = 10000;
+/**
+ * The longest a successor composition's 1.5 s deadline waits for a running mesh build (the compile gate) before it
+ * starts anyway. Measured on Canary 158.0.8110.0 (RTX 3080): a start with three instrument layers is ready in
+ * 0.88–1.33 s and a racing successor waited 323–717 ms, so 3 s is two to three times the measured need. A hung build
+ * then holds every layer's frames (core skips frames while a successor is pending) for at most 3 s, and a successor
+ * that still cannot compile falls back, diagnosed, after 3 s + 1.5 s; the build's own deadline stays 10 s.
+ */
+export const INSTRUMENT_SUCCESSOR_DEFERRAL_MS = 3000;
 
 /** What the renderer hands the controller for one presented layer, every frame. */
 export interface InstrumentLayerInput {

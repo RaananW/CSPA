@@ -583,6 +583,8 @@ The scene is a version 4 `strata-scene` with `kind: "instrument"`:
   reasons `containment`, `budget`, `compile`, `pending`, `transform`, `order-unavailable`), warnings and GPU time
   (`lastMs`, `p50Ms`, `p95Ms`); the stage's parts; the timing status; and the compile counters (builds, failures,
   deferred successor deadlines). `state().materials` lists `{ kind: "instrument", objects, parts, interior, degraded }`.
+- **Compile sequencing.** A successor composition that starts while a mesh build compiles starts its 1.5 s deadline when
+  the build is done or after 3 s, whichever comes first; a build that takes over 10 s steps its layer down.
 - **Never DOM for an instrument reason.** Containment, budgets, build failures and slow builds (10 s) step objects
   down to Relief with GPU on. A GPU error (validation scope, device loss) still recovers to ordinary DOM.
 - **Limits:** a layer whose matrix is not a similarity (shear, non-uniform scale, a tilt) draws its objects at Relief;

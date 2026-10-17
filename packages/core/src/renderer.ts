@@ -32,7 +32,7 @@ import type { Ripple } from "./ripple.js";
 import { isSceneMaterial, type ApplicationEffect, type EffectDescriptor, type MaterialDescriptor } from "./effects.js";
 import type { CompiledMotion, CompiledProgramSet } from "./compiled.js";
 import { instrumentFaceScene } from "./instrument.js";
-import { createInstrumentController, INSTRUMENT_BUILD_DEADLINE_MS, type InstrumentController, type InstrumentLayerInput } from "./instrument-pass.js";
+import { createInstrumentController, INSTRUMENT_SUCCESSOR_DEFERRAL_MS, type InstrumentController, type InstrumentLayerInput } from "./instrument-pass.js";
 
 /**
  * One enrolled layer as the runtime describes it to the renderer. The callbacks are read again on every
@@ -1020,11 +1020,11 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       };
       const gate = instrument?.gate();
       if (!gate) { start(); return; }
-      // The deferral has a ceiling: the build deadline. A build that hangs cannot hold a successor longer.
+      // The deferral has a ceiling (`INSTRUMENT_SUCCESSOR_DEFERRAL_MS`, 3 s): a build that hangs cannot hold a successor longer.
       const waiting = performance.now(), controller = instrument!;
       let ceiling: ReturnType<typeof setTimeout> | undefined, begun = false;
       const begin = () => { if (begun) return; begun = true; clearTimeout(ceiling); controller.deferred(performance.now() - waiting); start(); };
-      ceiling = setTimeout(begin, INSTRUMENT_BUILD_DEADLINE_MS);
+      ceiling = setTimeout(begin, INSTRUMENT_SUCCESSOR_DEFERRAL_MS);
       void gate.then(begin);
     });
     const prepared = Promise.race([Promise.all([device.popErrorScope(), compilation]), preparationTimeout]).then(([error]) => {

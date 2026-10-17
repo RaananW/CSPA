@@ -192,14 +192,20 @@ Core now owns both, so it **sequences** them:
 - the **gate** is held only by the build that is running: from its start (after that wait) through registration and
   pipeline preparation to the GPU queue catching up (`onSubmittedWorkDone`, at most 10 s). A queued build holds nothing,
   and the gate needs no drawn frame, so a pending successor (which stops core's frames) can never hold it open;
-- a successor that starts while the gate is held starts its 1.5 s deadline when the gate opens or after 10 s, whichever
-  comes first, so the deadline counts core's own work again and a hung build cannot hold a successor longer than the
-  build deadline. Each deferral is counted (`state().instrument.compile.deferredDeadlines`, with the time waited);
-- an instrument build has its own deadline of 10 s; past it, the layer steps down with `compile` and GPU stays on;
+- a successor that starts while the gate is held starts its 1.5 s deadline when the gate opens or after **3 s**
+  (`INSTRUMENT_SUCCESSOR_DEFERRAL_MS`), whichever comes first, so the deadline counts core's own work again. Each deferral
+  is counted (`state().instrument.compile.deferredDeadlines`, with the time waited);
+- an instrument build has its own deadline of 10 s (`INSTRUMENT_BUILD_DEADLINE_MS`); past it, the layer steps down with
+  `compile` and GPU stays on. The wait for successor preparations before a build is capped at the same 10 s;
 - until a build is ready, the layer draws its objects at the Relief level (`pending`), so no frame shows a half-built
   scene. `enableAsyncShaderPipelineCompilation` lets registration prepare the shader-material pipelines.
 
-The alternative, a longer deadline for every successor while instrument layers exist, would let a real GPU stall hold
+**The two ceilings.** Core skips frames while a successor is pending, so the successor ceiling is how long a hung build can
+freeze every layer: 3 s, against measured starts of 0.88–1.33 s with three instrument layers and successor deferrals of
+323–717 ms (two to three times the need). A successor whose compile is still blocked after it falls back, diagnosed,
+after 3 s + 1.5 s, as the contract allows for a GPU stall. The build keeps its own 10 s, so a slow build steps its layer
+down without holding anyone else for that long. The alternative, a longer deadline for every successor while instrument
+layers exist, would let a real GPU stall hold
 the last frame longer and would still race the first frame.
 
 ## Budgets
@@ -247,7 +253,7 @@ Radiance image generated in code once per engine and light, loaded into each lay
 | --- | --- | --- | --- |
 | 1 | Draw order | Keep the reorder of `getRenderingContexts` as a documented reliance, permuting only core's contexts, with a read-back guard that steps instrument layers down; ask Lite for an ordered insert | Re-register every context in order: `registerScene` is async, so a membership change draws a frame without meshes or waits for a rebuild |
 | 2 | Mesh target | Direct into the layer's pass target, own render tasks with `clr: false`, the target named once for item 3 | An offscreen target now: an extra target and composite before any post stage needs one |
-| 3 | Compile-deadline policy | Sequence: builds wait (at most 10 s) for successor preparation; only the running build holds the gate, until the GPU queue has caught up; a successor's deadline starts when the gate opens or after 10 s; builds have their own 10 s deadline and step down; pending layers draw at Relief | Extend the successor deadline while instrument layers exist |
+| 3 | Compile-deadline policy | Sequence: builds wait (at most 10 s) for successor preparation; only the running build holds the gate, until the GPU queue has caught up; a successor's deadline starts when the gate opens or after 3 s (measured need 0.3–0.7 s; a hung build freezes frames at most 3 s); builds have their own 10 s deadline and step down; pending layers draw at Relief | Extend the successor deadline while instrument layers exist |
 | 4 | Recipes to Lite PBR | `base` → base colour (linear), metallic, roughness, `directIntensity`; `environment.strength` → `environmentIntensity`; `coat` → `setPbrClearCoat`; `reflectance` → `setPbrMetallicReflectance` (dielectric F0 only, I0.4); `emissive` → `setPbrEmissive`; `sheen`, `iridescence` → their setters; `brush` → `setPbrAnisotropy` with a generated hairline `grain` normal map | Per-layer custom shading: would re-specify Lite's PBR |
 | 5 | Face shadows | A quad per object with up to 8 casters from a storage buffer, darkest wins (I0.5 (a)) | Casters in the relief binding: 256 entries cannot hold 2,048 parts, and the binding is shared with the conformance-tested shader |
 | 6 | Clip | Fragment discard for shader materials, a depth clip mask before the PBR parts | Camera viewports: scissor exactly, but Lite would also change the projection |
@@ -300,8 +306,10 @@ build queue and waited for a drawn frame, so a successor and a queued build coul
 that light and environment changes did not reach the parts; that bounds past the layer's box were not stepped down;
 and that one more object rebuilt the scene. Each is fixed above and tested: a build held forever by core's internal
 test hook (`?hang=1&race=1`) times out after 10,000 ms, its layer is drawn at Relief (`compile`), and the racing
-successor waits 9,995 ms (the ceiling) and is published with GPU on; the 10 starts deferred one successor deadline
-each (323–680 ms); a new light rebuilds all three scenes and changes 128,715 knob pixels (DPR 1); an object 40 px past
+successor waits 3,002 ms headless and 3,004 ms headed (the 3 s ceiling, `INSTRUMENT_SUCCESSOR_DEFERRAL_MS`), then compiles
+within its own 1.5 s deadline and is published with GPU on and no fallback (the hook holds the build in script, not the
+GPU); with the 3 s ceiling the 10 starts deferred 276–380 ms headless and 441–537 ms headed, ready in 0.83–0.94 s and
+1.10–1.37 s (each start deferred exactly one successor deadline); a new light rebuilds all three scenes and changes 128,715 knob pixels (DPR 1); an object 40 px past
 the panel changes 0 pixels beside it; three more knobs need 0 rebuilds; scenes and retirements return to 3 / 0 after a
 rebuild, 2 / 0 after a cancel, 3 / 0 after restoring it, none after disable and 3 / 0 after re-enabling.
 

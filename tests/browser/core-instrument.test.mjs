@@ -430,7 +430,7 @@ test("instrument material: the start reaches GPU with every scene built, 10 time
 test("instrument material: a build that hangs times out, its layer steps down, and a racing successor still publishes", async ({ browser }) => {
   test.setTimeout(300000);
   // `?hang=1`: core's internal test hook never lets the lower panel's first build finish; `?race=1`: a relief layer joins
-  // right after enable, while that build holds the compile gate.
+  // right after enable, while that build holds the compile gate. The successor waits at most 3 s for it.
   const { context, page, call, errors } = await open(browser, 1, "?hang=1&race=1");
   try {
     const boot = await call("boot");
@@ -448,8 +448,12 @@ test("instrument material: a build that hangs times out, its layer steps down, a
     expect(instrument.compile.timeouts).toBe(1);
     expect(instrument.layers.filter(layer => layer.id !== "lower").map(layer => layer.status)).toEqual(["ready", "ready"]);
     expect(state.layers.map(layer => layer.id), "the racing layer was published").toContain("extra");
-    expect(instrument.compile.deferredDeadlines, "the successor waited for the hung build").toBeGreaterThanOrEqual(1);
-    expect(instrument.compile.deferredMs, "but no longer than the build deadline").toBeLessThan(11000);
+    // The successor waited for the hung build only up to the 3 s ceiling, then compiled within its own 1.5 s deadline
+    // (the hook holds the build in script, not the GPU) and was published, with no fallback; the build's own 10 s deadline
+    // still stepped the lower layer down.
+    expect(instrument.compile.deferredDeadlines, "the successor waited for the hung build").toBe(1);
+    expect(instrument.compile.deferredMs, "for the 3 s ceiling, not the 10 s build deadline").toBeGreaterThan(2900);
+    expect(instrument.compile.deferredMs).toBeLessThan(3500);
     expect(errors.filter(error => !error.includes("is drawn at the Relief level"))).toEqual([]);
   } finally { await context.close(); }
 });
