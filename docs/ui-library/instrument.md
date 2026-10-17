@@ -118,6 +118,15 @@ two material layers the real PBR can show:
 | --- | --- | --- | --- | --- |
 | `brush` | `strength` 0–1, `direction` radial, linear or circular | Anisotropy (`setPbrAnisotropy`) with a tangent map generated from the direction | A directional highlight streak on the bevel | A `repeating-conic-gradient` or linear hairline pattern |
 | `grain` | `kind` knurl, fluted, sandblast; `scale` | A procedural normal pattern on the part it is assigned to | Not rendered | Not rendered |
+| `reflectance` | `f0` 0–1, `tint` colour role | Specular reflectance (`setPbrMetallicReflectance`): what tells gold from chrome and brass from steel | The specular lobe's colour | The highlight gradient's colour |
+| `dispersion` | `strength` 0–1 | Chromatic dispersion in glass (`setPbrDispersion`): prism colour at the edges of thick caps and lenses | Not rendered | Not rendered |
+| `subsurface` | `strength` 0–1, `tint` colour role, `thickness` | Subsurface scattering (`setPbrSubsurface`): silicone pads, frosted lens covers, the `playful` character's soft caps | A softened bevel light | A softer inner glow |
+
+Materials that reflect (metal, coat, glass) reflect the **captured page**, not only a studio: each panel's capture feeds a
+local environment probe (`setPbrLocalEnvironment`, parallax-corrected with `enablePbrLocalCubemap`), so a knob shows the
+faceplate print and the neighbouring controls on its skirt. The studio or HDR environment fills in what the page does not
+cover, rotated with `setEnvironmentRotation` so its brightest region sits at `light.azimuth`: reflections then agree with
+the one key light. See the [Lite feature map](#babylon-lite-feature-map).
 
 New material roles: `knobCap`, `knobSkirt`, `faderCap`, `lever`, `rockerPlate`, `plate` (wall plates and bezels),
 `lens` (lamp and LED covers), `needle`, `display` (the glass of a display window), `glowOn` and `glowOff`.
@@ -185,9 +194,12 @@ divider a groove) or stay flat, because they are print on the faceplate.
 - **Levers and rockers:** a click anywhere on the control throws it; a drag past centre throws it too. The snap is
   visual.
 - **Sound and haptics:** `feedback: { sound: false, haptics: false }` per application or scope. Sounds are
-  synthesised with Web Audio (click, tick, thunk, snap, three parameters each, per character; no assets), after the
-  first user gesture as browsers require, and silent when the system is muted or the application says so. Haptics use
-  the Vibration API where present. Both are decorative: nothing depends on them.
+  synthesised (click, tick, thunk, snap, three parameters each, per character; no assets) through Lite's audio
+  engine (`createAudioEngineAsync`), which places each click at its control's position with spatial audio and
+  unlocks after the first user gesture as browsers require; silent when the system is muted or the application says
+  so. Haptics use the Vibration API where present. Both are decorative: nothing depends on them.
+- **Live audio into meters:** a Meter or Gauge may take an audio source (`source` prop), analysed with Lite's
+  `createAudioVisualizer`, so a real signal drives the segments or the needle.
 
 ## Light: emitters
 
@@ -203,10 +215,16 @@ at the lens's position, a small height above the face, with a colour from its ro
   *protected rects*. Inside them, emitter light is capped at `interior.max` like any other interior change; outside
   them, it works at full strength. Decoded-pixel contrast samples test the worst case (a lamp beside a label, on
   both themes).
-- **Budget:** at most 16 emitters per layer scene; the helper keeps the 16 nearest by reach and reports when it
-  drops one. The stage may have many more.
+- **How they are lit:** emitters are Lite **clustered point lights** (`createClusteredLightContainer`,
+  `createClusteredPointLight`), so a mixer with hundreds of LEDs pays a near-constant cost; the analytic additive
+  term is what the Objects and Relief projections use for the same emitter.
+- **Glow:** a bloom pass (`createBloomPostProcessTask` over `createExtractHighlightsPostProcessTask`) runs on the
+  mesh pass only, never on the captured face, so lamps bloom and text does not.
+- **Budget:** at most 64 emitters per layer scene (`setMaxLights`), settled by I0.3; the helper keeps the nearest by
+  reach and reports when it drops one. The stage may have many more.
 - **Shadows from emitters:** none in the first version; emitter light is additive. Shadow-casting emitters are a
-  later step if the prototypes miss them.
+  later step if the prototypes miss them. Bounced light (`createScreenSpaceGlobalIlluminationPostProcessTask`) is
+  probed in I0.8 and adopted only if it fits the budget.
 - **Preferences:** `prefers-reduced-motion` stops blinking and pulsing; `prefers-contrast: more` turns emitters
   into flat colour on the lens only; `forced-colors` flattens everything, as today.
 
@@ -217,25 +235,57 @@ at the lens's position, a small height above the face, with a colour from its ro
 | 1 | **How Instrument objects are drawn.** | **A Lite mesh pass per layer** (the alternative that [Objects decision 2](phase4-objects.md#decisions) set aside): parametric meshes, thin instances per kind, a depth buffer cleared per layer, drawn after the layer's own pass so panels keep their painter's order. Real profiles, rotation, tilt, glTF custom parts and Lite's PBR (anisotropy, transmission, clear coat) need meshes; P0.4 proved 16,384 instances for under 1 ms. | Signed-distance ray-marching of lathe and rotated shapes in the existing analytic pass. Reference-exact and no new pass, but no custom parts, costlier per pixel, and the material layers Instrument is for (brushed metal, refraction) would be approximations. |
 | 2 | **What the standard guarantees.** | **Geometric and sampled:** version 4 of the [Rendering Model](rendering-model.md) defines each object's profile, pose per state, containment, cast footprint, emitters and the guard exactly, and lit colour at sample points within a tolerance, not texel-exact. Caps that carry captured content (push buttons, displays) stay exact, as screen-locked tops do today. | Colour-exact as Relief and Objects. Would force the standard to re-specify Lite's PBR. |
 | 3 | **Captured content on parts.** | **Screen-locked caps sample the layer's capture,** as Objects does: labels on push-button caps and text under display glass map one texel to one pixel. Turning parts never carry captured content. | Capture per part. Breaks the one-capture-per-panel rule. |
-| 4 | **Shadows.** | **Analytic on the face** (the Relief formula on each part's footprint, consistent with every other level), plus a **per-layer PCF shadow map from the key light for object-on-object shadows only** (a lever on its plate, a cap in its slot), masked off the face. | Shadow maps for everything. Detached, cut shadows on thin parts (the Objects finding). |
+| 4 | **Shadows.** | **Analytic on the face** (the Relief formula on each part's footprint, consistent with every other level), plus **screen-space contact shadows** (`createScreenSpaceContactShadowsPostProcessTask`) where a cap meets its plate, and a **per-layer PCF shadow map from the key light for object-on-object shadows only** (a lever on its plate, a cap in its slot), masked off the face. | Shadow maps for everything. Detached, cut shadows on thin parts (the Objects finding). |
 | 5 | **Emitters.** | **Additive local lights in the shading of the face, the objects and the outset,** with protected rects for the guard. | Emitters as full Lite point lights with shadows. Richer, costlier, and the shadow direction invariant gets harder to explain. |
-| 6 | **Geometry source.** | **Parametric in code,** from tokens: revolved profiles (caps, skirts, lenses, needles), extruded and swept parts (levers, slots, plates) built as mesh data; cached per unique parameter set and instanced. **Custom slot:** `parts: { knobCap: url }` loads a glTF for one named part, fitted to the documented anchors (base, pivot, cap, pointer, travel axis) and checked against `bounds`. | Authored glTF for everything. Downloads, fixed proportions, no theming. |
+| 6 | **Geometry source.** | **Parametric in code,** from tokens: revolved profiles (caps, skirts, lenses, needles), extruded and swept parts (levers, slots, plates) built as mesh data, with **CSG** (`createMeshFromCsg`) cutting slots, wells and holes out of plates; cached per unique parameter set and instanced. **Mesh blending** (`createMeshBlendingPostProcessTask`) rounds the join where a skirt meets its plate, so a control reads as milled from one block. **Custom slot:** `parts: { knobCap: url }` loads a glTF for one named part, fitted to the documented anchors (base, pivot, cap, pointer, travel axis) and checked against `bounds`. | Authored glTF for everything. Downloads, fixed proportions, no theming. |
 | 7 | **Level order and the Scene level.** | `relief < objects < instrument < scene`; `scene` adds the stage to the level below it, now Instrument. The ladder stays linear. | A separate `stage` flag orthogonal to the control level. Cleaner in theory; changes the existing level API and the adjust policy. |
 | 8 | **Granularity.** | **Per layer,** as today: a panel with any component at the Instrument level is drawn with the instrument material and its Objects-level components are drawn as meshes of the same shapes. Mixed analytic and mesh objects in one panel are never drawn, so one panel has one renderer. | Per object. Two renderers in one panel, with their small differences side by side. |
 | 9 | **Without GPU.** | **CSS skeuomorphic from the tokens:** conic and radial gradients for caps and lenses, layered `box-shadow` from the shadow formula, CSS 3D transforms for levers and rockers, with a parity budget looser than Relief's. | Pre-rendered sprite strips. Realistic, but assets per material and no live configuration. |
+| 10 | **Anti-aliasing and the post chain.** | **TAA on the mesh pass** (`createTaaPostProcessTask`; SMAA where TAA ghosts on turning parts), then contact shadows, then bloom, all on the mesh pass **before** it is composited over the captured face, so captured text is never filtered. | No post chain; rely on resolution. Bevel and skirt edges alias on every screen. |
+| 11 | **Motion engine.** | **CPU springs and detents** in Strata (seeded, fixed-step, testable), sampled into core keyframes; Lite's animation manager (`createPropertyAnimationClip`, blending) drives the poses on the GPU side. **Havok hinge constraints** (`createPhysicsConstraint`) are the `playful` character's option for bat snap and jog-wheel inertia, since Havok is a WASM download. | Havok for everything. Real, but a download before the first click and a nondeterministic step. |
 
 ### Core work (additive)
 
 Each item is its own PR with GPU tests, in order:
 
 1. **`instrument` material kind:** `setMaterial(id, { kind: "instrument", scene })`, a mesh pass per layer with a
-   depth buffer, thin instances, captured screen-locked caps, analytic face shadows and the containment check with
-   its diagnostic and step-down. A mesh budget (provisionally 256 objects and 2,048 parts per layer, settled by I0.1).
-2. **Emitters** in the `instrument` and `objects` materials, with protected rects and the outset glow.
-3. **Object-on-object shadows:** the per-layer PCF map from the key light, masked to parts.
-4. **Transmission over the capture:** glass parts refract the layer's captured texture.
+   depth buffer, thin instances with GPU culling (`enableThinInstanceGpuCulling`) and LOD partners for small
+   parts, captured screen-locked caps, analytic face shadows and the containment check with its diagnostic and
+   step-down. A mesh budget (provisionally 256 objects and 2,048 parts per layer, settled by I0.1) measured with
+   Lite's per-task GPU timings (`getRenderTaskGpuTimings`), which the adjust policy reads too.
+2. **Emitters** as clustered lights in the `instrument` material and as the analytic term in `objects`, with
+   protected rects and the outset glow.
+3. **Shadows and post chain:** contact shadows, the per-layer PCF map from the key light masked to parts, TAA and
+   bloom on the mesh pass.
+4. **Reflections and glass over the capture:** the layer's capture as a local environment probe, and transmission
+   that refracts it.
 5. **Custom parts:** glTF loading for named parts, anchor fitting and the bounds check. Core never fetches at
    render time; the helper loads and hands core mesh data.
+
+### Babylon Lite feature map
+
+Checked against `@babylonjs/lite` 1.33.0 (1,191 exports). Core uses Lite only as an effect runner today
+(`createEngine`, effect wrappers, dynamic textures, screenshots); Instrument is the first use of its scene stack.
+
+| Lite feature | Use in Instrument | Where |
+| --- | --- | --- |
+| PBR: base, clear coat, anisotropy, sheen, iridescence, transmission, emissive | The Strata material recipe on real surfaces | [Materials](#materials-are-configuration) |
+| `setPbrMetallicReflectance`, `setPbrDispersion`, `setPbrSubsurface` | The `reflectance`, `dispersion` and `subsurface` layers | Materials |
+| Local environment probes, `enablePbrLocalCubemap`, `setEnvironmentRotation` | The captured page reflected in metal and glass; HDR aligned with the key light | Materials |
+| Directional light, PCF/CSM shadow generators | The key light and object-on-object shadows | Decision 4 |
+| Clustered point lights, `setMaxLights` | Emitters at mixer density | [Emitters](#light-emitters) |
+| Screen-space contact shadows, bloom, highlight extraction, TAA, SMAA | The mesh-pass post chain | Decisions 4 and 10 |
+| Screen-space global illumination | Bounced lamp light, if I0.8 fits it in the budget | Emitters |
+| Thin instances, GPU culling, LOD partners | 250 controls at 60 fps | Core work 1 |
+| Extrude, tube, cylinder, torus, `createMeshFromData`, CSG, mesh blending | The parametric builder | Decision 6 |
+| Animation manager, property clips, blending | GPU-side pose animation from Strata's springs | Decision 11 |
+| Havok constraints | The `playful` character's physical snap and inertia | Decision 11 |
+| Audio engine, spatial audio, `createAudioVisualizer` | Clicks placed at the control's position; a Meter driven by real audio | [Feedback](#interaction-in-detail), wave 2 |
+| GPU timings | Probe budgets and the adjust policy | Core work 1 |
+| GPU picking | Tests only: proving no mesh pixel lies outside its control's box. Never input. | Verification |
+| glTF loading | Custom parts | Core work 5 |
+| Sprites, billboards, XR, navigation, character controller, splatting, skeletons, flow graph, lightmaps, procedural sky | Not used: HTML is the 2D layer, and nothing here is a game | — |
+| `createHtmlTexture` / `updateHtmlTexture` | Lite's own HTML-in-Canvas capture path. Core captures with its own paint listener and `drawElementImageToTexture`; whether Lite's path should replace it is a core question tracked as an issue, not a plan decision | Phase I2 |
 
 Nothing here touches capture, native hits or geometry: objects are decoration over the captured layer, driven by
 native state, as the contract already says for Objects.
@@ -255,6 +305,7 @@ build. The probes share pages with the Phase I1 prototypes.
 | I0.5 Object-on-object shadow | Does a per-layer PCF map give a clean lever-on-plate shadow without touching the face? | Shadow pixels on the plate, none on the face outside the analytic footprint; cost measured. |
 | I0.6 CSS parity | How close can CSS knobs, faders and switches get to the GPU look from the same tokens? | A perceptual difference budget per component state, looser than Relief's, recorded. |
 | I0.7 Interaction and a11y | Do the knob and fader pass as sliders with real pointer and keyboard input, with the 2.5.7 alternative, in plain DOM and GPU mode? | Playwright drives drag, click-to-set, wheel and keys; `aria-valuenow` and `aria-valuetext` follow; axe passes; accessibility snapshots match across modes. |
+| I0.8 Post chain and reflections | What do TAA, contact shadows, bloom, SSGI and a per-layer local environment probe cost at 250 controls, and does the captured text stay untouched by all of them? | Per-task GPU timings per stage; decoded pixels of text regions identical with the chain on and off; the stages that fit the I0.1 budget are adopted, the rest are recorded as options. |
 
 **If I0.1 fails** on budget, Instrument ships with a lower density target and the adjust policy; the look does not
 change. **If I0.3 fails** on the guard, emitters light bevels, sides and the outset only, never face interiors.
