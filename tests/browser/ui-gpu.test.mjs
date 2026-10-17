@@ -754,6 +754,76 @@ test("a toast over a GPU-presented panel leaves the panel on the GPU", async ({ 
   expect(errors).toEqual([]);
 });
 
+for (const level of ["relief", "objects"]) test(`a Carousel on the GPU at the ${level} level: keys under captured slides, the current picker key held down, a real click on Next shows fresh pixels, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addCarousel(); await window.strataGpuProbe.controller.settle(); });
+  const key = level === "objects" ? "key" : "raised";
+  const keys = () => Promise.all(["previous", "key-1", "key-2", "next"].map(async name => { const entry = await primitiveOf(page, `#gpu-carousel-${name}`); return `${entry.object ?? entry.face}:${entry.state.pressed}`; }));
+  expect(await keys()).toEqual([`${key}:false`, `${key}:true`, `${key}:false`, `${key}:false`]);
+  const slide = await page.locator("#gpu-carousel .ug-carousel__slide:not([hidden]) p").boundingBox(), frame = await page.locator("#frame").boundingBox();
+  const centre = [slide.x - frame.x + 12, slide.y - frame.y + slide.height / 2];
+  const before = (await snap(page, "carousel-before"))(...centre);
+  // A real click on Next through the GPU: the second slide shows, its key is held down, and the pixels are fresh.
+  const next = await page.locator("#gpu-carousel-next").boundingBox();
+  await page.mouse.click(next.x + next.width / 2, next.y + next.height / 2);
+  await page.mouse.move(5, 5);
+  await expect(page.locator("#gpu-carousel .ug-carousel__slide:not([hidden])")).toHaveAttribute("aria-label", "2 of 2");
+  expect(await keys()).toEqual([`${key}:false`, `${key}:false`, `${key}:true`, `${key}:false`]);
+  await page.waitForTimeout(400);
+  const after = (await snap(page, "carousel-after"))(...centre);
+  expect(after).not.toEqual(before);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});
+
+for (const level of ["relief", "objects"]) test(`a TreeView on the GPU at the ${level} level: one raised slab with flat rows, opened by real keys and selected by a real click, GPU on`, async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page, level === "objects" ? "?level=objects" : "");
+  await page.evaluate(async () => { window.strataGpuProbe.addTree(); await window.strataGpuProbe.controller.settle(); });
+  const slab = await primitiveOf(page, "#gpu-tree");
+  expect(slab.object ?? slab.face).toBe(level === "objects" ? "slab" : "raised");
+  expect(await primitiveOf(page, "#gpu-tree-readme")).toBeNull();
+  // Real keys: Right opens src, and its file shows.
+  await page.locator("#gpu-tree [data-strata-value='src']").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("#gpu-tree [data-strata-value='src']")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator("#gpu-tree [data-strata-value='src/index.ts']")).toBeVisible();
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  // The slab grew with the open group, on the GPU.
+  expect((await primitiveOf(page, "#gpu-tree")).rect[3]).toBeGreaterThan(slab.rect[3]);
+  // A real click through the GPU selects README.
+  const readme = await page.locator("#gpu-tree-readme").boundingBox();
+  await page.mouse.click(readme.x + readme.width / 2, readme.y + readme.height / 2);
+  await expect(page.locator("#gpu-tree [data-strata-value='readme']")).toHaveAttribute("aria-selected", "true");
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});
+
+test("a Menu opened from a GPU-presented panel floats in the top layer, real keys choose an item, focus returns into the panel, GPU on", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  await page.evaluate(async () => { window.strataGpuProbe.addMenu(); await window.strataGpuProbe.controller.settle(); });
+  const open = await page.locator("#gpu-menu-open").boundingBox();
+  await page.mouse.click(open.x + open.width / 2, open.y + open.height / 2);
+  await expect(page.locator("#gpu-menu")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.activeElement?.textContent)).toBe("Rename");
+  // Placed by script below the button in the layer, aligned with its start edge.
+  const menu = await page.locator("#gpu-menu").boundingBox();
+  expect(Math.abs(menu.x - open.x)).toBeLessThanOrEqual(1);
+  expect(menu.y).toBeGreaterThanOrEqual(open.y + open.height);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#gpu-menu")).toBeHidden();
+  expect(await page.evaluate(() => [window.strataGpuProbe.menuChoices(), document.activeElement?.id])).toEqual([["Duplicate"], "gpu-menu-open"]);
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});
+
 test("a Popover opened from a GPU-presented panel floats in the top layer, takes real input, and the panel stays on the GPU", async ({ page }) => {
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));

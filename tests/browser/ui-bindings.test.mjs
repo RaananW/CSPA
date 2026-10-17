@@ -13,11 +13,14 @@
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
  *   a Popover opens below its button in the top layer, takes Tab, and closes on Escape and outside clicks;
+ *   a Menu focuses an item on opening, moves by the menu keys, runs a chosen item and closes, and skips disabled ones;
  *   toasts appear in the status region and go after their time, which hovering stops;
  *   a SegmentedControl selects with clicks and arrow keys, skips a disabled option and submits its value;
  *   a Rating is set by click and arrow keys, fills up to its score and submits it, and its display is named by it;
  *   a Stepper marks the current step and the complete ones, follows its state, and stacks when vertical;
  *   a NavigationRail is a landmark of links whose current page follows its state, and reports navigation;
+ *   a TreeView moves, opens, closes and selects by the tree pattern's keys and by clicks, with one tab stop;
+ *   a Carousel shows one slide, steps and wraps with Previous and Next, jumps with a picker key, and reports it;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -164,7 +167,7 @@ for (const binding of bindings) test(`Strata ${binding} Dialog is modal, control
   }))).toEqual({ parent: true, scrim: "ug-scrim", modal: "true", className: expect.stringContaining("ug-panel ug-dialog"), ref: true });
   await expect(dialog).toHaveClass(/extra/);
   // The app's root, and the tooltip and the popover portalled beside it in the body, are inert behind the modal.
-  expect((await inert()).sort()).toEqual(["live-popover", "root", "share-tip"]);
+  expect((await inert()).sort()).toEqual(["live-menu", "live-popover", "root", "share-tip"]);
   // Tab stays inside.
   for (let step = 0; step < 6; step++) {
     await page.keyboard.press("Tab");
@@ -739,6 +742,143 @@ for (const binding of bindings) test(`Strata ${binding} toasts appear in the sta
   await expect(toasts).toHaveCount(3);
   await toasts.first().getByRole("button", { name: "Dismiss" }).click();
   await expect(toasts).toHaveCount(2);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Carousel shows one slide, steps and wraps with Previous and Next, jumps with a picker key, and reports it`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const carousel = page.locator("#live-carousel");
+  await carousel.scrollIntoViewIfNeeded();
+  const shown = () => carousel.locator(".ug-carousel__slide:not([hidden])").evaluateAll(slides => slides.map(slide => `${slide.getAttribute("aria-label")}:${slide.textContent}`));
+  const current = () => carousel.locator(".ug-carousel__key[aria-current='true']").getAttribute("aria-label");
+  expect(await shown()).toEqual(["1 of 3:Strata lights every face."]);
+  await expect(page.getByRole("region", { name: "Stories" })).toBeVisible();
+  // Next steps; Previous wraps back to the last slide.
+  await carousel.getByRole("button", { name: "Next slide" }).click();
+  expect(await shown()).toEqual(["2 of 3:Objects travel when pressed."]);
+  expect(await current()).toBe("Slide 2");
+  expect(await page.evaluate(() => window.strataBinding.slide)).toBe(1);
+  await carousel.getByRole("button", { name: "Previous slide" }).click();
+  await carousel.getByRole("button", { name: "Previous slide" }).click();
+  expect(await shown()).toEqual(["3 of 3:Scenes settle with a spring."]);
+  // Next wraps to the first; a picker key jumps, by keyboard too.
+  await carousel.getByRole("button", { name: "Next slide" }).click();
+  expect(await current()).toBe("Slide 1");
+  await carousel.getByRole("button", { name: "Slide 2" }).focus();
+  await page.keyboard.press("Enter");
+  expect(await shown()).toEqual(["2 of 3:Objects travel when pressed."]);
+  expect(await page.evaluate(() => window.strataBinding.slide)).toBe(1);
+  // The slides are a polite live region; every control is a 24 px target at least.
+  await expect(carousel.locator(".ug-carousel__slides")).toHaveAttribute("aria-live", "polite");
+  for (const box of await carousel.locator("button").evaluateAll(buttons => buttons.map(button => button.getBoundingClientRect().toJSON()))) {
+    expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(24);
+  }
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Menu focuses an item on opening, moves by the menu keys, runs a chosen item and closes`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const button = page.locator("#menu-open"), menu = page.getByRole("menu", { name: "Actions" }).and(page.locator("#live-menu"));
+  const focused = () => page.evaluate(() => document.activeElement?.textContent);
+  await button.scrollIntoViewIfNeeded();
+  await expect(button).toHaveAttribute("aria-haspopup", "menu");
+  // A click opens it below the button, outside the app, with focus on the first item.
+  await button.click();
+  await expect(menu).toBeVisible();
+  await expect.poll(focused).toBe("Rename");
+  expect(await page.evaluate(() => { const box = document.getElementById("live-menu").getBoundingClientRect(), trigger = document.getElementById("menu-open").getBoundingClientRect();
+    return box.top >= trigger.bottom - 1 && !document.getElementById("root")?.contains(document.getElementById("live-menu")) && !document.getElementById("app")?.contains(document.getElementById("live-menu")); })).toBe(true);
+  // Down moves past the separator to a disabled item (focusable), and wraps; End, Home and a letter.
+  for (const expected of ["Duplicate", "Archive", "Delete", "Rename"]) { await page.keyboard.press("ArrowDown"); expect(await focused()).toBe(expected); }
+  await page.keyboard.press("End");
+  expect(await focused()).toBe("Delete");
+  await page.keyboard.press("Home");
+  await page.keyboard.press("a");
+  expect(await focused()).toBe("Archive");
+  // Enter chooses it: it runs, the menu closes, and focus returns to the button.
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => [window.strataBinding.chosen, document.activeElement.id])).toEqual([["Archive"], "menu-open"]);
+  // Up on the button opens it at the last item; a disabled item does nothing and the menu stays.
+  await page.keyboard.press("ArrowUp");
+  await expect(menu).toBeVisible();
+  await expect.poll(focused).toBe("Delete");
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeVisible();
+  expect(await page.evaluate(() => window.strataBinding.chosen)).toEqual(["Archive"]);
+  // Escape closes it, back on the button; Tab closes it too.
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => document.activeElement.id)).toBe("menu-open");
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeVisible();
+  await expect.poll(focused).toBe("Rename");
+  await page.keyboard.press("Tab");
+  await expect(menu).toBeHidden();
+  // A click on an item chooses it.
+  await button.click();
+  await menu.getByRole("menuitem", { name: "Duplicate" }).click();
+  await expect(menu).toBeHidden();
+  expect(await page.evaluate(() => window.strataBinding.chosen)).toEqual(["Archive", "Duplicate"]);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} TreeView moves, opens, closes and selects by the tree pattern's keys and by clicks, with one tab stop`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const tree = page.getByRole("tree", { name: "Project" });
+  await tree.scrollIntoViewIfNeeded();
+  const item = name => tree.getByRole("treeitem", { name, exact: true });
+  const focused = () => page.evaluate(() => document.activeElement?.querySelector(":scope > .ug-tree__row .ug-tree__label")?.textContent);
+  const stops = () => tree.locator("[role='treeitem'][tabindex='0']").count();
+  // One tab stop, on the first item while nothing is selected; closed groups are hidden.
+  expect(await stops()).toBe(1);
+  await expect(item("src")).toHaveAttribute("tabindex", "0");
+  await expect(item("app.ts")).toBeHidden();
+  await expect(item("guide.md")).toBeVisible();
+  await item("src").focus();
+  // Right opens a closed parent, then moves to its first child; Down moves on.
+  await page.keyboard.press("ArrowRight");
+  await expect(item("src")).toHaveAttribute("aria-expanded", "true");
+  expect(await page.evaluate(() => window.strataBinding.tree.expanded)).toEqual(["docs", "src"]);
+  await page.keyboard.press("ArrowRight");
+  expect(await focused()).toBe("app.ts");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  expect(await focused()).toBe("button.ts");
+  // Left on a leaf moves to its parent, and on an open parent closes it.
+  await page.keyboard.press("ArrowLeft");
+  expect(await focused()).toBe("ui");
+  await page.keyboard.press("ArrowLeft");
+  await expect(item("ui")).toHaveAttribute("aria-expanded", "false");
+  await expect(item("button.ts")).toBeHidden();
+  // Home and End; Enter selects, and the tab stop follows focus.
+  await page.keyboard.press("End");
+  expect(await focused()).toBe("README.md");
+  await page.keyboard.press("Home");
+  expect(await focused()).toBe("src");
+  await page.keyboard.press("Enter");
+  await expect(item("src")).toHaveAttribute("aria-selected", "true");
+  expect(await page.evaluate(() => window.strataBinding.tree.selected)).toBe("src");
+  expect(await stops()).toBe(1);
+  // A click on a row selects it; a click on a toggle closes or opens its item.
+  await tree.locator("[data-strata-value='docs/guide.md'] > .ug-tree__row").click();
+  await expect(item("guide.md")).toHaveAttribute("aria-selected", "true");
+  await expect(item("src")).toHaveAttribute("aria-selected", "false");
+  await tree.locator("[data-strata-value='docs'] > .ug-tree__row .ug-tree__toggle").click();
+  await expect(item("docs")).toHaveAttribute("aria-expanded", "false");
+  await expect(item("guide.md")).toBeHidden();
+  // Each row is a 24 px target at least.
+  expect((await tree.locator("[data-strata-value='src'] > .ug-tree__row").boundingBox()).height).toBeGreaterThanOrEqual(24);
   await context.close();
 });
 

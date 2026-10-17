@@ -16,6 +16,10 @@ export { selectStrataTab, strataTabsActivation, strataTabTarget } from "./tabs.t
 export { rovingStrataToolbar, strataToolbarTarget } from "./toolbar.ts";
 export { attachStrataTooltips, hideStrataTooltip, showStrataTooltip } from "./tooltip.ts";
 export { attachStrataPopovers, placeStrataPopover } from "./popover.ts";
+export { attachStrataTrees, rovingStrataTree, strataTreeAction, strataTreeTabStop, visibleStrataTreeItems } from "./tree.ts";
+export type { StrataTreeAction } from "./tree.ts";
+export { attachStrataCarousels, showStrataSlide, strataSlideIndex, strataSlideTarget } from "./carousel.ts";
+export { attachStrataMenus, strataMenuTarget } from "./menu.ts";
 export { showStrataToast } from "./toast.ts";
 export type { ToastHandle, ToastOptions } from "./toast.ts";
 export type { TabChange, TabsActivation } from "./tabs.ts";

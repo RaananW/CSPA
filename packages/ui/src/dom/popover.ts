@@ -1,5 +1,5 @@
 /**
- * Popover (anatomy page `popover.md`) placement. CSS anchor positioning places a `.ug-popover` below the button that
+ * Popover (anatomy page `popover.md`) and Menu placement. CSS anchor positioning places a `.ug-popover` or `.ug-menu` below the button that
  * opens it (its implicit anchor). When that button is inside an Underglass layer, it is laid out inside the output
  * `<canvas>` (HTML-in-Canvas `layoutsubtree`), where anchor positioning does not follow the layer's drawn place
  * (Canary 158.0.8109.0: the popover lands offset by the layer's position). Such a popover is placed with script instead,
@@ -35,7 +35,7 @@ export function attachStrataPopovers(doc: Document = document): void {
   const scripted = new Map<HTMLElement, HTMLElement>();
   doc.addEventListener("toggle", event => {
     const popover = event.target as HTMLElement;
-    if (!popover.matches?.(".ug-popover")) return;
+    if (!popover.matches?.(".ug-popover, .ug-menu")) return;
     if ((event as ToggleEvent).newState !== "open") { scripted.delete(popover); return; }
     const invoker = invokerOf(popover);
     if (invoker?.closest("canvas")) { scripted.set(popover, invoker); placeStrataPopover(popover, invoker); }

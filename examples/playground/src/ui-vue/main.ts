@@ -7,8 +7,8 @@
 import "@underglass/ui/css";
 import { createApp, defineComponent, h, reactive, ref, toRaw, type VNode } from "vue";
 import {
-  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Slider, Stepper,
-  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast,
+  Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Slider, Stepper,
+  Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView, toast,
 } from "@underglass/ui/vue";
 
 const close = () => h("svg", { viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round" }, [h("path", { d: "M4 4l8 8M12 4l-8 8" })]);
@@ -42,6 +42,8 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("rating.md", [h(Rating, { label: "Your rating", name: "score", max: 3, defaultValue: 2 }), h(RatingDisplay, { value: 4.5 })]),
   contract("stepper.md", [h(Stepper, { label: "Checkout progress", steps: ["Cart", "Shipping", "Payment"], current: 1 })]),
   contract("navigation-rail.md", [h(NavigationRail, { label: "Main", items: [{ label: "Inbox", href: "/inbox" }, { label: "Drafts", href: "/drafts" }], current: "/inbox" })]),
+  contract("tree-view.md", [h(TreeView, { label: "Files", items: [{ value: "src", label: "src", children: [{ value: "src/index.ts", label: "index.ts" }] }, { value: "readme", label: "README.md" }], defaultExpanded: ["src"], defaultSelected: "src/index.ts" })]),
+  contract("carousel.md", [h(Carousel, { label: "Featured" }, { default: () => ["First", "Second", "Third"].map(text => h("p", text)) })]),
   contract("chip.md", [h(Chip, null, { default: text("Design") }), h(Chip, { defaultPressed: true }, { default: text("Remote") }), h(Chip, { onRemove: () => {} }, { default: text("ada@example.com") })]),
   contract("message-bar.md", h(MessageBar, { intent: "warning", title: "Storage almost full", onDismiss: () => {} }, {
     default: text("You have used 95% of your space."), actions: () => h(Button, null, { default: text("Upgrade") }),
@@ -97,6 +99,7 @@ const Contracts = () => h("div", { id: "contracts", hidden: true }, [
   contract("drawer.md", h(Drawer, { open: overlays.value, container: '[data-contract="drawer.md"]', title: "Filters", titleId: "filters-title", description: "Narrow the list.", descriptionId: "filters-description" }, {
     actions: () => h(Button, { "data-strata-close": "" }, { default: text("Done") }),
   })),
+  h("div", { "data-contract": "menu.md", id: "menu-host" }, [h(Menu, { id: "actions-menu", label: "Actions", to: "#menu-host", items: [{ label: "Rename" }, "separator", { label: "Delete", disabled: true }] }, { trigger: () => h(Button, null, { default: text("Actions") }) })]),
   h("div", { "data-contract": "popover.md", id: "popover-host" }, [h(Popover, { id: "filters-popover", title: "Filters", to: "#popover-host" }, { trigger: () => h(Button, null, { default: text("Filters") }) })]),
   contract("slider.md", h(Slider, { min: 0, max: 100, step: 1, defaultValue: 40, "aria-label": "Volume" })),
 ]);
@@ -113,8 +116,10 @@ const App = defineComponent({
     const italic = ref(true), email = ref(""), accent = ref<string | undefined>(undefined), tab = ref("general");
     const faq = reactive({ delivery: false, warranty: true });
     const rows = reactive({ archive: 0, locked: 0 });
-    const page = ref(1), appBar = ref(0), toasts = ref(0), range = ref("day"), score = ref(3), step = ref(1), rail = ref("#rail-inbox");
+    const page = ref(1), appBar = ref(0), toasts = ref(0), range = ref("day"), score = ref(3), step = ref(1), rail = ref("#rail-inbox"), slide = ref(0);
     const popover = reactive({ open: false, applied: 0 });
+    const tree = reactive<{ expanded: string[]; selected?: string }>({ expanded: ["docs"] });
+    const chosen = reactive<string[]>([]);
     const messages = reactive({ upgrades: 0, dismissed: false });
     const chips = reactive({ remote: false, removed: [] as string[] });
     const sort = ref<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -142,6 +147,9 @@ const App = defineComponent({
         get score() { return score.value; },
         get rail() { return rail.value; },
         get popover() { return { ...toRaw(popover) }; },
+        get tree() { return { expanded: [...tree.expanded], selected: tree.selected }; },
+        get slide() { return slide.value; },
+        get chosen() { return [...chosen]; },
         setPage: (value: number) => { page.value = value; },
         get messages() { return { ...toRaw(messages) }; },
         get chips() { return { remote: chips.remote, removed: [...chips.removed] }; },
@@ -270,7 +278,7 @@ const App = defineComponent({
               h("div", { id: "loading-region", "aria-busy": "true", style: { display: "flex", gap: "12px", alignItems: "center" } }, [
                 h(Skeleton, { id: "skeleton-circle", shape: "circle" }), h(Skeleton, { id: "skeleton-lines", lines: 2, style: { flex: "1" } }),
               ]),
-              h("p", { style: { margin: "0", display: "flex", gap: "12px" } }, [h(Popover, { id: "live-popover", title: "Filters", onToggle: (open: boolean) => { popover.open = open; } }, {
+              h("p", { style: { margin: "0", display: "flex", gap: "12px" } }, [h(Menu, { id: "live-menu", label: "Actions", items: [{ label: "Rename", onSelect: () => { chosen.push("Rename"); } }, { label: "Duplicate", onSelect: () => { chosen.push("Duplicate"); } }, "separator", { label: "Archive", onSelect: () => { chosen.push("Archive"); } }, { label: "Delete", disabled: true, onSelect: () => { chosen.push("Delete"); } }] }, { trigger: () => h(Button, { id: "menu-open" }, { default: text("Actions") }) }), h(Popover, { id: "live-popover", title: "Filters", onToggle: (open: boolean) => { popover.open = open; } }, {
                 trigger: () => h(Button, { id: "popover-open" }, { default: text("Filters") }),
                 default: () => [h(Checkbox, { id: "popover-only" }, { default: text("Open only") }), h(Button, { id: "popover-apply", onClick: () => { popover.applied++; } }, { default: text("Apply") })],
               }), h(Button, { id: "notify", onClick: () => toast({ message: "Message sent.", intent: "success", duration: 1500,
@@ -300,6 +308,8 @@ const App = defineComponent({
               h(NavigationRail, { id: "live-rail", label: "Sections", current: rail.value, onNavigate: (href: string, event: MouseEvent) => { event.preventDefault(); rail.value = href; },
                 items: [{ label: "Inbox", href: "#rail-inbox", icon: close() }, { label: "Drafts", href: "#rail-drafts", icon: close() }, { label: "Sent", href: "#rail-sent" }] }),
               h(Breadcrumb, { id: "live-breadcrumb", items: [{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }] }),
+              h(TreeView, { id: "live-tree", label: "Project", items: [{ value: "src", label: "src", children: [{ value: "src/app.ts", label: "app.ts" }, { value: "src/ui", label: "ui", children: [{ value: "src/ui/button.ts", label: "button.ts" }] }] }, { value: "docs", label: "docs", children: [{ value: "docs/guide.md", label: "guide.md" }] }, { value: "readme", label: "README.md" }], expanded: tree.expanded, selected: tree.selected,
+                "onUpdate:expanded": (expanded: string[]) => { tree.expanded = expanded; }, "onUpdate:selected": (selected: string) => { tree.selected = selected; } }),
             ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Lists" }, [
               h(List, { label: "Folders", id: "live-list" }, {
@@ -323,6 +333,11 @@ const App = defineComponent({
                   h(AccordionItem, { id: "first", title: "First", defaultOpen: true }, { default: text("One.") }),
                   h(AccordionItem, { id: "second", title: "Second" }, { default: text("Two.") }),
                 ],
+              }),
+            ]),
+            h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Carousels" }, [
+              h(Carousel, { id: "live-carousel", label: "Stories", index: slide.value, "onUpdate:index": (value: number) => { slide.value = value; } }, {
+                default: () => ["Strata lights every face.", "Objects travel when pressed.", "Scenes settle with a spring."].map(line => h("p", line)),
               }),
             ]),
             h("section", { class: "ug-panel", "data-strata-face": "raised", "aria-label": "Overlays" }, [

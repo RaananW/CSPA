@@ -449,6 +449,31 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
 
+## Carousel
+
+A few items shown one at a time, by the WAI-ARIA Carousel pattern without rotation: Previous and Next (wrapping), a
+picker key per slide (the current one held down, `aria-current`), and a polite live region for the slides:
+
+```tsx
+<Carousel label="Featured" slides={[<Story id={1} />, <Story id={2} />]} index={index} onIndexChange={setIndex} />
+```
+
+Vue takes one slide per element of its default slot (`v-model:index`); Astro takes `count` and the named slots
+`slide-1`, `slide-2`… and `attachStrata` reports `strata-slide`. [Anatomy](../../docs/ui-library/components/carousel.md).
+
+## TreeView
+
+A hierarchy to browse and pick from, by the WAI-ARIA Tree View pattern: one tab stop, the arrow keys, Home and End to
+move, open and close, and Enter, Space or a click to select. Items are data:
+
+```tsx
+<TreeView label="Files" items={[{ value: "src", label: "src", children: [{ value: "src/index.ts", label: "index.ts" }] }]}
+  expanded={open} onExpandedChange={setOpen} selected={file} onSelect={setFile} />
+```
+
+Vue uses `v-model:expanded` and `v-model:selected`. In plain HTML and Astro, `attachStrata` runs it from the markup and
+reports `strata-expand` and `strata-select` from the item. [Anatomy](../../docs/ui-library/components/tree-view.md).
+
 ## Popover
 
 Interactive content one button opens beside itself, on the native Popover API: the browser toggles it, closes it on
@@ -463,6 +488,19 @@ below the button, flipped above when there is no room. It is portalled to `<body
 
 Vue takes the trigger in its `trigger` slot and emits `toggle`; in Astro any button with `popovertarget` set to the
 popover's `id` opens it. [Anatomy](../../docs/ui-library/components/popover.md).
+
+## Menu
+
+A short list of actions one button opens, by the WAI-ARIA Menu Button pattern on the native Popover API: opening
+focuses the first item (the last with Up), the arrow keys, Home, End and a typed letter move, choosing an item closes the
+menu and returns focus, and a disabled item does nothing:
+
+```tsx
+<Menu trigger={<Button>Actions</Button>} label="Actions" items={[{ label: "Rename", onSelect: rename }, "separator", { label: "Delete", disabled: true }]} />
+```
+
+In Astro the trigger is any button with `popovertarget` and `aria-haspopup="menu"`; `attachStrata` reports
+`strata-select` from the chosen item. [Anatomy](../../docs/ui-library/components/menu.md).
 
 ## NavigationRail
 

@@ -1,0 +1,29 @@
+---
+/**
+ * Menu (anatomy page `menu.md`), the WAI-ARIA Menu Button pattern on the native Popover API. The trigger is any button
+ * with `popovertarget` set to this `id` and `aria-haspopup="menu"`. Render it outside every Underglass layer.
+ * `attachStrata` runs its keys and reports `strata-select` (`detail.index`) from the chosen item.
+ */
+import Behaviour from "./Behaviour.astro";
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  id: string;
+  /** The menu's name. */
+  label: string;
+  items: readonly ({ label: string; disabled?: boolean } | "separator")[];
+  /** Prefer above the button. */
+  placement?: "top" | "bottom";
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { id, label, items, placement = "bottom", class: className, ...rest } = Astro.props;
+---
+<div class={classes("ug-menu", className)} data-strata-face="raised" id={id} popover="" role="menu" aria-label={label}
+  data-strata-placement={placement === "top" ? "top" : undefined} {...rest}>
+  {items.map(entry => entry === "separator"
+    ? <hr class="ug-menu__separator" />
+    : <button class="ug-menu__item" type="button" role="menuitem" tabindex="-1" aria-disabled={entry.disabled ? "true" : undefined}>{entry.label}</button>)}
+</div>
+<Behaviour />

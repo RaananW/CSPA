@@ -119,3 +119,6 @@ light and depth, reduced motion, keyboard input and reflow.
 | [Stepper](stepper.md) | An `<ol>` with `aria-current="step"` | Coins on a groove; steps to come are flat |
 | [NavigationRail](navigation-rail.md) | A `<nav>` with a list of links, `aria-current="page"` | Keys on a raised slab down the start edge |
 | [Popover](popover.md) | `<div popover role="dialog">` opened by a `<button popovertarget>` | A floating slab in the top layer |
+| [TreeView](tree-view.md) | `<ul role="tree">` of nested `treeitem`s | One raised slab; rows are flat |
+| [Carousel](carousel.md) | A `<section aria-roledescription="carousel">` of slides, with buttons | Captured slides in a frame, keys under it |
+| [Menu](menu.md) | `<div popover role="menu">` of `menuitem` buttons, opened by a menu button | A floating slab with flat rows |

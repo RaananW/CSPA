@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Stepper, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast } from "@underglass/ui/react";
+import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Carousel, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Menu, NavigationRail, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Rating, RatingDisplay, SegmentedControl, Select, Skeleton, Stepper, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, TreeView, toast } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -17,6 +17,7 @@ function Contracts() {
   const [overlays, setOverlays] = useState(false);
   const [tooltipHost, setTooltipHost] = useState<HTMLElement | null>(null);
   const [popoverHost, setPopoverHost] = useState<HTMLElement | null>(null);
+  const [menuHost, setMenuHost] = useState<HTMLElement | null>(null);
   const [dialogHost, setDialogHost] = useState<HTMLElement | null>(null), [drawerHost, setDrawerHost] = useState<HTMLElement | null>(null);
   useEffect(() => { Object.assign(window, { strataOverlays: setOverlays }); }, []);
   return (
@@ -100,6 +101,8 @@ function Contracts() {
       <div data-contract="rating.md"><Rating label="Your rating" name="score" max={3} defaultValue={2} /><RatingDisplay value={4.5} /></div>
       <div data-contract="stepper.md"><Stepper label="Checkout progress" steps={["Cart", "Shipping", "Payment"]} current={1} /></div>
       <div data-contract="navigation-rail.md"><NavigationRail label="Main" items={[{ label: "Inbox", href: "/inbox" }, { label: "Drafts", href: "/drafts" }]} current="/inbox" /></div>
+      <div data-contract="tree-view.md"><TreeView label="Files" items={[{ value: "src", label: "src", children: [{ value: "src/index.ts", label: "index.ts" }] }, { value: "readme", label: "README.md" }]} defaultExpanded={["src"]} defaultSelected="src/index.ts" /></div>
+      <div data-contract="carousel.md"><Carousel label="Featured" slides={[<p>First</p>, <p>Second</p>, <p>Third</p>]} /></div>
       <div data-contract="chip.md"><Chip>Design</Chip><Chip defaultPressed>Remote</Chip><Chip onRemove={() => {}}>ada@example.com</Chip></div>
       <div data-contract="skeleton.md"><Skeleton shape="circle" /><Skeleton lines={3} /><Skeleton shape="rect" width="100%" height={120} /></div>
       <div data-contract="message-bar.md">
@@ -117,6 +120,9 @@ function Contracts() {
       </div>
       <div data-contract="popover.md" ref={setPopoverHost}>
         {popoverHost && <Popover id="filters-popover" title="Filters" container={popoverHost} trigger={<Button>Filters</Button>} />}
+      </div>
+      <div data-contract="menu.md" ref={setMenuHost}>
+        {menuHost && <Menu id="actions-menu" label="Actions" container={menuHost} trigger={<Button>Actions</Button>} items={[{ label: "Rename" }, "separator", { label: "Delete", disabled: true }]} />}
       </div>
       <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
@@ -144,6 +150,9 @@ function App() {
   const [step, setStep] = useState(1);
   const [rail, setRail] = useState("#rail-inbox");
   const [popover, setPopover] = useState({ open: false, applied: 0 });
+  const [tree, setTree] = useState<{ expanded: string[]; selected?: string }>({ expanded: ["docs"] });
+  const [slide, setSlide] = useState(0);
+  const [chosen, setChosen] = useState<string[]>([]);
   const [messages, setMessages] = useState({ upgrades: 0, dismissed: false });
   const [chips, setChips] = useState({ remote: false, removed: [] as string[] });
   const [sort, setSort] = useState<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -152,7 +161,7 @@ function App() {
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts, range, score, rail, popover } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts, range, score, rail, popover, tree, slide, chosen } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -290,6 +299,7 @@ function App() {
             <Button id="notify" onClick={() => toast({ message: "Message sent.", intent: "success", duration: 1500,
               action: { label: "Undo", onAction: () => setToasts(current => current + 1) } })}>Notify</Button>
             <Tooltip id="share-tip" content="Shares this page with your team"><Button id="share">Share</Button></Tooltip>
+            <Menu id="live-menu" label="Actions" trigger={<Button id="menu-open">Actions</Button>} items={[{ label: "Rename", onSelect: () => setChosen(current => [...current, "Rename"]) }, { label: "Duplicate", onSelect: () => setChosen(current => [...current, "Duplicate"]) }, "separator", { label: "Archive", onSelect: () => setChosen(current => [...current, "Archive"]) }, { label: "Delete", disabled: true, onSelect: () => setChosen(current => [...current, "Delete"]) }]} />
             <Popover id="live-popover" title="Filters" trigger={<Button id="popover-open">Filters</Button>} onOpenChange={open => setPopover(current => ({ ...current, open }))}>
               <Checkbox id="popover-only">Open only</Checkbox>
               <Button id="popover-apply" onClick={() => setPopover(current => ({ ...current, applied: current.applied + 1 }))}>Apply</Button>
@@ -324,6 +334,12 @@ function App() {
             <ListItem id="locked-row" primary="Locked" disabled onClick={() => setRows(current => ({ ...current, locked: current.locked + 1 }))} />
             <ListItem id="storage-row" primary="Storage" secondary="4.2 GB of 15 GB used" />
           </List>
+          <TreeView id="live-tree" label="Project" items={[{ value: "src", label: "src", children: [{ value: "src/app.ts", label: "app.ts" }, { value: "src/ui", label: "ui", children: [{ value: "src/ui/button.ts", label: "button.ts" }] }] }, { value: "docs", label: "docs", children: [{ value: "docs/guide.md", label: "guide.md" }] }, { value: "readme", label: "README.md" }]} expanded={tree.expanded} selected={tree.selected}
+            onExpandedChange={expanded => setTree(current => ({ ...current, expanded }))} onSelect={selected => setTree(current => ({ ...current, selected }))} />
+        </section>
+        <section className="ug-panel" data-strata-face="raised" aria-label="Carousels">
+          <Carousel id="live-carousel" label="Stories" index={slide} onIndexChange={setSlide}
+            slides={[<p>Strata lights every face.</p>, <p>Objects travel when pressed.</p>, <p>Scenes settle with a spring.</p>]} />
         </section>
         <section className="ug-panel" data-strata-face="raised" aria-label="Overlays">
           <Button id="open-live" onClick={() => setLiveOpen(true)}>Open live dialog</Button>

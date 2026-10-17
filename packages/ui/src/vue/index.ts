@@ -21,6 +21,9 @@ export { Rating, RatingDisplay } from "./rating.ts";
 export { Stepper } from "./stepper.ts";
 export { NavigationRail } from "./navigation-rail.ts";
 export type { NavigationRailItem } from "./navigation-rail.ts";
+export { TreeView } from "./tree.ts";
+export type { TreeNode } from "./tree.ts";
+export { Carousel } from "./carousel.ts";
 export { Skeleton } from "./skeleton.ts";
 export { MessageBar } from "./message-bar.ts";
 export { Pagination } from "./pagination.ts";
@@ -28,6 +31,8 @@ export { Toolbar } from "./toolbar.ts";
 export { AppBar } from "./app-bar.ts";
 export { Tooltip } from "./tooltip.ts";
 export { Popover } from "./popover.ts";
+export { Menu } from "./menu.ts";
+export type { MenuEntry } from "./menu.ts";
 /** Shows a toast (anatomy page `toast.md`): `showStrataToast` from `@underglass/ui/dom`. */
 export { showStrataToast as toast } from "../dom/toast.ts";
 export type { ToastHandle, ToastOptions } from "../dom/toast.ts";
