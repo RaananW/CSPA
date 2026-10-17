@@ -168,8 +168,8 @@ function App() {
       <AppBar id="live-app-bar" style={{ margin: "24px 24px 0" }} title="Strata check" start={<IconButton id="app-menu" label="Menu" icon={close} />}
         end={<Button id="app-sign-in" onClick={() => setAppBar(current => current + 1)}>Sign in</Button>} />
       <main style={{ display: "grid", gap: 24, gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", padding: 24 }}>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Buttons">
-          <form onSubmit={event => { event.preventDefault(); count("submit")(); }} style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Buttons">
+          <form onSubmit={event => { event.preventDefault(); count("submit")(); }} className="ug-cluster">
             <Button ref={buttonRef} variant="accent" id="save" className="extra" style={{ marginRight: 4 }} data-testid="save" onClick={count("save")}>Save</Button>
             <Button id="blocked" aria-disabled="true" onClick={count("blocked")}>Unavailable</Button>
             <Button id="disabled" disabled onClick={count("disabled")}>Disabled</Button>
@@ -181,7 +181,7 @@ function App() {
           </form>
           <p>Read the <Link id="inline-link" href="#guide">guide</Link>, or <Link id="standalone-link" standalone href="#more">more</Link>.</p>
         </section>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Fields">
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Fields">
           <Field label="Email" help="We only use it for receipts." error={invalid ? "enter an address like name@example.com." : undefined} required id="email-field">
             <TextField ref={inputRef} type="email" value={email} onChange={event => setEmail(event.target.value)} />
           </Field>
@@ -195,7 +195,7 @@ function App() {
             <TextField defaultValue="Read only" />
           </Field>
         </section>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Choices">
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Choices">
           <Field help="Required to continue." error={choices.terms ? undefined : "accept the terms."}>
             <Checkbox id="terms" checked={choices.terms} onChange={event => choose("terms", event.target.checked)}>I accept the terms</Checkbox>
           </Field>
@@ -223,7 +223,7 @@ function App() {
         <Panel title="Status" id="status-panel">
           <Card title="Latency" id="latency-card" footer={<Button id="details">Details</Button>}>p95 is 41 ms.</Card>
           <Divider id="rule" />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+          <div className="ug-cluster">
             <ButtonGroup label="View" orientation="vertical" id="view-group"><Button>List</Button><Button>Grid</Button></ButtonGroup>
             <Divider orientation="vertical" id="vertical-rule" />
             <Badge id="inbox" variant="accent" count={120} />
@@ -235,11 +235,11 @@ function App() {
           <ProgressBar id="sync-progress" aria-label="Syncing" />
         </Panel>
         <StrataScope depth={0.1} density="compact" size="small" id="scope" aria-label="Compact scope" role="region">
-          <section className="ug-panel" data-strata-face="raised" aria-label="Scoped">
+          <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Scoped">
             <Button id="scoped">Scoped</Button>
           </section>
         </StrataScope>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Tabs">
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Tabs">
           <Tabs id="live-tabs" value={tab} onChange={setTab}>
             <TabList label="Preferences">
               <Tab value="general">General</Tab>
@@ -261,7 +261,7 @@ function App() {
             <TabPanel value="two">Second.</TabPanel>
           </Tabs>
         </section>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Accordions">
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Accordions">
           <Accordion exclusive id="live-accordion">
             <AccordionItem id="delivery" title="Delivery" open={faq.delivery} onOpenChange={open => setFaq(current => ({ ...current, delivery: open }))}>Two days.</AccordionItem>
             <AccordionItem id="warranty" title="Warranty" open={faq.warranty} onOpenChange={open => setFaq(current => ({ ...current, warranty: open }))}>Two years.</AccordionItem>
@@ -271,16 +271,16 @@ function App() {
             <AccordionItem id="second" title="Second">Two.</AccordionItem>
           </Accordion>
         </section>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Tables">
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Tables">
           <Table id="live-table" caption="Payments" columns={[{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true, sortable: true }]} rows={[{ number: 1003, customer: "Alan Turing", amount: 42 }, { number: 1001, customer: "Ada Lovelace", amount: 120 }, { number: 1002, customer: "Grace Hopper", amount: 87.5 }]} />
           <Table id="controlled-table" caption="Controlled" columns={[{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true, sortable: true }]} rows={[{ number: 1003, customer: "Alan Turing", amount: 42 }, { number: 1001, customer: "Ada Lovelace", amount: 120 }, { number: 1002, customer: "Grace Hopper", amount: 87.5 }]} sort={sort} onSortChange={setSort} />
         </section>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Navigation">
-          <p style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", margin: 0 }}>
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Navigation">
+          <p className="ug-cluster">
             <Avatar id="avatar-small" name="Ada Lovelace" size="small" /><Avatar id="avatar-medium" name="Plato" /><Avatar id="avatar-large" name="  grace   brewster hopper " size="large" />
             <span><Avatar id="avatar-decorative" name="Alan Turing" decorative size="small" /> Alan Turing</span>
           </p>
-          <p style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", margin: 0 }}>
+          <p className="ug-cluster">
             <Chip id="tag-chip">Design</Chip>
             <Chip id="remote-chip" pressed={chips.remote} onPressedChange={remote => setChips(current => ({ ...current, remote }))}>Remote</Chip>
             <Chip id="locked-chip" defaultPressed={false} disabled>Locked</Chip>
@@ -292,10 +292,10 @@ function App() {
               actions={<Button id="message-retry" onClick={() => setMessages(current => ({ ...current, upgrades: current.upgrades + 1 }))}>Retry</Button>}
               onDismiss={() => setMessages(current => ({ ...current, dismissed: true }))}>The card was declined.</MessageBar>
           )}
-          <div id="loading-region" aria-busy="true" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div id="loading-region" aria-busy="true" className="ug-cluster">
             <Skeleton id="skeleton-circle" shape="circle" /><Skeleton id="skeleton-lines" lines={2} style={{ flex: 1 }} />
           </div>
-          <p style={{ margin: 0, display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <p className="ug-cluster">
             <Button id="notify" onClick={() => toast({ message: "Message sent.", intent: "success", duration: 1500,
               action: { label: "Undo", onAction: () => setToasts(current => current + 1) } })}>Notify</Button>
             <Tooltip id="share-tip" content="Shares this page with your team"><Button id="share">Share</Button></Tooltip>
@@ -313,12 +313,12 @@ function App() {
           <form id="range-form" onSubmit={event => event.preventDefault()}>
             <SegmentedControl id="live-segmented" label="Range" name="range" value={range} onChange={setRange} options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }, { value: "year", label: "Year" }]} />
           </form>
-          <form id="score-form" onSubmit={event => event.preventDefault()} style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "end" }}>
+          <form id="score-form" onSubmit={event => event.preventDefault()} className="ug-cluster" style={{ alignItems: "end" }}>
             <Rating id="live-rating" label="Quality" name="quality" value={score} onChange={setScore} />
             <RatingDisplay id="live-rating-display" value={score} />
           </form>
           <Stepper id="live-stepper" label="Checkout progress" steps={["Cart", "Shipping", "Payment", "Review"]} current={step} />
-          <p style={{ display: "flex", flexWrap: "wrap", gap: 12, margin: 0 }}>
+          <p className="ug-cluster">
             <Button id="stepper-back" onClick={() => setStep(current => Math.max(0, current - 1))}>Back</Button>
             <Button id="stepper-next" onClick={() => setStep(current => Math.min(3, current + 1))}>Next</Button>
           </p>
@@ -327,7 +327,7 @@ function App() {
             items={[{ label: "Inbox", href: "#rail-inbox", icon: close }, { label: "Drafts", href: "#rail-drafts", icon: close }, { label: "Sent", href: "#rail-sent" }]} />
           <Breadcrumb id="live-breadcrumb" items={[{ label: "Home", href: "#home" }, { label: "Reports", href: "#reports" }, { label: "Latency", href: "#latency" }]} />
         </section>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Lists">
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Lists">
           <List label="Folders" id="live-list">
             <ListItem href="#inbox" current="page" primary="Inbox" secondary="12 unread" end="Now" />
             <ListItem id="archive-row" primary="Archive" onClick={() => setRows(current => ({ ...current, archive: current.archive + 1 }))} />
@@ -337,11 +337,11 @@ function App() {
           <TreeView id="live-tree" label="Project" items={[{ value: "src", label: "src", children: [{ value: "src/app.ts", label: "app.ts" }, { value: "src/ui", label: "ui", children: [{ value: "src/ui/button.ts", label: "button.ts" }] }] }, { value: "docs", label: "docs", children: [{ value: "docs/guide.md", label: "guide.md" }] }, { value: "readme", label: "README.md" }]} expanded={tree.expanded} selected={tree.selected}
             onExpandedChange={expanded => setTree(current => ({ ...current, expanded }))} onSelect={selected => setTree(current => ({ ...current, selected }))} />
         </section>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Carousels">
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Carousels">
           <Carousel id="live-carousel" label="Stories" index={slide} onIndexChange={setSlide}
             slides={[<p>Strata lights every face.</p>, <p>Objects travel when pressed.</p>, <p>Scenes settle with a spring.</p>]} />
         </section>
-        <section className="ug-panel" data-strata-face="raised" aria-label="Overlays">
+        <section className="ug-panel ug-stack" data-strata-face="raised" aria-label="Overlays">
           <Button id="open-live" onClick={() => setLiveOpen(true)}>Open live dialog</Button>
         </section>
       </main>

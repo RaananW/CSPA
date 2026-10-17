@@ -542,6 +542,11 @@ for (const binding of bindings) test(`Strata ${binding} Chip is a tag, a filter 
     return result;
   });
   expect(squeezed).toEqual({ kept: true, fits: true });
+  // Layout (section 13): the row is a cluster, a wrapping row with the controls' gap; the panel is a stack of groups.
+  expect(await page.locator("#notify").evaluate(button => {
+    const row = getComputedStyle(button.parentElement), panel = getComputedStyle(button.closest(".ug-panel"));
+    return [row.flexWrap, row.columnGap, row.rowGap, panel.flexDirection, panel.rowGap];
+  })).toEqual(["wrap", "12px", "12px", "column", "20px"]);
   // A disabled filter chip does nothing.
   await page.locator("#locked-chip").click({ force: true });
   await expect(page.locator("#locked-chip")).toHaveAttribute("aria-pressed", "false");

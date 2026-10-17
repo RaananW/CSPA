@@ -114,13 +114,12 @@ function Columns({ children }: { children: ReactNode }) {
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return <section className="strata-group" aria-label={title}><h4>{title}</h4>{children}</section>;
 }
-const row = { display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" } as const;
 
 function Actions({ saves, onSave }: { saves: number; onSave(): void }) {
   return <Columns>
     <div>
       <Group title="Buttons">
-        <p style={row}>
+        <p className="ug-cluster">
           <Button id="strata-save" variant="accent" onClick={onSave}>Save</Button>
           <Button>Cancel</Button>
           <Button disabled>Disabled</Button>
@@ -130,7 +129,7 @@ function Actions({ saves, onSave }: { saves: number; onSave(): void }) {
         <p id="strata-saves" role="status">Saved {saves} {saves === 1 ? "time" : "times"}</p>
       </Group>
       <Group title="Icon and toggle buttons">
-        <p style={row}>
+        <p className="ug-cluster">
           <IconButton label="Close" icon={icons.close} />
           <IconButton label="Search" icon={icons.search} />
           <ToggleButton defaultPressed>Bold</ToggleButton>
@@ -199,7 +198,7 @@ function Choices() {
         <Radio value="team" disabled>Team</Radio>
       </RadioGroup>
       <Group title="Chips and tags">
-        <p style={row}>
+        <p className="ug-cluster">
           <Chip>Design</Chip>
           <Chip defaultPressed>Remote</Chip>
           <Chip defaultPressed={false}>Full time</Chip>
@@ -215,15 +214,15 @@ function Content() {
   return <Columns>
     <div>
       <Card title="Latency" footer={<Button>Details</Button>}>
-        <p style={row}>p95 is 41 ms. <Badge variant="success">Healthy</Badge> <Badge variant="accent" count={120} /></p>
+        <p className="ug-cluster">p95 is 41 ms. <Badge variant="success">Healthy</Badge> <Badge variant="accent" count={120} /></p>
       </Card>
       <Divider />
-      <p style={row}>
+      <p className="ug-cluster">
         <Avatar name="Ada Lovelace" size="small" /><Avatar name="Grace Hopper" /><Avatar name="Alan Turing" size="large" />
         <Switch checked={loading} onChange={event => setLoading(event.target.checked)}>Loading</Switch>
       </p>
       {loading
-        ? <div aria-busy="true" style={row}><Skeleton shape="circle" /><Skeleton lines={2} style={{ flex: 1 }} /></div>
+        ? <div aria-busy="true" className="ug-cluster"><Skeleton shape="circle" /><Skeleton lines={2} style={{ flex: 1 }} /></div>
         : <List label="Folders">
           <ListItem href="#/strata" current="page" primary="Inbox" secondary="12 unread" end="Now" />
           <ListItem primary="Archive" onClick={() => toast({ message: "Archive opened." })} />
@@ -247,12 +246,12 @@ function Feedback({ onDialog, onDrawer }: { onDialog(): void; onDrawer(): void }
     </div>
     <div>
       <Group title="Progress">
-        <p style={row}><Spinner label="Loading results" showLabel /></p>
+        <p className="ug-cluster"><Spinner label="Loading results" showLabel /></p>
         <Field label="Upload" help={`${progress}%`}><ProgressBar value={progress} /></Field>
-        <p style={row}><Button onClick={() => setProgress(value => (value >= 100 ? 0 : value + 20))}>Advance</Button></p>
+        <p className="ug-cluster"><Button onClick={() => setProgress(value => (value >= 100 ? 0 : value + 20))}>Advance</Button></p>
       </Group>
       <Group title="Overlays">
-        <p style={row}>
+        <p className="ug-cluster">
           <Button onClick={() => toast({ message: "Message sent.", intent: "success", action: { label: "Undo", onAction: () => toast({ message: "Undone." }) } })}>Show a toast</Button>
           <Tooltip id="share-tip" content="Shares this page with your team"><Button>Share</Button></Tooltip>
           <Button onClick={onDialog}>Open dialog</Button>

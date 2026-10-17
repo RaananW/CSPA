@@ -14,7 +14,7 @@
  *   (`--strata-colour-accent-text`), the light vector (`--strata-light-x`, `-y`, `-z`), the shadow offset per pixel of
  *   height (`--strata-shadow-dx`, `-dy`), the spacing scale (`--strata-space-1` to `-10`), each material's finish
  *   gradient (`--strata-finish-gloss`) and each role's (`--strata-finish-role-knob`), and the density's control
- *   height and panel padding.
+ *   height, panel padding and gaps (`--strata-gap-control` between controls, `--strata-gap-group` between groups).
  */
 import { onColour, parseHex, scale, textColour, toHex, type Rgb } from "./contrast.ts";
 import { finishGradient, finishRecipes } from "./finish.ts";
@@ -28,8 +28,10 @@ export function cssVariable(path: string): string {
 /** Roles that carry text, so they get a derived `on-` colour. */
 const textRoles = ["accent", "success", "warning", "danger", "info"];
 
-/** Control height and panel padding per density (section 13). */
-const densities: Record<string, [number, number]> = { compact: [28, 12], comfortable: [34, 18], spacious: [40, 24] };
+/** Control height, panel padding, and the gaps between controls and between groups, per density (section 13). */
+const densities: Record<string, [number, number, number, number]> = { compact: [28, 12, 8, 16], comfortable: [34, 18, 12, 20], spacious: [40, 24, 16, 24] };
+const densityLines = ([height, padding, control, group]: [number, number, number, number]) =>
+  [`--strata-control-height: ${height}px;`, `--strata-panel-padding: ${padding}px;`, `--strata-gap-control: ${control}px;`, `--strata-gap-group: ${group}px;`];
 
 const genericFonts = new Set(["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace", "ui-rounded", "emoji", "math"]);
 const number = (value: number) => String(Math.round(value * 10000) / 10000);
@@ -143,12 +145,12 @@ export function tokensToCss(source: TokenGroup, { layer = "strata.tokens" }: Tok
     // The order statement first, so the layers rank the same whichever stylesheet the page loads first.
     layerOrder,
     `@layer ${layer} {`,
-    block(":root", [...root, `--strata-control-height: ${densities.comfortable![0]}px;`, `--strata-panel-padding: ${densities.comfortable![1]}px;`]),
+    block(":root", [...root, ...densityLines(densities.comfortable!)]),
     block(":root, [data-strata-scope], [data-strata-depth], [data-strata-theme]", scoped),
     "  @supports (x: attr(x type(*))) {",
     block("[data-strata-depth]", ["--strata-depth: attr(data-strata-depth type(<number>), 0.5);"], "    "),
     "  }",
-    ...Object.entries(densities).map(([density, [height, padding]]) => block(`[data-strata-density="${density}"]`, [`--strata-control-height: ${height}px;`, `--strata-panel-padding: ${padding}px;`])),
+    ...Object.entries(densities).map(([density, values]) => block(`[data-strata-density="${density}"]`, densityLines(values))),
     // Component size (section 13): medium by default; data-strata-size on a component or a scope picks another.
     ...sizes(tokens).map(([size, lines]) => block(size === "medium" ? `:root, [data-strata-size="medium"]` : `[data-strata-size="${size}"]`, lines)),
     block(`:root, [data-strata-theme="${light}"]`, themeLines(light)),
