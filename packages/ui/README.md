@@ -108,7 +108,8 @@ strata.detach();                               // back to the CSS presentation
 ```
 
 - **React and Vue:** `useStrataGpu(controller)` from `@underglass/ui/react` or `@underglass/ui/vue` attaches for the
-  component's lifetime.
+  component's lifetime. It attaches in a microtask, so it works in a component of `mountCanvasApp`'s first render (the
+  showcase's [Strata gallery](../../docs/showcase.md) is one).
 - **Astro:** call `attachStrataGpu` from a client `<script>` once Underglass is mounted.
 - **What it reads:**
   - token values from each panel's resolved `--strata-*` custom properties, so depth, themes and scopes apply as

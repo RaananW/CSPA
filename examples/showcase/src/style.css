@@ -11,11 +11,12 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
-a { color: inherit; }
-button, input, select, textarea { font: inherit; color: inherit; }
-button { cursor: pointer; }
-button:disabled { cursor: default; opacity: .5; }
-:focus-visible { outline: 3px solid var(--violet); outline-offset: 3px; }
+/* Strata (the strata example) is in cascade layers, so these unlayered base rules skip its scopes, with no added specificity. */
+a:where(:not(.ug-panel *, .ug-app-bar *, .ug-toast-region *)) { color: inherit; }
+button:where(:not(.ug-panel *, .ug-app-bar *, .ug-toast-region *)), input:where(:not(.ug-panel *, .ug-app-bar *, .ug-toast-region *)), select:where(:not(.ug-panel *, .ug-app-bar *, .ug-toast-region *)), textarea:where(:not(.ug-panel *, .ug-app-bar *, .ug-toast-region *)) { font: inherit; color: inherit; }
+button:where(:not(.ug-panel *, .ug-app-bar *, .ug-toast-region *)) { cursor: pointer; }
+button:disabled:where(:not(.ug-panel *, .ug-app-bar *, .ug-toast-region *)) { cursor: default; opacity: .5; }
+:focus-visible:where(:not(.ug-panel *, .ug-app-bar *, .ug-toast-region *)) { outline: 3px solid var(--violet); outline-offset: 3px; }
 [hidden] { display: none !important; }
 code { font-family: var(--mono); font-size: .9em; background: #efe9f7; padding: 1px 5px; border-radius: 5px; }
 .skip-link { position: absolute; left: 20px; top: -100px; z-index: 10; background: white; padding: 12px; border-radius: 8px; }
@@ -235,11 +236,11 @@ h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: .98; letter-spacing: -.04
 .stage .overlay { position: relative; z-index: 2; }
 
 /* ---------- Content inside surfaces (no CSS transitions/animations: motion is owned by Underglass) ---------- */
-/* Fluent UI components (inside a FluentProvider or a Fluent portal node) bring their own styles. */
+/* Fluent UI components (inside a FluentProvider or a Fluent portal node) and Strata panels bring their own styles. */
 .stage input, .stage textarea { max-width: 100%; }
-.stage button:not(.fui-FluentProvider *, [data-portal-node] *) { border: 1px solid #c9c2d6; border-radius: 9px; padding: 6px 10px; background: white; color: #292437; font-weight: 650; }
-.stage button:not(:disabled):not(.fui-FluentProvider *, [data-portal-node] *):hover { background: #f4f0fb; }
-.stage :focus-visible:not(.fui-FluentProvider *, [data-portal-node] *) { outline: 3px solid var(--violet); outline-offset: 2px; }
+.stage button:not(.fui-FluentProvider *, [data-portal-node] *, .ug-panel *, .ug-app-bar *) { border: 1px solid #c9c2d6; border-radius: 9px; padding: 6px 10px; background: white; color: #292437; font-weight: 650; }
+.stage button:not(:disabled):not(.fui-FluentProvider *, [data-portal-node] *, .ug-panel *, .ug-app-bar *):hover { background: #f4f0fb; }
+.stage :focus-visible:not(.fui-FluentProvider *, [data-portal-node] *, .ug-panel *, .ug-app-bar *) { outline: 3px solid var(--violet); outline-offset: 2px; }
 .stage h3 { margin: 0; }
 
 .backdrop > div { position: absolute; inset: 0; }
@@ -299,7 +300,7 @@ h1 { font-size: clamp(42px, 6.4vw, 84px); line-height: .98; letter-spacing: -.04
 .button-grid.two { grid-template-columns: 1fr 1fr; }
 .button-grid .primary { grid-column: span 3; padding-block: 12px; }
 .range { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 750; }
-.stage input[type="range"] { width: 100%; accent-color: var(--violet); margin: 0; }
+.stage input[type="range"]:not(.ug-slider) { width: 100%; accent-color: var(--violet); margin: 0; }
 .panel-dark input[type="range"] { accent-color: #5ee1d0; }
 
 /* Postcard studio */
@@ -620,3 +621,22 @@ footer { display: flex; justify-content: space-between; align-items: center; gap
 .pane-glass strong { font-size: 24px; }
 .pane-glass p { margin: 0; font-size: 13px; line-height: 1.5; }
 .pane-glass .cmp-kicker { color: white; opacity: .8; }
+
+/* ---------- 09 Strata gallery ---------- */
+.accent-strata .card-art { background: linear-gradient(160deg, #e9edf4, #c9d1df 70%, #b7c0d1); }
+.art-strata i { height: 26px; border-radius: 8px; background: linear-gradient(180deg, #ffffff, #e3e8f0); box-shadow: 0 1px 0 #ffffff inset, 0 -2px 0 #b9c2d3 inset, 0 8px 14px #39456a40; }
+.art-strata i:nth-child(1) { left: 8%; top: 22px; width: 40%; }
+.art-strata i:nth-child(2) { left: 52%; top: 22px; width: 40%; background: linear-gradient(180deg, #6f7cff, #4a55e0); box-shadow: 0 1px 0 #a9b1ff inset, 0 -2px 0 #333cb0 inset, 0 8px 14px #39456a50; }
+.art-strata i:nth-child(3) { left: 8%; top: 64px; width: 84%; height: 18px; border-radius: 9px; background: #d4dae6; box-shadow: 0 2px 3px #39456a55 inset, 0 -1px 0 #ffffff inset; }
+.art-strata i:nth-child(4) { left: 52%; top: 59px; width: 28px; height: 28px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff, #cfd6e2 70%); box-shadow: 0 6px 10px #39456a55; }
+/* The gallery's two panels, placed on the stage; the bar's controls sit in a row. */
+.stage .strata-bar { position: absolute; left: 20px; top: 20px; width: 1000px; }
+.stage .strata-bar .ug-app-bar__end { display: flex; gap: 12px; align-items: center; }
+.stage .strata-title { margin: 0; font-size: inherit; }
+.stage .strata-gallery { position: absolute; left: 20px; top: 104px; width: 1000px; height: 576px; overflow: hidden; }
+.strata-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; padding-top: 16px; }
+.strata-columns > div { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.strata-group { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.strata-group h4 { margin: 0; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; opacity: .75; }
+.strata-group > p { margin: 0; }
+.strata-group > .ug-field { align-self: stretch; }

@@ -2,8 +2,8 @@
 
 **Status:** accepted plan (2026-10-15). Phases 0 to 5 are implemented (2026-10-16): the design language and tokens,
 Tier A components with Dialog and Drawer, and the GPU presentation at the Relief, Objects and Scene levels with the
-adjust policy ([Phase 4](phase4.md), [Objects](phase4-objects.md), [Phase 5](phase5.md)). Tier B is under way (Dialog, Drawer,
-[Tabs](components/tabs.md), [Accordion](components/accordion.md), [List](components/list.md), [Table](components/table.md), [Breadcrumb](components/breadcrumb.md), [Avatar](components/avatar.md), [Chip](components/chip.md), [Skeleton](components/skeleton.md), [MessageBar](components/message-bar.md), [Pagination](components/pagination.md), [Toolbar](components/toolbar.md), [AppBar](components/app-bar.md), [Tooltip](components/tooltip.md) and [Toast](components/toast.md) are done); the rest of Tier B, Tier C and the showcase gallery remain. Later phases may refine it through their own PRs.
+adjust policy ([Phase 4](phase4.md), [Objects](phase4-objects.md), [Phase 5](phase5.md)). Tier B is done (Dialog, Drawer,
+[Tabs](components/tabs.md), [Accordion](components/accordion.md), [List](components/list.md), [Table](components/table.md), [Breadcrumb](components/breadcrumb.md), [Avatar](components/avatar.md), [Chip](components/chip.md), [Skeleton](components/skeleton.md), [MessageBar](components/message-bar.md), [Pagination](components/pagination.md), [Toolbar](components/toolbar.md), [AppBar](components/app-bar.md), [Tooltip](components/tooltip.md) and [Toast](components/toast.md)), and the showcase has a component gallery ([`#/strata`](../showcase.md)); Tier C remains. Later phases may refine it through their own PRs.
 
 **Names:** the design language is **Strata**; the package is `@underglass/ui`.
 
@@ -382,8 +382,7 @@ Per [AGENTS.md](../../AGENTS.md#verifying-a-change):
 - **Accessibility:** every check in [Accessibility](#accessibility), on every component.
 - **Headful Canary** for anything touching capture, geometry or admission.
 - `npm run typecheck`, `npm run test:unit`, `node --test tests/compiler/*.test.mjs`,
-  `npm run test:browser`, and `npm run test:showcase` once the showcase gains a
-  component gallery.
+  `npm run test:browser`, and `npm run test:showcase`, which drives the component gallery.
 
 ## Repository layout
 
