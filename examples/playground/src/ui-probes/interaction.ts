@@ -174,8 +174,8 @@ document.getElementById("enable")!.addEventListener("click", () => void controll
 document.getElementById("disable")!.addEventListener("click", () => void controller.disable());
 if (!params.has("dom")) void controller.enable().then(() => strata?.refresh());
 
-declare global { interface Window { instrumentProbe: unknown } }
-window.instrumentProbe = {
+// `instrument.ts` (I0.1) declares `window.instrumentProbe` with its own type; this page sets its own object there.
+(window as unknown as { instrumentProbe: unknown }).instrumentProbe = {
   controller, panel: () => panel, scene: () => strata?.scene(panel), refresh: () => strata?.refresh(),
   events: () => [...events], clearEvents: () => { events.length = 0; },
 };
