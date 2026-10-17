@@ -449,6 +449,18 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
 
+## DatePicker
+
+A TextField that takes a date: a native `<input type="date">`, so the browser provides the segmented field and its own
+calendar. The value is `YYYY-MM-DD`, whatever the display language; `min` and `max` give native validity.
+
+```tsx
+<Field label="Due date"><DatePicker min="2026-01-01" max="2026-12-31" value={due} onChange={event => setDue(event.target.value)} /></Field>
+```
+
+Vue uses `v-model`; Astro takes the Field props. The calendar is the browser's own, never drawn by the GPU.
+[Anatomy](../../docs/ui-library/components/date-picker.md).
+
 ## Carousel
 
 A few items shown one at a time, by the WAI-ARIA Carousel pattern without rotation: Previous and Next (wrapping), a
