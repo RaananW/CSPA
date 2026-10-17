@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,"><title>Instrument probe: emitters</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    /* Colour roles from the design language (section 8), light and dark. */
+    body { --stage: rgb(255, 255, 255); --panel: rgb(233, 235, 239); --secondary: rgb(247, 248, 250); --text: rgb(28, 30, 36);
+      --muted: rgb(90, 94, 104); --knob: rgb(252, 252, 253); --edge: rgb(118, 124, 136);
+      background: var(--stage); color: var(--text); font: 14px system-ui; }
+    body[data-theme="dark"] { --stage: rgb(24, 26, 31); --panel: rgb(44, 48, 56); --secondary: rgb(62, 67, 78); --text: rgb(232, 234, 240);
+      --muted: rgb(168, 174, 186); --knob: rgb(236, 238, 242); --edge: rgb(132, 139, 154); }
+    [hidden] { display: none !important; }
+    #frame { position: fixed; inset: 0; }
+    #status { position: fixed; right: 8px; bottom: 6px; max-width: 52ch; margin: 0; padding: 4px 8px; border-radius: 6px;
+      background: rgb(255 255 255 / 0.85); color: black; font: 11px/1.3 system-ui; white-space: pre-wrap; pointer-events: none; z-index: 1; }
+    /* The stage is an enrolled layer too (the plain page the lamps and the pointer light fall on). */
+    #stage { position: absolute; inset: 0; background: var(--stage); }
+    .emitter-panel { position: absolute; box-sizing: border-box; border-radius: 14px; padding: 14px 18px; margin: 0;
+      background: var(--panel); color: var(--text); }
+    .emitter-panel h2 { margin: 0 0 12px; font-size: 15px; line-height: 20px; font-weight: 600; }
+    .emitter-row { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; min-height: 30px; }
+    .emitter-label { font-size: 14px; font-weight: 600; }
+    .emitter-caption { font-size: 13px; color: var(--muted); }
+    .emitter-note { margin: 0; font-size: 13px; line-height: 18px; color: var(--muted); max-width: 30ch; }
+    /* Native controls. Lamps are switches with the lens as their face, LEDs are status images. */
+    .emitter-panel input { appearance: none; margin: 0; padding: 0; border: 0; outline: none; cursor: pointer; background: transparent; }
+    .emitter-lamp { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+    .emitter-led { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
+    .emitter-knob { width: 44px; height: 44px; border-radius: 50%; flex: none; }
+    .emitter-knob::-webkit-slider-thumb { appearance: none; width: 1px; height: 1px; background: transparent; }
+    .emitter-panel button { margin: 0; padding: 0; border: 0; border-radius: 8px; width: 72px; height: 34px; flex: none;
+      font: 600 13px system-ui; cursor: pointer; outline: none; background: var(--secondary); color: var(--text); }
+    .emitter-panel :focus-visible { outline: 2px solid rgb(37, 99, 235); outline-offset: 2px; }
+    .emitter-corner { position: absolute; display: flex; align-items: center; gap: 8px; }
+    /* Relief and Objects levels: the controls paint their own faces (the lens colour is captured; at Objects a dome
+       draws over it). Instrument level: meshes draw them, so they paint nothing but stay native and hit-testable. */
+    #frame[data-level="relief"] .emitter-lamp, #frame[data-level="objects"] .emitter-lamp { background: radial-gradient(circle at 40% 35%, rgb(90, 82, 74), rgb(42, 36, 32)); }
+    #frame[data-level="relief"] .emitter-lamp:checked, #frame[data-level="objects"] .emitter-lamp:checked { background: radial-gradient(circle at 40% 35%, rgb(255, 236, 190), rgb(255, 170, 60)); }
+    #frame[data-level="relief"] .emitter-led, #frame[data-level="objects"] .emitter-led { background: rgb(70, 220, 110); }
+    #frame[data-level="relief"] .emitter-knob, #frame[data-level="objects"] .emitter-knob { background: var(--knob); box-shadow: inset 0 0 0 1px var(--edge); }
+    /* Forced colours: flat, system colours; the probe draws no parts and no emitter light. */
+    @media (forced-colors: active) {
+      #frame .emitter-lamp, #frame .emitter-knob { box-sizing: border-box; border: 2px solid CanvasText; background: Canvas; }
+      #frame .emitter-lamp:checked { background: Highlight; }
+      #frame .emitter-led { background: CanvasText; }
+    }
+  </style>
+</head>
+<body data-theme="light">
+  <div id="frame"></div>
+  <pre id="status" role="status"></pre>
+  <script type="module" src="/src/ui-probes/instrument-emitters.ts"></script>
+</body>
+</html>
