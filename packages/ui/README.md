@@ -448,3 +448,18 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
+
+## Popover
+
+Interactive content one button opens beside itself, on the native Popover API: the browser toggles it, closes it on
+Escape or a click outside, returns focus and exposes the button's expanded state; CSS anchor positioning places it
+below the button, flipped above when there is no room. It is portalled to `<body>`, outside every Underglass layer:
+
+```tsx
+<Popover trigger={<Button>Filters</Button>} title="Filters" onOpenChange={setOpen}>
+  <Checkbox>Open only</Checkbox>
+</Popover>
+```
+
+Vue takes the trigger in its `trigger` slot and emits `toggle`; in Astro any button with `popovertarget` set to the
+popover's `id` opens it. [Anatomy](../../docs/ui-library/components/popover.md).

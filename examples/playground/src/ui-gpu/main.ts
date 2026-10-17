@@ -11,7 +11,8 @@
  * `strataGpuProbe.addTable()` a Table whose Amount column the page sorts, `strataGpuProbe.addAvatar()` an Avatar, and
  * `strataGpuProbe.addChips()` a tag and a filter chip, `strataGpuProbe.addMessage()` a MessageBar with an action, and
  * `strataGpuProbe.addPagination()` three page keys, `strataGpuProbe.addToolbar()` a Toolbar of toggle buttons, 
- * `strataGpuProbe.addAppBar()` an AppBar, and `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root.
+ * `strataGpuProbe.addAppBar()` an AppBar, `strataGpuProbe.addTooltip()` a tooltip for Save, outside the root, and
+ * `strataGpuProbe.addPopover()` a Filters button in the panel whose Popover is in `<body>`.
  */
 import "@underglass/ui/css";
 import { compileStyle, mountApplicationModule, type CanvasController } from "@underglass/core";
@@ -127,6 +128,15 @@ const paginationMarkup = `<nav class="ug-pagination" aria-label="Pagination" id=
 /** A MessageBar in plain markup (`message-bar.md`), added by `strataGpuProbe.addMessage()`; its action counts presses. */
 const messageMarkup = `<div class="ug-message-bar ug-message-bar--warning" data-strata-face="raised" role="alert" id="gpu-message" style="margin-top:12px"><span class="ug-message-bar__icon" aria-hidden="true"></span><div class="ug-message-bar__content"><p class="ug-message-bar__body">Storage almost full.</p></div><div class="ug-message-bar__actions"><button class="ug-button" data-strata-face="raised" type="button" id="gpu-message-action"><span class="ug-button__label">Upgrade</span></button></div></div>`;
 let upgrades = 0;
+let applied = 0;
+/** A Popover (`popover.md`): its button in the panel, the popover itself at the end of `<body>`, outside the root. */
+function addPopover() {
+  panel.insertAdjacentHTML("beforeend", `<p style="margin:12px 0 0"><button class="ug-button" data-strata-face="raised" type="button" id="gpu-popover-open" popovertarget="gpu-popover"><span class="ug-button__label">Filters</span></button></p>`);
+  document.body.insertAdjacentHTML("beforeend", `<div class="ug-popover" data-strata-face="raised" id="gpu-popover" popover role="dialog" aria-label="Filters"><div class="ug-popover__body"><button class="ug-button" data-strata-face="raised" type="button" id="gpu-popover-apply"><span class="ug-button__label">Apply</span></button></div></div>`);
+  document.getElementById("gpu-popover-apply")!.addEventListener("click", () => { applied++; });
+  attachStrata(panel);
+  strata?.refresh();
+}
 /** Chips in plain markup (`chip.md`), added by `strataGpuProbe.addChips()`: a tag and a filter chip. */
 const chipsMarkup = `<p style="margin:12px 0 0;display:flex;gap:8px"><span class="ug-chip" data-strata-face="raised" id="gpu-tag"><span class="ug-chip__label">Design</span></span><button class="ug-chip" data-strata-face="raised" type="button" aria-pressed="false" id="gpu-filter"><span class="ug-chip__label">Remote</span></button></p>`;
 /** An Avatar in plain markup (`avatar.md`), added to the panel by `strataGpuProbe.addAvatar()`. */
@@ -180,6 +190,8 @@ window.strataGpuProbe = {
   enter: options => strataEnter(panel, options),
   dialog: () => dialog?.panel, closes: () => [...closes], openDrawer: () => openDialog("drawer"),
   addTooltip,
+  addPopover,
+  applied: () => applied,
   toast: () => { showStrataToast({ message: "Saved.", intent: "success", duration: Infinity }); },
   addAppBar: () => { panel.insertAdjacentHTML("beforeend", appBarMarkup); panel.querySelector("#gpu-sign-in")!.addEventListener("click", () => { signIns++; }); strata?.refresh(); },
   signIns: () => signIns,
@@ -210,6 +222,6 @@ declare global {
     cap(): string | undefined; adjustments(): StrataAdjustEvent[]; load(ms: number): void;
     burst(options?: BurstOptions): Promise<void>; root(): HTMLElement;
     enter(options?: PanelMotionOptions): Promise<void>; leave(options?: PanelMotionOptions): Promise<void>;
-    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; toast(): void;
+    dialog(): HTMLElement | undefined; closes(): string[]; openDrawer(): void; addTabs(): void; addAccordion(): void; addList(): void; archived(): number; addTable(): void; addAvatar(): void; addChips(): void; addMessage(): void; upgrades(): number; addPagination(): void; addToolbar(): void; addAppBar(): void; signIns(): number; addTooltip(): void; addPopover(): void; applied(): number; toast(): void;
   } }
 }

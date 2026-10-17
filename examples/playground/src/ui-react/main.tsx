@@ -7,7 +7,7 @@
 import "@underglass/ui/css";
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast } from "@underglass/ui/react";
+import { Accordion, AccordionItem, AppBar, Avatar, Badge, Breadcrumb, Button, ButtonGroup, Card, Checkbox, Chip, Dialog, Divider, Drawer, Field, IconButton, Link, List, ListItem, MessageBar, Pagination, Panel, Popover, ProgressBar, Radio, RadioGroup, Select, Skeleton, Slider, Spinner, StrataProvider, StrataScope, Switch, Tab, Table, TabList, TabPanel, Tabs, TextArea, TextField, ToggleButton, Toolbar, Tooltip, toast } from "@underglass/ui/react";
 
 const close = <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>;
 
@@ -16,6 +16,7 @@ function Contracts() {
   // A Dialog and a Drawer render only while open, so the test opens them (`window.strataOverlays`) to compare.
   const [overlays, setOverlays] = useState(false);
   const [tooltipHost, setTooltipHost] = useState<HTMLElement | null>(null);
+  const [popoverHost, setPopoverHost] = useState<HTMLElement | null>(null);
   const [dialogHost, setDialogHost] = useState<HTMLElement | null>(null), [drawerHost, setDrawerHost] = useState<HTMLElement | null>(null);
   useEffect(() => { Object.assign(window, { strataOverlays: setOverlays }); }, []);
   return (
@@ -110,6 +111,9 @@ function Contracts() {
       <div data-contract="tooltip.md" ref={setTooltipHost}>
         {tooltipHost && <Tooltip id="copy-tip" content="Copies the address to the clipboard" container={tooltipHost}><IconButton label="Copy link" icon={null} /></Tooltip>}
       </div>
+      <div data-contract="popover.md" ref={setPopoverHost}>
+        {popoverHost && <Popover id="filters-popover" title="Filters" container={popoverHost} trigger={<Button>Filters</Button>} />}
+      </div>
       <div data-contract="slider.md"><Slider min={0} max={100} step={1} defaultValue={40} aria-label="Volume" /></div>
     </div>
   );
@@ -131,6 +135,7 @@ function App() {
   const [page, setPage] = useState(1);
   const [appBar, setAppBar] = useState(0);
   const [toasts, setToasts] = useState(0);
+  const [popover, setPopover] = useState({ open: false, applied: 0 });
   const [messages, setMessages] = useState({ upgrades: 0, dismissed: false });
   const [chips, setChips] = useState({ remote: false, removed: [] as string[] });
   const [sort, setSort] = useState<{ key: string; direction: "ascending" | "descending" } | undefined>(undefined);
@@ -139,7 +144,7 @@ function App() {
   const buttonRef = useRef<HTMLButtonElement>(null), inputRef = useRef<HTMLInputElement>(null), wrappedRef = useRef<HTMLInputElement>(null);
   const count = (key: keyof typeof clicks) => () => setClicks(current => ({ ...current, [key]: current[key] + 1 }));
   const invalid = email.length > 0 && !email.includes("@");
-  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts } });
+  Object.assign(window, { strataBinding: { clicks, italic, email, choices, refs: { button: buttonRef.current, input: inputRef.current, wrapped: wrappedRef.current }, setAccent, tab, setTab, faq, setFaq, rows, sort, setSort, chips, messages, page, setPage, appBar, toasts, popover } });
   return (
     <StrataProvider theme={accent ? { colour: { accent } } : undefined}>
       <Contracts />
@@ -277,6 +282,10 @@ function App() {
             <Button id="notify" onClick={() => toast({ message: "Message sent.", intent: "success", duration: 1500,
               action: { label: "Undo", onAction: () => setToasts(current => current + 1) } })}>Notify</Button>
             <Tooltip id="share-tip" content="Shares this page with your team"><Button id="share">Share</Button></Tooltip>
+            <Popover id="live-popover" title="Filters" trigger={<Button id="popover-open">Filters</Button>} onOpenChange={open => setPopover(current => ({ ...current, open }))}>
+              <Checkbox id="popover-only">Open only</Checkbox>
+              <Button id="popover-apply" onClick={() => setPopover(current => ({ ...current, applied: current.applied + 1 }))}>Apply</Button>
+            </Popover>
           </p>
           <Toolbar label="Editing" id="live-toolbar">
             <Button id="tool-cut">Cut</Button><Button id="tool-copy" disabled>Copy</Button><Button id="tool-paste" aria-disabled="true">Paste</Button>

@@ -1106,6 +1106,34 @@
   :where(.ug-tooltip):not(:popover-open) { opacity: 0; }
   @starting-style { :where(.ug-tooltip):popover-open { opacity: 0; } }
 
+  /* ---- Popover ---- */
+
+  /* A floating slab in the top layer, anchored below its button (its implicit anchor), flipped above when there is no room. */
+  :where(.ug-popover) {
+    --_finish: var(--strata-finish-role-panel);
+    --_h: var(--strata-elevation-overlay);
+    box-sizing: border-box;
+    width: max-content;
+    max-width: min(24rem, calc(100vw - 16px));
+    margin: var(--strata-space-1) 0;
+    padding: var(--strata-space-4);
+    border-radius: var(--strata-radius-control);
+    background-color: var(--strata-colour-panel);
+    color: var(--strata-colour-text);
+    font-family: var(--strata-font-family);
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block;
+    opacity: 1;
+    transition: opacity var(--strata-motion-fast) var(--strata-motion-easing-standard), display var(--strata-motion-fast) allow-discrete, overlay var(--strata-motion-fast) allow-discrete;
+  }
+  :where(.ug-popover[data-strata-placement="top"]) { position-area: block-start span-inline-end; }
+  /* Opened from inside an Underglass layer, where anchor positioning does not follow the layer: placed by script. */
+  :where(.ug-popover[data-strata-anchor="script"]) { position-area: none; inset: auto; margin: 0; }
+  :where(.ug-popover):not(:popover-open) { opacity: 0; }
+  @starting-style { :where(.ug-popover):popover-open { opacity: 0; } }
+  :where(.ug-popover__title) { margin: 0 0 var(--strata-space-2); font-size: var(--strata-font-size-body); font-weight: var(--strata-font-weight-strong); }
+  :where(.ug-popover__body) { display: flex; flex-direction: column; gap: var(--strata-space-2); }
+
   /* ---- Toast ---- */
 
   /* One region in the top layer, in the end-bottom corner: a column of MessageBars at elevation.overlay. */
@@ -1308,7 +1336,7 @@
     :where(.ug-panel, .ug-card)[data-strata-motion] { animation: none; }
     :where(.ug-spinner__label) { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
     :where(.ug-skeleton) { animation: none; background-image: none; }
-    :where(.ug-tooltip, .ug-toast) { transition: none; }
+    :where(.ug-tooltip, .ug-toast, .ug-popover) { transition: none; }
     :where(.ug-progress:indeterminate) {
       animation: none;
       background-image: repeating-linear-gradient(45deg, var(--strata-colour-accent) 0 6px, transparent 6px 12px);
@@ -1330,6 +1358,7 @@
     :where(.ug-scrim) { forced-color-adjust: none; }
     :where(.ug-button, .ug-icon-button, .ug-toggle-button, .ug-select, .ug-button-group, .ug-toolbar) { border: 1px solid ButtonBorder; }
     :where(.ug-toggle-button[aria-pressed="true"]) { forced-color-adjust: none; background-color: Highlight; color: HighlightText; }
+    :where(.ug-popover) { border: 1px solid CanvasText; }
     :where(.ug-select) { forced-color-adjust: none; background-color: Field; color: FieldText; --_chevron: FieldText; }
     :where(.ug-checkbox__mark, .ug-radio__dot) { forced-color-adjust: none; background: Highlight; box-shadow: none; filter: none; }
     :where(.ug-switch__input) { forced-color-adjust: none; border: 1px solid ButtonBorder; background-color: Field; box-shadow: none; }

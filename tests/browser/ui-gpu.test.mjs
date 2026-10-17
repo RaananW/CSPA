@@ -753,3 +753,37 @@ test("a toast over a GPU-presented panel leaves the panel on the GPU", async ({ 
   expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
   expect(errors).toEqual([]);
 });
+
+test("a Popover opened from a GPU-presented panel floats in the top layer, takes real input, and the panel stays on the GPU", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await ready(page);
+  await page.evaluate(async () => { window.strataGpuProbe.addPopover(); await window.strataGpuProbe.controller.settle(); });
+  // A real click through the GPU on the button in the panel opens it.
+  const open = await page.locator("#gpu-popover-open").boundingBox();
+  await page.mouse.click(open.x + open.width / 2, open.y + open.height / 2);
+  await expect(page.locator("#gpu-popover")).toBeVisible();
+  expect(await page.evaluate(() => [document.getElementById("gpu-popover").matches(":popover-open"), window.strataGpuProbe.root().contains(document.getElementById("gpu-popover"))])).toEqual([true, false]);
+  await page.evaluate(() => window.strataGpuProbe.controller.settle());
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  // Below the button and aligned with its start edge: the button is in the layer, where CSS anchor positioning does
+  // not follow the drawn place, so it is placed by script from the button's box.
+  const popover = await page.locator("#gpu-popover").boundingBox();
+  expect(await page.locator("#gpu-popover").getAttribute("data-strata-anchor")).toBe("script");
+  expect(Math.abs(popover.x - open.x)).toBeLessThanOrEqual(1);
+  expect(popover.y).toBeGreaterThanOrEqual(open.y + open.height);
+  expect(popover.y).toBeLessThanOrEqual(open.y + open.height + 8);
+  // Its own control takes a real click.
+  const apply = await page.locator("#gpu-popover-apply").boundingBox();
+  await page.mouse.click(apply.x + apply.width / 2, apply.y + apply.height / 2);
+  expect(await page.evaluate(() => window.strataGpuProbe.applied())).toBe(1);
+  // Escape closes it; focus returns to the button in the panel, and the panel's Save still takes a real click.
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#gpu-popover")).toBeHidden();
+  expect(await page.evaluate(() => document.activeElement?.id)).toBe("gpu-popover-open");
+  const save = await page.locator("#gpu-save").boundingBox();
+  await page.mouse.click(save.x + save.width / 2, save.y + save.height / 2);
+  expect(await page.evaluate(() => window.strataGpuProbe.saves())).toBe(1);
+  expect(await page.evaluate(() => window.strataGpuProbe.controller.state().mode)).toBe("gpu");
+  expect(errors).toEqual([]);
+});

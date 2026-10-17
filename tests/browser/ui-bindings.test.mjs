@@ -12,6 +12,7 @@
  *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion; MessageBars announce by intent;
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
+ *   a Popover opens below its button in the top layer, takes Tab, and closes on Escape and outside clicks;
  *   toasts appear in the status region and go after their time, which hovering stops;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
@@ -158,8 +159,8 @@ for (const binding of bindings) test(`Strata ${binding} Dialog is modal, control
     className: element.className, ref: element === window.strataDialog.panel || element === window.strataBinding.liveDialog,
   }))).toEqual({ parent: true, scrim: "ug-scrim", modal: "true", className: expect.stringContaining("ug-panel ug-dialog"), ref: true });
   await expect(dialog).toHaveClass(/extra/);
-  // The app's root and the tooltip portalled beside it in the body are inert behind the modal.
-  expect(await inert()).toEqual(["root", "share-tip"]);
+  // The app's root, and the tooltip and the popover portalled beside it in the body, are inert behind the modal.
+  expect((await inert()).sort()).toEqual(["live-popover", "root", "share-tip"]);
   // Tab stays inside.
   for (let step = 0; step < 6; step++) {
     await page.keyboard.press("Tab");
@@ -395,6 +396,8 @@ for (const binding of bindings) test(`Strata ${binding} List rows are links, but
   await expect(page).toHaveURL(/#inbox$/);
   // A button row fills the row: a click at its far end presses it, and so do Enter and Space.
   const archive = page.locator("#archive-row .ug-list__action");
+  // A coordinate click does not scroll: the list may be below the fold.
+  await archive.scrollIntoViewIfNeeded();
   const row = await page.locator("#archive-row").boundingBox(), action = await archive.boundingBox();
   expect(Math.abs(row.width - action.width)).toBeLessThanOrEqual(1);
   expect(action.height).toBeGreaterThanOrEqual(24);
@@ -732,5 +735,41 @@ for (const binding of bindings) test(`Strata ${binding} toasts appear in the sta
   await expect(toasts).toHaveCount(3);
   await toasts.first().getByRole("button", { name: "Dismiss" }).click();
   await expect(toasts).toHaveCount(2);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Popover opens below its button in the top layer, takes Tab, and closes on Escape and outside clicks`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const button = page.locator("#popover-open"), popover = page.getByRole("dialog", { name: "Filters" }).and(page.locator("#live-popover"));
+  await button.scrollIntoViewIfNeeded();
+  await button.click();
+  await expect(popover).toBeVisible();
+  // Open in the top layer, portalled outside the app, below the button and aligned with its start edge.
+  const placed = await page.evaluate(() => {
+    const element = document.getElementById("live-popover"), trigger = document.getElementById("popover-open").getBoundingClientRect(), box = element.getBoundingClientRect();
+    return { open: element.matches(":popover-open"), outside: !document.getElementById("root")?.contains(element) && !document.getElementById("app")?.contains(element),
+      below: box.top >= trigger.bottom - 1, aligned: Math.abs(box.left - trigger.left) <= 1 };
+  });
+  expect(placed).toEqual({ open: true, outside: true, below: true, aligned: true });
+  // The toggle event is a task after the popover opens: the reported state follows it.
+  await page.waitForFunction(() => window.strataBinding.popover.open);
+  // Tab from the button moves into it; its controls work.
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.activeElement.id)).toBe("popover-only");
+  await page.locator("#popover-apply").click();
+  expect(await page.evaluate(() => window.strataBinding.popover.applied)).toBe(1);
+  // Escape closes it, and focus returns to the button.
+  await page.keyboard.press("Escape");
+  await expect(popover).toBeHidden();
+  expect(await page.evaluate(() => document.activeElement.id)).toBe("popover-open");
+  await page.waitForFunction(() => !window.strataBinding.popover.open);
+  // A click outside closes it too.
+  await button.click();
+  await expect(popover).toBeVisible();
+  await page.mouse.click(5, 5);
+  await expect(popover).toBeHidden();
   await context.close();
 });

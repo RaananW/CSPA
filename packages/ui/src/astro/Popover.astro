@@ -1,0 +1,28 @@
+---
+/**
+ * Popover (anatomy page `popover.md`): interactive content one button opens beside itself, on the native Popover API.
+ * The trigger is any button with `popovertarget` set to this `id`. Render it outside every Underglass layer (at the end
+ * of `<body>`, for example). The browser toggles, dismisses and places it, so it needs no script.
+ */
+import { classes } from "../shared/markup.ts";
+
+interface Props {
+  id: string;
+  /** Names it, as its heading. */
+  title?: string;
+  /** Names it when there is no title. */
+  label?: string;
+  /** Prefer above the button. */
+  placement?: "top" | "bottom";
+  class?: string;
+  [attribute: string]: unknown;
+}
+
+const { id, title, label, placement = "bottom", class: className, ...rest } = Astro.props;
+const titleId = `${id}-title`;
+---
+<div class={classes("ug-popover", className)} data-strata-face="raised" id={id} popover="" role="dialog" aria-labelledby={title ? titleId : undefined}
+  aria-label={title ? undefined : label} data-strata-placement={placement === "top" ? "top" : undefined} {...rest}>
+  {title && <h2 class="ug-popover__title" id={titleId}>{title}</h2>}
+  <div class="ug-popover__body"><slot /></div>
+</div>
