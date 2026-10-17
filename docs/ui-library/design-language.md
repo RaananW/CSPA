@@ -1,6 +1,6 @@
 # Strata design language
 
-**Status:** draft for review (2026-10-15). The [plan](plan.md) defines the scope. The
+**Status:** draft for review (2026-10-17). The [plan](plan.md) defines the scope. The
 [Phase 0 report](phase0.md) proves what is technically possible, and the
 [prototypes](prototypes.md) settled the look. This document defines the language: its rules,
 its tokens with their defaults and allowed ranges, and how each presentation renders them. The
@@ -12,6 +12,12 @@ a part of a page or a visitor's preference may change, within validated ranges. 
 [invariants](#invariants) protects what makes the language usable and recognisable: one light
 per application, exact native hits, readable contrast and a visible focus. They are validated,
 never silently relaxed.
+
+**The Instrument level** ([plan](instrument.md), [Phase I0 report](instrument-phase0.md)) is a fourth presentation
+level: 3D-first hardware controls drawn as parametric meshes. Its rules are in sections 2, 3, 4, 6, 7, 11, 12, 14, 15
+and 16, and in sections [19](#19-characters) and [20](#20-feedback). A dagger (†) marks a **provisional** value: a
+number from the first prototype iteration, or a proposed range, that the second iteration confirms or replaces. The
+[spec notes](instrument-spec-notes.md) list every one.
 
 ## Contents
 
@@ -33,6 +39,8 @@ never silently relaxed.
 16. [Presentation levels and adjust policy](#16-presentation-levels-and-adjust-policy)
 17. [Component anatomy template](#17-component-anatomy-template)
 18. [Distribution and frameworks](#18-distribution-and-frameworks)
+19. [Characters](#19-characters)
+20. [Feedback](#20-feedback)
 
 Units: lengths are CSS pixels. Angles are degrees. Colours are sRGB 0–255 unless a section says
 linear. "At 50%" means at the default depth.
@@ -63,10 +71,13 @@ Each principle is a rule a reviewer can check.
 **Camera.** There is one perspective camera per stage, centred on the stage, at distance `D` from
 the panel plane, and with a vertical field of view that maps z = 0 one-to-one onto CSS pixels:
 `fov = 2 · atan(stageHeight / 2 / D)`.
-- **Default distance:** `D` is derived, not fixed: `D = max(1600, r · h_max / taper + h_max)`, where
-  `r` is the stage half-diagonal and `h_max` is the tallest object height in use. This keeps the
+- **Default distance:** `D` is derived, not fixed: `D = max(camera.distance, r · h_max / taper + h_max)`,
+  where `r` is the stage half-diagonal and `h_max` is the tallest object height in use. This keeps the
   [taper rule](#6-objects) satisfied on any screen size.
-- **Configuring it:** `camera.distance` may be set explicitly, and validation raises it if needed.
+- **Configuring it:** `camera.distance` may be set explicitly, and validation raises it if needed. It defaults to
+  1,600, and to 2,400 when the application's level is `instrument` or `scene`, where the
+  [Instrument camera rule](#instrument-camera) applies. The default follows the level the application sets, not the
+  level the adjust policy has stepped to, so a step never moves the camera.
 
 **Elevation scale.** Each surface sits on one of five levels. The heights at 50% depth:
 
@@ -102,6 +113,102 @@ may be set from 0° to 60°. P0.1 proved exact native hits through perspective u
 - **Invariant, one light per application:** `light.*` is set at the application level only.
   Subtree scopes and components cannot override it.
 
+### Light at the Instrument level
+
+The key light also lights the meshes (a directional light in Lite's PBR), and the [environment](#environment) supplies
+the rest of their light.
+
+- **The fill is diffuse only** in any scene with an environment: a hemispheric fill's specular term faces the viewer
+  and turns metal tops white ([I0.4](instrument-phase0.md#i04-materials-over-the-capture),
+  [I1](instrument-phase0.md#i1-prototype)). The prototype ran it at 0.35† where `light.ambient` is 0.55.
+- **Metals read from the environment.** A metal takes the key light's direct term scaled by its `base.direct`
+  (section 4; 0.2† in the metal presets). With the full term, brushed tops changed brightness with a knob's size and
+  position.
+- **Emitters** (below) add local light. They are not lights in the sense of the tokens above: `light.*` stays the one
+  key light.
+
+### Emitters
+
+An **emitter** is a point light that a lit part carries: a lamp's or LED's lens, a push button's lit ring, a display's
+backlight, and the [pointer light](#the-pointer-light). It stands over the centre of its lens, `emitter.height` above
+the face, and lights:
+
+- **the face** around it, captured text included, within the guard (below);
+- **the outset** past its layer's edge, so a lamp near a panel's edge lights the page, the stage or the panel beneath
+  without a Scene backdrop;
+- **the meshes** of its layer (sides, caps, bezels), with the same position, colour, strength and radius, so the face
+  and the objects agree.
+
+| Token | Lamp | LED | Range | Meaning |
+| --- | --- | --- | --- | --- |
+| `emitter.radius` | 6 | 6 | 1–20 | Reach `R`, in lens diameters; no light beyond it |
+| `emitter.height` | 0.7† | 0.8† | 0.25–2† | Height above the face, in lens diameters |
+| `emitter.strength` | 3,200† | 520† | 0–32,000† | Intensity `I` in the falloff below |
+| `emitter.guardFeather` | 4† | 4† | 0–16† | Width, in px, over which the guard eases off outside a protected rect |
+
+- **Colour by role:** an emitter takes its lens's role colour: `glowOn` for lamps and lit rings, the StatusLight's
+  `colour` role, the `display` role's emissive colour for a backlight. As light, it is that colour's channels in 0–1.
+- **Falloff,** Lite's clustered point-light falloff, so the face pass and the mesh lights agree. At a point with
+  normal `n`, `d` px from the emitter, with `θ` the angle between `n` and the direction to the emitter:
+
+  ```text
+  E = I · colour · cos θ / (π d²) · clamp(1 − (d² / R²)², 0, 1)²
+  ```
+
+  The light at a point is the sum over the emitters that reach it, and the face is lit by `× (1 + E)` per channel
+  ([rendering model 2D.4](rendering-model.md#2d4-emitters-the-face-pool-and-the-guard)).
+- **The face pool is its own pass.** Core's layer blend is straight alpha, so a light term inside a layer's relief
+  shading could brighten only that layer, never what lies beneath its outset. The pool is therefore a pass after the
+  layer's pass, over the layer's box and its outset (48 px†), multiplying what is already drawn
+  ([I0.3](instrument-phase0.md#i03-emitters-and-the-pointer-light)). It is the same pass at the Relief, Objects and
+  Instrument levels.
+- **Protected rects and the guard.** The GPU helper collects the layer's text runs (the client rects of its text) as
+  **protected rects**, at most 64 per layer; a layer with more protects its whole box. Inside a protected rect the
+  light is limited so that the face's whole change (its interior factor, the shadows of parts and emitter light
+  together) stays within `interior.max`; over `emitter.guardFeather` px outside it, the light returns to full strength.
+  Contrast on lit faces (section 8) is measured with the brightest emitter beside the text and the pointer light
+  directly over it.
+- **Budget: 64 emitters per layer,** binned into a 16 × 9 tile mask per layer, so the cost stays flat as emitters are
+  added (at 64, the tiled face pass and the mesh lights together cost less than an untiled face pass alone, I0.3). The
+  helper keeps the 64 nearest the layer by reach and reports every emitter it drops. The stage may hold many more.
+- **Invariant, emitters add light only:** an emitter never moves, replaces or recolours the key light and casts no
+  shadow; the key light's shadows keep their direction, offset, softness and strength (section 7). Shadow-casting
+  emitters are not part of the language; bounced light is a post option (section 16).
+- **Preferences:** `prefers-reduced-motion` stops blinking and pulsing; `prefers-contrast: more` turns emitters off and
+  draws a lit lens as flat unlit colour; under `forced-colors` everything is flat (section 14).
+
+### The pointer light
+
+An application may make the pointer an emitter the visitor carries: a soft pool on the faceplate around the pointer,
+and a highlight that travels across metal, coated and glass parts as it passes. It is **not a second key light**. A key
+light that followed the mouse would swing every shadow with it, change text contrast from frame to frame and leave the
+CSS presentation unable to follow.
+
+| Token | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| `pointerLight.enabled` | `false` | — | Opt-in, per application |
+| `pointerLight.strength` | 16,000† | 0–32,000† | Intensity `I` |
+| `pointerLight.radius` | 360† | 60–1,000† | Reach `R`, px |
+| `pointerLight.height` | 120† | 20–400† | Height above the face, px |
+| `pointerLight.colour` | (255, 255, 255)† | any | Light colour |
+
+- **Fine pointers only:** the light exists only under `(pointer: fine)`. It carries no meaning and changes no state;
+  hover, focus and selection keep their own cues, so touch and keyboard users lose nothing without it.
+- **Preferences:** off under `prefers-contrast: more` and `forced-colors`. Under `prefers-reduced-motion` it stays
+  (nothing in the UI moves) but has no fade.
+- **Fade:** it fades out over `motion.fast` when the pointer leaves the stage, and in when it returns.
+- **How it moves:** the GPU helper converts the pointer to stage px once per frame and writes the emitter into every
+  layer within reach. Each layer's pass lights only that layer's own content, so where layers overlap the light is
+  applied once. A move is a uniform update: no capture, no upload and no change to hit geometry (I0.3, at every level).
+- **Levels:** at the Instrument level it also lights the meshes as a clustered light. At the Relief and Objects levels
+  it lights the face through the face pool only, with no highlight on bevels, sides or domes yet (that needs a
+  point-light specular term in the relief shading, [findings](instrument-phase0.md#findings-for-later-phases)). In CSS
+  it is a `radial-gradient` overlay placed from two custom properties, its strength capped so no text under it changes
+  beyond `interior.max`.
+- **Gaps between panels:** it lights what a layer covers. At the Scene level the backdrop is a layer, so the light
+  crosses gaps without a seam; without one the gaps stay unlit (the probe lit a full-stage layer).
+- **The guard** applies to it as to any emitter.
+
 ## 4. Materials
 
 Materials are **open**. A material is a named recipe of layers. Strata ships presets, an
@@ -111,26 +218,46 @@ hard-code material values.
 
 ### Material layers
 
-| Layer | Parameters (range) | Objects (Babylon Lite PBR) | Relief (material pass) | CSS |
-| --- | --- | --- | --- | --- |
-| `base` | colour role; `roughness` 0–1; `metallic` 0–1 | Base colour, roughness, metallic | Bevel lighting plus a specular lobe whose width follows roughness | Face colour; low roughness adds a highlight gradient |
-| `coat` | `strength` 0–1; `roughness` 0–1; `ior` 1.3–1.8 | Clear coat (`setPbrClearCoat`), reflecting the environment on edges and sides, plus the [finish zones](#finish-zones) on key tops | A sharp highlight and a Fresnel rim on the bevels, plus the finish zones | An inset top highlight, an edge rim and the finish zones as a gradient |
-| `sheen` | `colour`; `strength` 0–1; `roughness` 0–1 | Sheen (`setPbrSheen`) | A soft brightening at grazing bevel angles | A soft inner glow |
-| `iridescence` | `strength` 0–1; `thickness` 100–1200 nm | Iridescence (`setPbrIridescence`) | A subtle hue shift on the bevels | Not rendered (the other layers still are) |
-| `transmission` | `strength` 0–1; `ior` 1–2.4; `tint` colour role; `frost` 0–1 | Transmission and refraction (`setPbrTransmission`) | A frosted tint over the panel; refraction of decorative backdrops through the Underglass effect path | `backdrop-filter: blur()` plus tint |
-| `emissive` | `colour` role; `strength` 0–4 | Emissive colour | An additive glow, not lit | A solid colour and a glow shadow |
+| Layer | Parameters (range) | Instrument (Babylon Lite PBR) | Objects | Relief (material pass) | CSS |
+| --- | --- | --- | --- | --- | --- |
+| `base` | colour role; `roughness` 0–1; `metallic` 0–1; `direct` 0–1 (Instrument only, default 1) | Base colour, roughness, metallic; a metal's colour is its base colour (see `reflectance`); `direct` scales the key light's direct term | Base colour, roughness, metallic | Bevel lighting plus a specular lobe whose width follows roughness | Face colour; low roughness adds a highlight gradient |
+| `coat` | `strength` 0–1; `roughness` 0–1; `ior` 1.3–1.8 | Clear coat (`setPbrClearCoat`), plus the finish zones on captured caps | Clear coat (`setPbrClearCoat`), reflecting the environment on edges and sides, plus the [finish zones](#finish-zones) on key tops | A sharp highlight and a Fresnel rim on the bevels, plus the finish zones | An inset top highlight, an edge rim and the finish zones as a gradient |
+| `sheen` | `colour`; `strength` 0–1; `roughness` 0–1 | Sheen (`setPbrSheen`) | Sheen (`setPbrSheen`) | A soft brightening at grazing bevel angles | A soft inner glow |
+| `iridescence` | `strength` 0–1; `thickness` 100–1200 nm | Iridescence (`setPbrIridescence`); barely visible on flat glass (I0.4) | Iridescence (`setPbrIridescence`) | A subtle hue shift on the bevels | Not rendered (the other layers still are) |
+| `transmission` | `strength` 0–1; `ior` 1–2.4; `tint` colour role; `frost` 0–1 | The capture refraction of [glass](#glass); never Lite's transmission, which a layer scene cannot use | Not rendered (reserved in the [rendering model](rendering-model.md#5-scope-and-versions)) | A frosted tint over the panel; refraction of decorative backdrops through the Underglass effect path | `backdrop-filter: blur()` plus tint |
+| `emissive` | `colour` role; `strength` 0–4 | Emissive colour; a lit lens is also an [emitter](#emitters) and feeds the bloom (section 16) | Emissive colour | An additive glow, not lit | A solid colour and a glow shadow |
+| `brush` | `strength` 0–1; `direction` radial, linear or circular | Anisotropy (`setPbrAnisotropy`) with a tangent from the part's UVs (circular around a revolved part, linear along a plate), **always with a `grain` hairline map**: anisotropy alone barely reads (I0.4) | A directional highlight streak on the bevel | A directional highlight streak on the bevel | A `repeating-conic-gradient` or linear hairline pattern |
+| `grain` | `kind` hairline, knurl, fluted or sandblast; `strength` 0–1; `scale` px | A normal map generated in code on the part it is assigned to | Not rendered | Not rendered | Not rendered |
+| `reflectance` | `f0` 0–1; `tint` colour role | Specular reflectance of **dielectrics** (lacquer, glass, coats) (`setPbrMetallicReflectance`). It does nothing on a metal (I0.4): gold, brass and copper are metals with that base colour | The specular lobe's colour | The specular lobe's colour | The highlight gradient's colour |
+| `dispersion` | `strength` 0–1 | One index of refraction per colour channel inside the [glass](#glass) refraction: a prism fringe at the edges of thick caps and lenses | Not rendered | Not rendered | Not rendered |
+| `subsurface` | `strength` 0–1; `tint` colour role; `thickness` px | Subsurface scattering (`setPbrSubsurface`) on opaque parts: silicone pads, frosted lens covers, `playful`'s soft caps. Not yet probed | A softened bevel light | A softened bevel light | A softer inner glow |
+
+The Objects column names the PBR feature each layer corresponds to. The analytic Objects shading of
+[rendering model part 2B](rendering-model.md#2b-objects-version-2) draws `base`, `coat` and `emissive`, and reserves the
+others.
 
 ### Presets
 
-| Preset | Recipe | Feel |
-| --- | --- | --- |
-| `matte` (default) | base roughness from depth (0.8 → 0.45 → 0.3), metallic 0 | Plain painted surface |
-| `satin` | base roughness 0.4; coat 0.3 at roughness 0.35 | Soft sheen |
-| `gloss` | base roughness 0.25; coat 0.6 at roughness 0.12 | Shiny plastic |
-| `lacquer` | base roughness 0.45; coat 1.0 at roughness 0.04, ior 1.5 | Glass-coated: a clear, glossy top layer |
-| `glass` | transmission 0.9, ior 1.5, frost 0.3, tint from the role; base roughness 0.05 | Translucent glass |
-| `metal` | metallic 1, roughness 0.3 | Brushed metal |
-| `emissive` | emissive from the role colour, strength 1 | Light source: indicators, active tracks |
+| Preset | Recipe | Instrument | Feel |
+| --- | --- | --- | --- |
+| `matte` (default) | base roughness from depth (0.8 → 0.45 → 0.3), metallic 0 | The recipe, in the role's colour | Plain painted surface |
+| `satin` | base roughness 0.4; coat 0.3 at roughness 0.35 | The recipe | Soft sheen |
+| `gloss` | base roughness 0.25; coat 0.6 at roughness 0.12 | The recipe | Shiny plastic |
+| `lacquer` | base roughness 0.45; coat 1.0 at roughness 0.04, ior 1.5 | Black lacquer: base (29, 29, 31)†, roughness 0.5†; coat 1 at roughness 0.03†, ior 1.5 | Glass-coated: a clear, glossy top layer |
+| `glass` | transmission 0.9, ior 1.5, frost 0.3, tint from the role; base roughness 0.05 | [Glass](#glass): ior 1.5; `dispersion` 0.5† (a spread of 0.05); reflection roughness 0.02†; rim tint (209, 230, 224) at 0.9† | Translucent glass |
+| `metal` | metallic 1, roughness 0.3 | Brushed aluminium: base (239, 240, 241)†, roughness 0.3; `brush` 0.9† with a hairline `grain` of 0.15†; `direct` 0.2† | Brushed metal |
+| `polished` | metallic 1, roughness 0.08† | Polished aluminium: base (244, 245, 247)†; `direct` 0.2† | Spun, bright aluminium |
+| `gunmetal` | metallic 1, roughness 0.36† | Base (104, 107, 114)†; `brush` 0.6†; `direct` 0.2† | Dark brushed metal |
+| `gold` | metallic 1, roughness 0.18† | Base (255, 219, 147)†; `direct` 0.2† | Gold, by its base colour |
+| `chrome` | metallic 1, roughness 0.04 | Base (250, 250, 252)†; `direct` 0.2† | Mirror |
+| `emissive` | emissive from the role colour, strength 1 | Emissive; an emitter when the part is a lens | Light source: indicators, active tracks |
+
+- **Instrument colours:** meshes have no captured content, so Instrument presets carry a base colour (sRGB, converted
+  from the probe's linear factors). Below Instrument, the recipe column applies and colour comes from the capture or
+  the role, as before.
+- **Where the values come from:** [I0.4](instrument-phase0.md#i04-materials-over-the-capture) for `lacquer`, `glass`,
+  `metal`, `gold` and `chrome`, the [I1 prototype](instrument-phase0.md#i1-prototype) for `polished` and `gunmetal`.
+  The two iterations differ (the spec notes list both); the second iteration settles them.
 
 ### Defining and assigning materials
 
@@ -159,6 +286,20 @@ hard-code material values.
   | `trackOn` | `emissive` |
   | `indicator` | `emissive` |
   | `overlay` | `matte` (`glass` is a common choice) |
+  | `knobCap` | `metal`†, with its chamfer `polished`† |
+  | `knobSkirt` | `polished`† |
+  | `faderCap` | `metal`† |
+  | `lever` | `metal`† |
+  | `rockerPlate` | `metal`† |
+  | `plate` (wall plates and bezels) | `metal` on light themes, `gunmetal` on dark themes† |
+  | `lens` | `glass` |
+  | `needle` | Set with the Meter and Gauge components (Phase I4) |
+  | `display` (a display's window) | `glass` |
+  | `glowOn` | `emissive`, colour (255, 146, 40)† |
+  | `glowOff` | `glass` |
+
+  The roles from `knobCap` on are the Instrument roles; their defaults are the `premium` character's
+  ([section 19](#19-characters)). Below Instrument they take the Objects or Relief projection of their material.
 
 - **Custom shading.** For looks the layers cannot express, a material may carry custom code:
   - **Relief:** a trusted WGSL colour function, with the same contract as Underglass's
@@ -197,6 +338,58 @@ Reflections (metal, gloss, coat, glass) need an environment.
 | `environment.source` | `studio` | `studio` (a neutral studio generated in code, no asset: mostly dark, with a key softbox matching the key light, a fill opposite it and a strip overhead), `none`, or the URL of an `.hdr` or `.env` file |
 | `environment.intensity` | 1 | 0–3 |
 
+**At the Instrument level an environment is required** for metal, coat and glass: an Instrument layer always has one,
+and `environment.source: "none"` is rejected there (reported, and the studio used). It has two parts.
+
+- **The studio, generated in code** as an HDR image (no asset), loaded once per engine and turned about the screen's
+  vertical (`setEnvironmentRotation`) so that its softbox lies in the key light's direction (I0.4 read it back
+  0.40° off). Reflections then agree with the one light. Its radiance is defined exactly in
+  [rendering model 2D.5](rendering-model.md#2d5-materials-and-the-environment):
+
+  | Token | Default | Range | Meaning |
+  | --- | --- | --- | --- |
+  | `studio.key` | 12† | 0–40† | The key softbox, centred on the key light's direction |
+  | `studio.keyRadius` | 0.24 rad† | 0.05–0.6† | The softbox's angular radius; its edge softens over 0.1 rad |
+  | `studio.fill` | 1.2† | 0–10† | A broad fill opposite the key, below the horizon |
+  | `studio.front` | 0.12† | 0–2† | A dim panel behind the viewer, so face-on metal reads as metal, not black |
+  | `studio.strip` | 2.5† | 0–10† | A ring of light 12–20° above the horizon: the band that crowned caps and chrome catch |
+  | `studio.floor` | 0.03† | 0–1† | The room below the horizon |
+  | `studio.ceiling` | 0.25† | 0–2† | The room above it |
+
+  `environment.intensity` scales all of it (the prototype's "Reflections" control).
+- **The page, reflected.** Each layer has one local environment cube, filled on the GPU from the layer's own capture,
+  so a knob's skirt shows the faceplate print and its neighbours. It is 512² with 10 blur mips
+  (`environment.pageSize`, 128–1,024), seen from 300 px in front of the face, with box-projection walls 50,000 px away
+  so that the studio stays at infinity: a direction that meets the face plane inside the layer sees the capture there,
+  any other sees the studio. **It is refreshed only when the layer is captured** (and when the capture texture is
+  replaced), never per frame, so poses and motion cost it nothing. Lite's probe set
+  (`createPbrLocalEnvironmentProbeSet`) cannot serve: it copies its cubes once.
+
+### Glass
+
+At the Instrument level glass is a **refraction of the layer's capture** in Strata's own shader, not Lite's
+transmission. Inside a layer scene Lite's transmission redirects the render, fails WebGPU validation and sends core to
+DOM, and its fixed 1024² grab would blur text ([I0.4](instrument-phase0.md#i04-materials-over-the-capture)). Glass must
+read as glass:
+
+- **Refraction and magnification:** each pixel reads the capture through the glass. Where the surface is parallel to
+  the face the shift is exactly zero and the pixel is the capture texel; on bevels, domes and lenses the view ray
+  refracts by Snell's law down to the face, so a lens visibly magnifies the print under it.
+- **Dispersion:** one index of refraction per colour channel (`ior − s`, `ior`, `ior + s`, with the spread
+  `s = 0.1 · dispersion.strength`), so thick edges show a thin prism fringe.
+- **Reflection, in the same shader:** the environment (studio and page) in the reflected direction, weighted by Fresnel
+  (Schlick, with `F0` from the `ior`: 0.04 at 1.5), with the refracted light weighted by `1 − F`. The first probe drew
+  the reflection as a separate PBR shell over the refraction, which added almost nothing on flat glass; it belongs in
+  the refraction shader.
+- **Rim:** where the glass tilts towards its bezel it takes its tint and the full Fresnel, so a pane has a visible
+  edge.
+- **Lenses and glass caps** carry no text and take the full Fresnel everywhere.
+- **Display windows, the finish-zone rule:** the flat region of a display window that carries text stays
+  **texel-exact**: no shift, no reflection, no tint. A window's reflection is measured against the flat pane (`F` less
+  its head-on value, so 0 face-on), and a reflection band may be drawn only in the window's
+  [finish zones](#finish-zones) and on its rim. A display whose text can reach a zone turns that zone off, as key tops
+  do. Display text contrast is measured through the glass (section 8).
+
 ### Guardrails
 
 - **Contrast holds.** Highlights, coats and custom shading reach full strength on bevels, edges,
@@ -205,9 +398,13 @@ Reflections (metal, gloss, coat, glass) need an environment.
   invariant (section 8) holds. The change is one factor for the face and its text alike
   ([rendering model 2.9](rendering-model.md#29-the-contrast-guard)). The [finish zones](#finish-zones) are the only exception, and only
   where text stays clear of them.
-- **Colour only.** A material may change colour; it never moves pixels or hit areas.
+- **Colour only.** A material may change colour; it never moves pixels or hit areas. The glass refraction moves
+  where the capture is read, never where a part is drawn or hit, and never under text.
+- **New layers project down or not at all.** A layer renders at Objects, Relief and CSS exactly as the layers table
+  says, or is not rendered there. No presentation substitutes a different look for a layer it cannot draw.
 - **Preferences:**
-  - `prefers-reduced-transparency`: `glass` becomes `matte`, and transmission is off.
+  - `prefers-reduced-transparency`: `glass` becomes `matte`, and transmission is off; at the Instrument level a lens
+    is then an opaque dome in its role colour, and a display window shows the plain capture.
   - `prefers-contrast: more`: coat, sheen and iridescence are off.
   - `forced-colors`: everything is flat.
 
@@ -274,6 +471,146 @@ remains for parts that are not screen-locked.
 | Card, panel | Raised slab | None (a panel may move through depth) |
 | Link, badge, divider | None: flat text, a flat pill, a groove | None |
 
+### Instrument objects
+
+At the Instrument level each control's object is built from **parts**: meshes generated in code from tokens (revolved
+profiles for caps, skirts, lenses and needles; extruded shapes for levers, slots and plates; holes cut by CSG), cached
+per parameter set and instanced. The footprint rule holds unchanged. Every part has a name from this vocabulary, which
+anatomy pages, tokens, diagnostics and custom parts share:
+
+| Part | What it is | Moves | Captured content |
+| --- | --- | --- | --- |
+| `cap` | The top a finger touches: a knob's cap, a push button's cap | Turns (knob) or travels (push button) | On push-button caps only |
+| `skirt` | The flange at a knob's base, wider than its cap | Turns with the cap | None |
+| `collar` | A fixed ring between a knob and the faceplate | No | None |
+| `chamfer` | The polished bevel ring at a cap's top edge | With its cap | None |
+| `pointer` | The engraved line or notch that shows a knob's value | With its cap | None |
+| `carriage` | The block that rides a slot: a fader's cap, a slide switch's block | Slides | None |
+| `slot` | The opening a carriage rides in, printed or cut | No | None |
+| `grip` | The index line or ridges on a carriage | With its carriage | None |
+| `lever` | A bat switch's arm | Tilts about its pivot | None |
+| `pivot` | The axis a lever, paddle or needle moves about; a pin where it shows | No | None |
+| `ball` | The ball at a lever's end | With its lever | None |
+| `nut` | The nut that holds a bushing to the plate | No | None |
+| `bushing` | The threaded sleeve a lever stands in | No | None |
+| `plate` | A wall plate; a machined card or panel | No | None (the face under it is the page) |
+| `paddle` | A rocker's two-facet plate; a wall switch's paddle | Tilts about its pivot | None |
+| `bezel` | The ring around a lens, a display window or a push button | No | None |
+| `lens` | The glass over a lamp or LED, or a push button's lit ring: an emitter's part | No | None |
+| `window` | The flat glass over a display or a meter | No | None: the text is the face under it, read through the glass |
+| `needle` | A meter's or gauge's pointer | Turns about its pivot | None |
+| `dial` | The printed scale under a gauge's window | No | It is the captured face |
+| `segment` | One LED segment of a bar meter, lit or dark | Shown or collapsed | None |
+| `plinth` | The block a group of caps stands on (a keypad, a preset bank) | No | None |
+
+- **Heights scale with depth,** as section 2's elevations do: 0.6, 1 and 1.6 times the 50% value at 0, 50 and 100%.
+  Widths, diameters, travel and angles do not.
+- **Poses.** A moving part has a pose: `travel` (along the face normal), `slide` (in the face plane), `turn` (about the
+  face normal) and `tilt` (about an axis in the face plane), about the part's `pivot`. Native state sets one position
+  `t` from 0 to 1 along the travel, from one stop to the other, and each moving part of the object takes the pose
+  `mix(from, to, t)` ([rendering model 2D.2](rendering-model.md#2d2-parts-profiles-and-poses)).
+
+### Poses and containment
+
+- **Containment over the whole travel.** Every drawn pixel of every pose a part can take, a spring's in-between poses
+  included, lies inside `bounds`, the control's border box. The stops alone are not enough: a bat's ball comes closest
+  to its box at mid-travel, and faceted revolved parts bind at in-between angles (a knob's cap at `t` = 0.125, its
+  pointer at `t` = 0.75) ([I0.2](instrument-phase0.md#i02-moving-parts-and-hits)). Containment is checked on decoded
+  GPU pixels at the stops and mid-travel, and by projecting every vertex through the travel
+  ([rendering model 2D.9](rendering-model.md#2d9-geometric-guarantees)).
+- **Poses never pass a stop.** `t` stays within 0–1, so the travel bounds every pose (section 12).
+- **The box rule.** A control's box is its moving parts' orthographic footprint over the whole travel, plus a margin of
+  `ceil(drift(h_max) + 1)` on every side, with `h_max` the tallest point of the moving parts and `drift` taken at the
+  reference stage (1920 × 1080, `D` = 2,400). A form may ask for a bigger box, never a smaller one. Static parts are
+  sized from the box and follow the taper rule.
+- **Hits never move.** The box is the hit area at every pose. A pose is a uniform update: no capture and no change to
+  hit geometry. Click-to-set scales are printed on the face (height 0), because a click aimed at a tall drawn part lands
+  off it by its drift, up to about 4 px at the stage's corners.
+- **Breaking the rule:** an object that would draw outside its box is drawn as its Relief primitive, in its place in
+  the list, and a diagnostic names it. A layer has one renderer (section 16), so it is never drawn as an Objects object
+  inside an Instrument layer.
+
+### Instrument camera
+
+`D = max(2400, max over parts of r · h / inset + h)`, where `r` is the stage half-diagonal and `h` and `inset` belong to
+each part's **binding vertex**: over the whole travel, the vertex whose orthographic position comes closest to the box
+edge, `h` its height and `inset` its distance inside the box, less 0.5 px. At 1920 × 1080 it gives 2,400, the floor
+([I0.1](instrument-phase0.md#i01-mesh-pass)); a larger stage raises `D` instead of shrinking a part. Section 2's
+`camera.distance` defaults to this floor at the Instrument and Scene levels.
+
+### Captured caps and the no-shear rule
+
+- **Only parts that stay parallel to the face carry captured content:** push-button and key caps, and the face under
+  a display window. Such a cap reads the layer's capture at its own pixel (the texel at the pixel's position less the
+  layer's origin), so its label maps one texel to one pixel at every point of its travel, with no resampling. Its text
+  runs lie inside its projected top at every pose.
+- **Turning, tilting and sliding parts never carry captured content.** A knob's cap carries a pointer; its scale and
+  label are printed on the faceplate (principle 2).
+- **No shear.** A part's placement is rigid: rotation and translation only. The screen-locking of solids above is
+  never built into a sheared world matrix, because Lite derives normals from its upper 3 × 3, so a shear tilts them
+  ([I0.1](instrument-phase0.md#i01-mesh-pass)). Captured caps get their exactness from the capture read; every other
+  part follows the taper rule.
+- **Captured caps are drawn after the post chain** (section 16), so no filter touches their text.
+
+### Custom parts
+
+An application may replace one named part with its own glTF: `parts: { knobCap: url }`. The GPU helper loads it and
+hands core mesh data; core never fetches at render time.
+
+- **Anchors.** A custom part declares five anchors in its own units: `base` (the point that stands on the face or on
+  the part below), `pivot` (the point it turns or tilts about), `cap` (the height of its top), `pointer` (the direction
+  of value 0 on a turning part) and `travel` (the axis it slides or travels along). The helper fits it by one uniform
+  scale and a rigid placement that bring its anchors onto the built-in part's.
+- **The `bounds` check.** The fitted part is checked as a built-in one is, over the whole travel. A part that fails is
+  not drawn: the built-in part stands in, and a diagnostic names it.
+- **Limits:** a custom part carries no captured content, counts as one part kind in the budgets and takes its material
+  from its role, so themes and characters still apply.
+
+### Part budgets
+
+| Budget | Value | Counted in |
+| --- | --- | --- |
+| Parts per layer | 2,048 | Instances |
+| Parts per stage | 6,000 | Instances |
+| Part kinds per layer | About 16 | Draw calls: a kind is one mesh and material, instanced |
+| Objects per layer | 256† | As relief primitives |
+
+- **Measured on one fast GPU** (an RTX 3080, [I0.1](instrument-phase0.md#i01-mesh-pass)). A low-end GPU is still to be
+  measured, and may lower them. A layer over budget is drawn at the Objects level and reported.
+- **Lit and dark are two kinds:** Lite's PBR ignores per-instance colour, so a meter's lit and dark segments are two
+  kinds, each shown or collapsed.
+- **Live values are poses.** A meter driven at frame rate moves its segments or needle as a pose; writing
+  `<meter value>` each frame would recapture its layer each frame. Its DOM value is synced at a low rate for assistive
+  technology.
+
+### Instrument object table
+
+The `premium` character's objects. Heights are at 50% depth; numbers come from the
+[I1 prototype](instrument-phase0.md#i1-prototype) and are all provisional; components not yet prototyped get theirs
+in their phase. Components not listed here keep their Objects object, drawn as meshes of the same shapes.
+
+| Control (form) | Static parts | Moving part | Motion | Box and parts (premium, 50% depth) |
+| --- | --- | --- | --- | --- |
+| Knob | `collar`; the scale, printed on the face | `skirt`, `cap`, `chamfer` and `pointer`, as one | Turn through `knob.sweep`, 270° | Dial box = skirt + 76 (140)†. Skirt Ø64, 2.5 high, 0.8 edge break†. Cap Ø 0.8 × skirt (51), 16 high†. Chamfer 1.4†, polished. Pointer 2 wide, from 0.3 to 0.8 of the cap radius†. Ticks at r + 5, numerals at r + 20† |
+| Knob, detented | As Knob | As Knob | Turn in `detents` steps, 11† | 0.8 × the knob's size† |
+| Fader | `slot`, printed (5 wide†); the scale | `carriage` with its `grip` (an index line) | Slide along `fader.travel`, 180† | Box 46 wide† and the travel plus the carriage long. Carriage 30 × 42, 12 high, taper 2.5, radius 3† |
+| Switch `slide` | `slot` | `carriage` (a block), with an accent flag when on | Slide 28† | Box 64 × 28†. Block 24 × 20, 6 high, taper 1.5† |
+| Switch `rocker` | `bezel`, 2 high† | `paddle`: a two-facet plate (facets 10 / 5†) on a `pivot` | Tilt ±11.3°† | Box 38 × 62†. Paddle 28 × 50† |
+| Switch `bat` | `nut` Ø22, 3 high†; `bushing` Ø13, 7 high† | `lever` with its `ball`, on a `pivot` | Tilt ±30°† | Box 44 × 68†. Lever 28†, pivot 5† up, ball r 3.6† |
+| Switch `wall` | `plate`, 3 high, radius 6† | `paddle` | Tilt ±6°† | Box 66 × 92†. Paddle 30 × 54, 6 high† |
+| PushButton `momentary` | `bezel` (r 27 → 22.6†); the lit ring, a `lens` (r 22.6 → 20.6†) | `cap`, carrying its captured label | Travel 2.5†, while held | Box 56†. Cap Ø40, 6 high, taper 1.2† |
+| PushButton `latching` | As momentary, with an LED | `cap` | Travel 2.5† held, 1.2† latched | As momentary |
+| Lamp | `bezel`; `lens`, an emitter | None | The emitter turns on | Lens 28† ([I0.3](instrument-phase0.md#i03-emitters-and-the-pointer-light)); the box leaves room for the bloom halo |
+| StatusLight | `lens`, an emitter | None | `blink`, at most 3 flashes a second | Lens 10† (I0.3) |
+| Meter `bar` | `window`; `segment`s | Segments, shown or collapsed | — | 16 `segments`† (I0.1) |
+| Meter `needle`, Gauge | `bezel`, `window`, `dial` | `needle` on a `pivot` | Turn through the gauge's sweep, with a damped spring | Phase I4 |
+| RotarySelector | `collar`; the ring of positions, printed | As Knob | Turn to the selected option, one detent per option | As Knob |
+| Display | `bezel`, `window` | None | The backlight, an emitter | The bezel stands 0.5 px inside the box ([I0.4](instrument-phase0.md#i04-materials-over-the-capture)); the rest in Phase I4 |
+| Pad | `plinth` | `cap`: soft (`subsurface`), lit from below | Travel | Phase I5 |
+| JogWheel | `collar` | A large `cap` with a finger dimple | Turn, wrapping | Phase I5 |
+| Keypad | `plinth` | Push-button `cap`s | Travel | Phase I5 |
+| PatchPoint | `plate` (a washer), `bushing` (the jack), `nut` | None; a cable end is shown when connected | — | Phase I5 |
+
 ## 7. Elevation and shadow
 
 A surface's shadow follows from the light and its height. No component chooses its own shadow.
@@ -289,8 +626,39 @@ A surface's shadow follows from the light and its height. No component chooses i
   receive hits.
 - **Analytic, everywhere.** Every caster in the language is a rounded footprint or a circle, so every
   presentation draws shadows from this one formula: the Relief pass, a shader quad per caster at the Objects
-  level, and `box-shadow` in CSS. Shadow maps are reserved for free-form meshes at the Scene level; at the
-  Objects level their resolution, depth bias and fitted bounds cut and detach the shadow of a thin panel.
+  level, and `box-shadow` in CSS. Shadows on a face are always analytic. A shadow map is used only where one part
+  falls on another at the Instrument level (below); at the Objects level a map's resolution, depth bias and fitted
+  bounds cut and detach the shadow of a thin panel.
+
+### Shadows at the Instrument level
+
+Two kinds of shadow, each where it is exact ([I0.5](instrument-phase0.md#i05-object-on-object-shadow)):
+
+- **On the face: analytic,** the formula above on each part's footprint at its current pose. A part casts the rounded
+  box of its footprint at its mean height (a lever along its length); a ball casts a disc at its centre's height.
+  Overlapping part shadows take the darkest. A moving part's shadow moves with it, as a uniform update.
+- **On other parts: a shadow map** from the key light, one per layer, in which every part casts and receives (a lever
+  on its plate, a carriage in its slot, a cap on its plinth). The face is not a mesh, so the map never reaches it: face
+  pixels outside the analytic footprints do not change.
+
+| Token | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| `shadow.map.size` | 4,096 | 2,048 or 4,096 | Map resolution, filtered by PCF. 2,048 is the cheaper choice, at a bias of 2.6 px |
+| `shadow.map.bias` | 1.95 px | See below | Depth bias, in world px |
+| `shadow.map.darkness` | 0.1† | 0–1 | The share of the key light's direct term a mapped shadow leaves |
+
+- **Bias in world px,** below the depth along the light of the thinnest part (a 2 px plate is 3.05 px deep along a ray
+  at 41°) and above about 1 px at 4,096 (1.95 px at 2,048). Outside that window a thin plate's shadow acnes or detaches.
+  The window is narrow, so the light's depth range is **fitted to the stage**, and each part kind publishes the union
+  of its placements for the fit.
+- **Re-rendered on pose change only:** a still page does not render the map again.
+- **Not used:** cascaded maps (several times the cost, and they split or acne a thin plate's shadow) and exponential
+  maps (no usable shadow over a stage-wide depth range).
+- **Contact shadows are optional,** off by default (`post.contact`, section 16): the costliest path, barely visible
+  head-on, and mostly a copy of the map at cap bases.
+- **Emitters cast no shadows** (section 3).
+- **Open for the second iteration:** a mapped shadow reads lighter than the face shadow beside it (hence the darkness
+  range of 0–0.15†), and a sharp mapped streak meets the softer face shadow at a plate's edge.
 
 ## 8. Colour
 
@@ -346,7 +714,8 @@ themes beyond light and dark.
 - **Invariant, contrast on lit faces:** text against its face is at least 4.5:1, and large text and
   non-text indicators at least 3:1. This is measured on the **lit** face at the largest interior
   brightening and darkening (`interior.max`, 4%), not only at rest. Disabled controls are exempt,
-  as in WCAG 1.4.3.
+  as in WCAG 1.4.3. At the Instrument level the lit face includes emitter light at its worst (the brightest emitter
+  beside the text, the pointer light over it), and display text is measured through its glass.
 
 ## 9. Typography
 
@@ -357,7 +726,8 @@ their text with them.
   greyscale anti-aliasing. The CSS presentation uses the platform's (often LCD subpixel on Windows), which looks
   slightly sharper. This is a browser capture property, not a Strata setting.
 - **One texel per pixel:** captured text is never resampled at rest: panels map 1:1, and raised tops are
-  screen-locked (section 6).
+  screen-locked (section 6). At the Instrument level it is never filtered either: no stage of the post chain reaches
+  the face or a captured cap (section 16).
 
 | Token | Default | Range |
 | --- | --- | --- |
@@ -383,16 +753,19 @@ Raised parts (keys, knobs) change height on hover and press as below. Wells (fie
 wells, tracks) keep their depth: hover and press change only their interior light, by `state.hoverLift`
 and `state.pressSink`.
 
-| State | Relief | Objects | CSS |
-| --- | --- | --- | --- |
-| Rest | Height `raised` | Key at `keyHeight` | Relief recipe |
-| Hover | Height × 1.6; interior +4% (`state.hoverLift`, clamped by `interior.max`) | Key rises by `keyHeight / 4` | Larger shadow; `brightness(1.04)` |
-| Pressed | Height × 0.25; interior −4% (`state.pressSink` 6%, clamped) | Key travels `keyTravel` | Smaller shadow; `brightness(0.96)` |
-| Focus-visible | Accent edge 0.5–3.5 px outside the shape, anti-aliased | Emissive glow on the object | `outline: 3px solid`, offset 0.5 px |
-| Selected or checked | `emissive` fill on the track or mark (`material.roles.trackOn`, `material.roles.indicator`) | Mark rises, track lights | Accent fill |
-| Disabled | Height 0, no bevel gain, 38% opacity text | Object flattened to the face | Flat; `opacity: 0.38` on content |
-| Invalid | `danger` focus-style edge and message | Same, plus the edge on the bezel | `outline` in `danger` |
-| Busy | `emissive` progress on the face | Same | Same |
+| State | Relief | Objects | Instrument | CSS |
+| --- | --- | --- | --- | --- |
+| Rest | Height `raised` | Key at `keyHeight` | Each moving part at the pose its native value gives | Relief recipe |
+| Hover | Height × 1.6; interior +4% (`state.hoverLift`, clamped by `interior.max`) | Key rises by `keyHeight / 4` | No pose change: hardware does not rise under a finger†; the pointer light, where on, is the cue | Larger shadow; `brightness(1.04)` |
+| Pressed | Height × 0.25; interior −4% (`state.pressSink` 6%, clamped) | Key travels `keyTravel` | A push button's cap travels its travel; other parts move only as their value changes | Smaller shadow; `brightness(0.96)` |
+| Focus-visible | Accent edge 0.5–3.5 px outside the shape, anti-aliased | Emissive glow on the object | The Relief focus edge around the control's box; a lit ring brightens where the object has one | `outline: 3px solid`, offset 0.5 px |
+| Selected or checked | `emissive` fill on the track or mark (`material.roles.trackOn`, `material.roles.indicator`) | Mark rises, track lights | The pose of the state (a lever thrown, a cap latched) and its emitter on | Accent fill |
+| Disabled | Height 0, no bevel gain, 38% opacity text | Object flattened to the face | As Objects, flattened to the face†; emitters off | Flat; `opacity: 0.38` on content |
+| Invalid | `danger` focus-style edge and message | Same, plus the edge on the bezel | As Relief, plus the edge on a display's bezel | `outline` in `danger` |
+| Busy | `emissive` progress on the face | Same | A meter's segments or an LED ring; pulsing stops under reduced motion | Same |
+
+At the Instrument level a state is a pose (section 6), a material value or an emitter. None of them recaptures the
+layer, and none moves the hit area.
 
 ## 12. Motion
 
@@ -414,6 +787,43 @@ and `state.pressSink`.
     centre, with the same tilt and fade, and its relief height travels between `elevation.modal` and its own level.
 - **Invariant, reduced motion:** under `prefers-reduced-motion: reduce`, states change instantly,
   with no travel, tilt, parallax or particles. A theme cannot turn this off.
+
+### Springs, detents and snaps
+
+At the Instrument level a moving part follows a **spring** towards the pose its native state gives. Springs run in
+Strata on the CPU with a fixed step, so a test reproduces a motion exactly. Their poses are uniform updates, sampled
+into core keyframes: motion never recaptures ([I0.1](instrument-phase0.md#i01-mesh-pass),
+[I0.2](instrument-phase0.md#i02-moving-parts-and-hits)).
+
+- **The spring** acts on the position `t` along the travel, per unit mass, in fixed steps of 4 ms:
+  `v += (−stiffness · (t − target) − damping · v) · dt`, then `t += v · dt`. It rests when `|t − target| < 10⁻⁴` and
+  `|v| < 10⁻³`. Its damping ratio is `damping / (2 √stiffness)`: 1 arrives without overshoot, less overshoots.
+- **Stops:** `t` is clamped to 0–1, and the velocity into a stop is dropped there. An underdamped spring therefore
+  overshoots only between the stops (a detent settling), never past one, so containment over the travel (section 6)
+  covers every frame.
+
+| Token | Stiffness | Damping | Damping ratio | Moves |
+| --- | --- | --- | --- | --- |
+| `spring.knob` | 420† | 41† | 1.00 | A continuous knob's cap |
+| `spring.detent` | 900† | 42† | 0.70 | A detented knob or selector settling on its detent |
+| `spring.fader` | 420† | 41† | 1.00 | A fader's carriage |
+| `spring.slide` | 600† | 49† | 1.00 | A slide switch's block |
+| `spring.rocker` | 1,200† | 58† | 0.84 | A rocker's paddle |
+| `spring.bat` | 1,400† | 45† | 0.60 | A bat switch's lever |
+| `spring.wall` | 1,200† | 58† | 0.84 | A wall switch's paddle |
+| `spring.button` | 1,600† | 80† | 1.00 | A push button's cap |
+
+Stiffness ranges over 50–4,000† and damping over 5–200†.
+
+- **Detents:** `detents` on a knob or selector makes it stepped. The native `step` is the source of truth (a detented
+  knob's `step` is its range over `detents − 1`); the value changes only through the native input, and the detent
+  spring then settles the cap on the new position. A RotarySelector has one detent per `<option>`.
+- **Snaps:** levers, rockers and paddles move between their two stops. A click anywhere on the control, or a drag past
+  centre, changes `checked`; the pose then throws to the other stop on its spring. The snap is visual: the native state
+  changes once.
+- **Reduced motion:** every pose is instant (`t` = target, no spring), detents and snaps do not animate, blinking and
+  pulsing stop, and the pointer light has no fade. A character cannot change this.
+- **Flashing:** blink and pulse tempos stay under three flashes a second (WCAG 2.3.1).
 
 ## 13. Layout and density
 
@@ -437,6 +847,8 @@ and `state.pressSink`.
 
 - **Layering:** panels are the GPU layer unit, so pages should use a few large panels, not one
   panel per control (layer budget 32–64; 256 relief primitives per panel, P0.3).
+- **Instrument density:** the level is built for about 250 controls on one screen at 60 fps, within the part
+  budgets of section 6 and the 64 emitters per layer of section 3.
 - **Component size:** independent of density, `data-strata-size` (`small`, `medium` by default, or `large`) on a
   component or a scope sizes its controls:
 
@@ -473,6 +885,56 @@ rules:
   | `forced-colors` | Flat 2D, system colours, no shadows or GPU shading |
   | `prefers-color-scheme` | Picks the light or dark theme, unless the application fixes one |
 
+### Instrument controls
+
+Knobs and faders are native range inputs, so name, role, value and keyboard come from the element. Their interaction
+model was proven with real pointer and keyboard input in plain DOM and on the GPU
+([I0.7](instrument-phase0.md#i07-interaction-and-accessibility)):
+
+| Token | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| `knob.sweep` | 270 | 90–330† | The cap's turn from minimum to maximum, degrees |
+| `knob.dragPx` | 200 | 50–1,000† | Vertical drag for a full sweep, px |
+| `knob.fine` | 0.1 | 0.01–1† | The drag rate while Shift is held |
+| `knob.tapSlop` | 4 | 1–12† | A press that moves less than this, in px, is a tap |
+
+- **One native control covers the dial.** A transparent native input covers the whole dial, cap and scale ring; the
+  drawn ring and cap are `aria-hidden` with `pointer-events: none`, so every click lands on the original control.
+- **Drag:** vertical (the audio-plugin convention) at `knob.dragPx` per sweep, finer with Shift. The knob cancels the
+  native `pointerdown` default, so the browser never sets the value from the pointer's x, and focuses the input itself.
+  A circular drag may be offered as an option.
+- **Ring click-to-set:** a click on the scale ring, outside the skirt, sets the value by angle: 0° at the top,
+  clockwise over `knob.sweep`; a click in the gap below goes to the nearer end. The ring is printed on the face, so the
+  click is not offset by drift.
+- **Cap tap, the single-pointer alternative (WCAG 2.5.7):** a tap on the cap's upper half steps up by `step`, on its
+  lower half down. Taps reach every value a drag can.
+- **Wheel:** one step per notch, through a **document-level**, non-passive wheel listener that finds the control with
+  `elementFromPoint` and cancels scrolling only over a knob or a fader. A listener on the input itself is unreliable
+  inside the canvas subtree.
+- **Double-click** returns to the default value. **Keys** are the native range input's: arrows, Page Up, Page Down,
+  Home, End.
+- **Events:** every change goes through the input's `value`, firing `input`, then `change` at the end of a gesture, so
+  forms behave as with the plain input.
+- **Faders** are native vertical range inputs (`writing-mode: vertical-lr; direction: rtl`, with
+  `aria-orientation="vertical"`). The native thumb is sized to the carriage's travel footprint, so dragging the drawn
+  carriage moves the value. Track click, wheel, double-click and keys behave as on the knob.
+- **Units:** `aria-valuetext` carries units ("−6 dB", with U+2212). Automation cannot hear it (the browser's protocol
+  does not report `aria-valuetext` for a native range, and accessibility snapshots show the number), so **the manual
+  screen-reader pass gains a script per new component** (a knob with units, a detented selector, meter values, a lamp's
+  state), recorded with VAL-002 in [open issues](../open-issues.md) until performed.
+- **Target size (2.5.8):** caps, levers and paddles are at least 24 × 24, and the box covers the whole travel, so the
+  target never moves.
+- **Meaning never rides on light alone (1.4.1):** a lamp's state is also its switch's and its label's, and LED colours
+  pair with text or a shape. Sound and haptics are never the only feedback (section 20).
+- **Forced colours, the CSS recipe:** under `forced-colors: active` Chrome strips every gradient and shadow, which left
+  the prototype's fader, switches and push button invisible ([I0.6](instrument-phase0.md#i06-css-parity)). The
+  Instrument recipe therefore has explicit rules: every object draws a 1 px system-colour border (`CanvasText`;
+  `ButtonText` on buttons) on its box and on its moving part; state shows by position and a `Highlight` fill (a thrown
+  lever, a latched cap, a lit lamp); focus is a system-colour outline. It also has a `prefers-contrast: more` branch.
+- **Forced colours, the GPU:** core's functional admission marker fails under forced colours, so GPU never starts
+  ([#133](https://github.com/RaananW/underglass/issues/133)). The page is then the CSS presentation, which the rules
+  above keep usable, as the preference table asks.
+
 ### Invariants
 
 These are validated in every configuration. Development builds report a broken invariant as an
@@ -485,8 +947,13 @@ error, and strict mode throws.
 | Contrast on lit faces | Reports the failing role and ratio. Derived on-colours are picked automatically. Configured colours are never altered. |
 | Visible focus | Rejects focus width under 2 px or contrast under 3:1. |
 | Target size | Reports controls under 24 by 24 px. |
-| Reduced motion | Cannot be disabled by any token. |
+| Reduced motion | Cannot be disabled by any token or character. |
 | Elevation order | Rejects levels out of order. |
+| Containment over the whole travel | Rejects a form whose box is smaller than the box rule (section 6). At runtime, an object that would draw outside its box is drawn as its Relief primitive and reported. |
+| Emitters add light only | No emitter or pointer-light token reaches `light.*`; emitters cast no shadows. |
+| Captured text is never filtered | The post chain's order, its clip and the place of captured caps are fixed (section 16); only its options are tokens. |
+| An environment at the Instrument level | Rejects `environment.source: "none"` for Instrument layers and uses the studio. |
+| Feedback is opt-in | `feedback.*` is off by default; no character turns it on; sound never starts before a user gesture. |
 
 ## 15. Theming and configuration
 
@@ -497,7 +964,8 @@ configurable**, within its range, unless the invariants table says otherwise.
 
 Configuration comes in layers. Each later layer overrides the earlier ones, token by token:
 
-1. **Defaults:** the values in this document and in `strata.tokens.json`.
+1. **Defaults:** the values in this document and in `strata.tokens.json`, then the character's
+   ([section 19](#19-characters)).
 2. **Theme:** an application theme, built once, for example
    `createStrataTheme({ depth: 0.4, light: { azimuth: 45 }, colour: { accent: "#0f766e" } })`. It
    can be serialised to and from the token JSON.
@@ -516,18 +984,24 @@ Configuration comes in layers. Each later layer overrides the earlier ones, toke
 | Group | Tokens | Scope-overridable |
 | --- | --- | --- |
 | Depth | `depth` (0–1), plus any individual depth token (it overrides the blend) | Yes |
-| Light | `light.azimuth`, `elevation`, `intensity`, `ambient`, `colour` | No (application only) |
+| Light | `light.azimuth`, `elevation`, `intensity`, `ambient`, `colour`; `pointerLight.*` | No (application only) |
+| Emitters | `emitter.*` | Yes |
 | Camera | `camera.distance`, `tilt.max` | Yes (`tilt.max`) |
 | Elevation | `elevation.*` | Yes |
 | Shape | `radius.*`, `bevel.width`, `bevel.profile` | Yes (`bevel.profile`: application only) |
-| Objects | `object.*` | Yes |
-| Materials | Every preset's layers, custom materials, the material for each role, `environment.*` | Yes (`environment.*`: application only) |
+| Objects | `object.*`; at the Instrument level the part tokens of section 6, `knob.*`, `fader.*`, `detents`, `form` and custom `parts` | Yes |
+| Springs | `spring.*` | Yes |
+| Materials | Every preset's layers, custom materials, the material for each role, `environment.*`, `studio.*` | Yes (`environment.*` and `studio.*`: application only) |
+| Shadows | `shadow.strength`, `shadow.map.*` | Yes (`shadow.map.*`: application only) |
+| Post chain | `post.*` | No (application only) |
+| Character | `character` | Yes |
+| Feedback | `feedback.*` | Yes |
 | Colour | Every role in every theme, plus additional themes | Yes |
 | Typography | `font.*` | Yes |
 | Spacing and density | `space.base`, `density` | Yes |
 | Motion | `motion.*` | Yes |
 | Focus | `focus.width`, `focus.offset`, `focus.colour` | Yes |
-| Presentation | `level` (`relief`, `objects`, `scene`), adjust policy | Yes (`level`) |
+| Presentation | `level` (`relief`, `objects`, `instrument`, `scene`), adjust policy | Yes (`level`) |
 | States | `state.hoverHeight`, `pressHeight`, `hoverLift`, `pressSink`, `interior.max` | Yes |
 
 ### How depth blends
@@ -564,7 +1038,19 @@ Each depth token has three anchors, at 0%, 50% and 100% (the A, B and C prototyp
 | --- | --- | --- | --- |
 | `relief` | Yes | Lit faces, bevels, wells, shadows, physical states | CSS relief |
 | `objects` | Opt-in | PBR meshes per section 6, with travel and pose | CSS relief |
-| `scene` | Opt-in | Decorative 3D around the UI: particles, physics, environment light | Nothing (decorative) |
+| `instrument` | Opt-in | Parametric meshes per section 6, with turn, tilt and throw; PBR lit by the studio and the reflected page; glass; emitters; shadows of parts on parts; the post chain; springs and detents; optional sound and haptics | The CSS skeuomorphic recipe |
+| `scene` | Opt-in | Decorative 3D around the UI: particles, physics, environment light, over the Instrument level | Nothing (decorative) |
+
+- **The ladder:** `relief < objects < instrument < scene`. `scene` adds the stage (backdrop, particles, environment
+  light) to the level below it, which is now `instrument`, so an application at `scene` draws its panels at the
+  Instrument level. The adjust policy's ladder stays linear: `scene → instrument → objects → relief`.
+- **Granularity, per layer:** a panel with any component at the Instrument level is drawn with core's `instrument`
+  material, and its components at the Objects level are drawn as meshes of the same shapes. A layer never mixes
+  analytic and mesh objects, so one panel has one renderer.
+- **Without GPU, the CSS skeuomorphic recipe:** conic and radial gradients for caps and lenses, layered `box-shadow`
+  from the shadow formula and CSS 3D transforms for levers and rockers, from the same tokens. It is bound by a parity
+  budget per component over the control's box, far looser than Relief's, because CSS cannot draw reflections,
+  perspective or lit facets ([I0.6](instrument-phase0.md#i06-css-parity)).
 
 - **Setting the level:** per application, per scope or per component. The Scene level's decorative layers belong to
   the stage, so they follow the level of the root (the application's, or a scope around the root). On the GPU (`@underglass/ui/gpu`) each
@@ -578,6 +1064,49 @@ Each depth token has three anchors, at 0%, 50% and 100% (the A, B and C prototyp
     low-end GPU (open: until then, 25 ms over a 60-frame window, 120 frames down and 600 up; open issue VAL-009).
   - **Where it runs:** `@underglass/ui/gpu` measures frame intervals itself and caps every element's level; the
     95th percentile ignores intervals over 250 ms (hidden tabs, stalls).
+  - **The Instrument step:** `instrument → objects` redraws each Instrument layer with the `objects` material, whole
+    layers at a time, and reports it; the camera stays (section 2). At the Instrument level the policy also reads the
+    mesh pass's GPU time (Lite's per-task timings), since frame intervals stay pinned at the display's rate. The
+    Objects forms must stay within a recorded parity budget of the Instrument look, so a panel keeps its character
+    when it steps down; for the switches the prototype's Objects copy is further from Instrument than CSS is
+    ([I0.6](instrument-phase0.md#i06-css-parity)), which the components must close.
+
+### The Instrument post chain
+
+At the Instrument level a layer's meshes draw into an offscreen target of their own, cleared transparent with its own
+depth, and pass through a chain before they meet the captured face
+([I0.8](instrument-phase0.md#i08-post-chain-and-reflections)):
+
+1. **The mesh pass:** the layer's parts, captured caps excepted.
+2. **Options,** off by default, in this order when on: TAA (first, since it jitters the mesh pass), contact shadows,
+   bounced light (SSGI).
+3. **SMAA,** the anti-aliasing.
+4. **Emitter bloom:** bloom of an emitter target into which only the lit lenses are drawn; the composite adds
+   `max(bloom − source, 0)`. A luminance threshold would also bloom specular highlights, because Lite's PBR clamps its
+   output. Lamp boxes leave room for the halo.
+5. **The clipped composite** over the layer's face, premultiplied and **multiplied by the mask of the controls' rounded
+   boxes**. The clip is mandatory: SMAA, TAA and SSGI spill 0.2–2 px past part edges, and bloom further.
+6. **Captured caps** and their LEDs, drawn after the composite.
+
+| Token | Default | Stage |
+| --- | --- | --- |
+| `post.smaa` | `true` | Anti-aliasing |
+| `post.bloom` | `true` | Emitter bloom |
+| `post.taa` | `false` | Temporal anti-aliasing, an option |
+| `post.contact` | `false` | Contact shadows, an option |
+| `post.ssgi` | `false` | Bounced light, an option |
+
+- **Captured text is never filtered.** The face is drawn by the layer's own pass, not in the mesh target, and captured
+  caps come after the chain, so every stage leaves text pixels exactly as they were. The order, the clip and the place
+  of captured caps are not tokens.
+- **The face is not in the mesh depth buffer,** so contact shadows and bounced light act only between parts,
+  consistent with the analytic face shadows of section 7.
+- **The budget rule:** a stage is on by default only if its task costs about 2 ms or less at the 95th percentile at
+  DPR 2, and the look justifies it. **TAA** stays an option until Lite's TAA clamps or reprojects: a plain history
+  blend trails on parts that change state at once, such as meters. **Contact shadows** cost the most and barely show
+  head-on. **SSGI** is a soft bounce, mostly of switch thumbs onto their tracks.
+- **Without a stage:** with every `post` token off, the mesh pass may draw straight into the layer's target after the
+  layer's pass, with the same result.
 
 ## 17. Component anatomy template
 
@@ -587,7 +1116,8 @@ attributes and the seven relief primitives (`raised`, `well`, `groove`, `knob`, 
 
 1. **Purpose and native element:** which element it renders (`<button>`, `<input type=checkbox
    role=switch>` and so on) and the WAI-ARIA pattern it follows.
-2. **Object:** the canonical 3D object, its parts, moving parts and their travel.
+2. **Object:** the canonical 3D object, its parts, moving parts and their travel. At the Instrument level: its
+   parts by the names of section 6, their poses and travel, its box under the box rule, its emitters and its sounds.
 3. **Faces and materials:** each face's role, colour role and material.
 4. **Elevation per state:** rest, hover, pressed, focus, selected, disabled, invalid, busy.
 5. **Relief primitives:** the shapes the material pass lights, as `data-strata-face`
@@ -641,6 +1171,67 @@ packages are thin bindings that render the same markup and wire the same behavio
   Underglass nor Strata has probed it on the installed build. Light-DOM markup with small bindings
   is simpler and more robust.
 
+## 19. Characters
+
+A **character** is a bundle of Instrument tokens that gives the hardware its proportions, finish and feel. The
+mechanics are the same in every character: parts, poses, containment, interaction, light and every invariant.
+
+| Character | Feel | Reference | Status |
+| --- | --- | --- | --- |
+| `premium` | Machined aluminium and glass, understated, soft light, little ornament | Apple, Bang & Olufsen, Leica | **First,** and the default |
+| `studio` | Precise, minimal, industrial: clean geometry, crisp detents, small exact indicators | Braun, Teenage Engineering, modular synths | Phase I5 |
+| `hifi` | Heavy, generous, warm: big machined knobs, glowing dial windows, needle meters, chunky toggles | Marantz, McIntosh, 1970s receivers | Phase I5 |
+| `playful` | Chunky, soft, rounded: big travel, springy motion, friendly shapes | Toys, game controllers, appliances | Phase I5 |
+
+- **Setting it:** `createStrataTheme({ character: "premium" })`, per scope `<StrataScope character="hifi">`, and
+  `data-strata-character` in plain HTML. A character is a validated theme layer on top of the defaults (section 15),
+  so an application's theme still overrides any of its tokens.
+- **What a character may set,** each within its token's range:
+  - the part tokens of section 6: dimensions and profiles (cap shapes, skirt heights, chamfers), tapers, travel and
+    throw angles, detent counts, `knob.sweep`;
+  - the springs (section 12);
+  - each component's default `form` (premium: Switch is `slide`);
+  - material presets and role assignments, per theme (premium: `plate` is `metal` on light themes, `gunmetal` on dark);
+  - emitter strengths and the `glowOn` and `glowOff` colours;
+  - its sound set (section 20), never whether sound is on;
+  - the studio and `environment.intensity`, but only when it is the application's character, since `environment.*` is
+    application only; a scoped character's values for them are reported and not applied.
+- **What a character may not set:** `light.*`; the elevation order; colour roles other than `glowOn` and `glowOff`
+  (themes own colour, so contrast is checked once); focus; target size; the box rule; the guard; the post chain's
+  order and clip; whether feedback is on; reduced motion; any invariant. Values that would break one are reported and
+  not applied, as for any theme.
+
+**Premium.** The first character's defaults, all from the first prototype iteration and so provisional: Switch's form
+is `slide` (a `bat` lever projects about 12 px head-on, so it stays available but small); the theme picks the
+faceplate (`metal` on light, `gunmetal` on dark; an explicit plate overrides it); metals take the key light's direct
+term × 0.2 and read from the studio; the lit ring is a plain emissive; the numbers are those of the
+[Instrument object table](#instrument-object-table), section 12's springs and section 4's presets.
+
+## 20. Feedback
+
+Instrument controls may click, tick and snap, and pulse under a finger. Feedback is **decorative**: nothing depends on
+it.
+
+| Token | Default | Meaning |
+| --- | --- | --- |
+| `feedback.sound` | `false` | Synthesised sound |
+| `feedback.haptics` | `false` | A vibration pulse, where the device has one |
+
+- **Opt-in,** per application or scope (`feedback: { sound, haptics }`), off by default.
+- **Synthesised:** no audio assets. A character's sound set has four sounds: a **click** (a push button's press and
+  release), a **tick** (a detent passed), a **thunk** (a latch) and a **snap** (a lever, rocker or paddle thrown). Each
+  is made from three parameters per character, settled with Phase I3.
+- **The engine:** Lite's audio engine (`createAudioEngineAsync`), each sound placed at its control's position on the
+  stage. It is created only after the visitor's first gesture, as browsers require, and stays silent while the system
+  is muted or the application turns sound off. The behaviour layer of section 18 depends on nothing, so where this
+  lives (a subpath that may load Lite) is settled with Phase I3.
+- **Haptics:** a short pulse through the Vibration API where present, only in answer to the visitor's own input on the
+  control.
+- **Never the only feedback:** every sound and pulse goes with a visible change of pose or state and with the native
+  control's own state, so a visitor with sound off, a muted device or no vibration loses nothing.
+- **Audio in:** a Meter or Gauge may take an audio source (`source`), analysed with Lite's `createAudioVisualizer`. The
+  signal drives the pose, not the DOM value, which is synced at a low rate (section 6).
+
 ## Change log
 
 - 2026-10-15: first draft. Depth at 50%, light from the top left (323°, 41°), light theme with
@@ -674,3 +1265,21 @@ packages are thin bindings that render the same markup and wire the same behavio
 - 2026-10-16: the Relief look is specified engine-neutrally in the [Strata Rendering Model](rendering-model.md).
   Interior changes are one factor for a face and its text (section 4, guardrails), and the token validator checks
   text and face scaled together.
+- 2026-10-17: the Instrument level, from its [plan](instrument.md) and the [Phase I0 report](instrument-phase0.md),
+  specified engine-neutrally in [rendering model part 2D](rendering-model.md#2d-instrument-version-4):
+  - section 3: light at the Instrument level, emitters with protected rects and their budget, and the pointer light;
+  - section 4: the `brush`, `grain`, `reflectance`, `dispersion` and `subsurface` layers, an Instrument column for every
+    layer and preset, the `polished`, `gunmetal`, `gold` and `chrome` presets, the Instrument roles, a required
+    environment (the generated studio and the reflected page) and glass as a refraction of the capture. The Objects
+    column no longer claims transmission, which part 2B does not draw;
+  - section 6: the part vocabulary, poses, containment over the whole travel, the box rule, the camera rule, captured
+    caps and the no-shear rule, custom parts, the part budgets and the Instrument object table;
+  - section 7: the shadow map for parts on parts; faces keep analytic shadows;
+  - sections 11 and 12: Instrument states, and springs, detents and snaps;
+  - section 14: the knob and fader interaction model and forced colours;
+  - sections 15 and 16: the `instrument` level, the ladder, the Instrument step of the adjust policy and the post
+    chain;
+  - sections 19, Characters, and 20, Feedback.
+
+  An application at `scene` now draws its panels at the Instrument level, and its `camera.distance` defaults to 2,400.
+  Values marked † are provisional ([spec notes](instrument-spec-notes.md)).
