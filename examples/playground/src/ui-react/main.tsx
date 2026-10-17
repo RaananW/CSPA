@@ -223,7 +223,7 @@ function App() {
         <Panel title="Status" id="status-panel">
           <Card title="Latency" id="latency-card" footer={<Button id="details">Details</Button>}>p95 is 41 ms.</Card>
           <Divider id="rule" />
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
             <ButtonGroup label="View" orientation="vertical" id="view-group"><Button>List</Button><Button>Grid</Button></ButtonGroup>
             <Divider orientation="vertical" id="vertical-rule" />
             <Badge id="inbox" variant="accent" count={120} />
@@ -276,11 +276,11 @@ function App() {
           <Table id="controlled-table" caption="Controlled" columns={[{ key: "number", header: "Number", sortable: true }, { key: "customer", header: "Customer", sortable: true }, { key: "amount", header: "Amount", numeric: true, sortable: true }]} rows={[{ number: 1003, customer: "Alan Turing", amount: 42 }, { number: 1001, customer: "Ada Lovelace", amount: 120 }, { number: 1002, customer: "Grace Hopper", amount: 87.5 }]} sort={sort} onSortChange={setSort} />
         </section>
         <section className="ug-panel" data-strata-face="raised" aria-label="Navigation">
-          <p style={{ display: "flex", gap: 12, alignItems: "center", margin: 0 }}>
+          <p style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center", margin: 0 }}>
             <Avatar id="avatar-small" name="Ada Lovelace" size="small" /><Avatar id="avatar-medium" name="Plato" /><Avatar id="avatar-large" name="  grace   brewster hopper " size="large" />
             <span><Avatar id="avatar-decorative" name="Alan Turing" decorative size="small" /> Alan Turing</span>
           </p>
-          <p style={{ display: "flex", gap: 8, alignItems: "center", margin: 0 }}>
+          <p style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", margin: 0 }}>
             <Chip id="tag-chip">Design</Chip>
             <Chip id="remote-chip" pressed={chips.remote} onPressedChange={remote => setChips(current => ({ ...current, remote }))}>Remote</Chip>
             <Chip id="locked-chip" defaultPressed={false} disabled>Locked</Chip>
@@ -295,7 +295,7 @@ function App() {
           <div id="loading-region" aria-busy="true" style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <Skeleton id="skeleton-circle" shape="circle" /><Skeleton id="skeleton-lines" lines={2} style={{ flex: 1 }} />
           </div>
-          <p style={{ margin: 0, display: "flex", gap: 12 }}>
+          <p style={{ margin: 0, display: "flex", flexWrap: "wrap", gap: 12 }}>
             <Button id="notify" onClick={() => toast({ message: "Message sent.", intent: "success", duration: 1500,
               action: { label: "Undo", onAction: () => setToasts(current => current + 1) } })}>Notify</Button>
             <Tooltip id="share-tip" content="Shares this page with your team"><Button id="share">Share</Button></Tooltip>
@@ -313,12 +313,12 @@ function App() {
           <form id="range-form" onSubmit={event => event.preventDefault()}>
             <SegmentedControl id="live-segmented" label="Range" name="range" value={range} onChange={setRange} options={[{ value: "day", label: "Day" }, { value: "week", label: "Week" }, { value: "month", label: "Month", disabled: true }, { value: "year", label: "Year" }]} />
           </form>
-          <form id="score-form" onSubmit={event => event.preventDefault()} style={{ display: "flex", gap: 16, alignItems: "end" }}>
+          <form id="score-form" onSubmit={event => event.preventDefault()} style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "end" }}>
             <Rating id="live-rating" label="Quality" name="quality" value={score} onChange={setScore} />
             <RatingDisplay id="live-rating-display" value={score} />
           </form>
           <Stepper id="live-stepper" label="Checkout progress" steps={["Cart", "Shipping", "Payment", "Review"]} current={step} />
-          <p style={{ display: "flex", gap: 12, margin: 0 }}>
+          <p style={{ display: "flex", flexWrap: "wrap", gap: 12, margin: 0 }}>
             <Button id="stepper-back" onClick={() => setStep(current => Math.max(0, current - 1))}>Back</Button>
             <Button id="stepper-next" onClick={() => setStep(current => Math.min(3, current + 1))}>Next</Button>
           </p>

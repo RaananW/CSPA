@@ -524,6 +524,24 @@ for (const binding of bindings) test(`Strata ${binding} Chip is a tag, a filter 
   await page.keyboard.press("Space");
   await expect(remote).toHaveAttribute("aria-pressed", "false");
   expect((await remote.boundingBox()).height).toBeGreaterThanOrEqual(24);
+  // A chip never grows past its container: in a narrow row the long label is cut with an ellipsis.
+  const narrow = await page.locator("#ada-chip").evaluate(chip => {
+    chip.parentElement.style.width = "120px";
+    const label = chip.querySelector(".ug-chip__label"), box = chip.getBoundingClientRect(), row = chip.parentElement.getBoundingClientRect();
+    const result = { inside: box.left >= row.left - 0.5 && box.right <= row.right + 0.5, cut: label.scrollWidth > label.clientWidth, ellipsis: getComputedStyle(label).textOverflow };
+    chip.parentElement.style.width = "";
+    return result;
+  });
+  expect(narrow).toEqual({ inside: true, cut: true, ellipsis: "ellipsis" });
+  // A button is never squeezed below its label: in a row too narrow for it, the row overflows instead.
+  const squeezed = await page.locator("#notify").evaluate(button => {
+    const row = button.parentElement, width = button.getBoundingClientRect().width;
+    row.style.flexWrap = "nowrap"; row.style.width = "120px";
+    const result = { kept: Math.abs(button.getBoundingClientRect().width - width) < 0.5, fits: button.scrollWidth <= button.clientWidth };
+    row.style.flexWrap = row.style.width = "";
+    return result;
+  });
+  expect(squeezed).toEqual({ kept: true, fits: true });
   // A disabled filter chip does nothing.
   await page.locator("#locked-chip").click({ force: true });
   await expect(page.locator("#locked-chip")).toHaveAttribute("aria-pressed", "false");
@@ -592,6 +610,13 @@ for (const binding of bindings) test(`Strata ${binding} Pagination moves between
   await expect(nav).toHaveRole("navigation");
   await expect(nav).toHaveAccessibleName("Pagination");
   expect(await shown()).toBe("< 1 2 3 4 5 … 12 >");
+  // Keys on one line stand 8 px apart, so their shadows do not touch (the row may wrap).
+  const gaps = await nav.locator(".ug-pagination__item").evaluateAll(items => items.slice(1).flatMap((item, at) => {
+    const box = item.getBoundingClientRect(), before = items[at].getBoundingClientRect();
+    return box.top === before.top ? [box.left - before.right] : [];
+  }));
+  expect(gaps.length).toBeGreaterThan(2);
+  for (const gap of gaps) expect(gap).toBeGreaterThanOrEqual(8);
   await expect(nav.getByRole("button", { name: "Page 1", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("button", { name: "Previous page" })).toBeDisabled();
   // A click on a page, and Enter on Next, move through onPageChange (v-model:page).

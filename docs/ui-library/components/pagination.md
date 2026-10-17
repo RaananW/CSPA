@@ -101,9 +101,9 @@ the current page's key is held at its travel (`aria-current`, as `aria-pressed`)
 
 ## 9. CSS presentation
 
-A wrapping flex row with `space.1` gaps. Keys use the `raised` recipe with `secondary` (the current page `accent`),
-centred tabular figures, and `space.2` inline padding. The chevrons are drawn by two borders. Under `forced-colors`
-keys have a `ButtonBorder` border and the current page is `Highlight` with `HighlightText`.
+A wrapping flex row with `space.3` gaps, so the keys' shadows do not touch. Keys use the `raised` recipe with
+`secondary` (the current page `accent`), centred tabular figures, and `space.2` inline padding. The chevrons are drawn
+by two borders. Under `forced-colors` keys have a `ButtonBorder` border and the current page is `Highlight` with `HighlightText`.
 
 ## 10. Tests
 
