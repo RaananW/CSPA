@@ -12,9 +12,12 @@
  *   Skeletons are hidden placeholders that shimmer, and stop under reduced motion; MessageBars announce by intent;
  *   Pagination moves between pages; a Toolbar is one tab stop with the arrow keys between its controls;
  *   an AppBar is the banner with its controls; a Tooltip shows on hover and focus, and Escape hides it;
+ *   a Popover opens below its button in the top layer, takes Tab, and closes on Escape and outside clicks;
  *   toasts appear in the status region and go after their time, which hovering stops;
  *   a SegmentedControl selects with clicks and arrow keys, skips a disabled option and submits its value;
  *   a Rating is set by click and arrow keys, fills up to its score and submits it, and its display is named by it;
+ *   a Stepper marks the current step and the complete ones, follows its state, and stacks when vertical;
+ *   a NavigationRail is a landmark of links whose current page follows its state, and reports navigation;
  * - StrataProvider applies a theme and StrataScope a scope; axe finds no violations in the light and dark themes.
  */
 import { test, expect } from "../helpers/current-browser.mjs";
@@ -160,8 +163,8 @@ for (const binding of bindings) test(`Strata ${binding} Dialog is modal, control
     className: element.className, ref: element === window.strataDialog.panel || element === window.strataBinding.liveDialog,
   }))).toEqual({ parent: true, scrim: "ug-scrim", modal: "true", className: expect.stringContaining("ug-panel ug-dialog"), ref: true });
   await expect(dialog).toHaveClass(/extra/);
-  // The app's root and the tooltip portalled beside it in the body are inert behind the modal.
-  expect(await inert()).toEqual(["root", "share-tip"]);
+  // The app's root, and the tooltip and the popover portalled beside it in the body, are inert behind the modal.
+  expect((await inert()).sort()).toEqual(["live-popover", "root", "share-tip"]);
   // Tab stays inside.
   for (let step = 0; step < 6; step++) {
     await page.keyboard.press("Tab");
@@ -736,6 +739,96 @@ for (const binding of bindings) test(`Strata ${binding} toasts appear in the sta
   await expect(toasts).toHaveCount(3);
   await toasts.first().getByRole("button", { name: "Dismiss" }).click();
   await expect(toasts).toHaveCount(2);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Popover opens below its button in the top layer, takes Tab, and closes on Escape and outside clicks`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const button = page.locator("#popover-open"), popover = page.getByRole("dialog", { name: "Filters" }).and(page.locator("#live-popover"));
+  await button.scrollIntoViewIfNeeded();
+  await button.click();
+  await expect(popover).toBeVisible();
+  // Open in the top layer, portalled outside the app, below the button and aligned with its start edge.
+  const placed = await page.evaluate(() => {
+    const element = document.getElementById("live-popover"), trigger = document.getElementById("popover-open").getBoundingClientRect(), box = element.getBoundingClientRect();
+    return { open: element.matches(":popover-open"), outside: !document.getElementById("root")?.contains(element) && !document.getElementById("app")?.contains(element),
+      below: box.top >= trigger.bottom - 1, aligned: Math.abs(box.left - trigger.left) <= 1 };
+  });
+  expect(placed).toEqual({ open: true, outside: true, below: true, aligned: true });
+  // The toggle event is a task after the popover opens: the reported state follows it.
+  await page.waitForFunction(() => window.strataBinding.popover.open);
+  // Tab from the button moves into it; its controls work.
+  await page.keyboard.press("Tab");
+  expect(await page.evaluate(() => document.activeElement.id)).toBe("popover-only");
+  await page.locator("#popover-apply").click();
+  expect(await page.evaluate(() => window.strataBinding.popover.applied)).toBe(1);
+  // Escape closes it, and focus returns to the button.
+  await page.keyboard.press("Escape");
+  await expect(popover).toBeHidden();
+  expect(await page.evaluate(() => document.activeElement.id)).toBe("popover-open");
+  await page.waitForFunction(() => !window.strataBinding.popover.open);
+  // A click outside closes it too.
+  await button.click();
+  await expect(popover).toBeVisible();
+  await page.mouse.click(5, 5);
+  await expect(popover).toBeHidden();
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} NavigationRail is a landmark of named links whose current page follows its state, and reports navigation`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const rail = page.getByRole("navigation", { name: "Sections" });
+  await rail.scrollIntoViewIfNeeded();
+  const link = name => rail.getByRole("link", { name, exact: true });
+  await expect(link("Inbox")).toHaveAttribute("aria-current", "page");
+  // A click is reported; the page prevents the default and moves the current page.
+  await link("Drafts").click();
+  await expect(link("Drafts")).toHaveAttribute("aria-current", "page");
+  await expect(link("Inbox")).not.toHaveAttribute("aria-current", /.*/);
+  expect(await page.evaluate(() => [window.strataBinding.rail, location.hash])).toEqual(["#rail-drafts", ""]);
+  // Enter on a focused link does the same, natively.
+  await link("Sent").focus();
+  await page.keyboard.press("Enter");
+  await expect(link("Sent")).toHaveAttribute("aria-current", "page");
+  // The current key is held down with its strip; each destination is a 24 px target at least.
+  const keys = await rail.locator(".ug-nav-rail__item").evaluateAll(items => items.map(item => {
+    const rect = item.getBoundingClientRect();
+    return { strip: getComputedStyle(item).borderInlineStartWidth, size: Math.min(rect.width, rect.height) };
+  }));
+  expect(keys.map(key => key.strip)).toEqual(["0px", "0px", "3px"]);
+  for (const key of keys) expect(key.size).toBeGreaterThanOrEqual(24);
+  await context.close();
+});
+
+for (const binding of bindings) test(`Strata ${binding} Stepper marks the current step and the complete ones, follows its state, and stacks when vertical`, async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(`/ui-${binding}.html`);
+  await page.waitForFunction(() => window.strataBinding);
+  const stepper = page.getByRole("list", { name: "Checkout progress" }).last();
+  const steps = stepper.getByRole("listitem");
+  const read = () => steps.evaluateAll(items => items.map(item => `${item.getAttribute("aria-current") ?? "-"}:${item.textContent}:${item.querySelector(".ug-stepper__marker").getAttribute("data-strata-face")}`));
+  expect(await read()).toEqual(["-:1Cart (completed):raised", "step:2Shipping:raised", "-:3Payment:flat", "-:4Review:flat"]);
+  await page.locator("#stepper-next").click();
+  expect(await read()).toEqual(["-:1Cart (completed):raised", "-:2Shipping (completed):raised", "step:3Payment:raised", "-:4Review:flat"]);
+  await page.locator("#stepper-back").click();
+  await page.locator("#stepper-back").click();
+  expect(await read()).toEqual(["step:1Cart:raised", "-:2Shipping:flat", "-:3Payment:flat", "-:4Review:flat"]);
+  // Complete markers are filled with the accent; markers to come are not.
+  await page.locator("#stepper-next").click();
+  const fills = await steps.evaluateAll(items => items.map(item => getComputedStyle(item.querySelector(".ug-stepper__marker")).backgroundColor));
+  expect(fills[0]).not.toBe(fills[2]);
+  expect(fills[2]).toBe(fills[3]);
+  // The vertical form stacks its markers in one column.
+  const markers = await page.locator("#vertical-stepper .ug-stepper__marker").evaluateAll(spans => spans.map(span => span.getBoundingClientRect().toJSON()));
+  expect(new Set(markers.map(box => Math.round(box.x))).size).toBe(1);
+  expect(markers[1].y).toBeGreaterThan(markers[0].y);
   await context.close();
 });
 

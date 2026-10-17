@@ -449,6 +449,45 @@ const handle = toast({ message: "Message sent.", intent: "success", action: { la
 A toast is a MessageBar at `elevation.overlay`. It goes after `duration` (5000 ms; `Infinity` to keep it); the time
 stops while the pointer or focus is in the region. At most three are shown. [Anatomy](../../docs/ui-library/components/toast.md).
 
+## Popover
+
+Interactive content one button opens beside itself, on the native Popover API: the browser toggles it, closes it on
+Escape or a click outside, returns focus and exposes the button's expanded state; CSS anchor positioning places it
+below the button, flipped above when there is no room. It is portalled to `<body>`, outside every Underglass layer:
+
+```tsx
+<Popover trigger={<Button>Filters</Button>} title="Filters" onOpenChange={setOpen}>
+  <Checkbox>Open only</Checkbox>
+</Popover>
+```
+
+Vue takes the trigger in its `trigger` slot and emits `toggle`; in Astro any button with `popovertarget` set to the
+popover's `id` opens it. [Anatomy](../../docs/ui-library/components/popover.md).
+
+## NavigationRail
+
+An application's top-level destinations in a column at the start edge: a `<nav>` landmark with a list of native links,
+the current one `aria-current="page"` and its key held down. A click reaches `onNavigate(href, event)` (Vue:
+`navigate`), so a router can prevent the default and route:
+
+```tsx
+<NavigationRail label="Main" items={[{ label: "Inbox", href: "/inbox", icon: <InboxIcon /> }]} current={path} onNavigate={(href, event) => { event.preventDefault(); navigate(href); }} />
+```
+
+In Astro an item's `icon` is SVG markup. [Anatomy](../../docs/ui-library/components/navigation-rail.md).
+
+## Stepper
+
+Where the user is in a task of ordered steps, as an `<ol>` whose current step carries `aria-current="step"`; complete
+steps say so in a visually hidden " (completed)" (`completedLabel`). It shows progress only: the task's own buttons
+move `current`.
+
+```tsx
+<Stepper label="Checkout progress" steps={["Cart", "Shipping", "Payment"]} current={1} />
+```
+
+`orientation="vertical"` stacks the steps. [Anatomy](../../docs/ui-library/components/stepper.md).
+
 ## Rating
 
 A score out of `max` (5) as stars. `Rating` is native radios in a `<fieldset>`, one per score, named "1 star", "2 stars"

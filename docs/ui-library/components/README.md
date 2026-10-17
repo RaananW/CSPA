@@ -54,7 +54,8 @@ the GPU pose and in CSS `transform`, inside the box (the [footprint rule](../des
 **Overlays.** Dialog and Drawer are top-level panels rendered into a container: the page body, or the Underglass
 root, where `@underglass/ui/gpu` presents each as its own GPU panel over a GPU-faded scrim. They are never inside a layer
 and are made modal by `showStrataDialog` (inert background, focus, Escape). Other floating parts (menus, popovers,
-tooltips, select popups) still portal to the Underglass overlay host and are CSS-presented there. Tier A has no
+tooltips, select popups) still portal to the Underglass overlay host and are CSS-presented there; Tooltip and Popover
+portal to `<body>` and float in the top layer. Tier A has no
 overlays: the native `<select>` opens the browser's own list.
 
 ## Specimen
@@ -115,3 +116,6 @@ light and depth, reduced motion, keyboard input and reflow.
 | --- | --- | --- |
 | [SegmentedControl](segmented-control.md) | Native radios in a `<fieldset>` | Keys on one plinth; the selected key is held down |
 | [Rating](rating.md) | Native radios in a `<fieldset>`; a `role="img"` display | Stars printed on the panel (captured, no relief) |
+| [Stepper](stepper.md) | An `<ol>` with `aria-current="step"` | Coins on a groove; steps to come are flat |
+| [NavigationRail](navigation-rail.md) | A `<nav>` with a list of links, `aria-current="page"` | Keys on a raised slab down the start edge |
+| [Popover](popover.md) | `<div popover role="dialog">` opened by a `<button popovertarget>` | A floating slab in the top layer |
