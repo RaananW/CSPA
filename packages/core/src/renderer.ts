@@ -32,7 +32,7 @@ import type { Ripple } from "./ripple.js";
 import { isSceneMaterial, type ApplicationEffect, type EffectDescriptor, type MaterialDescriptor } from "./effects.js";
 import type { CompiledMotion, CompiledProgramSet } from "./compiled.js";
 import { instrumentFaceScene } from "./instrument.js";
-import { createInstrumentController, type InstrumentController, type InstrumentLayerInput } from "./instrument-pass.js";
+import { createInstrumentController, INSTRUMENT_BUILD_DEADLINE_MS, type InstrumentController, type InstrumentLayerInput } from "./instrument-pass.js";
 
 /**
  * One enrolled layer as the runtime describes it to the renderer. The callbacks are read again on every
@@ -131,6 +131,8 @@ export interface SurfaceRendererOptions extends MountBoundaryOptions {
    * object. Phase I2 replaces it with the `instrument` material.
    */
   instrumentProbe?: InstrumentProbeHook;
+  /** @internal Tests only, like `instrumentProbe`: hooks into the instrument material's builds (see `instrument-pass.ts`). */
+  instrumentTestHook?: { beforeBuild?(layerId: string): Promise<void> | void };
 }
 /**
  * @internal Phase I0 prototype path for the Instrument level's mesh pass (probe I0.1), to be replaced by the
@@ -393,7 +395,7 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       const lost = observer.lost;
       instrument = createInstrumentController({ engine, queue: queue as unknown as GPUQueue, lost, stage: () => options.size(),
         texture: id => layers.find(layer => layer.id === id)?.texture,
-        preparation: () => preparation, onMeasure: options.onMeasure,
+        preparation: () => preparation, onMeasure: options.onMeasure, testHook: options.instrumentTestHook,
         requestDraw: () => {
           if (scheduled || mode !== "gpu") return;
           resources.scheduledFrames++;
@@ -1018,8 +1020,12 @@ export function createSurfaceRenderer(options: SurfaceRendererOptions) {
       };
       const gate = instrument?.gate();
       if (!gate) { start(); return; }
+      // The deferral has a ceiling: the build deadline. A build that hangs cannot hold a successor longer.
       const waiting = performance.now(), controller = instrument!;
-      void gate.then(() => { controller.deferred(performance.now() - waiting); start(); });
+      let ceiling: ReturnType<typeof setTimeout> | undefined, begun = false;
+      const begin = () => { if (begun) return; begun = true; clearTimeout(ceiling); controller.deferred(performance.now() - waiting); start(); };
+      ceiling = setTimeout(begin, INSTRUMENT_BUILD_DEADLINE_MS);
+      void gate.then(begin);
     });
     const prepared = Promise.race([Promise.all([device.popErrorScope(), compilation]), preparationTimeout]).then(([error]) => {
       if (error) throw new Error(`Successor composition preparation failed: ${error.message}`);

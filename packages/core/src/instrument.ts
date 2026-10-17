@@ -673,11 +673,15 @@ export function containmentFrontier(object: InstrumentObject, profiles: Record<s
         pairs.push({ inset: -roundedBoxDistance(vertices[index]!, vertices[index + 1]!, bounds.rect, bounds.radius ?? 0), height: vertices[index + 2]! });
       }
     }
-    // Pareto frontier: by |height| descending, keep a pair only if its inset is below every taller pair's.
-    pairs.sort((a, b) => Math.abs(b.height) - Math.abs(a.height) || a.inset - b.inset);
+    // Pareto frontier, separately above and below the face: a point at +h drifts more than one at −h (D / (D − h)
+    // against D / (D + h)), so heights of opposite sign never dominate each other. By |height| descending, keep a pair
+    // only if its inset is below every taller pair's of the same sign.
     const frontier: Witness[] = [];
-    let least = Infinity;
-    for (const pair of pairs) if (pair.inset < least - 1e-9) { frontier.push(pair); least = pair.inset; }
+    for (const side of [pairs.filter(pair => pair.height >= 0), pairs.filter(pair => pair.height < 0)]) {
+      side.sort((a, b) => Math.abs(b.height) - Math.abs(a.height) || a.inset - b.inset);
+      let least = Infinity;
+      for (const pair of side) if (pair.inset < least - 1e-9) { frontier.push(pair); least = pair.inset; }
+    }
     return frontier;
   });
   return { steps, parts };
@@ -693,6 +697,11 @@ export function similarity(matrix: { a: number; b: number; c: number; d: number;
 /** Where a layer stands on the stage: its similarity, the vanishing point (canvas px) and the camera distance. */
 export interface Placement { matrix: { a: number; b: number; c: number; d: number; e: number; f: number; scale: number }; vanish: Vec2; distance: number }
 
+/** Whether an object's `bounds` lie inside its layer's box (0, 0, width, height): parts drawn outside it would cover other content. */
+export function boundsInside(object: InstrumentObject, extent: { width: number; height: number }): boolean {
+  const [x, y, width, height] = (object.bounds ?? { rect: object.rect }).rect;
+  return x >= 0 && y >= 0 && x + width <= extent.width + 1e-6 && y + height <= extent.height + 1e-6;
+}
 /** The outcome of checking one object at one placement. */
 export interface Containment { contained: boolean; part: number; inset: number; overshoot: number; exact: boolean }
 
@@ -818,7 +827,10 @@ export function partKinds(scene: InstrumentScene): PartKind[] {
   }));
   return [...kinds.values()];
 }
-/** The structure (profiles, materials, the set of part kinds) and the layout (each part's kind, in order) of a scene. */
+/**
+ * The structure (profiles, materials, the set of part kinds, the light and the environment) and the layout (each part's
+ * kind, in order) of a scene.
+ */
 function structureOf(scene: InstrumentScene) {
   const keys = new Set<string>();
   let layout = "";
@@ -830,9 +842,11 @@ function structureOf(scene: InstrumentScene) {
     }
     layout += "\u0002";
   }
-  return { structure: JSON.stringify([scene.profiles, scene.materials, [...keys].sort()]), layout };
+  // The light and the environment are built into the scene (key light, fill, studio image and rotation, material
+  // environment intensity), so a change to them rebuilds it like a new profile does.
+  return { structure: JSON.stringify([scene.profiles, scene.materials, [...keys].sort(), scene.light, scene.environment]), layout };
 }
-/** What the meshes are built from (profiles, materials, the set of part kinds): only a rebuild changes it; counts do not. */
+/** What the scene is built from (profiles, materials, part kinds, light, environment): only a rebuild changes it; counts do not. */
 export function instrumentStructure(scene: InstrumentScene): string {
   return (derived.get(scene) ?? structureOf(scene)).structure;
 }

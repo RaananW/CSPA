@@ -30,8 +30,8 @@ import {
   type SceneContext, type ShaderMaterial, type StorageBuffer,
 } from "@babylonjs/lite";
 import {
-  checkContainment, containmentFrontier, containmentKey, instrumentLayout, instrumentPartCount, instrumentStructure, multiply, partCaster, partKinds,
-  partMatrix, profileBounds, profileGeometry, sameGeometry, similarity, INSTRUMENT_CASTERS_PER_OBJECT, INSTRUMENT_KINDS_CEILING, INSTRUMENT_KINDS_PER_LAYER, INSTRUMENT_PARTS_PER_LAYER,
+  boundsInside, checkContainment, containmentFrontier, containmentKey, instrumentLayout, instrumentPartCount, instrumentStructure, multiply, partCaster, partKinds,
+  partMatrix, profileBounds, profileGeometry, sameGeometry, similarity, INSTRUMENT_CASTERS_PER_OBJECT, INSTRUMENT_KINDS_CEILING, INSTRUMENT_KINDS_PER_LAYER, INSTRUMENT_OBJECTS, INSTRUMENT_PARTS_PER_LAYER,
   INSTRUMENT_PARTS_PER_STAGE, STUDIO_DEFAULTS, type Containment, type ContainmentFrontier, type InstrumentCaster, type InstrumentObject,
   type InstrumentProfile, type InstrumentRecipe, type InstrumentScene, type Matrix, type PartKind, type StudioTokens,
 } from "./instrument.js";
@@ -100,8 +100,6 @@ interface LayerState {
   frontiers: Map<string, ContainmentFrontier>;
   exact: Map<string, Containment>;
   gpu: Timing;
-  /** Set while the scene's first frame has not yet finished on the GPU. */
-  warming?: { started: number; done(): void };
   /** The part kinds of the current layout. */
   layout?: string;
   kindMap?: Map<string, PartKind>;
@@ -121,6 +119,8 @@ export interface InstrumentControllerOptions {
   requestDraw(): void;
   /** The successor preparation in flight, if any; a build waits for it (the compile policy). */
   preparation(): Promise<void> | undefined;
+  /** @internal Tests only: `beforeBuild` may delay (or never resolve) a layer's build, to prove the build deadline. */
+  testHook?: { beforeBuild?(layerId: string): Promise<void> | void };
   onMeasure?(sample: { kind: "instrumentGpuMs"; at: number; durationMs: number; phase: "content"; layerId: string }): void;
 }
 
@@ -148,7 +148,8 @@ export function createInstrumentController(options: InstrumentControllerOptions)
   let slots = 0;
   let disposed = false;
   let orderUnavailable: string | undefined;
-  // The compile policy: builds run one at a time; `gate` is the build in flight (registration to first frame done).
+  // The compile policy: builds run one at a time; `gate` is the build in flight, from its start (after any successor
+  // preparation) to the GPU queue having caught up with its registration.
   let chain: Promise<void> = Promise.resolve();
   let gate: Promise<void> | undefined;
   const compile = { builds: 0, failures: 0, deferredDeadlines: 0, deferredMs: 0, lastBuildMs: null as number | null, lastWarmupMs: null as number | null,
@@ -182,7 +183,7 @@ export function createInstrumentController(options: InstrumentControllerOptions)
   function studioImage(ly: number, tokens: StudioTokens): Uint8Array {
     const key = JSON.stringify([ly, tokens]);
     let image = studios.get(key);
-    if (!image) { image = studioHdr(ly, tokens); studios.set(key, image); }
+    if (!image) { if (studios.size >= 4) studios.clear(); image = studioHdr(ly, tokens); studios.set(key, image); }
     return image;
   }
 
@@ -303,7 +304,8 @@ export function createInstrumentController(options: InstrumentControllerOptions)
     });
 
     // Face shadows (I0.5 (a)): one quad per object, up to 8 casters each from a storage buffer, darkest wins.
-    const objectCapacity = Math.max(1, scene.objects.length);
+    // Every object the format allows: adding objects updates in place, without a rebuild.
+    const objectCapacity = INSTRUMENT_OBJECTS;
     const quad = createMeshFromData(engine, `${label}:shadows`, new Float32Array([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0]), new Float32Array([0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1]),
       new Uint32Array([0, 1, 2, 0, 2, 3]), new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]));
     const quads = new Float32Array(objectCapacity * 16);
@@ -356,7 +358,8 @@ export function createInstrumentController(options: InstrumentControllerOptions)
         if (stageKey !== lastStage) {
           const D = current.camera.distance;
           camera.position.set(0, 0, -D);
-          camera.nearPlane = D / 4; camera.farPlane = D * 2;
+          // Near enough for any part up to 0.95 D tall (taller ones cannot stay in their box); reverse-Z keeps the precision.
+          camera.nearPlane = D / 20; camera.farPlane = D * 2;
           camera.fov = 2 * Math.atan(stage.height / 2 / D);
           lastStage = stageKey;
         }
@@ -496,56 +499,59 @@ export function createInstrumentController(options: InstrumentControllerOptions)
     const run = chain.then(async () => {
       if (disposed || state.building?.token !== token) return;
       // The compile policy: wait for core's successor preparation, so its 1.5 s deadline is not spent on our pipelines.
+      // The wait is bounded, so successors arriving one after another cannot starve the build.
       const waited = performance.now();
-      for (let preparation = options.preparation(); preparation; preparation = options.preparation()) await preparation.catch(() => undefined);
+      for (let preparation = options.preparation(); preparation && performance.now() - waited < INSTRUMENT_BUILD_DEADLINE_MS; preparation = options.preparation()) {
+        await Promise.race([preparation.catch(() => undefined), new Promise(resolve => setTimeout(resolve, Math.max(0, INSTRUMENT_BUILD_DEADLINE_MS - (performance.now() - waited))))]);
+      }
       compile.waitedForPreparationMs += performance.now() - waited;
       if (disposed || state.building?.token !== token) return;
+      // The gate: only now, while this build registers its scene and the GPU compiles its pipelines, does a new
+      // successor's deadline wait (a queued build never holds one; the renderer also caps the wait).
+      let release!: () => void;
+      const ownGate: Promise<void> = new Promise<void>(resolve => { release = () => { if (gate === ownGate) gate = undefined; resolve(); }; });
+      gate = ownGate;
       const started = performance.now();
       compile.builds++;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      let timedOut = false;
-      const building = build(state, scene, structure);
       try {
-        const pass = await Promise.race([building, new Promise<never>((_, reject) => {
-          timer = setTimeout(() => { timedOut = true; reject(new Error(`Instrument scene build timed out after ${INSTRUMENT_BUILD_DEADLINE_MS} ms`)); }, INSTRUMENT_BUILD_DEADLINE_MS);
-        })]);
-        clearTimeout(timer);
-        compile.lastBuildMs = performance.now() - started;
-        if (disposed || state.building?.token !== token) { retirePass(pass); return; }
-        if (state.pass) retirePass(state.pass);
-        state.pass = pass;
-        state.structure = structure;
-        state.building = undefined;
-        state.failed = undefined;
-        // The gate stays closed until this scene's first frame has finished on the GPU (its pipelines compiled).
-        await new Promise<void>(resolve => {
-          let timer: ReturnType<typeof setTimeout> | undefined;
-          const warming = { started: performance.now(), done: () => {
-            if (state.warming !== warming) return;
-            clearTimeout(timer);
-            state.warming = undefined;
-            compile.lastWarmupMs = performance.now() - warming.started;
-            resolve();
-          } };
-          state.warming = warming;
-          timer = setTimeout(warming.done, INSTRUMENT_BUILD_DEADLINE_MS);
-          options.requestDraw();
-        });
-      } catch (error) {
-        clearTimeout(timer);
-        compile.failures++;
-        if (timedOut) { compile.timeouts++; void building.then(retirePass, () => undefined); }
-        if (state.building?.token === token) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let timedOut = false;
+        // A test hook may delay the build; it runs inside the build deadline like the build itself.
+        const building = Promise.resolve(options.testHook?.beforeBuild?.(state.id)).then(() => build(state, scene, structure));
+        try {
+          const pass = await Promise.race([building, new Promise<never>((_, reject) => {
+            timer = setTimeout(() => { timedOut = true; reject(new Error(`Instrument scene build timed out after ${INSTRUMENT_BUILD_DEADLINE_MS} ms`)); }, INSTRUMENT_BUILD_DEADLINE_MS);
+          })]);
+          clearTimeout(timer);
+          compile.lastBuildMs = performance.now() - started;
+          if (disposed || state.building?.token !== token) { retirePass(pass); return; }
+          if (state.pass) retirePass(state.pass);
+          state.pass = pass;
+          state.structure = structure;
           state.building = undefined;
-          state.failed = { structure, reason: String(error) };
-          console.error(`Underglass instrument layer ${state.id} is drawn at the Relief level: ${String(error)}`);
+          state.failed = undefined;
           options.requestDraw();
+          // The gate stays closed until the GPU queue has caught up with the registration (its pipelines compiled), at
+          // most the build deadline; no drawn frame is needed, so a pending successor cannot hold it.
+          const warming = performance.now();
+          let wait: ReturnType<typeof setTimeout> | undefined;
+          await Promise.race([queue.onSubmittedWorkDone().catch(() => undefined), new Promise(resolve => { wait = setTimeout(resolve, INSTRUMENT_BUILD_DEADLINE_MS); })]);
+          clearTimeout(wait);
+          compile.lastWarmupMs = performance.now() - warming;
+        } catch (error) {
+          clearTimeout(timer);
+          compile.failures++;
+          if (timedOut) { compile.timeouts++; void building.then(retirePass, () => undefined); }
+          if (state.building?.token === token) {
+            state.building = undefined;
+            state.failed = { structure, reason: String(error) };
+            console.error(`Underglass instrument layer ${state.id} is drawn at the Relief level: ${String(error)}`);
+            options.requestDraw();
+          }
         }
-      }
+      } finally { release(); }
     });
     chain = run.catch(() => undefined);
-    const tracked = chain.finally(() => { if (gate === tracked) gate = undefined; });
-    gate = tracked;
   }
 
   /** Takes a scene off the surface now and releases it after a queue fence (or device loss). */
@@ -634,8 +640,6 @@ export function createInstrumentController(options: InstrumentControllerOptions)
         status = "pending";
       }
       if (whole) {
-        // A scene that will not draw now cannot finish its first frame: release the compile gate.
-        state.warming?.done();
         state.status = status;
         state.stepped = scene.objects.map((_, index) => index);
         state.steppedDown = whole;
@@ -647,11 +651,17 @@ export function createInstrumentController(options: InstrumentControllerOptions)
       // Containment over the whole travel, at this placement; unchanged geometry at an unchanged placement (poses only)
       // keeps the last verdict.
       const placement = { matrix: matrix!, vanish: [stage.width / 2, stage.height / 2] as [number, number], distance: scene.camera.distance };
-      const placementKey = `${matrix!.a},${matrix!.b},${matrix!.c},${matrix!.d},${matrix!.e},${matrix!.f},${stage.width},${stage.height},${scene.camera.distance}`;
+      const placementKey = `${matrix!.a},${matrix!.b},${matrix!.c},${matrix!.d},${matrix!.e},${matrix!.f},${stage.width},${stage.height},${scene.camera.distance},${input.extent.width},${input.extent.height}`;
       const reuse = state.checked && state.checked.placementKey === placementKey && state.checked.structure === structure && sameGeometry(state.checked.scene, scene);
       if (!reuse) {
         const stepped: number[] = [], steppedDown: SteppedDown[] = [];
         scene.objects.forEach((object, index) => {
+          // Bounds past the layer's box would let parts cover other content, whatever the clip: never drawn as parts.
+          if (!boundsInside(object, input.extent)) {
+            stepped.push(index);
+            steppedDown.push({ object: object.id, reason: "containment", detail: "its bounds leave the layer's box" });
+            return;
+          }
           const result = contain(state!, scene, object, placementKey, placement);
           if (result.contained) return;
           const drawnParts = object.parts.filter(part => !part.glass);
@@ -674,8 +684,9 @@ export function createInstrumentController(options: InstrumentControllerOptions)
     if (state.pass) retirePass(state.pass);
     state.pass = undefined;
     state.building = undefined;
-    state.warming?.done();
     layers.delete(state.id);
+    // The last instrument layer gone: Lite's task timings are turned off again.
+    if (!layers.size && timing.enabled) { timing.enabled = false; timing.status = "disabled"; void setRenderTaskGpuTimingEnabled(engine, false).catch(() => undefined); }
   }
 
   /** The contexts to draw right after layer `id`'s pass: its scene, when it is drawn as parts. */
@@ -686,10 +697,6 @@ export function createInstrumentController(options: InstrumentControllerOptions)
 
   /** After a submitted frame: finishes builds' first frames and reads the GPU timings. */
   function afterFrame() {
-    for (const state of layers.values()) if (state.warming && state.status === "ready") {
-      const warming = state.warming;
-      void queue.onSubmittedWorkDone().then(() => warming.done(), () => warming.done());
-    }
     if (!layers.size) return;
     if (!timing.enabled && timing.supported) {
       timing.enabled = true;
@@ -723,7 +730,12 @@ export function createInstrumentController(options: InstrumentControllerOptions)
     /** Records a successor deadline that waited for a build. */
     deferred: (milliseconds: number) => { compile.deferredDeadlines++; compile.deferredMs += milliseconds; },
     /** The order guard failed: every instrument layer steps down from the next frame. */
-    orderFailed: (reason: string) => { if (!orderUnavailable) console.error(`Underglass instrument draw order unavailable: ${reason}`); orderUnavailable = reason; },
+    orderFailed: (reason: string) => {
+      if (!orderUnavailable) console.error(`Underglass instrument draw order unavailable: ${reason}`);
+      orderUnavailable = reason;
+      // Off the surface at once, so the frame about to render does not draw parts in the wrong order.
+      for (const state of layers.values()) if (state.pass?.registered) { unregisterScene(state.pass.scene); state.pass.registered = false; state.status = "stepped-down"; }
+    },
     retirements: () => [...retirements],
     active: () => layers.size > 0,
     state: () => ({
@@ -742,7 +754,6 @@ export function createInstrumentController(options: InstrumentControllerOptions)
       if (disposed) return;
       disposed = true;
       for (const state of layers.values()) {
-        state.warming?.done();
         if (state.pass) {
           if (state.pass.registered) unregisterScene(state.pass.scene);
           try { disposeScene(state.pass.scene); } catch (error) { console.error("Underglass instrument scene disposal failed", error); }
